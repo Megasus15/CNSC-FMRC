@@ -17,6 +17,7 @@ use App\Support\AdminArchiveRecords;
 use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
 use App\Support\CustomProductAnalytics;
+use App\Support\CustomProductSchema;
 use App\Support\FinancialMetrics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,6 +105,7 @@ class AdminDashboardController extends Controller
         if ($denied) {
             return $denied;
         }
+        abort_if(CustomProductAnalytics::type() === 'custom' && !CustomProductSchema::hasOrderLink(), 503, CustomProductSchema::MESSAGE);
 
         // Every block below runs through safely(), so one unreadable table
         // degrades one card instead of blanking the whole dashboard.
@@ -318,6 +320,7 @@ class AdminDashboardController extends Controller
         if ($denied = $this->ensureAdmin($request)) {
             return $denied;
         }
+        abort_if(CustomProductAnalytics::type() === 'custom' && !CustomProductSchema::hasOrderLink(), 503, CustomProductSchema::MESSAGE);
 
         $unavailable = [];
         $this->sectionReasons = [];

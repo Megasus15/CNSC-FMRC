@@ -191,6 +191,9 @@ final class CustomProducts
             'notes'=>'Custom product '.$r->reference().', quotation '.$q->version.'.'];
         foreach (['delivery_recipient_name','delivery_contact_no','delivery_street','delivery_barangay','delivery_city','delivery_province','delivery_postal_code','delivery_landmark'] as $key) $attributes[$key] = $pickup ? null : ($s[$key] ?? null);
         $order = Order::create($attributes);
+        if ((int) $order->custom_product_quote_id !== (int) $q->id) {
+            throw new \RuntimeException('Custom order schema changed during creation.');
+        }
         $order->update(['order_no'=>'ORD-'.now('Asia/Manila')->format('Ymd').'-'.str_pad((string)$order->id, 6, '0', STR_PAD_LEFT)]);
         OrderItem::create(['order_id'=>$order->id, 'product_id'=>null, 'product_name'=>$s['title'], 'unit_price'=>$q->unit_price_centavos/100,
             'quantity'=>$s['quantity'], 'line_total'=>$q->subtotal_centavos/100]);
@@ -204,6 +207,7 @@ final class CustomProducts
     public static function payable(Order $order): bool
     {
         if (!$order->custom_product_quote_id) return true;
+        if (!\App\Support\CustomProductSchema::ready()) return false;
         $q = $order->customQuote;
         return $q && $q->status === 'accepted' && $q->expires_at?->isFuture() && $q->request->status === 'ordered'
             && !in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true);
@@ -212,6 +216,7 @@ final class CustomProducts
     public static function productionError(Order $order, bool $ready = false): ?string
     {
         if (!$order->custom_product_quote_id) return null;
+        if (!\App\Support\CustomProductSchema::ready()) return \App\Support\CustomProductSchema::MESSAGE;
         $q = $order->customQuote; $payment = $order->payment;
         if (!$q || $q->status !== 'accepted' || $q->request->status !== 'ordered') return 'Review the current accepted custom quotation before production.';
         if (!$payment || $payment->status !== 'paid' || !GatewayPayments::managed($payment)) return 'Full online payment must be confirmed before production.';
@@ -225,6 +230,7 @@ final class CustomProducts
 
     public static function production(Order $order, string $action, int $actor, ?int $revision = null, ?string $key = null): Order
     {
+        abort_unless(\App\Support\CustomProductSchema::ready(), 503, \App\Support\CustomProductSchema::MESSAGE);
         return DB::transaction(function () use ($order, $action, $actor, $revision, $key) {
             $o = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($o->custom_product_quote_id, 422, 'This action applies to custom orders.');
@@ -290,7 +296,7 @@ final class CustomProducts
     public static function orderFields(Order $order): array
     {
         if (!$order->custom_product_quote_id) return ['order_type'=>'regular'];
-        $q = $order->customQuote;
+        $q = \App\Support\CustomProductSchema::hasQuoteDetails() ? $order->customQuote : null;
         return ['order_type'=>'custom', 'custom_request_id'=>$q?->custom_product_request_id, 'custom_request_reference'=>$q?->request?->reference(),
             'custom_quote_version'=>$q?->version, 'production_status'=>$order->production_status, 'custom_status_label'=>self::statusLabel($order),
             'can_rate'=>false, 'custom_actions'=>['start'=> $order->lifecycle_status === 'incoming' && !self::productionError($order),
@@ -334,7 +340,7 @@ final class CustomProducts
         DB::afterCommit(function () use ($r, $message, $fromCustomer) {
             if ($fromCustomer) OrderNotifier::notifyAdmins('custom_request', $r->reference().' — Custom product update', $message, ['custom_request_id'=>$r->id, 'custom_request_reference'=>$r->reference()]);
             elseif (Pwa::installed()) app(PwaNotifications::class)->publish($r->customer_id, 'custom_request', $r->reference().' — Custom product update', $message,
-                '/products-page/custom-products.html?request='.$r->id, 'custom:'.$r->id.':'.$r->revision.':'.hash('sha256',$message));
+                '/products-page/product.html?custom_requests=1&request='.$r->id, 'custom:'.$r->id.':'.$r->revision.':'.hash('sha256',$message));
         });
     }
 

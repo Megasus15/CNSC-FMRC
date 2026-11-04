@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\HomeSdg;
 use App\Models\Service;
 use App\Models\SiteSetting;
+use App\Support\CustomProductSchema;
 use App\Support\WebsiteContentLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,6 +64,10 @@ class WebsitePageController extends Controller
                     'is_visible' => ['sometimes', 'boolean'],
                 ];
                 $validated = Validator::make($row, $rules, WebsiteContentLimits::messages())->validate();
+                if ($collection === 'services' && array_key_exists('accepts_custom_requests', $validated) && !CustomProductSchema::ready()) {
+                    abort_if($validated['accepts_custom_requests'], 503, CustomProductSchema::MESSAGE);
+                    unset($validated['accepts_custom_requests']);
+                }
                 $changes[$collection]['upsert'][] = ['id' => $row['id'] ?? null, 'values' => $validated];
             }
         }

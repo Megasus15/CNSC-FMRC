@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\{CustomProductRequest, Order};
-use App\Services\CustomProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -20,6 +19,10 @@ final class CustomProductAnalytics
     public static function filter($query, ?string $type = null, string $column = 'orders.custom_product_quote_id')
     {
         $type = self::type($type);
+        if (!CustomProductSchema::hasOrderLink()) {
+            abort_if($type === 'custom', 503, CustomProductSchema::MESSAGE);
+            return $query;
+        }
         if ($type === 'custom') $query->whereNotNull($column);
         if ($type === 'regular') $query->whereNull($column);
         return $query;
@@ -28,6 +31,14 @@ final class CustomProductAnalytics
     public static function completed(Request $request): array
     {
         if (self::type() === 'regular') return [];
+        if (!CustomProductSchema::hasOrderLink()) {
+            abort_if(self::type() === 'custom', 503, CustomProductSchema::MESSAGE);
+            return [];
+        }
+        if (!CustomProductSchema::hasQuoteDetails()) {
+            abort_if(self::type() === 'custom' || Order::whereNotNull('custom_product_quote_id')->where('lifecycle_status','completed')->where('is_archived',false)->exists(), 503, CustomProductSchema::MESSAGE);
+            return [];
+        }
         $period = AnalyticsPeriod::resolve($request->query('period','month'),$request->query('from'),$request->query('to'));
         $q = Order::with('customQuote.request')->whereNotNull('custom_product_quote_id')->where('lifecycle_status','completed')->where('is_archived',false)
             ->whereHas('payment', fn($p)=>$p->whereExists(fn($r)=>$r->selectRaw('1')->from('payment_receipts')->whereColumn('payment_receipts.payment_id','payments.id')->where('livemode',true)->whereNotNull('confirmed_at')));
@@ -49,6 +60,7 @@ final class CustomProductAnalytics
 
     public static function operational(): array
     {
+        if (!CustomProductSchema::ready()) return [];
         $requests = CustomProductRequest::where('status','!=','draft');
         $orders = Order::whereNotNull('custom_product_quote_id')->where('is_archived',false)->whereNotIn('lifecycle_status',['cancelled','rejected','completed']);
         $revision = hash('sha256', json_encode([

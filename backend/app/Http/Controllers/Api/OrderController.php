@@ -1331,7 +1331,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Could not cancel this order. Please try again.'], 500);
         }
 
-        if ($order->custom_product_quote_id && $order->isCancelled()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
+        if ($order->custom_product_quote_id && $order->isCancelled() && \App\Support\CustomProductSchema::ready()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
 
         $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
         $amountLabel = $this->formatMoney((float) $order->total);
@@ -1537,7 +1537,7 @@ class OrderController extends Controller
                 $refundIssueError='The order is cancelled, but the refund needs attention. Open Online refunds to continue. Do not submit another cancellation.';
             }
         }
-        if ($order->custom_product_quote_id && $order->isCancelled()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
+        if ($order->custom_product_quote_id && $order->isCancelled() && \App\Support\CustomProductSchema::ready()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
 
         $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
         $amountLabel = $this->formatMoney((float) $order->total);

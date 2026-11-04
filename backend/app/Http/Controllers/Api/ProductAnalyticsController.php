@@ -10,6 +10,7 @@ use App\Models\WalkInOrder;
 use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
 use App\Support\CustomProductAnalytics;
+use App\Support\CustomProductSchema;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -100,7 +101,8 @@ class ProductAnalyticsController extends Controller
         // sales card at once, the same way it comes off Total Revenue.
         $onlineQuery = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
+            ->when(CustomProductSchema::hasOrderLink(), fn ($q) => $q->whereNull('orders.custom_product_quote_id'))
+            ->when($customOnly, fn ($q) => $q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($onlineQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -165,7 +167,8 @@ class ProductAnalyticsController extends Controller
         // where the grouped COALESCE it replaced did.
         $categoryQuery = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
+            ->when(CustomProductSchema::hasOrderLink(), fn ($q) => $q->whereNull('orders.custom_product_quote_id'))
+            ->when($customOnly, fn ($q) => $q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($categoryQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -207,7 +210,8 @@ class ProductAnalyticsController extends Controller
         // of splitting into two rows both labelled "N/A".
         $rows = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
+            ->when(CustomProductSchema::hasOrderLink(), fn ($q) => $q->whereNull('orders.custom_product_quote_id'))
+            ->when($customOnly, fn ($q) => $q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($rows, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -290,20 +294,25 @@ class ProductAnalyticsController extends Controller
         // MySQL-only; the sqlite arm keeps the trend testable on the in-memory
         // suite, matching AdminDashboardController::summary()'s yearly trend.
         $customDate = DB::connection()->getDriverName() === 'sqlite' ? "datetime(COALESCE(completed_at, created_at), '+8 hours')" : "DATE_ADD(COALESCE(completed_at, created_at), INTERVAL 8 HOUR)";
-        $saleDate = "(CASE WHEN custom_product_quote_id IS NOT NULL THEN {$customDate} ELSE {$dateColumn} END)";
+        $hasCustomLink = CustomProductSchema::hasOrderLink();
+        $saleDate = $hasCustomLink ? "(CASE WHEN custom_product_quote_id IS NOT NULL THEN {$customDate} ELSE {$dateColumn} END)" : $dateColumn;
+        $grossProductSales = 'total - COALESCE(shipping_fee, 0)';
+        if ($hasCustomLink) {
+            $grossProductSales = "CASE WHEN custom_product_quote_id IS NOT NULL THEN subtotal ELSE {$grossProductSales} END";
+        }
         $monthExpression = DB::connection()->getDriverName() === 'sqlite'
             ? "CAST(strftime('%m', {$saleDate}) AS INTEGER)"
             : "MONTH({$saleDate})";
 
         $monthlyData = CustomProductAnalytics::filter(Order::query())
-            ->where(fn($q)=>$q->whereNull('custom_product_quote_id')->orWhereHas('payment',fn($p)=>$p->whereExists(fn($r)=>$r->selectRaw('1')->from('payment_receipts')->whereColumn('payment_receipts.payment_id','payments.id')->where('livemode',true)->whereNotNull('confirmed_at'))))
+            ->when($hasCustomLink, fn ($query) => $query->where(fn ($q) => $q->whereNull('custom_product_quote_id')->orWhereHas('payment', fn ($p) => $p->whereExists(fn ($r) => $r->selectRaw('1')->from('payment_receipts')->whereColumn('payment_receipts.payment_id', 'payments.id')->where('livemode', true)->whereNotNull('confirmed_at')))))
             ->whereIn('lifecycle_status', $countedStatuses)
             ->where('is_archived', false)
             ->whereYear(DB::raw($saleDate), $year)
             ->whereNotNull(DB::raw($saleDate))
             ->select(
                 DB::raw("{$monthExpression} as month"),
-                DB::raw('SUM(CASE WHEN custom_product_quote_id IS NOT NULL THEN subtotal ELSE total - COALESCE(shipping_fee, 0) END) as total_sales'),
+                DB::raw("SUM({$grossProductSales}) as total_sales"),
                 DB::raw('COUNT(*) as order_count')
             )
             ->groupBy('month')

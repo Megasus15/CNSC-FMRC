@@ -11575,7 +11575,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   </div>
                   <div class="customer-order-actions">
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
-                    ${order.custom_request_id ? `<a class="customer-order-detail-btn" href="../products-page/custom-products.html?request=${encodeURIComponent(order.custom_request_id)}">Custom Request · ${escapeHtml(order.custom_request_reference)}</a>` : ""}
+                    ${order.custom_request_id ? `<a class="customer-order-detail-btn" href="../products-page/product.html?custom_requests=1&request=${encodeURIComponent(order.custom_request_id)}">Custom Request · ${escapeHtml(order.custom_request_reference)}</a>` : ""}
                     ${payActionsHtml}
                     ${String(order.customer_stage) === 'to_receive' && isLive
                       ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}" data-order-pickup="${order.is_pickup ? '1' : '0'}">${order.is_pickup ? 'Order Collected' : 'Order Received'}</button>`
@@ -14028,7 +14028,7 @@ const openReturnRequestModal = (() => {
     <a href="#" id="viewOrdersBtn" class="profile-popup-link">
       <i class="fa-solid fa-box-archive"></i> My Orders
     </a>
-    <a href="../products-page/custom-products.html" class="profile-popup-link"><i class="fa-solid fa-pen-ruler"></i> My Custom Requests</a>
+    <a href="../products-page/product.html?custom_requests=1" data-custom-manager class="profile-popup-link"><i class="fa-solid fa-pen-ruler"></i> My Custom Requests</a>
     <a href="#" id="viewAppointmentsBtn" class="profile-popup-link"><i class="fa-regular fa-calendar-check"></i> My Appointments</a>
     <hr />
     <button type="button" id="logoutBtn" class="logout-btn popup-logout" style="border: none; font-family: inherit;">

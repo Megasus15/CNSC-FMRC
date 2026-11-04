@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\CustomProductQuote;
 use App\Services\CustomQuoteExpiry;
+use App\Support\CustomProductSchema;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,6 +15,7 @@ class ExpireCustomQuotes extends Command
 
     public function handle(): int
     {
+        if (!CustomProductSchema::ready()) return self::SUCCESS;
         CustomProductQuote::whereIn('status', ['sent', 'accepted'])
             ->where(fn($q)=>$q->where('expires_at', '<=', now())->orWhereHas('order', fn($o)=>$o->whereIn('lifecycle_status', ['cancelled','rejected'])))
             ->whereDoesntHave('order.payment', fn($p)=>$p->where('status','paid'))

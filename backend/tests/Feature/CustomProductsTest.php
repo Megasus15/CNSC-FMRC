@@ -8,7 +8,7 @@ use App\Support\FinancialMetrics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\{Carbon, Str};
-use Illuminate\Support\Facades\{DB, Http, Storage};
+use Illuminate\Support\Facades\{DB, Http, Schema, Storage};
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\CommercePolicyFixture;
 use Tests\TestCase;
@@ -50,6 +50,54 @@ class CustomProductsTest extends TestCase
             'delivery_street'=>'1 Test Street','delivery_barangay'=>'Barangay 1','delivery_city'=>'Daet','delivery_province'=>'Camarines Norte','delivery_postal_code'=>'4600','advice_fields'=>[]];
     }
     protected function tearDown(): void { Carbon::setTestNow(); parent::tearDown(); }
+
+    public function test_pending_schema_keeps_regular_portals_available(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('This schema rollback test runs inside a SQLite transaction.');
+        }
+
+        $migration = require database_path('migrations/2026_11_04_000001_create_custom_product_workflow.php');
+        $migration->down();
+
+        Sanctum::actingAs($this->staff);
+        $this->getJson('/api/services')->assertOk()->assertJsonPath('custom_requests_available', false);
+        foreach (['top-selling', 'sales-by-category', 'product-performance', 'yearly-sales-trend'] as $chart) {
+            $this->getJson('/api/admin/product-analytics/'.$chart.'?sales_type=regular')->assertOk();
+        }
+        $this->getJson('/api/admin/dashboard/summary')->assertOk();
+        $this->getJson('/api/admin/orders')->assertOk();
+        $this->getJson('/api/admin/reports?category=sales&period=monthly&year=2026&month=11')->assertOk();
+        $this->postJson('/api/admin/reports/generate', [
+            'category'=>'sales', 'period'=>'monthly', 'year'=>2026, 'month'=>11,
+            'sales_type'=>'regular', 'generation_key'=>'regular-report-before-custom-schema',
+        ])->assertOk();
+        $this->assertDatabaseHas('report_generations', ['generation_key'=>'regular-report-before-custom-schema']);
+        $this->getJson('/api/admin/custom-requests-summary')->assertStatus(503)->assertJsonPath('code', 'custom_requests_unavailable');
+        $this->getJson('/api/admin/custom-requests/1')->assertStatus(503)->assertJsonPath('code', 'custom_requests_unavailable');
+    }
+
+    public function test_partial_schema_keeps_known_custom_orders_separate(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('This schema alteration test runs inside a SQLite transaction.');
+        }
+
+        $request = $this->createRequest();
+        $order = $this->accept($request, $this->quote($request));
+        $this->pay($order);
+        $order->update(['lifecycle_status' => 'completed', 'customer_stage' => 'completed', 'completed_at' => now()]);
+        Schema::table('custom_product_quotes', fn ($table) => $table->dropColumn('snapshot'));
+
+        Sanctum::actingAs($this->staff);
+        $this->getJson('/api/admin/custom-requests')->assertStatus(503);
+        $this->getJson('/api/admin/product-analytics/product-performance?period=all')->assertStatus(503);
+        $this->getJson('/api/admin/product-analytics/product-performance?period=all&sales_type=regular')
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/admin/reports?category=sales&period=monthly&year=2026&month=11')
+            ->assertOk()->assertJsonPath('data.table.rows.0.order_type', 'Custom')
+            ->assertJsonPath('data.table.rows.0.custom_reference', 'Unavailable');
+    }
 
     private function createRequest(): CustomProductRequest
     {
@@ -258,7 +306,8 @@ class CustomProductsTest extends TestCase
         $initialLevel = DB::connection()->transactionLevel();
         $pendingPayment = true;
         DB::connection()->beforeExecuting(function ($query, $bindings, $connection) use ($o, $initialLevel, &$pendingPayment) {
-            if ($pendingPayment && $connection->transactionLevel() > $initialLevel && str_contains($query, 'from "orders"')) {
+            $readsOrder = str_contains($query, 'from '.$connection->getQueryGrammar()->wrapTable('orders'));
+            if ($pendingPayment && $connection->transactionLevel() > $initialLevel && $readsOrder) {
                 $pendingPayment = false;
                 $this->pay($o);
             }

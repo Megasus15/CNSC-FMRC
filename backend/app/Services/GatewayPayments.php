@@ -162,6 +162,7 @@ class GatewayPayments
                 return true;
             }
             if ($order->custom_product_quote_id && !$payment->paid_at) {
+                abort_unless(\App\Support\CustomProductSchema::ready(), 503, \App\Support\CustomProductSchema::MESSAGE);
                 $quote = $order->customQuote;
                 $providerPaidAt = isset($p['attributes']['paid_at']) ? Carbon::createFromTimestamp((int)$p['attributes']['paid_at']) : now();
                 if (!$quote || $quote->status !== 'accepted' || $providerPaidAt->gt($quote->expires_at)) {

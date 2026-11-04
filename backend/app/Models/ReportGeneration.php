@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Schema;
 class ReportGeneration extends Model
 {
     public const REQUIRED_COLUMNS = [
-        'sales_type',
         'generation_key',
         'generated_by_user_id',
         'generated_by_name',

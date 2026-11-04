@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </button>
             </div>
           </div>
-          ${item.accepts_custom_requests ? `<a class="cp-btn secondary" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Custom Product</a>` : ""}${imageMarkup}
+          ${item.accepts_custom_requests ? `<a class="cp-btn secondary" target="_blank" rel="noopener noreferrer" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Custom Product</a>` : ""}${imageMarkup}
         </article>
       `;
     }).join("");
@@ -231,10 +231,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = await response.json();
       if (!Array.isArray(payload?.data)) throw new Error("Unexpected services response");
-      const nextSnapshot = JSON.stringify(payload.data);
+      const availableServices = payload.custom_requests_available === false
+        ? payload.data.map(item => ({ ...item, accepts_custom_requests: false }))
+        : payload.data;
+      const nextSnapshot = JSON.stringify(availableServices);
       if (retainCards && nextSnapshot === servicesSnapshot) return;
       servicesSnapshot = nextSnapshot;
-      servicesData = payload.data;
+      servicesData = availableServices;
       renderCategoryOptions();
       servicesState = "ready";
       filterServices();

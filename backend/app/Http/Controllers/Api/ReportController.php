@@ -13,6 +13,7 @@ use App\Models\ReportGeneration;
 use App\Models\SiteSetting;
 use App\Models\WalkInOrder;
 use App\Support\CustomProductAnalytics;
+use App\Support\CustomProductSchema;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +84,13 @@ class ReportController extends Controller
         // the table on first use so a build that reaches the server before its
         // migration is run by hand still counts its generations.
         if (ReportGeneration::ensureSchema()) {
+            $hasSalesType = \Illuminate\Support\Facades\Schema::hasColumn('report_generations', 'sales_type');
+            // The legacy audit row can represent All or Regular before custom orders exist.
+            $salesType = $hasSalesType ? $validated['sales_type'] : 'all';
+            abort_if(!$hasSalesType && ($validated['sales_type'] === 'custom'
+                || ($validated['sales_type'] === 'regular' && CustomProductSchema::hasOrderLink()
+                    && Order::whereNotNull('custom_product_quote_id')->exists())), 503, 'This report filter is temporarily unavailable.');
+            $validated['sales_type'] = $salesType;
             $existing = ReportGeneration::query()
                 ->where('generation_key', $generationKey)
                 ->first();
@@ -93,7 +101,7 @@ class ReportController extends Controller
 
             if (! $existing) {
                 $descriptor = $data['report'];
-                $existing = DB::transaction(function () use ($generationKey, $actor, $descriptor, $validated): ReportGeneration {
+                $existing = DB::transaction(function () use ($generationKey, $actor, $descriptor, $validated, $hasSalesType): ReportGeneration {
                     $generation = ReportGeneration::query()->firstOrCreate(
                         ['generation_key' => $generationKey],
                         [
@@ -104,12 +112,11 @@ class ReportController extends Controller
                             // constraint until the database assigns the audit ID.
                             'report_code' => 'PENDING-'.hash('sha256', $generationKey),
                             'category' => $validated['category'],
-                            'sales_type' => $validated['sales_type'],
                             'period' => $validated['period'],
                             'year' => $validated['year'],
                             'month' => $validated['month'],
                             'quarter' => $validated['quarter'],
-                        ],
+                        ] + ($hasSalesType ? ['sales_type' => $validated['sales_type']] : []),
                     );
 
                     if ($generation->wasRecentlyCreated) {
@@ -199,7 +206,8 @@ class ReportController extends Controller
 
         if (in_array($category, ['sales','completed_orders','processing_orders'], true)) {
             $numbers = array_filter(array_map(fn($row)=>$row['order_no'] ?? $row['transaction_no'] ?? null, $content['table']['rows']));
-            $orderMetadata = Order::with('customQuote.request')->whereIn('order_no',$numbers)->get()->keyBy('order_no');
+            $orderMetadata = Order::query()->when(CustomProductSchema::hasQuoteDetails(), fn ($q) => $q->with('customQuote.request'))
+                ->whereIn('order_no', $numbers)->get()->keyBy('order_no');
             foreach ($content['table']['rows'] as &$row) {
                 $row = $this->customReportFields($orderMetadata->get($row['order_no'] ?? $row['transaction_no'] ?? '')) + $row;
             }
@@ -259,8 +267,9 @@ class ReportController extends Controller
 
     private function customReportFields(?Order $order): array
     {
-        $q = $order?->customQuote;
-        return ['order_type'=>$q ? 'Custom' : 'Regular', 'custom_reference'=>$q?->request?->reference() ?? '—',
+        $custom = (bool) $order?->custom_product_quote_id;
+        $q = $custom && CustomProductSchema::hasQuoteDetails() ? $order->customQuote : null;
+        return ['order_type'=>$custom ? 'Custom' : 'Regular', 'custom_reference'=>$q?->request?->reference() ?? ($custom ? 'Unavailable' : '—'),
             'service'=>$q?->snapshot['service']['title'] ?? '—', 'shipping_fee'=>(float)($order?->shipping_fee ?? 0)];
     }
 
@@ -428,7 +437,7 @@ class ReportController extends Controller
                 if ($kind === 'receipts') { $advanceSales += $amount; $this->addToBucket($onlineSeries,$bucketKeys,$date,$amount,$period['period']); }
                 else { $refundsIssued += $amount; $this->addToBucket($refundSeries,$bucketKeys,$date,-$amount,$period['period']); }
                 $methodLabel = \App\Services\PayMongoService::methodLabel($entry->confirmed_source_type);
-                $orderMeta = $this->customReportFields(Order::with('customQuote.request')->find($entry->custom_order_id));
+                $orderMeta = $this->customReportFields(Order::find($entry->custom_order_id));
                 $rows[] = $orderMeta + ['source' => $methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
                     'transaction_no' => $entry->order_no, 'transaction_date' => $this->formatReportTimestamp($date),
                     'customer' => $entry->customer_name, 'status' => 'Confirmed', 'payment_method' => $methodLabel,
@@ -497,7 +506,7 @@ class ReportController extends Controller
         $query = CustomProductAnalytics::filter(Order::query())
             ->with([
                 'payment:id,order_id,method,status',
-                'items:id,order_id,quantity', 'customQuote.request',
+                'items:id,order_id,quantity',
             ])
             ->where('lifecycle_status', 'completed');
         $this->applyFallbackTimestampRange(
@@ -603,7 +612,7 @@ class ReportController extends Controller
     private function processingOrdersReport(array $period): array
     {
         $orders = CustomProductAnalytics::filter(Order::query())
-            ->with(['payment:id,order_id,status','customQuote.request'])
+            ->with(['payment:id,order_id,status'])
             ->whereIn('lifecycle_status', ['incoming', 'pending'])
             ->where('is_archived', false)
             ->where('created_at', '>=', $period['start_utc'])

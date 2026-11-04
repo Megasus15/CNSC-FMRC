@@ -48,7 +48,8 @@ async function browserFixture(t, apiHandler = () => null) {
     browser.stderr.on('data',chunk=>{output+=chunk;const match=output.match(/DevTools listening on (ws:\/\/[^\s]+)/);if(match){clearTimeout(timer);resolve(match[1]);}});
     browser.once('error',reject);
   });
-  const targets=await (await fetch('http://127.0.0.1:'+new URL(endpoint).port+'/json/list')).json();
+  const listTabs = async () => (await fetch('http://127.0.0.1:' + new URL(endpoint).port + '/json/list')).json();
+  const targets=await listTabs();
   const socket=new WebSocket(targets.find(target=>target.type==='page').webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
   let seq=0;const pending=new Map();
@@ -62,6 +63,6 @@ async function browserFixture(t, apiHandler = () => null) {
   const until=async expression=>{for(let i=0;i<150;i++){try{if(await run(expression))return;}catch{}await pause(40);}throw Error('Timeout: '+expression+' '+JSON.stringify(await run('fixtureErrors')));};
   const go=async route=>{const previous=await run('performance.timeOrigin');await send('Page.navigate',{url:base+route});await until(`performance.timeOrigin!==${previous} && document.readyState==='complete'`);await pause(300);};
   const shot=async name=>{const data=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(data.data,'base64'));};
-  return {base,artifacts,send,run,until,go,shot,pause};
+  return {base,artifacts,send,run,until,go,shot,pause,listTabs};
 }
 module.exports={browserFixture,chrome,root};

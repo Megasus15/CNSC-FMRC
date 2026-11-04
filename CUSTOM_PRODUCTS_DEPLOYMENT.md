@@ -2,22 +2,64 @@
 
 This change adds private custom requests, versioned quotations, hosted full payment, production controls, and service-based sales reporting. Existing catalog inventory and refund authority remain unchanged.
 
-## Deploy together
+## Hostinger repair and deployment
 
 Deploy the source assets in `products-page`, `services-page`, `home-page`, `customer-auth`, `admin-page`, and `staff-page`, and the changed Laravel application files, routes, migration, and console command. The normal website and Customer/Team PWA routes resolve these same source files through `PwaAssetController` and the existing Apache aliases. Do not copy the recursive legacy `backend/public/frontend` tree over the source pages.
 
-1. Back up the database and private storage. Review the release diff and run the checks below on staging first.
-2. Deploy the application and source assets together, with the application in its normal maintenance window.
-3. From `backend`, run `php artisan migrate --force`, then `php artisan optimize:clear`. The additive migration is `2026_11_04_000001_create_custom_product_workflow.php`.
-4. Keep the existing scheduler running every minute (`php artisan schedule:run`). The new `custom-products:expire` task reconciles and explicitly expires unpaid PayMongo sessions. Existing gateway reconciliation, webhook processing, refund, and Ship24 jobs must continue running.
-5. Verify that the private local filesystem disk is writable. Custom design files live under `storage/app/private/custom-product-designs` with the standard Laravel local-disk configuration. Never add this directory to a public storage link. Include it in private backups.
-6. Configure PHP and the web server to accept the form limit: five files totaling 50 MB per request or message. `upload_max_filesize` must allow 50 MB; `post_max_size` and the upstream request-body limit need room above that for multipart overhead (for example 60 MB).
-7. In **Website Management → Services**, edit suitable services and enable **Accept custom product requests**. All services default off. Review the Custom Products wording and click **Save All Changes** to publish copy and eligibility together.
-8. Confirm transaction terms are published and the existing hosted payment method is available. Do not replace payment credentials or enable Ship24 as part of this rollout. Preserve the current verified provider configuration.
+1. In hPanel, open the active website's File Manager and confirm which folder contains the live `backend/artisan`. Export its database through **Databases → phpMyAdmin → Export** and keep the export privately. Back up the deployed application files and the private upload directory. Confirm your Hostinger Git deployment configuration before pushing through GitHub Desktop.
+2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products assets use version `1.2`.
+3. Open Hostinger SSH or a terminal connected to the hosting account. Change into the active `backend` directory identified in File Manager. Check where you are and inspect migration status. These commands are read-only.
+
+   ```sh
+   pwd
+   ls artisan
+   php -v
+   php artisan migrate:status
+   ```
+
+   Find `2026_11_04_000001_create_custom_product_workflow`. If the row is missing from the status output, verify the deployed migration file and active directory first. If you have phpMyAdmin access only, open the database's **SQL** tab to run these read-only checks:
+
+   ```sql
+   SELECT migration, batch FROM migrations
+   WHERE migration = '2026_11_04_000001_create_custom_product_workflow';
+
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = DATABASE() AND table_name IN (
+     'custom_product_requests', 'custom_product_quotes', 'custom_product_messages',
+     'custom_product_attachments', 'custom_product_events'
+   );
+
+   SELECT table_name, column_name FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND (
+     (table_name = 'services' AND column_name = 'accepts_custom_requests') OR
+     (table_name = 'orders' AND column_name IN (
+       'custom_product_quote_id', 'production_status', 'production_started_at', 'production_ready_at'
+     )) OR
+     (table_name = 'report_generations' AND column_name = 'sales_type')
+   );
+   ```
+
+4. Choose the branch that matches those results:
+
+   - **Pending and custom schema absent.** Confirm the existing base migrations for Services, Orders, Reports and the payment ledger have run. During the maintenance window, apply this migration from the active `backend` directory, clear cached configuration/routes, and confirm it shows **Ran**.
+
+     ```sh
+     php artisan migrate --path=database/migrations/2026_11_04_000001_create_custom_product_workflow.php --force
+     php artisan optimize:clear
+     php artisan migrate:status
+     ```
+
+     If you only have phpMyAdmin access, arrange Artisan access through Hostinger. The Laravel migration creates constraints and records its own completion.
+   - **Pending and some custom tables or columns already exist.** Inspect the migration error, existing table definitions and constraints before issuing another schema change. Prepare a repair for the missing pieces using the existing data and migration as the source of truth.
+   - **Ran and schema is complete.** Inspect the latest file under `storage/logs` in File Manager after reproducing one failing request. Match the exception timestamp and missing table, column or failing query to the active database. Share the error code and relevant message with customer data and credentials removed.
+
+5. Verify that the private local disk is writable, the uploads stay under `storage/app/private/custom-product-designs`, and PHP can receive up to five files totaling 50 MB with room for multipart overhead. Confirm the minute scheduler still runs `php artisan schedule:run`, including the existing payment, refund, and courier jobs and `custom-products:expire`.
+6. Sign in as Admin and Staff. Check that regular Orders, Dashboard revenue, product charts and Reports load with the expected records. Open **Orders → Custom Requests** and check its empty or populated list. Confirm the existing hosted payment setup and published terms.
+7. In **Website Management → Services**, enable **Accept custom product requests** for the suitable services, then click **Save All Changes**. Reload and confirm the saved switches. From the customer Products and Services pages, check that the request link opens a new tab and that **My Custom Requests** opens a modal. Confirm the eligible services appear in the wizard.
 
 ## Workflow and operational rules
 
-- Products and Services link to `products-page/custom-products.html`; eligible service cards preselect their service. The customer account menu includes **My Custom Requests**.
+- Products and Services open the new-request wizard in a separate tab. Eligible service cards preselect their service. **My Custom Requests** opens the request list and detail modal from the catalog or customer account menu.
 - One request holds one design and quantity, its saved specifications, private conversation, attachments, quotations and activity history. Drafts are visible only to their owner. Sent quotations retain their original specification and design-proof snapshots.
 - Admin and Staff use **Orders → Custom Requests**. They can clarify, decline, save a private quotation draft, or send a final quotation. Final quotations require resolved dimensions, materials, colors, finish, quantity, price, production lead time, and any delivery eligibility/fee/transit estimates.
 - Quotations are payable for seven days from sending. A customer approves the complete quote and the currently published transaction terms before one linked order and hosted checkout are created. Retry actions return the existing order.
@@ -38,13 +80,12 @@ The reference accounting fixture is: quotation ₱0 revenue; confirmed ₱1,000 
 
 Automated local coverage is in `backend/tests/Feature/CustomProductsTest.php`, the extended Website Page Save/report suites, and `backend/tests/Frontend/custom-products.browser.cjs`.
 
-Local verification on November 4, 2026:
+Local repair verification on November 4, 2026:
 
-- Full Laravel regression suite: **768 tests passed, 9,816 assertions**. The subsequent custom-request suite passed **18 tests, 221 assertions**, including an added historical-service drill-down check after renaming/deleting a service.
-- Payment/cancellation follow-up: **106 tests passed**, including a confirmed payment arriving during cancellation. Cancellation is reviewed using payment state read under the order lock.
-- Focused frontend suites: **41 tests passed** for custom workflows, Website Management draft/save behavior, portals, Services content, report exports, payment controls and PWA behavior. Both custom browser scenarios passed again after the final unsent-message and failed-dialog preservation fixes.
-- Broader Chrome theme suite: **43 Admin/Staff pages, 86 light/dark render checks passed**, with desktop, narrow-screen, scrolling-footer and preference checks. Dedicated custom scenarios also cover tablet/phone layouts, reduced motion and Customer PWA consent links.
-- PHP/JavaScript syntax and `git diff --check` passed. Provider calls were mocked; no live payment, refund, courier handover, staging deployment or production release was performed.
+- Full Laravel regression suite passed **771 tests**. The final focused Laravel run passed **39 tests**.
+- The isolated MySQL suite passed **37 tests** with the complete schema. Separate MySQL API checks covered the pending and partial schema, including preserving regular revenue and keeping linked custom orders classified correctly.
+- Chrome verified that clicking the request links opens separate tabs and leaves Products and Services in place. The standalone form uses the policy page layout. Browser checks covered hover states, modal centering and focus return, retry, consent, and Customer and Team PWA entry points.
+- Staging and authenticated Hostinger checks remain pending. Local payment, refund and courier verification used fixtures.
 
 - [ ] Staging migration and private file download/upload permissions.
 - [ ] Admin and Staff: enable a suitable service; unsaved eligibility/copy stays private; Save All Changes publishes both.

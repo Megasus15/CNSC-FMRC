@@ -80,9 +80,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        Schema::table('orders', fn (Blueprint $table) => $table->dropForeign(['custom_product_quote_id']));
+        Schema::table('orders', fn (Blueprint $table) => $table->dropUnique(['custom_product_quote_id']));
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('custom_product_quote_id');
-            $table->dropColumn(['production_status', 'production_started_at', 'production_ready_at']);
+            $table->dropColumn(['custom_product_quote_id', 'production_status', 'production_started_at', 'production_ready_at']);
         });
         foreach (['custom_product_events', 'custom_product_attachments', 'custom_product_messages', 'custom_product_quotes', 'custom_product_requests'] as $table) Schema::dropIfExists($table);
         Schema::table('services', fn (Blueprint $table) => $table->dropColumn('accepts_custom_requests'));
