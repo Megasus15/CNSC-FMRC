@@ -30,27 +30,49 @@
 
   function workspaceDialog(operator) {
     const frame = document.createElement(operator ? 'dialog' : 'div');
-    frame.className = operator ? 'modal-card order-rejection-dialog cp-order-dialog' : 'ux-dlg cp-manager';
+    frame.className = operator ? 'modal-card order-rejection-dialog cp-order-dialog' : 'customer-modal-overlay ux-dlg cp-manager';
+    if (!operator) frame.id = 'customerCustomRequestsModal';
     frame.setAttribute('aria-labelledby', 'customRequestsDialogTitle');
-    const header = operator ? 'modal-header-fixed' : 'ux-dlg__head';
-    const footer = operator ? 'modal-footer-fixed' : 'ux-dlg__foot is-confirm';
-    const button = operator ? 'btn-admin btn-secondary' : 'ux-dlg__btn ux-dlg__btn--ghost';
-    const content = `<header class="${header}">
-      <h2 id="customRequestsDialogTitle" class="${operator ? 'modal-title' : 'ux-dlg__title'}">${operator ? 'Custom Request' : 'My Custom Requests'}</h2>
-    </header><div class="cp-workspace cp-dialog-body ${operator ? 'modal-body-scroll' : ''}" data-custom-products="${operator ? 'operator' : 'manager'}"></div>
-    <footer class="${footer} cp-dialog-footer">
-      <button class="${button}" type="button" data-cp-modal-refresh>Refresh</button>
-      <button class="${operator ? 'btn-admin' : 'ux-dlg__btn ux-dlg__btn--primary'}" type="button" data-cp-modal-close>Close</button>
-    </footer>`;
+    const header = operator
+      ? '<header class="modal-header-fixed"><h2 id="customRequestsDialogTitle" class="modal-title">Custom Request</h2></header>'
+      : `<header class="ux-dlg__head">
+        <button type="button" class="ux-dlg__close" data-cp-modal-close aria-label="Close My Custom Requests">&times;</button>
+        <span class="ux-dlg__badge" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m14 6-9 5v10l9 5 9-5V11l-9-5Zm-9 5 9 5 9-5m-9 5v10M9.5 8.5l9 5M26 3v7m-3.5-3.5h7"/>
+          </svg>
+        </span>
+        <p class="ux-dlg__eyebrow">Custom products</p>
+        <h2 id="customRequestsDialogTitle" class="ux-dlg__title">My Custom Requests</h2>
+      </header>`;
+    const footer = operator
+      ? `<footer class="modal-footer-fixed cp-dialog-footer">
+        <button class="btn-admin btn-secondary" type="button" data-cp-modal-refresh>Refresh</button>
+        <button class="btn-admin" type="button" data-cp-modal-close>Close</button>
+      </footer>`
+      : `<footer class="ux-dlg__foot cp-dialog-footer" data-list-pagination hidden>
+        <span class="cp-page-count" data-request-count role="status"></span>
+        <nav class="cp-page-nav" aria-label="Custom requests pagination">
+          <button class="cp-btn secondary cp-page-arrow" type="button" data-page disabled aria-label="Previous page">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 4-4 4 4 4"/></svg>
+          </button>
+          <span data-current-page></span>
+          <button class="cp-btn secondary cp-page-arrow" type="button" data-page disabled aria-label="Next page">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>
+          </button>
+        </nav>
+      </footer>`;
+    const content = `${header}<div class="cp-workspace cp-dialog-body ${operator ? 'modal-body-scroll' : ''}" data-custom-products="${operator ? 'operator' : 'manager'}"></div>${footer}`;
     frame.innerHTML = operator ? content : `<section class="ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customRequestsDialogTitle">${content}</section>`;
     document.body.append(frame);
     const root = frame.querySelector('[data-custom-products]');
-    const close = frame.querySelector('[data-cp-modal-close]');
+    const closeButtons = frame.querySelectorAll('[data-cp-modal-close]');
     let opener;
     let overflow;
     return {
-      frame, root, close,
+      frame, root, closeButtons,
       refresh: frame.querySelector('[data-cp-modal-refresh]'),
+      pagination: frame.querySelector('[data-list-pagination]'),
       isOpen: () => operator ? frame.open : frame.classList.contains('show'),
       show(trigger) {
         opener = trigger || document.activeElement;
@@ -58,7 +80,7 @@
         document.body.style.overflow = 'hidden';
         if (operator) frame.showModal();
         else frame.classList.add('show');
-        close.focus();
+        closeButtons[0].focus();
       },
       hide() {
         if (operator) frame.close();
@@ -81,7 +103,7 @@
     const token = () => operator ? window.AdminSession?.getToken() || localStorage.getItem('auth_token') : localStorage.getItem('customer_token');
     const query = new URLSearchParams(location.search);
     let current=null,services=[],available=true,busy=false,dirty=false,step=0,edit=false,quoteEdit=false,page=1,listState={},policy=null,baseline='',pollDelay=5000,timer,listFingerprint='';
-    let retryLoad;
+    let retryLoad, searchTimer;
     const visible = () => operator ? !listRoot.closest('[hidden]') : !manager || manager.isOpen();
     if(operator&&query.get('service'))listState.service_id=query.get('service');
     let creationKey=uid(),requestKey=null, lastFingerprint='';
@@ -110,6 +132,7 @@
       return data;
     };
     const shell = content => {
+      if (manager) manager.pagination.hidden = true;
       const controls = operator || dedicated ? '' : `<div class="cp-heading cp-workspace-controls">
         <div class="cp-actions">
           ${manager && (current || edit) ? '<button type="button" class="cp-btn secondary" data-list>All requests</button>' : ''}
@@ -167,13 +190,27 @@
       shell(`<form data-quote-editor class="cp-card" novalidate><h2>Prepare quotation · ${esc(current.reference)}</h2><p class="cp-help">Confirm the complete design before sending. Sent quotations remain in history and are valid for seven days.</p><div class="cp-grid">${fields.flat().map(key=>field(key,s[key],true)).join('')}</div><h3 style="margin-top:24px">Price and schedule</h3><div class="cp-grid">${[['unit_price','Unit price (includes design and fabrication)',q?.unit_price||''],['shipping_fee','Quoted shipping fee',q?.shipping_fee||0],['production_days','Production working days',q?.snapshot.production_days||''],['transit_min_days','Minimum transit working days',q?.snapshot.transit_min_days||''],['transit_max_days','Maximum transit working days',q?.snapshot.transit_max_days||'']].map(([name,label,value])=>`<label class="cp-field">${label}<input type="number" name="${name}" min="${name.includes('price') ? 0.01 : 0}" max="${name.includes('days')?365:100000}" step="${name.includes('days')?1:'.01'}" value="${value}" ${name.startsWith('transit')?'':'required'}></label>`).join('')}</div><label class="cp-field">Quotation note<textarea name="quote_note" maxlength="2000">${esc(q?.snapshot.quote_note||'')}</textarea></label><fieldset class="cp-card"><legend>Approved design proofs</legend>${current.attachments.length?current.attachments.map(f=>`<label class="cp-check"><input type="checkbox" name="proof_ids" value="${f.id}" ${q?.snapshot.proof_ids?.includes(f.id)?'checked':''}>${esc(f.name)}</label>`).join(''):'<p class="cp-help">Upload any design proof through the conversation first. Text specifications can be approved without an attachment.</p>'}</fieldset><label class="cp-check"><input type="checkbox" name="specifications_confirmed" required>I have resolved production-critical details and confirmed these specifications.</label><label class="cp-check"><input type="checkbox" name="delivery_confirmed">For delivery, I confirm that this product can be shipped to the quoted destination.</label><div class="cp-page-footer"><button type="button" class="cp-btn secondary" data-detail>Cancel</button><div class="cp-actions"><button type="submit" name="quote_action" value="save_quote" class="cp-btn secondary">Save Quote Draft</button><button type="submit" name="quote_action" value="send_quote" class="cp-btn">Send Quotation</button></div></div></form>`);
       syncDelivery(root.querySelector('form'));capture();
     };
-    const loadList = async (quiet=false) => {
+    const readListFilters = () => {
+      const form = root.querySelector('[data-list-filters]');
+      return form && {
+        search: form.querySelector('[data-search]').value.trim(),
+        status: form.querySelector('[data-status-filter]').value,
+        service_id: form.querySelector('[data-service-filter]').value,
+      };
+    };
+    const filtersChanged = filters => filters && (
+      filters.search !== (listState.search || '') ||
+      filters.status !== (listState.status || 'all') ||
+      filters.service_id !== (listState.service_id || '')
+    );
+    const loadList = async (quiet = false, rebuildFilters = false) => {
       if(!quiet){current=null;edit=false;quoteEdit=false;dirty=false;}
       const params=new URLSearchParams({page,...listState});const data=await request(prefix+'?'+params);
       if (quiet && (current || busy || !visible() || root.contains(document.activeElement))) return;
+      if (manager && (filtersChanged(readListFilters()) || String(params) !== String(new URLSearchParams({page,...listState})))) return;
       if (page > data.last_page) {
         page = data.last_page;
-        return loadList(quiet);
+        return loadList(quiet, rebuildFilters);
       }
       const snapshot=JSON.stringify(data);if(quiet&&snapshot===listFingerprint)return;listFingerprint=snapshot;
       const fieldClass = operator ? 'field-stack' : 'cp-field';
@@ -183,10 +220,10 @@
       const serviceOptions = services.map(service => `<option value="${service.id}" ${String(listState.service_id) === String(service.id) ? 'selected' : ''}>${esc(service.title)}</option>`).join('');
       const historical = listState.service_id && !services.some(service => String(service.id) === String(listState.service_id));
       const filters = `<form data-list-filters class="cp-toolbar">
-        <label class="${fieldClass}">Search<input class="${inputClass}" data-search value="${esc(listState.search || '')}" placeholder="${operator ? 'Request, product or customer' : 'Request or product'}"></label>
+        <label class="${fieldClass}">Search<input class="${inputClass}" data-search maxlength="180" value="${esc(listState.search || '')}" placeholder="${operator ? 'Request, product or customer' : 'Request or product'}"></label>
         <label class="${fieldClass}">Status<select class="${inputClass}" data-status-filter><option value="all">All statuses</option>${statuses.filter(status => !operator || status !== 'draft').map(status => `<option value="${status}" ${listState.status === status ? 'selected' : ''}>${esc(titleCase(status))}</option>`).join('')}</select></label>
         <label class="${fieldClass}">Service<select class="${inputClass}" data-service-filter><option value="">All services</option>${historical ? `<option selected value="${esc(listState.service_id)}">Historical service</option>` : ''}${serviceOptions}</select></label>
-        <button type="submit" class="${buttonClass}">Search</button>
+        ${operator ? `<button type="submit" class="${buttonClass}">Search</button>` : '<button type="button" class="cp-btn secondary" data-cp-modal-refresh><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>'}
       </form>`;
       const tones = {submitted:'status-blue',under_review:'status-blue',needs_information:'status-yellow',quoted:'status-yellow',ordered:'status-green',payment_review:'status-yellow',declined:'status-red',cancelled:'status-grey',expired:'status-grey'};
       const status = row => `<span class="${operator ? 'status-pill ' + (tones[row.status] || 'status-grey') : 'cp-pill'}" data-status="${esc(row.status)}">${esc(row.status_label)}</span>`;
@@ -195,13 +232,35 @@
       const rows = operator
         ? `<div class="table-wrapper"><table class="admin-table"><thead><tr><th>Request</th><th>Product / Service</th><th>Customer</th><th>Status</th><th>Updated</th><th class="sticky-action">Action</th></tr></thead><tbody>${data.data.map(row => `<tr><td>${esc(row.reference)}</td><td><strong>${esc(row.title)}</strong><br>${esc(row.service?.title)}</td><td>${esc(row.customer_name)}</td><td>${status(row)}</td><td>${date(row.updated_at)}</td><td class="sticky-action">${view(row)}</td></tr>`).join('')}</tbody></table></div>`
         : `<div class="cp-request-list">${data.data.map(row => `<article class="cp-card"><div class="cp-heading"><strong>${esc(row.reference)}</strong>${status(row)}</div><h3>${esc(row.title)}</h3><p>${esc(row.service?.title)} · ${date(row.updated_at)}</p><div class="cp-actions">${view(row)}</div></article>`).join('')}</div>`;
-      const pagination = operator ? `<div class="table-pagination">
+      const results = data.data.length ? rows : empty;
+      if (manager) {
+        const list = root.querySelector('[data-list-results]');
+        if (list && !rebuildFilters) {
+          list.innerHTML = results;
+          setNotice('');
+          root.querySelector('[data-retry]')?.remove();
+        } else {
+          shell(`${filters}<div data-list-results>${results}</div>`);
+        }
+        const footer = manager.pagination;
+        footer.querySelector('[data-request-count]').textContent = `${data.total} request${data.total === 1 ? '' : 's'}`;
+        footer.querySelector('[data-current-page]').textContent = `Page ${data.current_page} of ${data.last_page}`;
+        const [previous, next] = footer.querySelectorAll('[data-page]');
+        previous.dataset.page = page - 1;
+        next.dataset.page = page + 1;
+        previous.disabled = page <= 1;
+        next.disabled = page >= data.last_page;
+        footer.hidden = false;
+        capture();
+        return;
+      }
+      const pagination = `<div class="table-pagination">
         <button type="button" class="page-btn" aria-label="Previous page" data-page="${page-1}" ${page<=1?'disabled':''}><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
         <input class="page-number" type="number" data-page-number min="1" max="${data.last_page}" value="${page}" aria-label="Go to custom requests page">
         <button type="button" class="page-btn" aria-label="Next page" data-page="${page+1}" ${page>=data.last_page?'disabled':''}><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-      </div>` : `<div class="cp-actions"><button class="${buttonClass}" data-page="${page-1}" ${page<=1?'disabled':''}>Previous</button><button class="${buttonClass}" data-page="${page+1}" ${page>=data.last_page?'disabled':''}>Next</button></div>`;
-      shell(`${operator ? '<article class="panel cp-orders-card"><div class="panel-header"><h3>Custom Requests</h3></div>' : ''}${filters}${data.data.length ? rows : empty}
-        <div class="${operator ? 'table-footer' : 'cp-page-footer'}"><span class="table-footer-meta">${data.total} request${data.total===1?'':'s'} · Page ${data.current_page} of ${data.last_page}</span>${pagination}</div>${operator ? '</article>' : ''}`);
+      </div>`;
+      shell(`<article class="panel cp-orders-card"><div class="panel-header"><h3>Custom Requests</h3></div>${filters}${results}
+        <div class="table-footer"><span class="table-footer-meta">${data.total} request${data.total===1?'':'s'} · Page ${data.current_page} of ${data.last_page}</span>${pagination}</div></article>`);
       const badge=document.getElementById('tabCountCustomRequests');if(badge)badge.textContent=Object.values(data.counts||{}).reduce((sum,n)=>sum+Number(n),0);capture();
     };
     const loadPolicy = async () => {if(!operator){try{policy=(await request('/commerce/policy')).data;}catch{policy=null;}}};
@@ -247,6 +306,21 @@
         busy = false;
       }
     };
+    const syncListFilters = filters => {
+      if (!filtersChanged(filters)) return;
+      listState = filters;
+      page = 1;
+    };
+    const applyManagerFilters = async () => {
+      const filters = readListFilters();
+      if (!manager?.isOpen() || !filtersChanged(filters)) return;
+      if (busy) {
+        searchTimer = setTimeout(applyManagerFilters, 100);
+        return;
+      }
+      syncListFilters(filters);
+      await load(() => loadList());
+    };
     const act = async (action,data={},files=[]) => {
       if(busy)return;validateFiles(files);busy=true;root.setAttribute('aria-busy','true');const buttonStates=[...root.querySelectorAll('button')].map(button=>[button,button.disabled]);buttonStates.forEach(([button])=>button.disabled=true);
       try {
@@ -273,6 +347,16 @@
     };
     const trackInput = event => {
       if (!visible() || !root.contains(event.target)) return;
+      if (manager && event.target.closest('[data-list-filters]')) {
+        const typed = event.target.matches('[data-search]') &&
+          ((event.type === 'input' && !event.isComposing) || event.type === 'compositionend');
+        const selected = event.type === 'change' && event.target.matches('select');
+        if (typed || selected) {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(applyManagerFilters, typed ? 250 : 0);
+        }
+        return;
+      }
       if (event.target.closest('form:not([data-list-filters])')) {
         dirty = fingerprint() !== baseline;
         requestKey = null;
@@ -281,8 +365,12 @@
     };
     document.addEventListener('input', trackInput);
     document.addEventListener('change', trackInput);
+    if (manager) document.addEventListener('compositionend', trackInput);
     const run = fn => Promise.resolve().then(fn).catch(error=>setNotice(error.message||'Unable to complete this action. Please try again.',true));
-    document.addEventListener('click',event=>{const button=event.target.closest('button,a');if(!button||busy||!visible()||!root.contains(button))return;run(async()=>{
+    document.addEventListener('click',event=>{const button=event.target.closest('button,a');if(!button||busy||!visible())return;
+    const inPagination = manager && !manager.pagination.hidden && manager.pagination.contains(button);
+    if (!root.contains(button) && !inPagination) return;
+    run(async()=>{
       if(button.matches('[data-retry]'))await retryLoad?.();
       if(button.matches('[data-review-updates]')){
         const latest=(await request(prefix+'/'+current.id)).data;
@@ -295,10 +383,27 @@
       if(button.matches('[data-detail]')){if(await canLeave())renderDetail();}
       if(button.matches('[data-open]') && await canLeave()) await load(() => loadDetail(button.dataset.open, button));
       if(button.matches('[data-refresh]') && await canLeave()) await load(() => loadDetail(current.id));
+      if (manager && button.matches('[data-cp-modal-refresh]')) {
+        clearTimeout(searchTimer);
+        syncListFilters(readListFilters());
+        await load(async () => {
+          await loadServices();
+          await loadList(false, true);
+        });
+        if (!button.isConnected) root.querySelector('[data-cp-modal-refresh]')?.focus({preventScroll: true});
+      }
       if(button.matches('[data-next]')){const form=root.querySelector('[data-editor]');const invalid=[...form.querySelectorAll(`[data-step="${step}"] :is(input,select,textarea)`)].find(i=>!i.checkValidity());if(invalid){invalid.reportValidity();return;}setStep(Math.min(3,step+1));}
       if(button.matches('[data-back]'))setStep(Math.max(0,step-1));
       if(button.matches('[data-save-draft]'))await saveRequest(false);
-      if(button.matches('[data-page]')){page=Number(button.dataset.page);await load(() => loadList());}
+      if (button.matches('[data-page]')) {
+        if (manager && filtersChanged(readListFilters())) {
+          clearTimeout(searchTimer);
+          await applyManagerFilters();
+        } else {
+          page = Number(button.dataset.page);
+          await load(() => loadList());
+        }
+      }
       if(button.matches('[data-production]')&&await canLeave()&&await confirm('Update this custom order to the selected production stage?','Update production')){await request('/admin/orders/'+button.dataset.order+'/production',{action:button.dataset.production,expected_revision:current.revision,request_key:uid()});await loadDetail(current.id);}
       if(button.matches('[data-pay]')){if(!await canLeave())return;busy=true;try{const data=await request('/customer/orders/'+button.dataset.pay+'/payment-checkout',{app_context:location.pathname.startsWith('/apps/customer/')?'customer':''});const payment=data.data||data;const url=payment.checkout_url||payment.payment?.checkout_url;if(url&&new URL(url).protocol==='https:'&&new URL(url).hostname==='checkout.paymongo.com'){dirty=false;location.assign(url);}else{await loadDetail(current.id);setNotice('Payment status refreshed. If checkout is still preparing, try again shortly.');}}finally{busy=false;}}
       if(button.matches('[data-file]')){const response=await fetch(api+prefix+'/'+current.id+'/attachments/'+button.dataset.file,{headers:{Authorization:`Bearer ${token()}`}});if(!response.ok)throw Error('This design file is unavailable.');const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download=current.attachments.find(f=>String(f.id)===button.dataset.file)?.name||'design';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -316,7 +421,12 @@
     };
     document.addEventListener('submit',event=>{if(!visible()||!root.contains(event.target))return;event.preventDefault();if(busy)return;const form=event.target;run(async()=>{
       if(form.matches('[data-list-filters]')){
-        listState = {search:root.querySelector('[data-search]').value,status:root.querySelector('[data-status-filter]').value,service_id:root.querySelector('[data-service-filter]').value};
+        if (manager) {
+          clearTimeout(searchTimer);
+          await applyManagerFilters();
+          return;
+        }
+        listState = readListFilters();
         page = 1;
         await load(() => loadList());
       }
@@ -386,6 +496,7 @@
     if (detailDialog) {
       const close = async () => {
         if (busy || !await canLeave()) return;
+        clearTimeout(searchTimer);
         const id = current?.id;
         capture();
         detailDialog.hide();
@@ -414,8 +525,8 @@
           });
         }
       };
-      detailDialog.close.addEventListener('click', close);
-      detailDialog.refresh.addEventListener('click', refresh);
+      detailDialog.closeButtons.forEach(button => button.addEventListener('click', close));
+      detailDialog.refresh?.addEventListener('click', refresh);
       detailDialog.frame.addEventListener('cancel', event => { event.preventDefault(); void close(); });
       if (manager) detailDialog.frame.addEventListener('keydown', event => {
         if (event.key === 'Escape') {

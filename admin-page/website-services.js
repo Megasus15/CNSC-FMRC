@@ -665,10 +665,13 @@ function validateServiceForm() {
 function initializePageCopyEditor() {
   const form = document.getElementById("servicePageCopyForm");
   const fieldset = document.getElementById("servicePageCopyFields");
+  const customFields = document.getElementById("serviceCustomCopyFields");
+  const generalFields = document.getElementById("serviceGeneralCopyFields");
   const status = document.getElementById("servicePageCopyStatus");
   const save = document.getElementById("servicePageCopySave");
   const retry = document.getElementById("servicePageCopyRetry");
-  const definitions = (window.FMRC_PAGE_CONTENT?.fields || []).filter((field) => field.page === "services");
+  const content = window.FMRC_PAGE_CONTENT;
+  const definitions = (content?.fields || []).filter((field) => field.page === "services");
   if (!form || !definitions.length) {
     if (status) status.textContent = "The page editor could not load. Please refresh this page.";
     return;
@@ -702,7 +705,8 @@ function initializePageCopyEditor() {
     count.className = "service-field-count";
     field.setAttribute("aria-describedby", count.id);
     wrapper.append(label, field, count);
-    fieldset.append(wrapper);
+    const group = definition.key.startsWith("editorial_services_custom_") ? customFields : generalFields;
+    group.append(wrapper);
     field.addEventListener("input", () => describe(field, definition));
     fields.set(definition.key, field);
   });
@@ -728,13 +732,13 @@ function initializePageCopyEditor() {
       if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) throw new Error("The saved page content was not returned. Please retry.");
       definitions.forEach((definition) => {
         const field = fields.get(definition.key);
-        field.value = result.data[definition.key] ?? definition.default;
+        field.value = content.get(definition.key, result.data);
         describe(field, definition);
       });
       loaded = true; copyLoaded = true;
       fieldset.disabled = false;
       contentDraft?.capture();
-      status.textContent = "All fields show their exact character limit. Existing over-limit text must be shortened before saving.";
+      status.textContent = "";
     } catch (error) {
       status.textContent = error.message || "Unable to load page content. Please retry.";
       status.classList.add("is-invalid");

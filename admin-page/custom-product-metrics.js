@@ -23,8 +23,10 @@
         || document.getElementById('dashboardAnalyticsToolbar')?.parentElement;
       if (!host) return false;
       const label = document.createElement('label');
-      label.className = 'report-filter-field cp-sales-filter';
-      label.innerHTML = '<span>Sales type</span><select class="filter-select" id="customSalesType"><option value="all">All</option><option value="regular">Regular</option><option value="custom">Custom</option></select>';
+      const inReports = host.classList.contains('report-filter-grid');
+      label.className = inReports ? 'report-filter-field' : 'cp-sales-filter';
+      label.htmlFor = 'customSalesType';
+      label.innerHTML = '<span>Sales type</span><select class="filter-select" id="customSalesType"><option value="all">All sales</option><option value="regular">Regular</option><option value="custom">Custom</option></select>';
       host.append(label);
       syncFilter();
       label.querySelector('select').addEventListener('change', event => changeType(event.target.value));

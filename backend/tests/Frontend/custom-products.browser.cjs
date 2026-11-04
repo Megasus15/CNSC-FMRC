@@ -57,6 +57,9 @@ test('Custom requests keep drafts, consent and responsive operator workflows con
   assert.equal(await h.run("document.querySelector('[name=body]').value"),'Keep this unsent conversation message');
   await fill('body','');
   await click('[data-edit]');await fill('title','Keep my draft');
+  await click('.cp-manager .ux-dlg__close');
+  await confirm(false);
+  assert.equal(await h.run("document.querySelector('.cp-manager.show [name=title]').value"),'Keep my draft');
   await click('[data-list]');await confirm(false);
   assert.equal(await h.run("document.querySelector('[name=title]').value"),'Keep my draft');
   record.revision++;record.messages.push({id:1,role:'staff',author:'FMRC',body:'Please confirm the dimensions.',created_at:record.updated_at});
@@ -108,13 +111,36 @@ test('Sales filters and custom service copy work in both portals and customer en
     if(route==='/api/admin/custom-requests-summary'){json({data:{revision:'1',requests_to_review:2,needs_information:1,quotations_awaiting_payment:3,awaiting_production:1,in_production:4}});return true;}
     return false;
   });
+  const verifySalesField = async name => {
+    await h.until("document.querySelector('#customSalesType')?.parentElement.querySelector('.admin-select-chevron')");
+    await h.until(`(() => {
+      const field = document.getElementById('customSalesType');
+      field.focus({preventScroll:true});
+      return document.activeElement === field && getComputedStyle(field).borderTopColor === 'rgb(128, 0, 0)';
+    })()`);
+    const styles = await h.run(`(() => {
+      const field = document.getElementById('customSalesType');
+      const style = getComputedStyle(field);
+      const before = { radius: style.borderRadius, height: field.getBoundingClientRect().height, color: style.backgroundColor };
+      field.blur();
+      document.documentElement.dataset.theme = 'dark';
+      before.darkColor = getComputedStyle(field).backgroundColor;
+      return before;
+    })()`);
+    assert.equal(styles.radius, '8px');
+    assert.ok(styles.height >= 40);
+    assert.notEqual(styles.darkColor, styles.color);
+    await h.shot(name + '-sales-type-dark');
+  };
   for(const portal of ['admin-page','staff-page']){
     await h.send('Emulation.setDeviceMetricsOverride',{width:768,height:1024,deviceScaleFactor:1,mobile:false});
     await h.go('/'+portal+'/products.html');await h.until("!!document.getElementById('customSalesType') && !!document.getElementById('productPerformanceBody')");
+    await verifySalesField(portal + '-products');
     await h.run("const select=document.getElementById('customSalesType');select.value='custom';select.dispatchEvent(new Event('change',{bubbles:true}));");
     for(let i=0;i<60&&!calls.some(u=>u.includes('product-performance')&&u.includes('sales_type=custom'));i++)await h.pause(50);
     assert.ok(calls.some(u=>u.includes('product-performance')&&u.includes('sales_type=custom')));
     await h.go('/'+portal+'/dashboard.html');await h.until("document.querySelector('[data-custom-counts]')?.textContent.includes('4')");
+    await verifySalesField(portal + '-dashboard');
     assert.equal(await h.run("document.getElementById('customSalesType').value"),'custom');
     await h.go('/'+portal+'/reports.html');await h.until("!!document.getElementById('customSalesType')");
     await h.run("const select=document.getElementById('customSalesType');select.value='regular';select.dispatchEvent(new Event('change',{bubbles:true}));");
@@ -151,14 +177,21 @@ test('Sales filters and custom service copy work in both portals and customer en
 
 test('Customer buttons hover and the centered request modal recovers from an unavailable schema', {skip:!chrome,timeout:90000}, async t=>{
   let available = false;
-  const h = await browserFixture(t, async ({route,json}) => {
+  let requests = [];
+  const h = await browserFixture(t, async ({req,route,json}) => {
     if (route === '/api/services') {
       json({data:[{id:7,title:'3D Printing',accepts_custom_requests:false}],custom_requests_available:available});
       return true;
     }
     if (route === '/api/customer/custom-requests') {
       if (!available) json({code:'custom_requests_unavailable',message:'Server Error'},503);
-      else json({data:[],current_page:1,last_page:1,total:0});
+      else {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const search = (params.get('search') || '').toLowerCase();
+        const filtered = requests.filter(row => row.title.toLowerCase().includes(search));
+        const page = Number(params.get('page') || 1);
+        json({data:filtered.slice((page-1)*10,page*10),current_page:page,last_page:Math.max(1,Math.ceil(filtered.length/10)),total:filtered.length});
+      }
       return true;
     }
     return false;
@@ -166,6 +199,9 @@ test('Customer buttons hover and the centered request modal recovers from an una
   await h.send('Page.addScriptToEvaluateOnNewDocument',{source:"localStorage.setItem('customer_token','fixture-customer');"});
   await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await h.go('/products-page/product.html');
+  await h.until("document.querySelector('.cp-entry h2')?.textContent === 'Make it yours.'");
+  await h.run("document.querySelector('.cp-entry').scrollIntoView({block:'center',behavior:'instant'})");
+  await h.shot('products-custom-card-desktop');
   for (const selector of ['.cp-entry a[target="_blank"]','.cp-entry [data-custom-manager]']) {
     await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
     await h.pause(180);
@@ -187,16 +223,63 @@ test('Customer buttons hover and the centered request modal recovers from an una
   available = true;
   await h.run("document.querySelector('.cp-manager [data-retry]').click()");
   await h.until("document.querySelector('.cp-manager .cp-empty')?.textContent.includes('No requests found')");
+  assert.equal(await h.run(`(() => {
+    const modal = document.querySelector('.cp-manager');
+    const footer = modal.querySelector('[data-list-pagination]');
+    return !footer.hidden && footer.querySelectorAll('button').length === 2
+      && [...footer.querySelectorAll('button')].every(button => !button.textContent.trim() && button.querySelector('svg'))
+      && footer.querySelector('[data-current-page]').textContent === 'Page 1 of 1'
+      && !modal.querySelector('[data-list-filters] button[type=submit]')
+      && !!modal.querySelector('[data-list-filters] [data-cp-modal-refresh]');
+  })()`),true);
   for (const [width,height] of [[1440,900],[768,1024],[390,844]]) {
     await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-    assert.ok(await h.run(`(() => {
+    const layout = await h.run(`(() => {
       const frame = document.querySelector('.cp-manager .ux-dlg__card').getBoundingClientRect();
-      return Math.abs(frame.left + frame.width / 2 - innerWidth / 2) < 2
-        && Math.abs(frame.top + frame.height / 2 - innerHeight / 2) < 2;
-    })()`), 'Dialog stays centered at '+width+'px');
+      const overlay = getComputedStyle(document.querySelector('.cp-manager'));
+      const expectedWidth = Math.min(860, innerWidth - parseFloat(overlay.paddingLeft) - parseFloat(overlay.paddingRight));
+      return {width:frame.width, expectedWidth,
+        xOffset:frame.left + frame.width / 2 - innerWidth / 2,
+        yOffset:frame.top + frame.height / 2 - innerHeight / 2};
+    })()`);
+    assert.ok(Math.abs(layout.width - layout.expectedWidth) < 2 && Math.abs(layout.xOffset) < 2 && Math.abs(layout.yOffset) < 2,
+      'Dialog uses the appointments width and stays centered at '+width+'px '+JSON.stringify(layout));
+    assert.ok(await h.run(`(() => {
+      const header = document.querySelector('.cp-manager .ux-dlg__head');
+      const badge = header.querySelector('.ux-dlg__badge').getBoundingClientRect();
+      const title = header.querySelector('.ux-dlg__title').getBoundingClientRect();
+      const close = header.querySelector('.ux-dlg__close').getBoundingClientRect();
+      const band = header.getBoundingClientRect();
+      const topHit = document.elementFromPoint(band.left + band.width / 2, band.top + 3);
+      const search = document.querySelector('.cp-manager [data-search]').getBoundingClientRect();
+      const status = document.querySelector('.cp-manager [data-status-filter]').getBoundingClientRect();
+      return header.querySelector('.ux-dlg__eyebrow').textContent === 'Custom products'
+        && badge.width > 0 && badge.right < title.left && title.right <= close.left
+        && header.contains(topHit) && (search.top !== status.top || search.right < status.left);
+    })()`), 'Shared header fits at '+width+'px');
+    if (width !== 768) await h.shot('my-custom-requests-'+width);
   }
+  requests = Array.from({length:11}, (_, index) => ({
+    id:index+1, reference:'CUS-'+(index+1), title:index===10?'Custom Enclosure':'Nameplate '+(index+1),
+    service:{id:7,title:'3D Printing'}, status:'submitted', status_label:'Submitted', updated_at:'2026-11-04T04:00:00Z',
+  }));
+  await h.run("document.querySelector('.cp-manager [data-cp-modal-refresh]').click()");
+  await h.until("document.querySelector('.cp-manager [data-current-page]').textContent==='Page 1 of 2'");
+  await h.run("document.querySelector('.cp-manager [aria-label=\"Next page\"]').click()");
+  await h.until("document.querySelector('.cp-manager [data-current-page]').textContent==='Page 2 of 2'");
+  assert.match(await h.run("document.querySelector('.cp-manager [data-list-results]').textContent"),/Custom Enclosure/);
+  await h.run(`(() => {
+    const search = document.querySelector('.cp-manager [data-search]');
+    search.focus();
+    search.value = 'Nameplate';
+    search.dispatchEvent(new Event('input',{bubbles:true}));
+  })()`);
+  await h.until("document.querySelector('.cp-manager [data-current-page]').textContent==='Page 1 of 1'");
+  assert.equal(await h.run("document.activeElement.matches('.cp-manager [data-search]')"),true);
+  assert.doesNotMatch(await h.run("document.querySelector('.cp-manager [data-list-results]').textContent"),/Custom Enclosure/);
   await h.run("document.querySelector('.cp-manager [data-cp-modal-close]').click()");
   await h.until("document.activeElement.matches('.cp-entry [data-custom-manager]')");
+  t.diagnostic('Request header screenshots: '+h.artifacts);
   await h.go('/products-page/custom-products.html?new=1');
   await h.until("document.querySelector('.cp-empty')?.textContent.includes('No services are accepting custom requests')");
   assert.equal(await h.run("!!document.querySelector('[data-editor]')"),false);

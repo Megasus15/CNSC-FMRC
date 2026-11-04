@@ -74,9 +74,9 @@
       ["cta_contact", "Contact link text", "Contact us"],
     ]],
     ["Services: Page Copy", "services", [
-      ["custom_title", "Custom products heading", "Custom Products", 80],
-      ["custom_copy", "Custom products introduction", "Have a product idea? FMRC can help create it through our available fabrication services. Share your design, specifications, and quantity to receive a quotation. Production begins after you approve the quotation and complete payment.", 400],
-      ["custom_button", "Custom request button", "Request a Custom Product", 40],
+      ["custom_title", "Card headline", "Make it yours.", 80],
+      ["custom_button", "Quote button label", "Request a Quote", 40],
+      ["custom_copy", "Card description", "Share your idea and get a quote from FMRC.", 400],
       ["kicker", "Eyebrow", "EXPERTISE & CAPABILITIES", 48],
       ["title", "Page title", "Our Services", 48],
       ["subtitle", "Introduction", "Explore fabrication and manufacturing services for your next project.", 150],
@@ -112,12 +112,17 @@
     })),
   );
   const byKey = new Map(fields.map((field) => [field.key, field]));
+  const previousCustomDefaults = new Map([
+    ["editorial_services_custom_title", "Custom Products"],
+    ["editorial_services_custom_copy", "Have a product idea? FMRC can help create it through our available fabrication services. Share your design, specifications, and quantity to receive a quotation. Production begins after you approve the quotation and complete payment."],
+    ["editorial_services_custom_button", "Request a Custom Product"],
+  ]);
   let snapshot = {};
 
   function valueFor(settings, field) {
-    return Object.prototype.hasOwnProperty.call(settings || {}, field.key)
-      ? String(settings[field.key] ?? "")
-      : field.default;
+    if (!Object.prototype.hasOwnProperty.call(settings || {}, field.key)) return field.default;
+    const saved = String(settings[field.key] ?? "");
+    return saved === previousCustomDefaults.get(field.key) ? field.default : saved;
   }
 
   function apply(settings) {
@@ -133,7 +138,7 @@
         const control = element.closest?.("a, button");
         // Keep editable action labels accessible even when the visible wording
         // is intentionally cleared. Service buttons retain their full title.
-        if (control && field.page !== "services") {
+        if (control && (field.page !== "services" || field.key === "editorial_services_custom_button")) {
           control.setAttribute("aria-label", value.trim() || field.default);
         }
       }
@@ -145,9 +150,9 @@
     document.dispatchEvent(new CustomEvent("fmrc-page-content-applied"));
   }
 
-  function get(key) {
+  function get(key, settings = snapshot) {
     const field = byKey.get(key);
-    return field ? valueFor(snapshot, field) : "";
+    return field ? valueFor(settings, field) : "";
   }
 
   function bindCounter(input, limit) {

@@ -49,6 +49,9 @@ test('copy preserves defaults, literal user text, intentional blanks and cached 
   api.apply({ editorial_home_intro_title: '' });
   assert.equal(title.textContent, '');
   assert.equal(search.placeholder, 'Image coming soon');
+  const cardTitle = 'editorial_services_custom_title';
+  assert.equal(api.get(cardTitle, { [cardTitle]: 'Custom Products' }), 'Make it yours.');
+  assert.equal(api.get(cardTitle, { [cardTitle]: 'Built in Daet' }), 'Built in Daet');
   assert(!api.fields.some((field) => field.key === 'editorial_services_search_placeholder'));
 });
 
