@@ -253,12 +253,25 @@
 
 .services-page-body .service-card-footer {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   align-items: center;
   justify-content: flex-start;
   margin: auto 0 0;
   padding: 0;
   border: 0;
+}
+
+.services-page-body .service-card-footer .service-quote-action {
+  margin-inline-start: auto;
+  padding-inline: 12px;
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .services-page-body .service-card-footer .service-quote-action {
+    margin-inline-start: 0;
+  }
 }
 
 .services-page-body .services-grid .details-btn {

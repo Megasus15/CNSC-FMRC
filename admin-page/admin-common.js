@@ -4865,3 +4865,80 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPage();
   });
 });
+
+// Style operational tables as Inventory cards without replacing their controls.
+document.addEventListener("DOMContentLoaded", () => {
+  const tables = "table:is(.admin-table, .inv-variant-table, .analytics-perf-table, .return-items-table, .shipping-table)";
+  const cards = ".portal-data-card, .inv-category-card, .inv-view-variants, .panel, .analytics-card";
+  const headerSelector = ".portal-table-header, .inv-category-header, .panel-header, .analytics-card-header, .inv-view-section-title";
+
+  const syncTable = (table) => {
+    const card = table.closest(cards);
+    if (!card) return;
+    const header = [...card.querySelectorAll(headerSelector)].find((node) => node.closest(cards) === card);
+    if (!header) return;
+
+    card.classList.add("portal-data-card");
+    table.classList.add("portal-data-table");
+    if (header.matches(".inv-category-header")) return;
+
+    header.classList.add("portal-table-header");
+    let title = header.querySelector("h2, h3, h4");
+    if (!title && header.matches(".inv-view-section-title")) {
+      title = document.createElement("h4");
+      title.textContent = header.textContent.trim();
+      header.replaceChildren(title);
+    }
+    if (title && !title.classList.contains("portal-table-title")) {
+      title.classList.add("portal-table-title");
+      const icon = title.querySelector(":scope > i, :scope > .archive-badge > i") || document.createElement("i");
+      if (!icon.className) icon.className = "fa-solid fa-table-list";
+      icon.classList.add("portal-table-icon");
+      icon.setAttribute("aria-hidden", "true");
+      title.prepend(icon);
+    }
+
+    if (header.querySelector("[data-table-count]")) return;
+    let badge = header.querySelector("[data-derived-count]");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "portal-table-count";
+      badge.dataset.derivedCount = "";
+      header.append(badge);
+    }
+    const meta = [...card.querySelectorAll(".table-footer-meta")].find((node) => node.closest(cards) === card && !node.closest("table"));
+    const total = meta?.textContent.match(/\bShowing\b[^•·]*\bof\s+([\d,]+)/i)?.[1];
+    const rowCount = Array.from(table.tBodies).flatMap((body) => Array.from(body.rows))
+      .filter((row) => !row.hidden && row.style.display !== "none" && !row.matches(".table-empty-row, .admin-table-skeleton-row, [aria-hidden='true']") &&
+        !(row.cells.length === 1 && row.cells[0].colSpan > 1)).length;
+    const label = total ? `${total} records` : `${rowCount} shown`;
+    if (badge.textContent !== label) badge.textContent = label;
+  };
+
+  const pending = new Set();
+  let frame = 0;
+  const queue = (node) => {
+    if (!(node instanceof Element)) return;
+    const table = node.closest(tables);
+    if (table) pending.add(table);
+    node.querySelectorAll(tables).forEach((item) => pending.add(item));
+    if (node.matches(".table-footer-meta")) node.closest(cards)?.querySelectorAll(tables).forEach((item) => pending.add(item));
+  };
+  document.querySelectorAll(tables).forEach(syncTable);
+  new MutationObserver((changes) => {
+    for (const change of changes) {
+      const target = change.target;
+      if (target instanceof Element && target.closest(tables)) pending.add(target.closest(tables));
+      if (target instanceof Element && target.matches(".table-footer-meta")) queue(target);
+      change.addedNodes.forEach(queue);
+    }
+    if (pending.size && !frame) {
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const updates = [...pending];
+        pending.clear();
+        updates.filter((table) => table.isConnected).forEach(syncTable);
+      });
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+});

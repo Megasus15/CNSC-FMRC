@@ -107,6 +107,32 @@ class CustomProductsTest extends TestCase
         $this->action($r,'submit',['service_id'=>$this->service->id,'specifications'=>$this->spec])->assertOk();
         return $r->fresh();
     }
+
+    public function test_first_save_and_submission_use_the_revision_returned_by_creation(): void
+    {
+        Sanctum::actingAs($this->customer);
+
+        foreach (['save' => 'draft', 'submit' => 'submitted'] as $action => $status) {
+            foreach ([false, true] as $withFile) {
+                $creation = ['creation_key' => (string) Str::uuid(), 'service_id' => $this->service->id];
+                $created = $this->postJson('/api/customer/custom-requests', $creation)
+                    ->assertCreated()->assertJsonPath('data.revision', 0)->assertJsonPath('data.status', 'draft')->json('data');
+                $this->postJson('/api/customer/custom-requests', $creation)
+                    ->assertCreated()->assertJsonPath('data.id', $created['id']);
+
+                $path = '/api/customer/custom-requests/'.$created['id'];
+                $payload = ['expected_revision' => $created['revision'], 'request_key' => (string) Str::uuid(),
+                    'service_id' => $this->service->id, 'specifications' => $this->spec];
+                $response = $withFile
+                    ? $this->post($path.'/'.$action, ['payload' => json_encode($payload),
+                        'attachments' => [UploadedFile::fake()->image('design.png')]], ['Accept' => 'application/json'])
+                    : $this->postJson($path.'/'.$action, $payload);
+                $response->assertOk()->assertJsonPath('data.status', $status)->assertJsonPath('data.revision', 1)
+                    ->assertJsonCount($withFile ? 1 : 0, 'data.attachments');
+                $this->getJson($path)->assertOk()->assertJsonPath('data.specifications.title', $this->spec['title']);
+            }
+        }
+    }
     private function action(CustomProductRequest $r,string $action,array $data=[],bool $operator=false)
     {
         Sanctum::actingAs($operator ? $this->staff : $this->customer);

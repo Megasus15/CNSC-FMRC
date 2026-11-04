@@ -124,6 +124,7 @@
         const message = response.status === 401 ? 'Your session has expired. Sign in again to continue.'
           : data.code === 'custom_requests_unavailable' ? unavailable
           : response.status >= 500 ? 'Could not complete this request. Please try again.'
+          : data.errors?.expected_revision || data.errors?.request_key ? 'Could not save this version of your request. Your edits are still here. Please try again.'
           : Object.values(data.errors || {}).flat()[0] || data.message || 'Could not complete this request. Please try again.';
         const error = new Error(message);
         error.status = response.status;
@@ -173,11 +174,11 @@
       }
       edit=true;quoteEdit=false;step=0;const spec=current?.specifications || {quantity:1,fulfillment_type:'pickup'};
       const selected=String(current?.service_id || (dedicated ? query.get('service') : '') || '');
-      shell(`<form data-editor class="cp-card" novalidate><ol class="cp-steps">${steps.map((s,i)=>`<li data-step-label="${i}">${i+1}. ${s}</li>`).join('')}</ol>${fields.map((group,i)=>`<section data-step="${i}" ${i?'hidden':''}><h2>${steps[i]}</h2><div class="cp-grid">${i===0?`<label class="cp-field cp-wide">FMRC service *<select name="service_id" required><option value="">Choose an available service</option>${choices.map(s=>`<option value="${s.id}" ${String(s.id)===selected?'selected':''}>${esc(s.title)}</option>`).join('')}</select><small>Requests are reviewed for feasibility within FMRC’s available services.</small></label>`:''}${group.map(key=>field(key,spec[key])).join('')}</div>${i===1?`<div class="cp-field cp-wide" style="margin-top:18px"><label for="customDesignFiles">Reference designs (optional)</label><input id="customDesignFiles" name="attachments" type="file" accept="${fileAccept}" multiple class="cp-file-input"><small>Up to five files, 50 MB combined. Images, PDF, Word and supported CAD files. Designs remain private.</small></div>${filesMarkup((current?.attachments||[]).filter(f=>!f.message_id))}${(current?.attachments||[]).filter(f=>!f.message_id&&!(current?.quotes||[]).some(q=>(q.snapshot.proof_ids||[]).includes(f.id))).map(f=>`<label class="cp-check"><input type="checkbox" name="remove_attachment_ids" value="${f.id}">Remove ${esc(f.name)} with next save</label>`).join('')}`:''}${i===2?'<p class="cp-help">FMRC confirms delivery eligibility and includes the shipping fee in your quotation. Your preferred completion date is a request, not a guaranteed deadline.</p>':''}</section>`).join('')}<section data-step="3" hidden><h2>Review your request</h2><div data-review></div><p class="cp-notice">Submitting a request does not place a paid order. FMRC will review your idea and send a quotation for your approval.</p></section><div class="cp-page-footer"><button type="button" class="cp-btn secondary" data-save-draft>Save Draft</button><div class="cp-actions"><button type="button" class="cp-btn secondary" data-back>Back</button><button type="button" class="cp-btn" data-next>Continue</button><button type="submit" class="cp-btn" data-submit hidden>Submit Request</button></div></div></form>`);
+      shell(`<form data-editor class="cp-card" novalidate><ol class="cp-steps">${steps.map((s,i)=>`<li data-step-label="${i}"><span class="cp-step-number" aria-hidden="true">${i+1}</span><span>${s}</span></li>`).join('')}</ol>${fields.map((group,i)=>`<section data-step="${i}" ${i?'hidden':''}><h2>${steps[i]}</h2><div class="cp-grid">${i===0?`<label class="cp-field cp-wide">FMRC service *<select name="service_id" required><option value="">Choose an available service</option>${choices.map(s=>`<option value="${s.id}" ${String(s.id)===selected?'selected':''}>${esc(s.title)}</option>`).join('')}</select><small>Requests are reviewed for feasibility within FMRC’s available services.</small></label>`:''}${group.map(key=>field(key,spec[key])).join('')}</div>${i===1?`<div class="cp-field cp-wide cp-design-field"><label for="customDesignFiles">Reference designs (optional)</label><input id="customDesignFiles" name="attachments" type="file" accept="${fileAccept}" multiple class="cp-file-input"><small>Up to five files, 50 MB combined. Images, PDF, Word and supported CAD files. Designs remain private.</small></div>${filesMarkup((current?.attachments||[]).filter(f=>!f.message_id))}${(current?.attachments||[]).filter(f=>!f.message_id&&!(current?.quotes||[]).some(q=>(q.snapshot.proof_ids||[]).includes(f.id))).map(f=>`<label class="cp-check"><input type="checkbox" name="remove_attachment_ids" value="${f.id}">Remove ${esc(f.name)} with next save</label>`).join('')}`:''}${i===2?'<p class="cp-help">FMRC confirms delivery eligibility and includes the shipping fee in your quotation. Your preferred completion date is a request, not a guaranteed deadline.</p>':''}</section>`).join('')}<section data-step="3" hidden><h2>Review your request</h2><div data-review></div><p class="cp-notice">Submitting a request does not place a paid order. FMRC will review your idea and send a quotation for your approval.</p></section><div class="cp-page-footer"><button type="button" class="cp-btn secondary" data-save-draft>Save Draft</button><div class="cp-actions"><button type="button" class="cp-btn secondary" data-back>Back</button><button type="button" class="cp-btn" data-next>Continue</button><button type="submit" class="cp-btn" data-submit hidden>Submit Request</button></div></div></form>`);
       const form=root.querySelector('[data-editor]');for(const key of spec.advice_fields||[]){const input=form.querySelector(`[name=advice][value="${key}"]`);if(input)input.checked=true;}
       syncDelivery(form);setStep(0);capture();
     };
-    const setStep = next => {step=next;root.querySelectorAll('[data-step]').forEach(el=>el.hidden=Number(el.dataset.step)!==step);root.querySelectorAll('[data-step-label]').forEach(el=>{if(Number(el.dataset.stepLabel)===step)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});const heading=root.querySelector(`[data-step="${step}"] h2`);if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}root.querySelector('[data-back]').hidden=step===0;root.querySelector('[data-next]').hidden=step===3;root.querySelector('[data-submit]').hidden=step!==3;if(step===3)root.querySelector('[data-review]').innerHTML=summary(readSpecs(root.querySelector('[data-editor]')));};
+    const setStep = (next, scroll = false) => {step=next;root.querySelectorAll('[data-step]').forEach(el=>el.hidden=Number(el.dataset.step)!==step);root.querySelectorAll('[data-step-label]').forEach(el=>{if(Number(el.dataset.stepLabel)===step)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});const heading=root.querySelector(`[data-step="${step}"] h2`);if(heading){heading.tabIndex=-1;heading.focus({preventScroll:!scroll});}root.querySelector('[data-back]').hidden=step===0;root.querySelector('[data-next]').hidden=step===3;root.querySelector('[data-submit]').hidden=step!==3;if(step===3)root.querySelector('[data-review]').innerHTML=summary(readSpecs(root.querySelector('[data-editor]')));};
     const quoteCard = q => `<article class="cp-card"><div class="cp-heading"><h2>Quotation ${q.version}</h2><span class="cp-pill">${esc(titleCase(q.status))}</span></div>${summary(q.snapshot.specifications)}${filesMarkup((current.attachments||[]).filter(f=>(q.snapshot.proof_ids||[]).includes(f.id)))}<p class="cp-help">Production estimate: ${q.snapshot.production_days} working days after payment confirmation.${q.snapshot.specifications.fulfillment_type==='delivery'?` Estimated transit: ${q.snapshot.transit_min_days}–${q.snapshot.transit_max_days} working days.`:''}</p>${q.snapshot.quote_note?`<p>${esc(q.snapshot.quote_note)}</p>`:''}<dl class="cp-summary cp-money"><dt>Unit price</dt><dd>${money(q.unit_price)}</dd><dt>Product subtotal</dt><dd>${money(q.subtotal)}</dd><dt>Shipping</dt><dd>${money(q.shipping_fee)}</dd><dt>Total</dt><dd class="cp-total">${money(q.total)}</dd><dt>Pay by</dt><dd>${date(q.expires_at)}</dd></dl>${q.can_accept?`<form data-accept="${q.id}"><label class="cp-check"><input type="checkbox" name="design_accepted" required>I approve this design, specifications, quantity, price, and fulfillment details.</label><label class="cp-check"><input type="checkbox" name="policy_accepted" required>I agree to the <a href="../products-page/transaction-terms.html?version=${encodeURIComponent(policy?.version||'')}" target="_blank" rel="noopener">transaction terms</a> and <a href="../products-page/refund-policy.html?version=${encodeURIComponent(policy?.version||'')}" target="_blank" rel="noopener">refund policy</a>.</label><button class="cp-btn" type="submit" ${policy?.version?'':'disabled'}>Accept Quotation & Pay</button></form>`:''}</article>`;
     const orderCard = o => `<article class="cp-card"><div class="cp-heading"><h2>${esc(o.order_no)}</h2><span class="cp-pill">${esc(o.status_label)}</span></div><p>Total: <strong>${money(o.total)}</strong> · Payment: ${esc(titleCase(o.payment_status||'pending'))}</p><div class="cp-actions">${!operator&&o.can_pay?`<button class="cp-btn" data-pay="${o.id}">Continue to Payment</button>`:''}${operator&&o.custom_actions?.start?`<button class="cp-btn" data-production="start" data-order="${o.id}">Start Production</button>`:''}${operator&&o.custom_actions?.ready?`<button class="cp-btn" data-production="ready" data-order="${o.id}">Mark Ready</button>`:''}<a class="cp-btn secondary" href="${operator?'orders.html?notif=order&id='+o.id:'../home-page/main.html?orders=1&order_id='+o.id}">Open Order</a></div>${o.tracking?`<p>J&T waybill: <strong>${esc(o.tracking.tracking_number||'Awaiting handover')}</strong></p><p class="cp-help">${esc(o.tracking.status_label||o.tracking.status||'Tracking will appear after FMRC records the actual waybill.')}</p>`:''}</article>`;
     const renderDetail = () => {
@@ -207,7 +208,7 @@
       if(!quiet){current=null;edit=false;quoteEdit=false;dirty=false;}
       const params=new URLSearchParams({page,...listState});const data=await request(prefix+'?'+params);
       if (quiet && (current || busy || !visible() || root.contains(document.activeElement))) return;
-      if (manager && (filtersChanged(readListFilters()) || String(params) !== String(new URLSearchParams({page,...listState})))) return;
+      if (!visible() || root !== listRoot || filtersChanged(readListFilters()) || String(params) !== String(new URLSearchParams({page,...listState}))) return;
       if (page > data.last_page) {
         page = data.last_page;
         return loadList(quiet, rebuildFilters);
@@ -223,14 +224,16 @@
         <label class="${fieldClass}">Search<input class="${inputClass}" data-search maxlength="180" value="${esc(listState.search || '')}" placeholder="${operator ? 'Request, product or customer' : 'Request or product'}"></label>
         <label class="${fieldClass}">Status<select class="${inputClass}" data-status-filter><option value="all">All statuses</option>${statuses.filter(status => !operator || status !== 'draft').map(status => `<option value="${status}" ${listState.status === status ? 'selected' : ''}>${esc(titleCase(status))}</option>`).join('')}</select></label>
         <label class="${fieldClass}">Service<select class="${inputClass}" data-service-filter><option value="">All services</option>${historical ? `<option selected value="${esc(listState.service_id)}">Historical service</option>` : ''}${serviceOptions}</select></label>
-        ${operator ? `<button type="submit" class="${buttonClass}">Search</button>` : '<button type="button" class="cp-btn secondary" data-cp-modal-refresh><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>'}
+        ${operator ? '' : '<button type="button" class="cp-btn secondary" data-cp-modal-refresh><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>'}
       </form>`;
       const tones = {submitted:'status-blue',under_review:'status-blue',needs_information:'status-yellow',quoted:'status-yellow',ordered:'status-green',payment_review:'status-yellow',declined:'status-red',cancelled:'status-grey',expired:'status-grey'};
       const status = row => `<span class="${operator ? 'status-pill ' + (tones[row.status] || 'status-grey') : 'cp-pill'}" data-status="${esc(row.status)}">${esc(row.status_label)}</span>`;
-      const view = row => `<button type="button" class="${buttonClass}" data-open="${row.id}">View request</button>`;
+      const view = row => operator
+        ? `<button type="button" data-open="${row.id}" aria-label="View ${esc(row.reference)}" title="View request"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>`
+        : `<button type="button" class="${buttonClass}" data-open="${row.id}">View request</button>`;
       const empty = '<div class="cp-empty"><h3>No requests found</h3><p>Requests matching your filters will appear here.</p></div>';
       const rows = operator
-        ? `<div class="table-wrapper"><table class="admin-table"><thead><tr><th>Request</th><th>Product / Service</th><th>Customer</th><th>Status</th><th>Updated</th><th class="sticky-action">Action</th></tr></thead><tbody>${data.data.map(row => `<tr><td>${esc(row.reference)}</td><td><strong>${esc(row.title)}</strong><br>${esc(row.service?.title)}</td><td>${esc(row.customer_name)}</td><td>${status(row)}</td><td>${date(row.updated_at)}</td><td class="sticky-action">${view(row)}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="table-wrapper"><table class="admin-table" id="customRequestsTable"><thead><tr><th>Request</th><th>Product / Service</th><th>Customer</th><th>Status</th><th>Updated</th><th class="sticky-action">Action</th></tr></thead><tbody>${data.data.map(row => `<tr><td>${esc(row.reference)}</td><td><strong>${esc(row.title)}</strong><br>${esc(row.service?.title)}</td><td>${esc(row.customer_name)}</td><td>${status(row)}</td><td>${date(row.updated_at)}</td><td class="action-icons sticky-action">${view(row)}</td></tr>`).join('')}</tbody></table></div>`
         : `<div class="cp-request-list">${data.data.map(row => `<article class="cp-card"><div class="cp-heading"><strong>${esc(row.reference)}</strong>${status(row)}</div><h3>${esc(row.title)}</h3><p>${esc(row.service?.title)} · ${date(row.updated_at)}</p><div class="cp-actions">${view(row)}</div></article>`).join('')}</div>`;
       const results = data.data.length ? rows : empty;
       if (manager) {
@@ -259,8 +262,17 @@
         <input class="page-number" type="number" data-page-number min="1" max="${data.last_page}" value="${page}" aria-label="Go to custom requests page">
         <button type="button" class="page-btn" aria-label="Next page" data-page="${page+1}" ${page>=data.last_page?'disabled':''}><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
       </div>`;
-      shell(`<article class="panel cp-orders-card"><div class="panel-header"><h3>Custom Requests</h3></div>${filters}${results}
-        <div class="table-footer"><span class="table-footer-meta">${data.total} request${data.total===1?'':'s'} · Page ${data.current_page} of ${data.last_page}</span>${pagination}</div></article>`);
+      const footer = `<span class="table-footer-meta">${data.total} request${data.total===1?'':'s'} · Page ${data.current_page} of ${data.last_page}</span>${pagination}`;
+      const resultsNode = root.querySelector('[data-list-results]');
+      if (resultsNode && !rebuildFilters) {
+        resultsNode.innerHTML = results;
+        root.querySelector('[data-list-footer]').innerHTML = footer;
+        root.querySelector('[data-table-count]').textContent = `${data.total} request${data.total === 1 ? '' : 's'}`;
+        setNotice('');
+        root.querySelector('[data-retry]')?.remove();
+      } else {
+        shell(`<article class="panel cp-orders-card portal-data-card"><div class="panel-header portal-table-header"><h3 class="portal-table-title"><i class="fa-solid fa-pen-ruler portal-table-icon" aria-hidden="true"></i> Custom Requests</h3><span class="portal-table-count" data-table-count>${data.total} request${data.total === 1 ? '' : 's'}</span></div>${filters}<div data-list-results>${results}</div><div class="table-footer" data-list-footer>${footer}</div></article>`);
+      }
       const badge=document.getElementById('tabCountCustomRequests');if(badge)badge.textContent=Object.values(data.counts||{}).reduce((sum,n)=>sum+Number(n),0);capture();
     };
     const loadPolicy = async () => {if(!operator){try{policy=(await request('/commerce/policy')).data;}catch{policy=null;}}};
@@ -311,11 +323,11 @@
       listState = filters;
       page = 1;
     };
-    const applyManagerFilters = async () => {
+    const applyListFilters = async () => {
       const filters = readListFilters();
-      if (!manager?.isOpen() || !filtersChanged(filters)) return;
+      if (!visible() || !filtersChanged(filters)) return;
       if (busy) {
-        searchTimer = setTimeout(applyManagerFilters, 100);
+        searchTimer = setTimeout(applyListFilters, 100);
         return;
       }
       syncListFilters(filters);
@@ -342,18 +354,18 @@
         try{const channel=new BroadcastChannel('fmrc-orders-realtime');channel.postMessage({type:'updated',source:'custom-products',at:Date.now()});channel.close();}catch{}
         if(result.payment?.checkout_url){const url=new URL(result.payment.checkout_url);if(url.protocol==='https:'&&url.hostname==='checkout.paymongo.com')location.assign(url.href);}
         return result;
-      }catch(error){if(error.status&&error.status<500)requestKey=null;setNotice(error.message,true);if(error.status===409)root.querySelector('[data-review-updates]').hidden=false;throw error;}
+      }catch(error){if(error.status&&error.status<500)requestKey=null;if(error.status===409)root.querySelector('[data-review-updates]').hidden=false;throw error;}
       finally{busy=false;root.removeAttribute('aria-busy');buttonStates.forEach(([button,disabled])=>{if(button.isConnected)button.disabled=disabled;});if(!policy?.version)root.querySelector('[data-accept] button')?.setAttribute('disabled','');}
     };
     const trackInput = event => {
       if (!visible() || !root.contains(event.target)) return;
-      if (manager && event.target.closest('[data-list-filters]')) {
+      if (event.target.closest('[data-list-filters]')) {
         const typed = event.target.matches('[data-search]') &&
           ((event.type === 'input' && !event.isComposing) || event.type === 'compositionend');
         const selected = event.type === 'change' && event.target.matches('select');
         if (typed || selected) {
           clearTimeout(searchTimer);
-          searchTimer = setTimeout(applyManagerFilters, typed ? 250 : 0);
+          searchTimer = setTimeout(applyListFilters, typed ? 250 : 0);
         }
         return;
       }
@@ -365,8 +377,17 @@
     };
     document.addEventListener('input', trackInput);
     document.addEventListener('change', trackInput);
-    if (manager) document.addEventListener('compositionend', trackInput);
-    const run = fn => Promise.resolve().then(fn).catch(error=>setNotice(error.message||'Unable to complete this action. Please try again.',true));
+    if (!dedicated) document.addEventListener('compositionend', trackInput);
+    const actionError = async (message, opener) => {
+      if (operator || !window.showCustomerPopup) {
+        setNotice(message, true);
+        return;
+      }
+      await window.showCustomerPopup(message, {title: 'Could not complete this action', tone: 'error'});
+      if (opener?.isConnected) opener.focus();
+    };
+    const run = (fn, opener = document.activeElement) => Promise.resolve().then(fn)
+      .catch(error => actionError(error.message || 'Please try again.', opener));
     document.addEventListener('click',event=>{const button=event.target.closest('button,a');if(!button||busy||!visible())return;
     const inPagination = manager && !manager.pagination.hidden && manager.pagination.contains(button);
     if (!root.contains(button) && !inPagination) return;
@@ -392,13 +413,17 @@
         });
         if (!button.isConnected) root.querySelector('[data-cp-modal-refresh]')?.focus({preventScroll: true});
       }
-      if(button.matches('[data-next]')){const form=root.querySelector('[data-editor]');const invalid=[...form.querySelectorAll(`[data-step="${step}"] :is(input,select,textarea)`)].find(i=>!i.checkValidity());if(invalid){invalid.reportValidity();return;}setStep(Math.min(3,step+1));}
-      if(button.matches('[data-back]'))setStep(Math.max(0,step-1));
+      if(button.matches('[data-next]')){
+        const invalid = [...root.querySelectorAll(`[data-step="${step}"] :is(input,select,textarea)`)].find(field => !field.checkValidity());
+        if (invalid) return actionError(invalid.validationMessage, invalid);
+        setStep(Math.min(3,step+1), true);
+      }
+      if(button.matches('[data-back]'))setStep(Math.max(0,step-1), true);
       if(button.matches('[data-save-draft]'))await saveRequest(false);
       if (button.matches('[data-page]')) {
         if (manager && filtersChanged(readListFilters())) {
           clearTimeout(searchTimer);
-          await applyManagerFilters();
+          await applyListFilters();
         } else {
           page = Number(button.dataset.page);
           await load(() => loadList());
@@ -409,28 +434,81 @@
       if(button.matches('[data-file]')){const response=await fetch(api+prefix+'/'+current.id+'/attachments/'+button.dataset.file,{headers:{Authorization:`Bearer ${token()}`}});if(!response.ok)throw Error('This design file is unavailable.');const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download=current.attachments.find(f=>String(f.id)===button.dataset.file)?.name||'design';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
       if(button.matches('[data-status]')){
         if(!await canLeave())return;
-        const action=button.dataset.status;const dialog=document.createElement('dialog');dialog.className='cp-dialog';dialog.innerHTML=`<form><h2>${esc(titleCase(action))}</h2><label class="cp-field">${action==='review'?'Review note (optional)':'Reason or requested details'}<textarea name="note" maxlength="1000" ${action==='review'?'':'required'}></textarea></label><p role="alert" data-dialog-error hidden></p><div class="cp-actions"><button type="button" class="cp-btn secondary" data-dismiss>Cancel</button><button class="cp-btn" type="submit">Confirm</button></div></form>`;document.body.append(dialog);dialog.querySelector('[data-dismiss]').onclick=()=>{if(!busy)dialog.close();};dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});dialog.addEventListener('close',()=>dialog.remove());dialog.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;const submit=dialog.querySelector('[type=submit]');submit.disabled=true;try{await act(action,{note:dialog.querySelector('textarea').value});dialog.close();}catch(error){const notice=dialog.querySelector('[data-dialog-error]');notice.textContent=error.message;notice.hidden=false;}finally{submit.disabled=false;}};dialog.showModal();
+        const action = button.dataset.status;
+        const dialog = document.createElement('dialog');
+        dialog.className = 'cp-dialog';
+        dialog.innerHTML = `<form><h2>${esc(titleCase(action))}</h2><label class="cp-field">${action==='review'?'Review note (optional)':'Reason or requested details'}<textarea name="note" maxlength="1000" ${action==='review'?'':'required'}></textarea></label><p role="alert" data-dialog-error hidden></p><div class="cp-actions"><button type="button" class="cp-btn secondary" data-dismiss>Cancel</button><button class="cp-btn" type="submit">Confirm</button></div></form>`;
+        let pausedForError = false;
+        document.body.append(dialog);
+        dialog.querySelector('[data-dismiss]').onclick = () => { if (!busy) dialog.close(); };
+        dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+        dialog.addEventListener('close', () => { if (!pausedForError) dialog.remove(); });
+        dialog.querySelector('form').onsubmit = async event => {
+          event.preventDefault();
+          if (busy) return;
+          const submit = dialog.querySelector('[type=submit]');
+          const note = dialog.querySelector('textarea');
+          submit.disabled = true;
+          try {
+            await act(action, {note: note.value});
+            dialog.close();
+          } catch (error) {
+            if (operator || !window.showCustomerPopup) {
+              const notice = dialog.querySelector('[data-dialog-error]');
+              notice.textContent = error.message;
+              notice.hidden = false;
+            } else {
+              // The shared popup must be outside the native dialog's top layer.
+              pausedForError = true;
+              const closed = new Promise(resolve => dialog.addEventListener('close', resolve, {once: true}));
+              dialog.close();
+              await closed;
+              await actionError(error.message);
+              pausedForError = false;
+              if (visible()) { dialog.showModal(); note.focus(); }
+              else dialog.remove();
+            }
+          } finally {
+            submit.disabled = false;
+          }
+        };
+        dialog.showModal();
       }
     });});
     const saveRequest=async submit=>{
-      const form=root.querySelector('[data-editor]'),spec=readSpecs(form),service=Number(form.elements.service_id.value),files=selectedFiles(form);validateFiles(files);
-      if(!service)throw Error('Choose an available FMRC service.');
-      if(submit&&!await confirm('Submit this request to FMRC for review and quotation?','Submit Request'))return;
-      if(!current){const result=await request(prefix,{creation_key:creationKey,service_id:service});current=result.data;}
-      await act(submit?'submit':'save',{service_id:service,specifications:spec,remove_attachment_ids:new FormData(form).getAll('remove_attachment_ids').map(Number)},files);
+      if (busy) return;
+      const form = root.querySelector('[data-editor]');
+      const service = Number(form.elements.service_id.value);
+      const files = selectedFiles(form);
+      validateFiles(files);
+      if (!service) return actionError('Choose an available FMRC service.', form.elements.service_id);
+      const data = {service_id: service, specifications: readSpecs(form),
+        remove_attachment_ids: new FormData(form).getAll('remove_attachment_ids').map(Number)};
+      busy = true;
+      try {
+        if (submit && !await confirm('Submit this request to FMRC for review and quotation?', 'Submit Request')) return;
+        form.inert = true;
+        if (!current) current = (await request(prefix, {creation_key: creationKey, service_id: service})).data;
+        if (!Number.isInteger(current.revision)) current = (await request(prefix + '/' + current.id)).data;
+      } catch (error) {
+        form.inert = false;
+        throw error;
+      } finally {
+        busy = false;
+      }
+      try {
+        await act(submit ? 'submit' : 'save', data, files);
+      } finally {
+        form.inert = false;
+      }
     };
     document.addEventListener('submit',event=>{if(!visible()||!root.contains(event.target))return;event.preventDefault();if(busy)return;const form=event.target;run(async()=>{
       if(form.matches('[data-list-filters]')){
-        if (manager) {
-          clearTimeout(searchTimer);
-          await applyManagerFilters();
-          return;
-        }
-        listState = readListFilters();
-        page = 1;
-        await load(() => loadList());
+        clearTimeout(searchTimer);
+        await applyListFilters();
+        return;
       }
-      if(form.matches('[data-editor]')){const invalid=[...form.elements].find(i=>i.checkValidity&&!i.checkValidity());if(invalid){const section=invalid.closest('[data-step]');if(section)setStep(Number(section.dataset.step));invalid.reportValidity();return;}await saveRequest(true);}
+      if(form.matches('[data-editor]')){const invalid=[...form.elements].find(i=>i.checkValidity&&!i.checkValidity());if(invalid){const section=invalid.closest('[data-step]');if(section)setStep(Number(section.dataset.step));return actionError(invalid.validationMessage,invalid);}await saveRequest(true);}
       if(form.matches('[data-message]'))await act('message',{body:form.elements.body.value},selectedFiles(form));
       if(form.matches('[data-quote-editor]')){const data=Object.fromEntries(new FormData(form));const payload={specifications:readSpecs(form),unit_price:Number(data.unit_price),shipping_fee:Number(data.shipping_fee),production_days:Number(data.production_days)||null,transit_min_days:Number(data.transit_min_days)||null,transit_max_days:Number(data.transit_max_days)||null,proof_ids:new FormData(form).getAll('proof_ids').map(Number),specifications_confirmed:!!data.specifications_confirmed,delivery_confirmed:!!data.delivery_confirmed,quote_note:data.quote_note};const action=event.submitter?.value||'save_quote';if(action==='send_quote'&&!form.reportValidity())return;if(action==='send_quote'&&!await confirm('Send this complete quotation to the customer? It will be valid for seven days.','Send Quotation'))return;await act(action,payload);}
       if(form.matches('[data-accept]')){if(!policy?.version)throw Error('Transaction policies are unavailable. Contact FMRC before payment.');const message=root.querySelector('[data-message]'),unsent=message&&(message.elements.body.value.trim()||selectedFiles(message).length);if(!await confirm((unsent?'Your unsent message will be discarded. ':'')+'Accept this quotation and continue to secure payment?','Accept & Pay'))return;await act('accept',{quote_id:Number(form.dataset.accept),design_accepted:form.elements.design_accepted.checked,policy_accepted:form.elements.policy_accepted.checked,policy_version:policy.version,app_context:location.pathname.startsWith('/apps/customer/')?'customer':''});}

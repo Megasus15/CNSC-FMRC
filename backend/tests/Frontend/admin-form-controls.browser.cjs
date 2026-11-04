@@ -26,7 +26,7 @@ test('every Admin/Staff page and modal field uses one thin focus treatment at ev
       const expected=theme==='dark'&&!page.startsWith('/admin-auth')?'rgb(239, 176, 188)':'rgb(128, 0, 0)';
       if(result.some(field=>!['checkbox','radio','range'].includes(field.type)&&field.color!==expected)){await h.pause(250);result=await h.run(measure);}
       for(const field of result){
-        if(['checkbox','radio','range'].includes(field.type)){assert.equal(field.outline,'1px',`${page} ${width} ${theme} ${field.id}`);continue;}
+        if(['checkbox','radio','range'].includes(field.type)){assert.equal(field.outline,field.id==='svcAcceptsCustom'?'2px':'1px',`${page} ${width} ${theme} ${field.id}`);continue;}
         assert.equal(field.border,'1px',`${page} ${width} ${theme} ${field.id}: border`);
         assert.equal(field.color,expected,`${page} ${width} ${theme} ${field.id}: color`);
         assert.equal(field.outlineStyle,'none',`${page} ${width} ${theme} ${field.id}: no double outline`);

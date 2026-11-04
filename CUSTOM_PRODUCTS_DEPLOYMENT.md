@@ -7,7 +7,7 @@ This change adds private custom requests, versioned quotations, hosted full paym
 Deploy the source assets in `products-page`, `services-page`, `home-page`, `customer-auth`, `admin-page`, and `staff-page`, and the changed Laravel application files, routes, migration, and console command. The normal website and Customer/Team PWA routes resolve these same source files through `PwaAssetController` and the existing Apache aliases. Do not copy the recursive legacy `backend/public/frontend` tree over the source pages.
 
 1. In hPanel, open the active website's File Manager and confirm which folder contains the live `backend/artisan`. Export its database through **Databases → phpMyAdmin → Export** and keep the export privately. Back up the deployed application files and the private upload directory. Confirm your Hostinger Git deployment configuration before pushing through GitHub Desktop.
-2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products assets use version `1.2`.
+2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.2`.
 3. Open Hostinger SSH or a terminal connected to the hosting account. Change into the active `backend` directory identified in File Manager. Check where you are and inspect migration status. These commands are read-only.
 
    ```sh
@@ -86,6 +86,13 @@ Local repair verification on November 4, 2026:
 - The isolated MySQL suite passed **37 tests** with the complete schema. Separate MySQL API checks covered the pending and partial schema, including preserving regular revenue and keeping linked custom orders classified correctly.
 - Chrome verified that clicking the request links opens separate tabs and leaves Products and Services in place. The standalone form uses the policy page layout. Browser checks covered hover states, modal centering and focus return, retry, consent, and Customer and Team PWA entry points.
 - Staging and authenticated Hostinger checks remain pending. Local payment, refund and courier verification used fixtures.
+
+UI and first-save follow-up on November 4, 2026:
+
+- The first draft response reloads database defaults before returning its status and numeric revision. A focused Laravel run passed 90 tests with 911 assertions, including create-to-save and create-to-submit requests with and without private attachments.
+- The Custom Products browser suite passed all four scenarios, covering duplicate clicks, failed-save retry without another draft, the shared customer error popup, search focus, balanced Orders/Archives tabs, service-card actions, and Customer/Team links.
+- The shared form suite checked 44 pages at three widths in both themes. The portal theme suite checked 43 pages with 86 theme renders, including operational table coverage and the anchored product-performance pagination. Local Apache verified normal and PWA route aliases.
+- Publish the updated controller and source assets together. This follow-up uses the existing custom-product schema. The user has confirmed the live migration ran in batch 35 and supplied a working empty Admin Custom Requests list. Resume authenticated live checks with service eligibility, Save Draft, and Submit Request after deploying this revision. Payment, production and courier verification remain pending.
 
 - [ ] Staging migration and private file download/upload permissions.
 - [ ] Admin and Staff: enable a suitable service; unsaved eligibility/copy stays private; Save All Changes publishes both.

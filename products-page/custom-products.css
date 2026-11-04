@@ -102,15 +102,70 @@ html[data-theme="dark"] .cp-dialog{--cp-accent:#efb0bc;--cp-button-text:#24171c;
 
 .cp-breadcrumb a { color: var(--customer-wine, #6b202b); text-underline-offset: 3px; }
 .cp-standalone-heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 20px;
+  gap: 24px 32px;
+  padding-bottom: 24px;
 }
 
 .cp-standalone-heading p { color: var(--customer-ink-muted, #62575d); font-size: .88rem; }
+
+.cp-workspace [data-editor] .cp-steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+}
+
+.cp-workspace [data-editor] .cp-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--cp-line);
+  border-radius: 8px;
+  font-size: .76rem;
+  line-height: 1.3;
+}
+
+.cp-step-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cp-muted) 12%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-workspace [data-editor] .cp-steps [aria-current="step"] {
+  border-color: color-mix(in srgb, var(--cp-accent) 25%, var(--cp-line));
+  background: color-mix(in srgb, var(--cp-accent) 6%, var(--cp-paper));
+}
+
+.cp-steps [aria-current="step"] .cp-step-number {
+  color: var(--cp-button-text, #fff);
+  background: var(--cp-accent);
+}
+
+.cp-workspace [data-editor] [data-step] > h2 {
+  margin: 0 0 16px;
+  scroll-margin-top: 110px;
+}
+
+.cp-workspace [data-editor] [data-step] > h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.cp-workspace [data-editor] .cp-design-field { margin-top: 18px; }
+
+@media (max-width: 720px) {
+  .cp-standalone-heading { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .cp-standalone-heading > .cp-btn { justify-self: start; }
+  .cp-workspace [data-editor] .cp-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
 
 .cp-btn {
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;

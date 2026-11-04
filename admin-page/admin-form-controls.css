@@ -21,10 +21,15 @@ html body .chip-input-area:focus-within {
 }
 html body .chip-hidden-input:is(:focus, :focus-visible) { outline: none !important; box-shadow: none !important; }
 html body :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--admin-field-focus); }
-html body :is(input[type="checkbox"], input[type="radio"], input[type="range"]):is(:focus, :focus-visible) {
+html body :is(input[type="checkbox"], input[type="radio"], input[type="range"]):not(#svcAcceptsCustom):is(:focus, :focus-visible) {
   outline: 1px solid var(--admin-field-focus) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 0 3px var(--admin-field-halo) !important;
+}
+
+html body #svcAcceptsCustom:focus-visible {
+  outline: 2px solid var(--text-muted, #666);
+  outline-offset: 3px;
 }
 html body :is(.settings-switch, .mt-switch) input:focus-visible + :is(.settings-switch-track, .mt-switch-track),
 html body .theme-option input:focus-visible + .theme-option-frame,

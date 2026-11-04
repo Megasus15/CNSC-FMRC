@@ -182,9 +182,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
                 <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
+              ${item.accepts_custom_requests ? `<a class="cp-btn secondary service-quote-action" target="_blank" rel="noopener noreferrer" aria-label="Request a quote for ${titleAttr} (opens in a new tab)" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Quote</a>` : ""}
             </div>
           </div>
-          ${item.accepts_custom_requests ? `<a class="cp-btn secondary" target="_blank" rel="noopener noreferrer" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Custom Product</a>` : ""}${imageMarkup}
+          ${imageMarkup}
         </article>
       `;
     }).join("");

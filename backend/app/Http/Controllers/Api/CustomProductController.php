@@ -58,7 +58,7 @@ class CustomProductController extends Controller
         $r = CustomProductRequest::firstOrCreate(['customer_id'=>$request->user()->id,'creation_key'=>$data['creation_key']],
             ['service_id'=>$service->id,'service_snapshot'=>['id'=>$service->id,'title'=>$service->title,'category'=>$service->category],'specifications'=>[]]);
         abort_unless($r->service_id === $service->id, 409, 'This draft key was used for another service. Open the saved draft or start a new request.');
-        return response()->json(['data'=>CustomProducts::present($r,false)],201)->header('Cache-Control','no-store');
+        return response()->json(['data'=>CustomProducts::present($r->refresh(),false)],201)->header('Cache-Control','no-store');
     }
 
     public function show(Request $request, CustomProductRequest $customRequest)

@@ -3045,7 +3045,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderReturnItemsTable = (items) => {
     const list = Array.isArray(items) ? items : [];
     if (!list.length) {
-      return `<span class="return-empty-note">No item lines recorded.</span>`;
+      return `<span class="return-empty-note">No returned items recorded.</span>`;
     }
 
     const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
@@ -3057,6 +3057,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const pageItems = list.slice(start, start + PAGE_SIZE);
 
     return `
+      <section class="portal-data-card">
+        <header class="portal-table-header">
+          <h4 class="portal-table-title"><i class="fa-solid fa-box portal-table-icon" aria-hidden="true"></i> Returned items</h4>
+          <span class="portal-table-count" data-table-count>${list.length} items</span>
+        </header>
       <div class="return-items-scroll">
         <table class="return-items-table">
           <thead>
@@ -3088,7 +3093,8 @@ document.addEventListener("DOMContentLoaded", () => {
                </div>
              </div>`
           : ""
-      }`;
+      }
+      </section>`;
   };
 
   const renderReturnTimeline = (timeline) => {
@@ -3146,7 +3152,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ${detail?.item_received_at_label ? returnField("Item Received", detail.item_received_at_label) : ""}
 
         <div class="field-stack full">
-          <label>Returned Item(s)</label>
           ${renderReturnItemsTable(detail?.items)}
         </div>
 

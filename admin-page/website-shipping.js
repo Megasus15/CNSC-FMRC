@@ -95,8 +95,12 @@
       if (!settings) return '<div class="shipping-empty"><strong>Pickup only</strong><p>Publish approved delivery rates to offer shipping. Pickup at FMRC has no shipping fee.</p></div>';
       if (!settings.enabled) return '<div class="shipping-empty"><strong>Delivery is turned off</strong><p>Customers can choose free pickup at FMRC.</p></div>';
       if (!settings.zones.length) return '<div class="shipping-empty"><strong>No destinations added</strong><p>Add a destination and its rate before publishing delivery settings.</p></div>';
-      return '<div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>'+settings.zones.map(zone=>
-        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')+'</tbody></table></div>';
+      return `<section class="portal-data-card">
+        <header class="portal-table-header">
+          <h3 class="portal-table-title"><i class="fa-solid fa-truck portal-table-icon" aria-hidden="true"></i> Delivery rates</h3>
+          <span class="portal-table-count" data-table-count>${settings.zones.length} destinations</span>
+        </header><div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>${settings.zones.map(zone=>
+        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')}</tbody></table></div></section>`;
     };
     const sync = () => {
       const values=read(),changed=!!record&&normalized(values)!==baseline;

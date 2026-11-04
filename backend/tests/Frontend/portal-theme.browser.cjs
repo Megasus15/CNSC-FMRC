@@ -340,6 +340,8 @@ test('all portal pages render both themes; account-scoped settings synchronize l
           await settled();
           await checkHeader(`${folder}/${file} ${theme}`);
           await checkLogout(theme,`${folder}/${file}`);
+          const uncoveredTables = await evaluate(`Array.from(document.querySelectorAll('table:is(.admin-table, .inv-variant-table, .analytics-perf-table, .return-items-table, .shipping-table):not(.portal-data-table)'), table => table.id || table.className)`);
+          assert.deepEqual(uncoveredTables, [], `${folder}/${file} ${theme}: Inventory table styling covers operational tables`);
           if (await evaluate('!!document.querySelector(".wm-save-bar[data-dock-save-bar]")')) await checkBottomBar(`${folder}/${file} ${theme}`,'.wm-save-bar');
           const report = await evaluate(`(() => { const selectors=['body','.sidebar','.top-header','.panel','.account-summary-card','.account-form-card','.modal-card','.wm-section','.settings-section','.admin-global-skeleton-card'];return selectors.flatMap(selector=>[...document.querySelectorAll(selector)].slice(0,3).map(el=>{const s=getComputedStyle(el);return {selector,background:s.backgroundColor,color:s.color}})); })()`);
           report.forEach(item => { const rgb = item.background.match(/[\d.]+/g)?.map(Number); if (!rgb || rgb[3] === 0) return; const mean = (rgb[0]+rgb[1]+rgb[2])/3; assert(theme === 'dark' ? mean < 90 : mean > 180, `${folder}/${file} ${theme} ${item.selector}: ${item.background}`); });

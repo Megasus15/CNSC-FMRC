@@ -197,6 +197,91 @@
   font-size: 1rem;
 }
 
+/* Inventory is the reference for operational table cards in both portals. */
+.portal-data-card {
+  --table-card-accent: var(--primary-color, #800000);
+  --table-card-tint: #f8e8e8;
+  --table-card-badge-line: #f2d0d0;
+  --table-card-line: var(--border-color, #e5e7eb);
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--table-card-line);
+  border-radius: 12px;
+  background: var(--surface, #fdfaf6);
+}
+
+.portal-data-card .portal-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--table-card-line);
+}
+
+.portal-data-card .portal-table-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--table-card-accent);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.portal-table-title > .portal-table-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 8px;
+  color: var(--table-card-accent);
+  background: var(--table-card-tint);
+  font-size: .95rem;
+}
+
+.portal-table-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--table-card-badge-line);
+  border-radius: 20px;
+  background: var(--table-card-tint);
+  color: var(--table-card-accent);
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.portal-table-count[data-derived-count] { margin-inline-start: auto; }
+
+.portal-data-card .portal-data-table { width: 100%; border-collapse: collapse; }
+.portal-data-card .portal-data-table :is(th, td) {
+  border-bottom: 1px solid color-mix(in srgb, var(--table-card-line) 65%, transparent);
+  vertical-align: middle;
+}
+.portal-data-card .portal-data-table thead th { font-weight: 600; }
+
+.analytics-card.portal-data-card { padding-bottom: 0; }
+.portal-data-card > .analytics-card-header.portal-table-header { padding: 0 0 12px; }
+
+@media (min-width: 721px) {
+  .portal-data-card .portal-data-table :is(th, td) { padding-block: 12px; }
+  .portal-data-card .portal-data-table th { font-size: .72rem; }
+  .portal-data-card .portal-data-table td { font-size: .8rem; }
+}
+
+html[data-theme="dark"] .portal-data-card {
+  --table-card-accent: var(--portal-accent-text, var(--admin-field-focus, #f5b4bd));
+  --table-card-tint: color-mix(in srgb, var(--table-card-accent) 9%, var(--surface, #252226));
+  --table-card-badge-line: color-mix(in srgb, var(--table-card-accent) 18%, var(--table-card-line));
+  background: var(--surface, var(--portal-surface, #252226));
+}
+
 .table-scroll-hint {
   display: inline-flex;
   align-items: center;
@@ -1810,6 +1895,61 @@ input.page-number:focus,
   color: #5a6272;
 }
 
+.archive-search-bar {
+  position: relative;
+  width: min(100%, 360px);
+  margin-bottom: 14px;
+}
+.archive-search-bar > i {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  color: var(--text-muted, #687080);
+  pointer-events: none;
+}
+.archive-search-bar > input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding-inline-start: 36px;
+}
+
+@media (min-width: 721px) {
+  .module-content:has(> :is(#ordersModuleTabs, #archivesModuleTabs)) {
+    container: portal-sections / inline-size;
+  }
+
+  :is(#ordersModuleTabs, #archivesModuleTabs) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :is(#ordersModuleTabs, #archivesModuleTabs) > .archive-tab-btn {
+    justify-content: center;
+    min-width: 0;
+    min-height: 40px;
+    padding: 7px 9px;
+    border-width: 1px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  @container portal-sections (min-width: 1120px) {
+    #ordersModuleTabs {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 1fr);
+    }
+    #archivesModuleTabs { grid-template-columns: repeat(20, minmax(0, 1fr)); }
+    #archivesModuleTabs > .archive-tab-btn { grid-column: span 4; }
+    #archivesModuleTabs > .archive-tab-btn:nth-child(n+6) { grid-column: span 5; }
+  }
+
+  @container portal-sections (min-width: 1650px) {
+    #archivesModuleTabs { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+    #archivesModuleTabs > .archive-tab-btn:nth-child(n) { grid-column: auto; }
+  }
+}
+
 .archive-section {
   display: none;
 }
@@ -1824,12 +1964,6 @@ input.page-number:focus,
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
-}
-
-.incoming-orders-panel {
-  border: 1px solid #f2d8d8;
-  background: linear-gradient(160deg, #fdfaf6, #fff7f7);
-  box-shadow: 0 10px 24px rgba(128, 0, 0, 0.06);
 }
 
 .incoming-panel-header {
