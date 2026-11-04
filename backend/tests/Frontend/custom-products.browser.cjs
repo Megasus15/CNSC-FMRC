@@ -1,0 +1,116 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
+
+test('Custom requests keep drafts, consent and responsive operator workflows consistent', {skip:!chrome,timeout:180000}, async t=>{
+  const spec={title:'Personal enclosure',description:'One design for a custom enclosure',quantity:2,size:'10 x 10 cm',material:'PLA',colors:'Maroon',finish:'Matte',contact_name:'Test Customer',contact_phone:'09171234567',fulfillment_type:'pickup',advice_fields:[]};
+  let record={id:1,reference:'CUS-000001',revision:1,status:'submitted',status_label:'Submitted',service_id:7,service:{id:7,title:'3D Printing'},specifications:spec,customer_name:'Test Customer',updated_at:'2026-11-04T04:00:00Z',quotes:[],attachments:[],messages:[],events:[],orders:[],actions:{edit:true,message:true,review:true,quote:true,cancel:true}};
+  const writes=[];
+  const h=await browserFixture(t,async({req,route,json})=>{
+    if(route==='/api/customer/profile'){json({data:{id:8,name:'Test Customer',username:'fixture',email:'customer@example.test',role:'customer'}});return true;}
+    if(route==='/api/services'){json({data:[{id:7,title:'3D Printing',accepts_custom_requests:true},{id:9,title:'Training',accepts_custom_requests:false}]});return true;}
+    if(route==='/api/commerce/policy'){json({data:{version:'POLICY-1',terms_text:'Terms fixture',refund_text:'Refund fixture'}});return true;}
+    if(/\/custom-requests(?:\/|$)/.test(route)){
+      if(req.method==='GET'){
+        if(/\/custom-requests$/.test(route))json({data:[{...record,title:record.specifications.title}],current_page:1,last_page:1,total:1,counts:{submitted:1}});
+        else json({data:record});
+      }else{
+        let raw='';for await(const chunk of req)raw+=chunk;const body=JSON.parse(raw);writes.push({route,body});
+        if(route.endsWith('/cancel')){json({message:'The request could not be updated. Please try again.'},503);return true;}
+        if(route.endsWith('/save')||route.endsWith('/submit'))record={...record,revision:record.revision+1,specifications:body.specifications,status:route.endsWith('/submit')?'submitted':'draft'};
+        if(route.endsWith('/send_quote')){
+          record={...record,revision:record.revision+1,status:'quoted',status_label:'Quotation Ready',actions:{message:true,revision:true},quotes:[{id:11,version:1,status:'sent',snapshot:{specifications:body.specifications,production_days:3,proof_ids:[]},unit_price:500,subtotal:1000,shipping_fee:0,total:1000,expires_at:'2026-11-11T04:00:00Z',can_accept:false}]};
+        }
+        json({message:'Saved',data:record});
+      }return true;
+    }
+    return false;
+  });
+  await h.send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',JSON.stringify({id:8,name:'Test Customer',email:'customer@example.test'}));`});
+  const fill=async(name,value)=>h.run(`(()=>{const e=document.querySelector('[data-custom-products] [name="${name}"]');e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  const click=selector=>h.run(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  const confirm=async()=>{await h.until("!!document.querySelector('dialog[open]')");await click('dialog[open] button[value=yes]');};
+  await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await h.go('/products-page/custom-products.html?new=1');
+  await h.until("!!document.querySelector('[data-editor]')");
+  assert.deepEqual(await h.run("[...document.querySelector('[name=service_id]').options].map(o=>o.value)"),['','7']);
+  await fill('service_id','7');await fill('title',spec.title);await fill('description',spec.description);await fill('quantity','2');
+  await click('[data-next]');await fill('size',spec.size);await fill('material',spec.material);await fill('colors',spec.colors);
+  assert.equal(writes.length,0,'typing and navigating never autosaves a request');
+  const focus=await h.run("(async()=>{const el=document.querySelector('[name=material]');el.focus();await new Promise(r=>setTimeout(r,200));const s=getComputedStyle(el);return {border:s.borderTopWidth,color:s.borderTopColor,shadow:s.boxShadow};})()");
+  assert.equal(focus.border,'1px');assert.equal(focus.color,'rgb(128, 0, 0)');assert.match(focus.shadow,/3px/);
+  await h.shot('custom-customer-desktop');
+  await click('[data-next]');await fill('contact_name',spec.contact_name);await fill('contact_phone',spec.contact_phone);await click('[data-next]');
+  await click('[data-submit]');await confirm();await h.until("!!document.querySelector('[data-edit]')");
+  assert.equal(writes.at(-1).body.specifications.quantity,2);
+  await fill('body','Keep this unsent conversation message');await click('[data-edit]');
+  await h.until("!!document.querySelector('dialog[open]')");await click('dialog button[value=cancel]');
+  assert.equal(await h.run("document.querySelector('[name=body]').value"),'Keep this unsent conversation message');
+  await fill('body','');
+  await click('[data-edit]');await fill('title','Keep my draft');
+  await click('[data-list]');await h.until("!!document.querySelector('dialog[open]')");await click('dialog button[value=cancel]');
+  assert.equal(await h.run("document.querySelector('[name=title]').value"),'Keep my draft');
+  record.revision++;record.messages.push({id:1,role:'staff',author:'FMRC',body:'Please confirm the dimensions.',created_at:record.updated_at});
+  await h.run("dispatchEvent(new Event('focus'))");await h.until("document.querySelector('[data-notice]').textContent.includes('unsaved work')");
+  assert.equal(await h.run("document.querySelector('[name=title]').value"),'Keep my draft');
+  await click('[data-save-draft]');await h.until("!document.querySelector('[data-editor]')");
+  await click('[data-status=cancel]');await h.until("!!document.querySelector('dialog[open] textarea')");
+  await h.run("document.querySelector('dialog textarea').value='Please cancel this request.'");await click('dialog button[type=submit]');
+  await h.until("document.querySelector('[data-dialog-error]')?.hidden===false");
+  assert.equal(await h.run("document.querySelector('dialog[open] textarea').value"),'Please cancel this request.');
+  await click('dialog [data-dismiss]');
+  for(const portal of ['admin-page','staff-page']){
+    record={...record,status:'submitted',quotes:[],actions:{message:true,review:true,quote:true},specifications:spec};
+    await h.go('/'+portal+'/orders.html?custom_request=1');await h.until("!!document.querySelector('[data-quote]')");
+    await click('[data-quote]');await fill('unit_price','500');await fill('production_days','3');
+    await h.run("document.querySelector('[name=specifications_confirmed]').click()");
+    await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await h.run("document.documentElement.dataset.theme='dark'");
+    await h.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    assert.ok(await h.run("document.documentElement.scrollWidth<=innerWidth+1"),'no phone page overflow');
+    await h.shot('custom-'+portal+'-phone-dark');
+    await click('[name=quote_action][value=send_quote]');await confirm();await h.until("!!document.querySelector('[data-status=withdraw]')");
+    assert.equal(writes.at(-1).route,'/api/admin/custom-requests/1/send_quote');
+  }
+  record.quotes[0].can_accept=true;
+  await h.go('/apps/customer/products-page/custom-products.html?request=1');await h.until("!!document.querySelector('[data-accept]')");
+  assert.match(await h.run("document.querySelector('[data-accept] a').href"),/transaction-terms.html\?version=POLICY-1/);
+  assert.equal(await h.run("document.querySelector('[data-accept] button').disabled"),false);
+  await h.run("document.querySelector('[name=design_accepted]').click();document.querySelector('[name=policy_accepted]').click()");
+  await click('[data-accept] button');await confirm();await h.until("!document.querySelector('dialog[open]')");await h.pause(150);
+  assert.equal(writes.at(-1).body.policy_version,'POLICY-1');
+  assert.equal(writes.at(-1).body.app_context,'customer');
+  assert.deepEqual(await h.run('fixtureErrors'),[]);
+  t.diagnostic('Screenshots: '+h.artifacts);
+});
+
+test('Sales filters and custom service copy work in both portals and customer entry pages', {skip:!chrome,timeout:120000}, async t=>{
+  const calls=[];
+  const h=await browserFixture(t,async({req,route,json})=>{
+    calls.push(req.url);
+    if(route==='/api/site-settings'){json({data:{editorial_services_custom_title:'Products made for your idea',editorial_services_custom_copy:'Choose an eligible fabrication service and request a quotation.'}});return true;}
+    if(route==='/api/services'){json({data:[{id:7,title:'3D Printing',category:'Prototyping',accepts_custom_requests:true,description:'Fabrication',modal_features:[],modal_materials:[],modal_best_for:[]}]});return true;}
+    if(route==='/api/admin/custom-requests-summary'){json({data:{revision:'1',requests_to_review:2,needs_information:1,quotations_awaiting_payment:3,awaiting_production:1,in_production:4}});return true;}
+    return false;
+  });
+  for(const portal of ['admin-page','staff-page']){
+    await h.send('Emulation.setDeviceMetricsOverride',{width:768,height:1024,deviceScaleFactor:1,mobile:false});
+    await h.go('/'+portal+'/products.html');await h.until("!!document.getElementById('customSalesType') && !!document.getElementById('productPerformanceBody')");
+    await h.run("const select=document.getElementById('customSalesType');select.value='custom';select.dispatchEvent(new Event('change',{bubbles:true}));");
+    for(let i=0;i<60&&!calls.some(u=>u.includes('product-performance')&&u.includes('sales_type=custom'));i++)await h.pause(50);
+    assert.ok(calls.some(u=>u.includes('product-performance')&&u.includes('sales_type=custom')));
+    await h.go('/'+portal+'/dashboard.html');await h.until("document.querySelector('[data-custom-counts]')?.textContent.includes('4')");
+    assert.equal(await h.run("document.getElementById('customSalesType').value"),'custom');
+    await h.go('/'+portal+'/reports.html');await h.until("!!document.getElementById('customSalesType')");
+    await h.run("const select=document.getElementById('customSalesType');select.value='regular';select.dispatchEvent(new Event('change',{bubbles:true}));");
+    await h.pause(150);
+    assert.ok(calls.some(u=>u.includes('/api/admin/reports?')&&u.includes('sales_type=regular')));
+  }
+  for(const page of ['/products-page/product.html','/apps/customer/services-page/service.html']){
+    await h.go(page);await h.until("document.querySelector('.cp-entry h2')?.textContent==='Products made for your idea'");
+    assert.match(await h.run("document.querySelector('.cp-entry a').href"),/custom-products.html\?new=1/);
+    assert.ok(await h.run('document.documentElement.scrollWidth<=innerWidth+1'));
+  }
+  assert.ok(await h.run("!!document.querySelector('a[href*=\"custom-products.html?service=7\"]')"));
+  t.diagnostic('Custom entry and analytics screenshots: '+h.artifacts);
+});

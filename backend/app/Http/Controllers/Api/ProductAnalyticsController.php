@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\WalkInOrder;
 use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
+use App\Support\CustomProductAnalytics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -91,12 +92,15 @@ class ProductAnalyticsController extends Controller
         if ($denied) return $denied;
 
         [$startDate, $endDate] = $this->resolvePeriodRange($request);
+        $custom = collect(CustomProductAnalytics::completed($request));
+        $customOnly = CustomProductAnalytics::type() === 'custom';
 
         // ── Source 1: Completed online orders (from order_items + orders) ──
         // Archived orders are left out so that archiving one takes it off every
         // sales card at once, the same way it comes off Total Revenue.
         $onlineQuery = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($onlineQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -108,7 +112,7 @@ class ProductAnalyticsController extends Controller
 
         // ── Source 2: Walk-in orders (from walk_in_orders) ──
         // Walk-in orders use order_item as product name and order_date for filtering.
-        $walkInQuery = WalkInOrder::query()
+        $walkInQuery = WalkInOrder::query()->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
             ->where('is_archived', false);
         $this->scopeToPeriod($walkInQuery, 'COALESCE(order_date, created_at)', $startDate, $endDate);
         $walkInQuery->select(
@@ -138,10 +142,8 @@ class ProductAnalyticsController extends Controller
         $topProducts = DB::select($combinedSql, $combinedBindings);
 
         return response()->json([
-            'data' => collect($topProducts)->map(fn($item) => [
-                'name' => $item->name,
-                'total_sold' => (int) $item->total_sold,
-            ]),
+            'data' => collect($topProducts)->map(fn($item) => ['name'=>$item->name,'total_sold'=>(int)$item->total_sold,'order_type'=>'regular'])
+                ->concat($custom)->sortByDesc('total_sold')->take(8)->values(),
         ]);
     }
 
@@ -155,12 +157,15 @@ class ProductAnalyticsController extends Controller
         if ($denied) return $denied;
 
         [$startDate, $endDate] = $this->resolvePeriodRange($request);
+        $custom = collect(CustomProductAnalytics::completed($request));
+        $customOnly = CustomProductAnalytics::type() === 'custom';
 
         // Totals per product first, then folded into categories in PHP. Nothing
         // in this query names a products column, so it cannot fail on a server
         // where the grouped COALESCE it replaced did.
         $categoryQuery = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($categoryQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -177,7 +182,7 @@ class ProductAnalyticsController extends Controller
         );
 
         return response()->json([
-            'data' => $categoryData->values(),
+            'data' => $categoryData->when($custom->isNotEmpty(),fn($rows)=>$rows->push(['category'=>'Custom Products','total_sold'=>$custom->sum('total_sold'),'total_revenue'=>$custom->sum('total_revenue'),'services'=>$custom->values()]))->sortByDesc('total_revenue')->values(),
         ]);
     }
 
@@ -191,6 +196,8 @@ class ProductAnalyticsController extends Controller
         if ($denied) return $denied;
 
         [$startDate, $endDate] = $this->resolvePeriodRange($request);
+        $custom = collect(CustomProductAnalytics::completed($request));
+        $customOnly = CustomProductAnalytics::type() === 'custom';
 
         // Grouped on the order_items snapshot, then labelled from `products` in a
         // second read, for the same reason as salesByCategory() — the pair of
@@ -200,6 +207,7 @@ class ProductAnalyticsController extends Controller
         // of splitting into two rows both labelled "N/A".
         $rows = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereNull('orders.custom_product_quote_id')->when($customOnly,fn($q)=>$q->whereRaw('1=0'))
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
         $this->scopeToPeriod($rows, self::ORDER_SALE_DATE, $startDate, $endDate);
@@ -240,7 +248,7 @@ class ProductAnalyticsController extends Controller
             $merged[$key]['total_revenue'] += (float) $row->total_revenue;
         }
 
-        $performanceData = collect($merged)->sortByDesc('total_sold')->take(20)->values();
+        $performanceData = collect($merged)->concat($custom)->sortByDesc('total_sold')->take(20)->values();
 
         return response()->json([
             'data' => $performanceData->map(function (array $item) {
@@ -281,18 +289,21 @@ class ProductAnalyticsController extends Controller
         // resolveYearlyTrendDateColumn), so interpolating it is safe. MONTH() is
         // MySQL-only; the sqlite arm keeps the trend testable on the in-memory
         // suite, matching AdminDashboardController::summary()'s yearly trend.
+        $customDate = DB::connection()->getDriverName() === 'sqlite' ? "datetime(COALESCE(completed_at, created_at), '+8 hours')" : "DATE_ADD(COALESCE(completed_at, created_at), INTERVAL 8 HOUR)";
+        $saleDate = "(CASE WHEN custom_product_quote_id IS NOT NULL THEN {$customDate} ELSE {$dateColumn} END)";
         $monthExpression = DB::connection()->getDriverName() === 'sqlite'
-            ? "CAST(strftime('%m', {$dateColumn}) AS INTEGER)"
-            : "MONTH({$dateColumn})";
+            ? "CAST(strftime('%m', {$saleDate}) AS INTEGER)"
+            : "MONTH({$saleDate})";
 
-        $monthlyData = Order::query()
+        $monthlyData = CustomProductAnalytics::filter(Order::query())
+            ->where(fn($q)=>$q->whereNull('custom_product_quote_id')->orWhereHas('payment',fn($p)=>$p->whereExists(fn($r)=>$r->selectRaw('1')->from('payment_receipts')->whereColumn('payment_receipts.payment_id','payments.id')->where('livemode',true)->whereNotNull('confirmed_at'))))
             ->whereIn('lifecycle_status', $countedStatuses)
             ->where('is_archived', false)
-            ->whereYear($dateColumn, $year)
-            ->whereNotNull($dateColumn)
+            ->whereYear(DB::raw($saleDate), $year)
+            ->whereNotNull(DB::raw($saleDate))
             ->select(
                 DB::raw("{$monthExpression} as month"),
-                DB::raw('SUM(total) as total_sales'),
+                DB::raw('SUM(CASE WHEN custom_product_quote_id IS NOT NULL THEN subtotal ELSE total - COALESCE(shipping_fee, 0) END) as total_sales'),
                 DB::raw('COUNT(*) as order_count')
             )
             ->groupBy('month')

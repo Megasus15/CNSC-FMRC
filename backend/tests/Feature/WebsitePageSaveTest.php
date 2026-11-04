@@ -88,6 +88,35 @@ class WebsitePageSaveTest extends TestCase
         $this->assertDatabaseCount('home_sdgs', 8);
     }
 
+    #[DataProvider('editors')]
+    public function test_custom_service_eligibility_and_copy_publish_as_one_page_save(string $role): void
+    {
+        $service = Service::create(['title'=>'3D Printing','category'=>'Prototyping']);
+        $this->getJson('/api/services')->assertJsonPath('data.0.accepts_custom_requests',false);
+        Sanctum::actingAs(User::factory()->create(['role'=>$role]));
+        $payload=['settings'=>['editorial_services_custom_title'=>'Made for your idea','editorial_services_custom_copy'=>'Share your design for a quotation.'],
+            'services'=>['upsert'=>[['id'=>$service->id,'accepts_custom_requests'=>true]]]];
+        $invalid=$payload;$invalid['services']['delete']=[999999];
+        $this->putJson('/api/admin/website-pages/services',$invalid)->assertUnprocessable();
+        $this->getJson('/api/services')->assertJsonPath('data.0.accepts_custom_requests',false);
+        $this->assertNull(SiteSetting::get('editorial_services_custom_title'));
+        $this->putJson('/api/admin/website-pages/services',$payload)->assertOk();
+        $this->getJson('/api/services')->assertJsonPath('data.0.accepts_custom_requests',true);
+        $this->getJson('/api/site-settings')->assertJsonPath('data.editorial_services_custom_title','Made for your idea');
+    }
+
+    public function test_custom_routes_are_served_from_source_for_normal_and_pwa_contexts(): void
+    {
+        foreach (['/products-page/custom-products','/apps/customer/products-page/custom-products.html'] as $url) {
+            $response=$this->get($url)->assertOk();
+            $this->assertStringContainsString('data-custom-products="customer"',file_get_contents($response->baseResponse->getFile()->getPathname()));
+        }
+        foreach (['/admin-page/orders','/apps/team/staff-page/orders.html'] as $url) {
+            $response=$this->get($url)->assertOk();
+            $this->assertStringContainsString('data-custom-products="operator"',file_get_contents($response->baseResponse->getFile()->getPathname()));
+        }
+    }
+
     public function test_shared_controls_are_served_from_the_source_assets_on_normal_and_team_routes(): void
     {
         foreach (['/admin-page/admin-form-controls.css', '/apps/team/admin-page/admin-form-controls.css'] as $url) {

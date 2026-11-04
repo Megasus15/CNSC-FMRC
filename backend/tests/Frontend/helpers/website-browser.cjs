@@ -24,7 +24,7 @@ async function browserFixture(t, apiHandler = () => null) {
         if (route === '/api/site-settings') return json({data:{}});
         return json({data:[],appointments:[],orders:[],promotions:[]});
       }
-      route = route.replace(/^\/apps\/team\//, '/');
+      route = route.replace(/^\/apps\/(?:team|customer)\//, '/');
       if (!path.extname(route)) route += '.html';
       const file = path.resolve(root, '.' + route);
       if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }

@@ -16,6 +16,7 @@ use App\Models\WalkInOrder;
 use App\Support\AdminArchiveRecords;
 use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
+use App\Support\CustomProductAnalytics;
 use App\Support\FinancialMetrics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -127,7 +128,7 @@ class AdminDashboardController extends Controller
         // only ever grow, and clearing out old orders left it untouched. The
         // filter sits at each call site rather than inside
         // Order::scopeGcashAdvanceRevenue(), which the sales report shares.
-        $completedOrdersRevenue = $this->safely('revenue.completed_orders', fn () => (float) Order::query()
+        $completedOrdersRevenue = $this->safely('revenue.completed_orders', fn () => (float) CustomProductAnalytics::filter(Order::query())
             ->legacyReceipts()->where('lifecycle_status', 'completed')
             ->where('is_archived', false)
             ->sum('total'), 0.0, $unavailable);
@@ -137,7 +138,7 @@ class AdminDashboardController extends Controller
         // payments.status = 'paid' and excludes 'completed' and 'rejected', so this
         // can neither double count the sum above nor credit money that is owed
         // back. See Order::scopeGcashAdvanceRevenue().
-        $verifiedGcashRevenue = $this->safely('revenue.gcash_advance', fn () => (float) Order::query()
+        $verifiedGcashRevenue = $this->safely('revenue.gcash_advance', fn () => (float) CustomProductAnalytics::filter(Order::query())
             ->gcashAdvanceRevenue()
             ->where('is_archived', false)
             ->sum('total'), 0.0, $unavailable);
@@ -147,7 +148,7 @@ class AdminDashboardController extends Controller
         // instead of whitelisting one. A walk-in is cash taken at the counter and
         // is recorded when it is taken, so a still-"Pending" one is real revenue —
         // dropping everything but "Completed" would erase most of this term.
-        $walkInRevenue = $this->safely('revenue.walkins', fn () => (float) WalkInOrder::query()
+        $walkInRevenue = $this->safely('revenue.walkins', fn () => (float) WalkInOrder::query()->when(CustomProductAnalytics::type() === 'custom',fn($q)=>$q->whereRaw('1=0'))
             ->where('is_archived', false)
             ->whereRaw("LOWER(TRIM(COALESCE(status, ''))) NOT IN ('cancelled', 'canceled', 'archived', 'voided')")
             ->sum('total'), 0.0, $unavailable);
@@ -156,7 +157,7 @@ class AdminDashboardController extends Controller
         // returns also carry an approved_amount but cost no revenue.
         $refundedAmount = $this->safely('revenue.refunds', fn () => (float) OrderReturn::query()
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund')->whereHas('order', fn ($q) => $q->legacyReceipts())
+            ->where('resolution', 'refund')->whereHas('order', fn ($q) => CustomProductAnalytics::filter($q)->legacyReceipts())
             ->sum(DB::raw('COALESCE(refunded_amount, approved_amount, 0)')), 0.0, $unavailable);
 
         $verifiedGcashRevenue += $this->safely('revenue.gateway', fn () => \App\Support\GatewayFinancials::total('receipts'), 0.0, $unavailable);
@@ -172,100 +173,13 @@ class AdminDashboardController extends Controller
         // the Orders page no longer lists would just look like a bug.
         // Top 3 selling products (this month)
         $now = now('Asia/Manila');
-        $topSelling = $this->safely('analytics.top_selling', fn () => OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->where('orders.lifecycle_status', 'completed')
-            ->where('orders.is_archived', false)
-            ->whereMonth('orders.created_at', $now->month)
-            ->whereYear('orders.created_at', $now->year)
-            ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_sold'))
-            ->groupBy('order_items.product_name')
-            ->orderByDesc('total_sold')
-            ->limit(3)
-            ->get()
-            ->map(fn ($item) => [
-                'name' => $item->product_name,
-                'total_sold' => (int) $item->total_sold,
-            ]), collect(), $unavailable);
-
-        // Sales by category (all time, top 3)
-        //
-        // Two plain queries and a PHP fold, not one grouped SQL expression. The
-        // previous version grouped by
-        //   COALESCE(NULLIF(products.category, ''), 'Deleted / Uncategorized')
-        // and threw on the Hostinger server while the identically shaped
-        // top_performance query below it succeeded — same tables, same joins,
-        // same filters, differing only in that one expression. safely() turned
-        // that into "Not available right now" on both dashboards and
-        // LOG_LEVEL=error kept the driver's message out of laravel.log, so the
-        // card sat unreadable with nothing to diagnose it by.
-        //
-        // The pair below cannot fail that way. The aggregate touches only
-        // order_items and orders and groups on a plain integer column; the
-        // category lookup is a bare column read with no join, expression or
-        // literal. See App\Support\CategorySalesBuckets for the fold itself and
-        // for what happens if `products` cannot be read at all.
-        $salesByCategory = $this->safely('analytics.sales_by_category', fn () => CategorySalesBuckets::fold(
-            DB::table('order_items')
-                ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->where('orders.lifecycle_status', 'completed')
-                ->where('orders.is_archived', false)
-                ->groupBy('order_items.product_id')
-                ->select(
-                    'order_items.product_id',
-                    DB::raw('SUM(order_items.quantity) as total_sold'),
-                    DB::raw('SUM(order_items.line_total) as total_revenue')
-                )
-                ->get()
-        )->take(3)->values(), collect(), $unavailable);
-
-        // Top 3 performing products (all time)
-        // No products join: every column this reads is an order_items snapshot,
-        // so joining products only added a table that could fail.
-        $topPerformance = $this->safely('analytics.top_performance', fn () => OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->where('orders.lifecycle_status', 'completed')
-            ->where('orders.is_archived', false)
-            ->select(
-                'order_items.product_name',
-                DB::raw('SUM(order_items.quantity) as total_sold'),
-                DB::raw('SUM(order_items.line_total) as total_revenue')
-            )
-            ->groupBy('order_items.product_name')
-            ->orderByDesc('total_revenue')
-            ->limit(3)
-            ->get()
-            ->map(fn ($item) => [
-                'name' => $item->product_name,
-                'total_sold' => (int) $item->total_sold,
-                'total_revenue' => (float) $item->total_revenue,
-            ]), collect(), $unavailable);
-
-        // Yearly sales trend (current year, monthly totals)
+        // The same classification, period and service grouping as Products analytics.
+        $analytics = app(ProductAnalyticsController::class);
+        $topSelling = $this->safely('analytics.top_selling', fn()=>collect($analytics->topSelling($request)->getData(true)['data'])->take(3)->values(), collect(), $unavailable);
+        $salesByCategory = $this->safely('analytics.sales_by_category', fn()=>collect($analytics->salesByCategory($request)->getData(true)['data'])->take(3)->values(), collect(), $unavailable);
+        $topPerformance = $this->safely('analytics.top_performance', fn()=>collect($analytics->productPerformance($request)->getData(true)['data'])->take(3)->map(fn($row)=>$row+['name'=>$row['product_name']])->values(), collect(), $unavailable);
         $currentYear = $now->year;
-        $monthExpression = DB::connection()->getDriverName() === 'sqlite'
-            ? "CAST(strftime('%m', created_at) AS INTEGER)"
-            : 'MONTH(created_at)';
-        $monthlyData = $this->safely('analytics.yearly_trend', fn () => Order::query()
-            ->legacyReceipts()->where('lifecycle_status', 'completed')
-            ->where('is_archived', false)
-            ->whereYear('created_at', $currentYear)
-            ->select(
-                DB::raw("{$monthExpression} as month"),
-                DB::raw('SUM(total) as total_sales')
-            )
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->keyBy('month'), collect(), $unavailable);
-
-        $yearlyTrend = [];
-        for ($m = 1; $m <= 12; $m++) {
-            $yearlyTrend[] = [
-                'month' => $m,
-                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0),
-            ];
-        }
+        $yearlyTrend = $this->safely('analytics.yearly_trend', fn()=>$analytics->yearlySalesTrend($request)->getData(true)['data'], [], $unavailable);
 
         $recentAppointments = $this->safely('recent.appointments', fn () => Appointment::query()
             ->select(['id', 'first_name', 'last_name', 'purpose', 'appointment_date', 'appointment_time', 'status', 'created_at'])
@@ -347,6 +261,7 @@ class AdminDashboardController extends Controller
         return response()->json([
             'data' => [
                 'financial_revision' => $liveCounts['financial_revision'],
+                'custom_products' => $this->safely('custom_products', fn()=>\App\Support\CustomProductAnalytics::operational(), [], $unavailable),
                 'counts' => [
                     'appointments' => $appointmentsCount,
                     'accounts' => $accountsCount,

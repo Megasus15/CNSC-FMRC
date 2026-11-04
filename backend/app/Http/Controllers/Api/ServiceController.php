@@ -302,6 +302,7 @@ class ServiceController extends Controller
     {
         return [
             'id'                => $s->id,
+            'accepts_custom_requests' => (bool) $s->accepts_custom_requests,
             'title'             => $s->title,
             'category'          => $s->category,
             'description'       => $s->description,

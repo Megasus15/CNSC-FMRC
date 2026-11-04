@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </button>
             </div>
           </div>
-          ${imageMarkup}
+          ${item.accepts_custom_requests ? `<a class="cp-btn secondary" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Custom Product</a>` : ""}${imageMarkup}
         </article>
       `;
     }).join("");

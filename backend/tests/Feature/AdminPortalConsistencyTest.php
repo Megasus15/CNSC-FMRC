@@ -46,6 +46,11 @@ class AdminPortalConsistencyTest extends TestCase
     public function test_every_portal_page_uses_the_versioned_shared_live_ui(string $file): void
     {
         $html = (string) file_get_contents($file);
+        // This authenticated editor opens a separate customer-facing preview shell.
+        if (basename($file) === 'maintenance-preview.html') {
+            $this->assertStringContainsString('maintenance-gate.js?v=', $html);
+            return;
+        }
 
         // Every page must carry a cache-buster on the shared pair. The exact number
         // is checked once, across all pages together, by
@@ -100,12 +105,12 @@ class AdminPortalConsistencyTest extends TestCase
             // deploy copies files without touching browser caches - an
             // unversioned script means the fix never reaches the live site.
             $this->assertDoesNotMatchRegularExpression(
-                "/{$quoted}(?!\\?v=\\d)/",
+                "/(?<![A-Za-z0-9_-]){$quoted}(?!\\?v=\\d)/",
                 $html,
                 "Unversioned affected script: {$script}",
             );
 
-            preg_match_all("/{$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
+            preg_match_all("/(?<![A-Za-z0-9_-]){$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
             $versions = array_values(array_unique($found[1] ?? []));
 
             $this->assertNotEmpty($versions, "No versioned reference to {$script}");
@@ -139,12 +144,12 @@ class AdminPortalConsistencyTest extends TestCase
             $quoted = preg_quote($asset, '/');
 
             $this->assertDoesNotMatchRegularExpression(
-                "/{$quoted}(?!\\?v=\\d)/",
+                "/(?<![A-Za-z0-9_-]){$quoted}(?!\\?v=\\d)/",
                 $html,
                 "Unversioned shared-UI reference: {$asset}",
             );
 
-            preg_match_all("/{$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
+            preg_match_all("/(?<![A-Za-z0-9_-]){$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
             $versions = array_values(array_unique($found[1] ?? []));
 
             // Two different versions for the same file means one portal is pinned to
@@ -214,7 +219,7 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringNotContainsString('.card-action', $dashboardCss);
         $this->assertSame(
             1,
-            preg_match_all('/^\.btn-generate-report \{$/m', $dashboardCss),
+            preg_match_all('/^\.btn-generate-report \{\r?$/m', $dashboardCss),
             'The Generate Report CTA needs exactly one base rule.',
         );
         preg_match_all('/\.btn-generate-report[^{}]*\{[^}]*\}/', $dashboardCss, $blocks);
@@ -365,7 +370,7 @@ class AdminPortalConsistencyTest extends TestCase
         }
     }
 
-    public function test_the_promotion_card_shares_one_saved_theme_with_the_announcement_popup(): void
+    public function test_promotion_colors_are_saved_while_announcement_dialog_keeps_the_shared_palette(): void
     {
         $root = dirname(__DIR__, 3);
         $promotionsJs = (string) file_get_contents($root.'/admin-page/promotions.js');
@@ -408,17 +413,11 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringContainsString('--announcement-accent-primary', $announcementsJs);
         $this->assertStringContainsString('--announcement-accent-secondary', $announcementsJs);
 
-        // The pop-up wears the shared ux-dlg skin, whose band rule outranks the
-        // plain .announcement-modal__hero one, so the theme reached the card's
-        // custom properties but never its paint. This id-scoped rule fixes that,
-        // and --announcement-band is only written once a colour is really saved
-        // so an untouched site keeps the band every other dialog uses.
-        $this->assertStringContainsString(
-            '#announcementModal.ux-dlg .ux-dlg__card .announcement-modal__hero.ux-dlg__head',
-            $announcementsJs,
-        );
-        $this->assertStringContainsString('--announcement-band', $announcementsJs);
-        $this->assertStringContainsString('var(--ux-dlg-band', $announcementsJs);
+        // Only the product promotion card uses saved colors. Announcement dialogs
+        // deliberately remove legacy overrides and keep the shared maroon skin.
+        foreach (['--announcement-band','--announcement-accent-primary','--announcement-accent-secondary'] as $property) {
+            $this->assertStringContainsString('el.style.removeProperty("'.$property.'")', $announcementsJs);
+        }
         $this->assertStringContainsString(
             '--ux-dlg-band:',
             (string) file_get_contents($root.'/home-page/main.css'),

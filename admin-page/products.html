@@ -793,7 +793,9 @@
     <script src="portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="admin-form-controls.css?v=1.0" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-  </head>
+  <link rel="stylesheet" href="../products-page/custom-products.css?v=1.0">
+<script defer src="../admin-page/custom-product-metrics.js?v=1.0"></script>
+</head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -988,7 +990,7 @@
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Sales by Category</h3>
-                  <p class="analytics-card-subtitle">Completed online orders by value</p>
+                  <p class="analytics-card-subtitle">Completed product gross sales by category</p>
                 </div>
               </div>
               <div
@@ -1037,7 +1039,7 @@
                 <div>
                   <h3 class="analytics-card-title">Product Performance</h3>
                   <p class="analytics-card-subtitle">
-                    Completed online orders by product
+                    Completed product gross sales · shipping excluded
                   </p>
                 </div>
               </div>
@@ -1060,7 +1062,7 @@
                         <th>Product Name</th>
                         <th>Category</th>
                         <th>Sold</th>
-                        <th>Revenue</th>
+                        <th>Gross product sales</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -1134,7 +1136,7 @@
                 <div>
                   <h3 class="analytics-card-title">Yearly Sales Trend</h3>
                   <p class="analytics-card-subtitle">
-                    Completed online orders by order date
+                    Gross product sales · shipping excluded
                   </p>
                 </div>
                 <select
@@ -1794,8 +1796,8 @@
     <script src="session-helper.js?v=2.4"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=8.6-policies"></script>
-    <script src="products.js?v=5.9.2"></script>
+    <script src="admin-common.js?v=2026.1104"></script>
+    <script src="products.js?v=2026.1104"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

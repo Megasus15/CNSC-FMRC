@@ -33,6 +33,9 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       else if (route === '/api/admin/session') data = { server_time: new Date().toISOString(), idle_warning_at: new Date(Date.now()+3600000).toISOString(), idle_expires_at: new Date(Date.now()+3780000).toISOString(), absolute_expires_at: new Date(Date.now()+21600000).toISOString() };
       else if (route === '/api/site-favicon') data = { favicon_image: '' };
       else if (route === '/api/site-settings') data = { data: {} };
+      else if (route === '/api/admin/commerce-policy') data = { data: { can_edit: owner === 11, revision: 1, has_saved_draft: true, draft: { title: 'Transaction policies', terms_text: 'Review and approve your order specifications before payment. Production starts after verified payment.', refund_text: 'Contact FMRC for cancellation assistance and applicable return or refund review.' }, published: null } };
+      else if (route === '/api/admin/shipping-settings') data = { data: { can_edit: owner === 11, revision: 1, has_saved_draft: true, draft: { enabled: false, nonworking_weekdays: [6,7], nonworking_dates: [], zones: [] }, published: null } };
+      else if (route === '/api/psgc/provinces') data = [{code:'0501600000',name:'Camarines Norte'}];
       else if (route === '/api/admin/products') data = {data:[{id:1,name:'Sample product',category:'3D Print',code:'P-001',stock:12,price:100,sale_price:80,discount_percent:20,stock_status:'in_stock',is_blocked:false},{id:2,name:'Unavailable sample',category:'3D Print',code:'P-002',stock:0,price:100,stock_status:'out_of_stock',is_blocked:true}]};
       else if (route === '/api/admin/promotions') data = {data:[{id:1,title:'Sample promotion',discount_percent:20,scope:'all_products',is_enabled:true,starts_at:'2020-01-01',ends_at:'2099-01-01'}]};
       else if (route === '/api/admin/archives') data = {appointments:[{source_id:1,reference_no:'AP-001',client_name:'Sample client',status:'completed'}],orders:[{source_id:2,order_no:'OR-001',customer_name:'Sample client'}],promotions:[{source_id:3,title:'Sample archived promotion',discount_percent:20}]};
@@ -72,11 +75,15 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       submenu.forEach(row=>{assert.equal(row.display,'flex',label);assert.equal(row.align,'center',label);assert(row.offset<1,`${label}: submenu text is vertically centered`);});
     };
     const checkBottomBar = async (label, selector = '.settings-footer') => {
+      if (await evaluate(`document.querySelector(${JSON.stringify(selector)}).hidden`)) {
+        assert(await evaluate('["/staff-page/website-policies.html","/staff-page/website-shipping.html"].includes(location.pathname)'), `${label}: only read-only Staff policy and shipping pages hide their save bar`);
+        return;
+      }
       for (const scroll of [0,100000]) {
         await evaluate(`window.scrollTo(0,${scroll})`);
-        const geometry = await evaluate(`(() => {const f=document.querySelector(${JSON.stringify(selector)}),r=f.getBoundingClientRect(),buttons=[...f.querySelectorAll('button')].filter(b=>getComputedStyle(b).display!=='none').map(b=>{const t=b.getBoundingClientRect();return {top:t.top,bottom:t.bottom,right:t.right,left:t.left};});return {position:getComputedStyle(f).position,bottom:r.bottom,left:r.left,right:r.right,height:r.height,viewport:innerHeight,width:innerWidth,contentLeft:document.querySelector('.top-header').getBoundingClientRect().left,buttons};})()`);
+        const geometry = await evaluate(`(() => {const f=document.querySelector(${JSON.stringify(selector)}),r=f.getBoundingClientRect(),buttons=[...f.querySelectorAll('button')].filter(b=>getComputedStyle(b).display!=='none').map(b=>{const t=b.getBoundingClientRect();return {top:t.top,bottom:t.bottom,right:t.right,left:t.left};});return {position:getComputedStyle(f).position,bottom:r.bottom,left:r.left,right:r.right,height:r.height,noticeHeight:parseFloat(getComputedStyle(document.body).getPropertyValue('--admin-page-notice-height'))||0,viewport:innerHeight,width:innerWidth,contentLeft:document.querySelector('.top-header').getBoundingClientRect().left,buttons};})()`);
         assert.equal(geometry.position,'fixed',label);
-        assert(Math.abs(geometry.bottom-geometry.viewport)<1,`${label}: footer stays on screen while scrolling`);
+        assert(Math.abs(geometry.bottom-(geometry.viewport-geometry.noticeHeight))<1,`${label}: footer stays on screen while scrolling ${JSON.stringify(geometry)}`);
         assert(geometry.buttons.every(b=>b.top>=0 && b.bottom<=geometry.viewport && b.right<=geometry.width && b.left>=0),`${label}: action buttons fit`);
         assert(Math.abs(geometry.left-geometry.contentLeft)<1 && Math.abs(geometry.right-(geometry.width-15))<=15,`${label}: footer spans the main content`);
       }

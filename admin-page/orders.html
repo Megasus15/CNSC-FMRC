@@ -37,7 +37,8 @@
   <link rel="stylesheet" href="courier-shipments.css?v=2.0" />
     <link rel="stylesheet" href="admin-form-controls.css?v=1.0" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-  </head>
+  <link rel="stylesheet" href="../products-page/custom-products.css?v=1.0">
+</head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -179,7 +180,8 @@
               <i class="fa-solid fa-box-open"></i> Orders
               <span class="tab-count" id="tabCountOrdersMain">0</span>
             </button>
-            <button class="archive-tab-btn" data-tab="records" type="button">
+            <button class="archive-tab-btn" data-tab="customrequests" type="button"><i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> Custom Requests <span class="tab-count" id="tabCountCustomRequests">0</span></button>
+<button class="archive-tab-btn" data-tab="records" type="button">
               <i class="fa-solid fa-rotate-left"></i> Rejected, Returns &amp; Payments
               <span class="tab-count" id="tabCountOrdersRecords">0</span>
             </button>
@@ -306,7 +308,8 @@
             </article>
             </section>
 
-            <section class="archive-section" id="sectionRecords">
+            <section class="archive-section" id="sectionCustomRequests" hidden><div class="cp-workspace" data-custom-products="operator"><p role="status">Loading custom requests…</p></div></section>
+<section class="archive-section" id="sectionRecords">
             <!-- ═══════════ REJECTED ORDERS PANEL ═══════════ -->
             <article class="panel" id="rejectedOrdersPanel">
               <div class="panel-header">
@@ -1753,13 +1756,14 @@
     <script src="session-helper.js?v=2.4"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=8.6-policies"></script>
+    <script src="admin-common.js?v=2026.1104"></script>
     <script src="jnt-tracking.js?v=1.0"></script>
 <script src="courier-shipments.js?v=2.0"></script>
-<script src="orders.js?v=6.3-jnt-tracking"></script>
+<script src="orders.js?v=2026.1104"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2.8-archive-tooltip">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script src="gateway-payments.js?v=3.2-confirmed-archive"></script>
-  </body>
+  <script defer src="../products-page/custom-products.js?v=1.0"></script>
+</body>
 </html>

@@ -935,6 +935,10 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = value || "-";
     };
     if(body){
+      let custom=body.querySelector('[data-custom-order]');
+      if(!custom){custom=document.createElement('section');custom.className='order-cancellation-notice';custom.dataset.customOrder='';body.appendChild(custom);}
+      custom.hidden=order.order_type!=='custom';
+      if(!custom.hidden)custom.innerHTML=`<strong>Custom product · ${escapeHtml(order.custom_request_reference)}</strong><p>${escapeHtml(order.custom_status_label)} · Quotation ${escapeHtml(order.custom_quote_version)}</p><a href="orders.html?custom_request=${encodeURIComponent(order.custom_request_id)}">View approved design, conversation and production actions</a>`;
       let policy=body.querySelector('[data-accepted-policy]');
       if(!policy){policy=document.createElement('section');policy.className='order-cancellation-notice';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
       policy.hidden=!order.accepted_policy;
@@ -1000,7 +1004,7 @@ document.addEventListener("DOMContentLoaded", () => {
       order.total_label || formatMoney(order.total_amount),
     );
 
-    const statusLabel = order.lifecycle_status_label || "Pending";
+    const statusLabel = order.custom_status_label || order.lifecycle_status_label || "Pending";
     const stageLabel = order.customer_stage_label
       ? ` | ${order.customer_stage_label}`
       : "";
@@ -1492,10 +1496,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
             <td>${escapeHtml(formatDateLabel(order.created_at))}</td>
-            <td><span class="status-pill ${statusClass}">Incoming</span></td>
+            <td><span class="status-pill ${statusClass}">${escapeHtml(order.custom_status_label || "Incoming")}</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
-              <button data-tooltip="Approve Order" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>
+              <button data-tooltip="${order.order_type === 'custom' ? 'Start Production' : 'Approve Order'}" data-order-approve="${order.id}" ${order.order_type === 'custom' && !order.custom_actions?.start ? 'disabled' : ''}><i class="fa-solid fa-check"></i></button>
               <button data-tooltip="Reject Order" data-order-reject="${order.id}"><i class="fa-solid fa-xmark"></i></button>
             </td>
           </tr>
@@ -1524,8 +1528,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const canTrack = lifecycle === "pending" && !order.cancel_pending;
 
         const statusCell = order.cancel_pending ? `<button type="button" class="status-pill status-blue status-pill-action" data-cancellation-review="${order.id}">Cancellation requested</button>` : canTrack
-          ? `<button type="button" class="status-pill ${statusClass} status-pill-action" data-order-track="${order.id}">${escapeHtml(order.lifecycle_status_label || "Pending")}</button>`
-          : `<span class="status-pill ${statusClass}">${escapeHtml(order.lifecycle_status_label || "Pending")}</span>`;
+          ? `<button type="button" class="status-pill ${statusClass} status-pill-action" data-order-track="${order.id}">${escapeHtml(order.custom_status_label || order.lifecycle_status_label || "Pending")}</button>`
+          : `<span class="status-pill ${statusClass}">${escapeHtml(order.custom_status_label || order.lifecycle_status_label || "Pending")}</span>`;
 
         return `
           <tr>

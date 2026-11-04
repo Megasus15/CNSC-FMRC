@@ -12,3 +12,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
 Schedule::command('shipments:process')->everyMinute()->withoutOverlapping(5);
+Schedule::command('custom-products:expire')->everyMinute()->withoutOverlapping(5);

@@ -45,7 +45,7 @@ let servicesData = [], savedServices = [];
 let servicesLoaded = false, copyLoaded = false, pageSaving = false, pageDraft = null;
 let nextDraftId = -1;
 let copyFields = new Map();
-const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order'];
+const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order','accepts_custom_requests'];
 let svcImageData = null;
 let serviceDiscardGuard = null;
 const DEFAULT_SERVICE_CATEGORIES = [
@@ -420,6 +420,7 @@ function openEdit(id) {
   document.getElementById("serviceEditId").value = id;
   document.getElementById("serviceModalTitle").textContent = "Edit Service";
   document.getElementById("svcTitle").value = s.title || "";
+  document.getElementById("svcAcceptsCustom").checked = !!s.accepts_custom_requests;
   setServiceCategoryOptions(s.category || "Prototyping");
   document.getElementById("svcDesc").value = s.description || "";
   document.getElementById("svcModalDesc").value = s.modal_description || "";
@@ -456,6 +457,7 @@ function closeModal() {
 
 function clearForm() {
   document.getElementById("svcTitle").value = "";
+  document.getElementById("svcAcceptsCustom").checked = false;
   setServiceCategoryOptions(serviceCategories[0] || "Prototyping");
   document.getElementById("svcDesc").value = "";
   document.getElementById("svcModalDesc").value = "";
@@ -474,6 +476,7 @@ function clearForm() {
 function getServiceFormSnapshot() {
   return {
     id: String(document.getElementById("serviceEditId")?.value || ""),
+    accepts_custom_requests: !!document.getElementById("svcAcceptsCustom")?.checked,
     title: String(document.getElementById("svcTitle")?.value || ""),
     category: String(document.getElementById("svcCategory")?.value || ""),
     description: String(document.getElementById("svcDesc")?.value || ""),
@@ -518,6 +521,7 @@ function doSave(id) {
   if (!servicesLoaded || pageSaving || serviceImagePreparing || !validateServiceForm()) return;
   const existing = servicesData.find(item => item.id == id);
   const payload = {
+    accepts_custom_requests: !!document.getElementById('svcAcceptsCustom').checked,
     title: document.getElementById('svcTitle').value.trim(),
     category: document.getElementById('svcCategory').value,
     description: document.getElementById('svcDesc').value,

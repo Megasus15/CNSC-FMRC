@@ -1034,7 +1034,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // survive realtime reloads too.
   const periodQuery = (st) => {
     const key = st.period || "month";
-    let q = `period=${encodeURIComponent(key)}`;
+    let q = `period=${encodeURIComponent(key)}&sales_type=${window.FMRCSalesType?.value() || 'all'}`;
     if (key === "custom" && st.from && st.to) {
       q += `&from=${encodeURIComponent(st.from)}&to=${encodeURIComponent(st.to)}`;
     }
@@ -1252,7 +1252,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `<tr>
           <td>${escHtml(p.product_code || "N/A")}</td>
-          <td>${escHtml(p.product_name || "Unnamed")}</td>
+          <td>${p.order_type === "custom" ? `<a href="orders.html?custom_requests=1&service=${encodeURIComponent(p.service_id || '')}">${escHtml(p.product_name)}</a>` : escHtml(p.product_name || "Unnamed")}</td>
           <td>${escHtml(p.category || "N/A")}</td>
           <td>${escHtml(p.total_sold ?? 0)}</td>
           <td>${escHtml(revenue)}</td>
@@ -1363,7 +1363,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}&date_basis=${YEARLY_TREND_DATE_BASIS}`,
+        `${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}&date_basis=${YEARLY_TREND_DATE_BASIS}&sales_type=${window.FMRCSalesType?.value() || 'all'}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1427,7 +1427,7 @@ document.addEventListener("DOMContentLoaded", () => {
           labels: months,
           datasets: [
             {
-              label: "Sales before returns",
+              label: "Gross product sales",
               data: visibleSales,
               borderColor: "#800000",
               backgroundColor: "rgba(128,0,0,0.08)",
@@ -1564,6 +1564,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────
+  window.addEventListener('fmrc:sales-type', () => updateSummaryCards());
+  window.addEventListener('fmrc:custom-metrics-updated', () => updateSummaryCards({showLoading:false}));
   const loadProducts = async ({ showLoading = true, resetPage = true, refreshAnalytics = true } = {}) => {
     if (showLoading) renderSkeletonRows();
     try {

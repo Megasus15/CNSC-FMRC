@@ -781,6 +781,7 @@ class AdminReportsTest extends TestCase
             'appointments' => ['reference_no', 'appointment_date', 'appointment_time', 'client_name', 'purpose', 'status'],
             'inventory' => ['category', 'item_name', 'variant', 'unit', 'on_hand', 'status', 'stock_in', 'stock_out', 'net_movement', 'updated_at'],
         ];
+        if (in_array($category, ['sales','completed_orders','processing_orders'], true)) $expectedColumnKeys[$category] = array_merge($expectedColumnKeys[$category], ['order_type','custom_reference','service','shipping_fee']);
         $this->assertEqualsCanonicalizing(
             $expectedColumnKeys[$category],
             array_column($columns, 'key'),

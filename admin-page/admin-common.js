@@ -2787,6 +2787,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Order matters: a return notification also carries `order_id`, so `return`
     // has to be tested before `order`.
     const NOTIF_CATEGORIES = [
+      {kind:'custom_request', metaKeys:['custom_request_id'], types:['custom_request'], page:'orders.html', label:'Custom Requests', icon:'fa-pen-ruler', titlePattern:/custom product/i},
       {
         kind: "return",
         metaKeys: ["return_id"],

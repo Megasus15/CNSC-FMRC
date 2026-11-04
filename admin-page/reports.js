@@ -821,6 +821,7 @@
       const year = Number.parseInt(elements.year.value, 10) || currentParts.year;
       const params = {
         category: state.selectedCategory,
+        sales_type: window.FMRCSalesType?.value() || 'all',
         period,
         year,
       };
@@ -836,6 +837,7 @@
     const reportFilterKey = (params = {}) =>
       [
         String(params.category || ""),
+        String(params.sales_type || 'all'),
         String(params.period || ""),
         String(params.year || ""),
         params.period === "monthly" ? String(params.month || "") : "",
@@ -845,6 +847,7 @@
     const copyReportFilters = (params = {}) => {
       const filters = {
         category: params.category,
+        sales_type: params.sales_type || window.FMRCSalesType?.value() || 'all',
         period: params.period,
         year: params.year,
       };
@@ -1106,6 +1109,7 @@
 
       const query = new URLSearchParams({
         category: params.category,
+        sales_type: params.sales_type || window.FMRCSalesType?.value() || 'all',
         period: params.period,
         year: String(params.year),
       });
@@ -1128,6 +1132,7 @@
       const requestBody = isIntentionalGeneration
         ? JSON.stringify({
             category: params.category,
+        sales_type: params.sales_type || window.FMRCSalesType?.value() || 'all',
             period: params.period,
             year: params.year,
             month: params.period === "monthly" ? params.month : null,
@@ -2842,6 +2847,8 @@
         });
       });
 
+      window.addEventListener('fmrc:custom-metrics-updated', () => { if(state.reportData&&!document.querySelector('.official-report-overlay.show')) void loadReport(state.activeParams || readFilterParams(), 'refresh'); });
+      window.addEventListener('fmrc:sales-type', () => { updateSelectionSummary(); void loadReport(readFilterParams(), 'refresh'); });
       elements.period.addEventListener("change", syncPeriodControls);
       elements.year.addEventListener("change", updateSelectionSummary);
       elements.month.addEventListener("change", updateSelectionSummary);

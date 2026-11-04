@@ -74,6 +74,9 @@
       ["cta_contact", "Contact link text", "Contact us"],
     ]],
     ["Services: Page Copy", "services", [
+      ["custom_title", "Custom products heading", "Custom Products", 80],
+      ["custom_copy", "Custom products introduction", "Have a product idea? FMRC can help create it through our available fabrication services. Share your design, specifications, and quantity to receive a quotation. Production begins after you approve the quotation and complete payment.", 400],
+      ["custom_button", "Custom request button", "Request a Custom Product", 40],
       ["kicker", "Eyebrow", "EXPERTISE & CAPABILITIES", 48],
       ["title", "Page title", "Our Services", 48],
       ["subtitle", "Introduction", "Explore fabrication and manufacturing services for your next project.", 150],

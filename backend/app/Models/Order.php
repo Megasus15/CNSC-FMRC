@@ -16,6 +16,7 @@ class Order extends Model
     use SkipsMissingColumns;
 
     protected $fillable = [
+        'custom_product_quote_id', 'production_status', 'production_started_at', 'production_ready_at',
         'order_no',
         'customer_id',
         'customer_name',
@@ -153,6 +154,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'production_started_at' => 'datetime', 'production_ready_at' => 'datetime',
         'subtotal'    => 'decimal:2',
         'total'       => 'decimal:2',
         'shipping_fee' => 'decimal:2',
@@ -286,6 +288,11 @@ class Order extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function customQuote(): BelongsTo
+    {
+        return $this->belongsTo(CustomProductQuote::class, 'custom_product_quote_id');
     }
 
     public function items(): HasMany

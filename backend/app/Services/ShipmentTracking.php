@@ -53,6 +53,7 @@ final class ShipmentTracking
 
     public static function eligibility(Order $order, bool $correction = false): ?string
     {
+        if ($error = CustomProducts::productionError($order, true)) return $error;
         if ($order->isPickup()) {
             return 'Pickup orders do not need a J&T waybill.';
         }

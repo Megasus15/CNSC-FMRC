@@ -9346,6 +9346,8 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        if (order?.order_type === "custom" && order.custom_status_label) return {label:order.custom_status_label,className:`status-${stage.replace("_", "-")}`};
+
         // Payment confirmation and order approval are separate. A customer
         // whose money has been confirmed must not be told to pay again.
         if (stage === "to_pay") {
@@ -9387,8 +9389,8 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const renderToRatePanel = (completedOrders) => {
-        const toRate = completedOrders.filter((order) => !order.has_rating);
-        const rated = completedOrders.filter((order) => order.has_rating);
+        const toRate = completedOrders.filter((order) => order.can_rate !== false && !order.has_rating);
+        const rated = completedOrders.filter((order) => order.can_rate !== false && order.has_rating);
 
         const reviewItemSummary = (order) => {
           const names = (Array.isArray(order.items) ? order.items : [])
@@ -11573,14 +11575,15 @@ document.addEventListener("DOMContentLoaded", () => {
                   </div>
                   <div class="customer-order-actions">
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
+                    ${order.custom_request_id ? `<a class="customer-order-detail-btn" href="../products-page/custom-products.html?request=${encodeURIComponent(order.custom_request_id)}">Custom Request · ${escapeHtml(order.custom_request_reference)}</a>` : ""}
                     ${payActionsHtml}
                     ${String(order.customer_stage) === 'to_receive' && isLive
                       ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}" data-order-pickup="${order.is_pickup ? '1' : '0'}">${order.is_pickup ? 'Order Collected' : 'Order Received'}</button>`
                       : ''}
-                    ${String(order.customer_stage) === 'completed' && isLive && !order.has_rating
+                    ${String(order.customer_stage) === 'completed' && isLive && order.can_rate !== false && !order.has_rating
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
                       : ''}
-                    ${isCompleted
+                    ${isCompleted && order.order_type !== "custom"
                       ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}">Buy Again</button>`
                       : ''}
                     ${returnActionsHtml}
@@ -11602,7 +11605,7 @@ document.addEventListener("DOMContentLoaded", () => {
           // is a history tab, so it counts everything in it.
           let count = scoped.length;
           if (stageKey === "to_rate") {
-            count = scoped.filter((order) => !order.has_rating).length;
+            count = scoped.filter((order) => order.can_rate !== false && !order.has_rating).length;
           } else if (stageKey === "returns") {
             count = scoped.filter(
               (row) => String(row?.status_group || "open") === "open",
@@ -14025,6 +14028,7 @@ const openReturnRequestModal = (() => {
     <a href="#" id="viewOrdersBtn" class="profile-popup-link">
       <i class="fa-solid fa-box-archive"></i> My Orders
     </a>
+    <a href="../products-page/custom-products.html" class="profile-popup-link"><i class="fa-solid fa-pen-ruler"></i> My Custom Requests</a>
     <a href="#" id="viewAppointmentsBtn" class="profile-popup-link"><i class="fa-regular fa-calendar-check"></i> My Appointments</a>
     <hr />
     <button type="button" id="logoutBtn" class="logout-btn popup-logout" style="border: none; font-family: inherit;">

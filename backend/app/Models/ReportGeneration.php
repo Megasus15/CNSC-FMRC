@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 class ReportGeneration extends Model
 {
     public const REQUIRED_COLUMNS = [
+        'sales_type',
         'generation_key',
         'generated_by_user_id',
         'generated_by_name',
@@ -26,6 +27,7 @@ class ReportGeneration extends Model
     ];
 
     protected $fillable = [
+        'sales_type',
         'generation_key',
         'generated_by_user_id',
         'generated_by_name',
@@ -88,6 +90,7 @@ class ReportGeneration extends Model
             Schema::create('report_generations', function (Blueprint $table) {
                 $table->id();
                 $table->string('generation_key', 100)->unique();
+                $table->string('sales_type', 15)->default('all');
                 $table->foreignId('generated_by_user_id')->nullable()->constrained('users')->nullOnDelete();
                 $table->string('generated_by_name');
                 $table->string('generated_by_role', 20);
