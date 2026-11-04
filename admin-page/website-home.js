@@ -76,6 +76,13 @@ let pendingVideoPreviewUrl = "";
 let videoFileName = "";
 const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 let servicesData = [];
+let savedServices = [], savedSdgs = [];
+let servicesLoaded = false, sdgsLoaded = false;
+let nextDraftId = -1;
+let pendingImages = 0;
+let serviceModalDraft = null, sdgModalDraft = null;
+const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order'];
+const SDG_FIELDS = ['title','description','image_data','sort_order','is_visible'];
 let svcImageData = null; // base64 for current service modal image
 let heroBgImageData = null;
 let visionImageData = null;
@@ -87,11 +94,7 @@ let aboutVideoData = null; // saved reference, staged preview URL, or null
 // never drift apart. Saved with Save All Changes, like the solid colour is.
 let heroBgGradient = "";
 
-/**
- * Brand logos. Every slot saves the moment a crop is applied — like SDG badges and
- * service cards, and unlike the text fields that wait for Save All Changes —
- * because an upload is a finished action on its own.
- */
+// Brand logos are part of the page draft until Save All Changes.
 const BRAND_LOGOS = [
   {
     slot: "nav",
@@ -173,21 +176,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.FMRC_PAGE_CONTENT?.bindCounter(input, input.maxLength);
   });
   pageDraft = window.AdminWebsiteDraft?.create({
-    button: "btnSaveAllHome", read: collectPageSettings,
-    ready: () => settingsLoaded,
-    busy: () => settingsSaving || videoUploading || videoUploadFailed,
+    button: "btnSaveAllHome", read: () => ({ settings: collectPageSettings(),
+      services: CONFIG_PAGE === 'home' ? servicesData : [], sdgs: CONFIG_PAGE === 'home' ? sdgsData.map(({sort_order, ...row}) => row) : [] }),
+    ready: () => settingsLoaded && (CONFIG_PAGE === 'about' || (servicesLoaded && sdgsLoaded)),
+    busy: () => settingsSaving || videoUploading || videoUploadFailed || pendingImages > 0 || !!document.getElementById('cropModal')?.classList.contains('show'),
   });
+  serviceModalDraft = window.AdminWebsiteDraft?.create({ page: false, read: () => ({ fields: window.AdminWebsiteDraft.readFields(document.getElementById('serviceModal')), image: svcImageData }) });
+  sdgModalDraft = window.AdminWebsiteDraft?.create({ page: false, read: () => ({ fields: window.AdminWebsiteDraft.readFields(document.getElementById('sdgModal')), image: sdgImageData }) });
+  window.AdminWebsiteDraft?.register({ isDirty: () => (!!document.getElementById('serviceModal')?.classList.contains('show') && !!serviceModalDraft?.isDirty()) || (!!document.getElementById('sdgModal')?.classList.contains('show') && !!sdgModalDraft?.isDirty()) });
   await loadAllData();
   bindEvents();
 });
 
 async function loadAllData(...args) {
-  if (videoUploading || videoUploadFailed || videoUploadToken) {
-    window.showAdminPopup("Save or cancel your video change before refreshing the page content.", { title: "Video Change Pending" });
-    return;
-  }
-  const work = () => loadInitialData(...args);
-  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+  const work = () => {
+    cancelVideoUploadState();
+    return loadInitialData(...args);
+  };
+  const load = () => window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+  return window.AdminWebsiteDraft ? window.AdminWebsiteDraft.confirmDiscard(load) : load();
 }
 
 async function loadInitialData() {
@@ -199,6 +206,9 @@ async function loadInitialData() {
   await Promise.allSettled(CONFIG_PAGE === "about"
     ? [loadSettings()]
     : [loadSettings(), loadServices(), loadSdgs()]);
+  pageDraft?.capture();
+  if (settingsLoaded && (CONFIG_PAGE === 'about' || (servicesLoaded && sdgsLoaded))) window.AdminPageNotice?.clear('home-content');
+  else if (CONFIG_PAGE === 'home') window.AdminPageNotice?.show('Page content could not be loaded.', { key: 'home-content', retry: loadAllData });
 }
 
 // ── API: Load settings ────────────────────────────────────────────────────────
@@ -423,7 +433,7 @@ function validateTextFields(container) {
 function scopePageSettings(payload, page = CONFIG_PAGE) {
   return Object.fromEntries(Object.entries(payload).filter(([key]) => page === "about"
     ? /^(?:about|mission|vision)_/.test(key) || key.startsWith("editorial_about_")
-    : key.startsWith("hero_") || key === "home_sdg_heading" || key.startsWith("editorial_home_")));
+    : key.startsWith("hero_") || key === "home_sdg_heading" || key.startsWith("editorial_home_") || ['nav_logo_image','footer_logo_primary_image','footer_logo_secondary_image','favicon_image'].includes(key)));
 }
 
 function setText(id, val) {
@@ -460,6 +470,7 @@ async function loadServices(...args) {
 }
 
 async function loadServicesData() {
+  servicesLoaded = false;
   try {
     // Same two additions as the settings loader above: ask for JSON, and treat a
     // non-2xx as the failure it is instead of feeding an HTML error page to
@@ -469,7 +480,10 @@ async function loadServicesData() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    servicesData = json.data || [];
+    if (!Array.isArray(json.data)) throw new Error('Services unavailable');
+    servicesData = json.data;
+    savedServices = JSON.parse(JSON.stringify(servicesData));
+    servicesLoaded = true;
     renderServiceCards();
   } catch {
     document.getElementById("homeServicesGrid").innerHTML =
@@ -563,7 +577,7 @@ function bindEvents() {
       const file = this.files[0];
       this.value = "";
       if (!file || !logoUploadSlot) return;
-      const reader = new FileReader();
+      const reader = createEditorReader();
       const slot = logoUploadSlot;
       reader.onload = (e) => {
         logoCropData = e.target.result;
@@ -618,7 +632,7 @@ function bindEvents() {
   // FileReader result, and a gallery of ten untouched phone photos would be
   // downloaded by every visitor on their first page load. Every pick goes to the
   // fitter instead, which is what fixes the size *and* lets the operator choose
-  // what stays in frame; the fitter's Apply is what saves the deck.
+  // what stays in frame; the fitter's Apply updates the draft deck.
   Object.keys(GALLERIES).forEach(function (kind) {
     const conf = GALLERIES[kind];
     const input = document.getElementById(conf.input);
@@ -637,7 +651,7 @@ function bindEvents() {
       galleryUploadTarget = null;
       const isAppend = target.index === null || target.index === undefined;
       if (isAppend && galleryData[target.kind].length >= GALLERY_MAX) return;
-      const reader = new FileReader();
+      const reader = createEditorReader();
       reader.onerror = () =>
         window.showAdminPopup(
           "That image could not be read. Try a different file.",
@@ -701,7 +715,7 @@ function bindEvents() {
     ?.addEventListener("change", function () {
       const file = this.files[0];
       if (!file) return;
-      const reader = new FileReader();
+      const reader = createEditorReader();
       reader.onload = (e) => {
         sdgImageData = e.target.result;
         openCropModal("sdg:grid");
@@ -716,7 +730,7 @@ function bindEvents() {
     ?.addEventListener("change", function () {
       const file = this.files[0];
       if (!file) return;
-      const reader = new FileReader();
+      const reader = createEditorReader();
       reader.onload = (e) => {
         sdgImageData = e.target.result;
         setImgPreview("sdgImgPreview", "sdgImgPlaceholder", sdgImageData);
@@ -866,7 +880,7 @@ function resetLogo(slot) {
   const conf = logoConf(slot);
   if (!conf || !brandLogoData[slot]) return;
   window.showAdminConfirmPopup(
-    `Restore the default artwork for ${conf.label}? The uploaded image will be removed from the live site.`,
+    `Restore the default artwork for ${conf.label}? The default will apply after Save All Changes.`,
     {
       title: "Restore Default",
       confirmText: "Restore",
@@ -877,37 +891,14 @@ function resetLogo(slot) {
 }
 
 /**
- * One-key PUT. /admin/site-settings upserts whatever keys the body carries, so a
- * single logo saves on its own without touching the fields the admin is still
- * editing elsewhere on the page.
+ * Apply fitted artwork to the page draft without publishing or reloading it.
  */
-async function saveLogoSetting(conf, value, successMsg) {
-  const payload = {};
-  payload[conf.key] = value;
-  try {
-    const res = await fetch(`${API}/admin/site-settings`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("Save failed");
-    brandLogoData[conf.slot] = value;
-    renderBrandLogos();
-    if (conf.slot === "hero") updateHeroScenePreview();
-    if (conf.slot === "favicon") applyBrowserIcon(value);
-    window.showAdminPopup(successMsg, { title: "Saved!" });
-    broadcastSiteUpdate("updated");
-    await loadSettings();
-  } catch {
-    window.showAdminPopup(
-      `Failed to save ${conf.label}. Check your connection and try again.`,
-      { title: "Error" },
-    );
-  }
+function saveLogoSetting(conf, value) {
+  if (!settingsLoaded || settingsSaving) return;
+  brandLogoData[conf.slot] = value;
+  renderBrandLogos();
+  if (conf.slot === 'hero') updateHeroScenePreview();
+  pageDraft?.refresh();
 }
 
 /** Apply the saved favicon to the current Admin/Staff management tab as well. */
@@ -975,12 +966,20 @@ function collectPageSettings() {
     if (scale) payload.hero_scene_scale = Number(scale.value);
   }
 
-  // Brand logos and galleries have their own immediate-save controls.
+  if (CONFIG_PAGE === 'home') BRAND_LOGOS.forEach(conf => {
+    const value = brandLogoData[conf.slot] || '';
+    if (value !== (currentSettings[conf.key] || '')) payload[conf.key] = value;
+  });
+  if (CONFIG_PAGE === 'about') Object.entries(GALLERIES).forEach(([kind, conf]) => {
+    const value = JSON.stringify(galleryData[kind]);
+    if (value !== JSON.stringify(parseGallery(currentSettings[conf.key]))) payload[conf.key] = value;
+  });
   return scopePageSettings(payload);
 }
 
 async function doSaveAll() {
-  if (settingsSaving || videoUploading || videoUploadFailed || (pageDraft && !pageDraft.isDirty())) return;
+  if (pageDraft?.busy?.()) return;
+  if (settingsSaving || videoUploading || videoUploadFailed || (CONFIG_PAGE === 'home' && (!servicesLoaded || !sdgsLoaded)) || (pageDraft && !pageDraft.isDirty())) return;
   // Keep the loaded-content guard for direct calls as well as button clicks.
   if (!settingsLoaded) {
     window.showAdminPopup(
@@ -995,6 +994,7 @@ async function doSaveAll() {
   const saveButton = document.getElementById("btnSaveAllHome");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
   settingsSaving = true;
+  document.querySelector('.module-content').inert = true;
   syncVideoControls();
   if (saveButton) {
     saveButton.disabled = true;
@@ -1007,14 +1007,17 @@ async function doSaveAll() {
   let errorTitle = "Changes Not Saved";
   try {
     const payload = collectPageSettings();
-    const res = await fetch(`${API}/admin/site-settings`, {
+    const body = CONFIG_PAGE === 'home' ? { settings: payload,
+      services: window.AdminWebsiteDraft.changes(savedServices, servicesData, SERVICE_FIELDS),
+      sdgs: window.AdminWebsiteDraft.changes(savedSdgs, sdgsData, SDG_FIELDS) } : payload;
+    const res = await fetch(CONFIG_PAGE === 'home' ? `${API}/admin/website-pages/home` : `${API}/admin/site-settings`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + token(),
         Accept: "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
@@ -1034,7 +1037,13 @@ async function doSaveAll() {
     broadcastSiteUpdate("updated");
     videoUploadToken = null;
     videoUploadFile = null;
-    const reloaded = await loadSettings({ silent: true });
+    let reloaded = await loadSettings({ silent: true });
+    if (CONFIG_PAGE === 'home') {
+      await Promise.all([loadServices(), loadSdgs()]);
+      reloaded = reloaded && servicesLoaded && sdgsLoaded;
+      if (!reloaded) setSettingsLoaded(false);
+    }
+    if (reloaded) pageDraft?.capture();
     if (reloaded) {
       if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
       videoPreviewUrl = "";
@@ -1047,7 +1056,7 @@ async function doSaveAll() {
       showSettingsLoadFailure(new Error("Your changes were saved, but the updated content could not be loaded. Retry loading before making more changes."));
     }
   } catch (error) {
-    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError" || (CONFIG_PAGE === "home" && error instanceof TypeError)) {
       setSettingsLoaded(false);
       // The save may already have published this receipt. Read the current
       // content before offering another save; do not discard an in-flight receipt.
@@ -1064,6 +1073,7 @@ async function doSaveAll() {
     );
   } finally {
     settingsSaving = false;
+    document.querySelector('.module-content').inert = false;
     if (saveButton) {
       // Not a flat `false`: if the read-back above failed, the form is no longer
       // known to hold live content, and the lock has to survive this handler.
@@ -1080,14 +1090,17 @@ async function doSaveAll() {
 
 // ── Service CRUD ──────────────────────────────────────────────────────────────
 function openAddService() {
+  if (!servicesLoaded || settingsSaving) return;
   svcImageData = null;
   document.getElementById("serviceEditId").value = "";
   document.getElementById("serviceModalTitle").textContent = "Add Service Card";
   clearServiceModal();
   document.getElementById("serviceModal").classList.add("show");
+  serviceModalDraft?.capture();
 }
 
 function openEditService(id) {
+  if (!servicesLoaded || settingsSaving) return;
   const svc = servicesData.find((s) => s.id === id);
   if (!svc) return;
   svcImageData = svc.image_data || null;
@@ -1108,9 +1121,13 @@ function openEditService(id) {
   }
 
   document.getElementById("serviceModal").classList.add("show");
+  serviceModalDraft?.capture();
 }
 
-function closeServiceModal() {
+function closeServiceModal(force = false) {
+  if (!force && serviceModalDraft?.isDirty()) {
+    window.showAdminConfirmPopup('Discard your unapplied service changes?', { title: 'Discard changes?', confirmText: 'Discard changes', cancelText: 'Keep editing', onConfirm: () => closeServiceModal(true) }); return;
+  }
   document.getElementById("serviceModal").classList.remove("show");
 }
 
@@ -1139,14 +1156,14 @@ async function saveService() {
     image_data: svcImageData || null,
     sort_order: id
       ? servicesData.find((s) => s.id == id)?.sort_order || 0
-      : servicesData.length,
+      : Math.max(-1, ...servicesData.map(item => item.sort_order || 0)) + 1,
   };
 
   const action = id
     ? () =>
-        window.showAdminConfirmPopup(`Save changes to "${title}"?`, {
+        window.showAdminConfirmPopup(`Apply changes to "${title}" in this draft? Publish them with Save All Changes.`, {
           title: "Confirm Edit",
-          confirmText: "Save",
+          confirmText: "Apply Changes",
           onConfirm: () => doSaveService("PUT", id, payload),
         })
     : () =>
@@ -1158,58 +1175,22 @@ async function saveService() {
   action();
 }
 
-async function doSaveService(method, id, payload) {
-  const url = id ? `${API}/admin/services/${id}` : `${API}/admin/services`;
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({}));
-      throw new Error(Object.values(error.errors || {}).flat()[0] || error.message || "Failed to save service. Try again.");
-    }
-    closeServiceModal();
-    window.showAdminPopup("Service saved successfully!", { title: "Saved!" });
-    await loadServices();
-  } catch (error) {
-    window.showAdminPopup(error.message || "Failed to save service. Try again.", {
-      title: "Error",
-    });
-  }
+function doSaveService(method, id, payload) {
+  if (!servicesLoaded || settingsSaving) return;
+  const existing = servicesData.find(item => item.id == id);
+  if (existing) Object.assign(existing, payload);
+  else servicesData.push({ id: nextDraftId--, ...payload });
+  closeServiceModal(true); renderServiceCards(); pageDraft?.refresh();
 }
 
 function deleteService(id, name) {
-  window.showAdminConfirmPopup(
-    `Delete "${name}"? This will remove it from both the Home and Services pages.`,
-    {
-      title: "Delete Service",
-      confirmText: "Delete",
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`${API}/admin/services/${id}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: "Bearer " + token(),
-              Accept: "application/json",
-            },
-          });
-          if (!res.ok) throw new Error();
-          window.showAdminPopup("Service deleted.", { title: "Deleted" });
-          await loadServices();
-        } catch {
-          window.showAdminPopup("Failed to delete service.", {
-            title: "Error",
-          });
-        }
-      },
+  if (!servicesLoaded || settingsSaving) return;
+  window.showAdminConfirmPopup(`Remove "${name}"? This applies after Save All Changes.`, {
+    title: 'Remove Service', confirmText: 'Remove', onConfirm: () => {
+      servicesData = servicesData.filter(item => item.id !== id);
+      renderServiceCards(); pageDraft?.refresh();
     },
-  );
+  });
 }
 
 // ── Image helpers ─────────────────────────────────────────────────────────────
@@ -1219,7 +1200,7 @@ function setupImgInput(inputId, previewId, placeholderId, callback) {
   inputEl.addEventListener("change", function () {
     const file = this.files[0];
     if (!file) return;
-    const reader = new FileReader();
+    const reader = createEditorReader();
     reader.onload = (event) => {
       const image = event.target.result;
       setImgPreview(previewId, placeholderId, image);
@@ -1939,7 +1920,7 @@ function applySdgCropAndSave() {
 }
 
 /**
- * Grid-initiated crop finished: an existing badge saves straight away, a brand
+ * Grid-initiated crop finished: an existing badge updates the page draft, a brand
  * new one opens the detail modal so the admin can type a title first.
  */
 function finishSdgGridUpload(cropped) {
@@ -2249,59 +2230,11 @@ function removeGalleryImage(kind, index) {
   );
 }
 
-/**
- * One-key PUT, shaped on saveLogoSetting(): the gallery saves the moment it is
- * changed and is deliberately absent from doSaveAll()'s payload, so a form that
- * was loaded before an upload cannot overwrite it on the next "Save All".
- */
-async function saveGallery(kind, list, successMsg) {
-  const conf = GALLERIES[kind];
-  // The deck is published as one whole array read from the snapshot. If the
-  // snapshot never arrived that array is empty, so saving would drop every photo
-  // already on the live site.
-  if (!settingsLoaded) {
-    window.showAdminPopup(
-      `The live ${conf.label} photos have not loaded, so saving now would remove them. Load the content first, then try again.`,
-      { title: "Cannot Save Yet" },
-    );
-    return;
-  }
-  if (gallerySaving[kind]) {
-    window.showAdminPopup(
-      `The ${conf.label} gallery is still saving your last change. Please try again in a moment.`,
-      { title: "One at a time" },
-    );
-    return;
-  }
-  gallerySaving[kind] = true;
-  const payload = {};
-  // Always a JSON array, even when empty: "[]" is what tells the customer page
-  // to hand the section back to its single-image rules.
-  payload[conf.key] = JSON.stringify(list.slice(0, GALLERY_MAX));
-  try {
-    const res = await fetch(`${API}/admin/site-settings`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("Save failed");
-    galleryData[kind] = list.slice(0, GALLERY_MAX);
-    renderGallerySlots(kind);
-    window.showAdminPopup(successMsg, { title: "Saved!" });
-    broadcastSiteUpdate("updated");
-    await loadSettings();
-  } catch {
-    window.showAdminPopup(
-      `Failed to save the ${conf.label} gallery. Check your connection and try again.`,
-      { title: "Error" },
-    );
-  } finally {
-    gallerySaving[kind] = false;
-  }
+// Gallery edits are staged with the rest of this page.
+function saveGallery(kind, list) {
+  if (!settingsLoaded || settingsSaving) return;
+  galleryData[kind] = list.slice(0, GALLERY_MAX);
+  renderGallerySlots(kind); pageDraft?.refresh();
 }
 
 function sdgEsc(str) {
@@ -2324,6 +2257,7 @@ async function loadSdgs(...args) {
 }
 
 async function loadSdgsData() {
+  sdgsLoaded = false;
   const grid = document.getElementById("homeSdgGrid");
   if (!grid) return;
   try {
@@ -2335,7 +2269,10 @@ async function loadSdgsData() {
     });
     if (!res.ok) throw new Error();
     const json = await res.json();
-    sdgsData = json.data || [];
+    if (!Array.isArray(json.data)) throw new Error('SDG badges unavailable');
+    sdgsData = json.data;
+    savedSdgs = JSON.parse(JSON.stringify(sdgsData));
+    sdgsLoaded = true;
     sdgMaxSlots = Number(json.max_slots) || 8;
     renderSdgSlots();
   } catch {
@@ -2412,6 +2349,7 @@ function adjustSdg(id) {
 }
 
 function openSdgModal(id, presetImage) {
+  if (!sdgsLoaded || settingsSaving) return;
   const modal = document.getElementById("sdgModal");
   if (!modal) return;
   const sdg = id ? sdgsData.find((s) => s.id === id) : null;
@@ -2437,9 +2375,13 @@ function openSdgModal(id, presetImage) {
   }
 
   modal.classList.add("show");
+  sdgModalDraft?.capture();
 }
 
-function closeSdgModal() {
+function closeSdgModal(force = false) {
+  if (!force && sdgModalDraft?.isDirty()) {
+    window.showAdminConfirmPopup('Discard your unapplied SDG changes?', { title: 'Discard changes?', confirmText: 'Discard changes', cancelText: 'Keep editing', onConfirm: () => closeSdgModal(true) }); return;
+  }
   document.getElementById("sdgModal")?.classList.remove("show");
 }
 
@@ -2468,121 +2410,53 @@ function saveSdg() {
     title,
     description: document.getElementById("sdgDescription").value,
     image_data: sdgImageData,
-    sort_order: existing ? existing.sort_order : sdgsData.length,
+    sort_order: existing ? existing.sort_order : Math.max(-1, ...sdgsData.map(item => item.sort_order || 0)) + 1,
     is_visible: document.getElementById("sdgIsVisible").checked,
   };
 
   window.showAdminConfirmPopup(
-    id ? `Save changes to "${title}"?` : `Add "${title}" to the home page?`,
+    id ? `Apply changes to "${title}" in this draft?` : `Add "${title}" to the page draft?`,
     {
       title: id ? "Confirm Edit" : "Confirm Add",
-      confirmText: id ? "Save" : "Add",
+      confirmText: id ? "Apply Changes" : "Add",
       onConfirm: () => doSaveSdg(id ? "PUT" : "POST", id || null, payload),
     },
   );
 }
 
-async function doSaveSdg(method, id, payload, successMsg) {
-  const url = id ? `${API}/admin/site-sdgs/${id}` : `${API}/admin/site-sdgs`;
-  const btn = document.getElementById("btnSaveSdg");
-  const btnHtml = btn ? btn.innerHTML : "";
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-  }
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json.message || "");
-    closeSdgModal();
-    window.showAdminPopup(successMsg || "SDG badge saved successfully!", {
-      title: "Saved!",
-    });
-    broadcastSiteUpdate("sdgs-updated");
-    await loadSdgs();
-  } catch (err) {
-    window.showAdminPopup(
-      (err && err.message) || "Failed to save the SDG badge. Try again.",
-      { title: "Error" },
-    );
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML =
-        btnHtml || '<i class="fa-solid fa-floppy-disk"></i> Save SDG';
-    }
-  }
+function doSaveSdg(method, id, payload) {
+  if (!sdgsLoaded || settingsSaving) return;
+  const existing = sdgsData.find(item => item.id == id);
+  if (existing) Object.assign(existing, payload);
+  else sdgsData.push({ id: nextDraftId--, ...payload });
+  closeSdgModal(true); renderSdgSlots(); pageDraft?.refresh();
 }
 
 function deleteSdg(id) {
-  const sdg = sdgsData.find((s) => s.id === id);
+  if (!sdgsLoaded || settingsSaving) return;
+  const sdg = sdgsData.find(item => item.id === id);
   if (!sdg) return;
-  window.showAdminConfirmPopup(
-    `Remove "${sdg.title}" from the home page hero? This cannot be undone.`,
-    {
-      title: "Remove SDG",
-      confirmText: "Remove",
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`${API}/admin/site-sdgs/${id}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: "Bearer " + token(),
-              Accept: "application/json",
-            },
-          });
-          if (!res.ok) throw new Error();
-          window.showAdminPopup("SDG badge removed.", { title: "Removed" });
-          broadcastSiteUpdate("sdgs-updated");
-          await loadSdgs();
-        } catch {
-          window.showAdminPopup("Failed to remove the SDG badge.", {
-            title: "Error",
-          });
-        }
-      },
+  window.showAdminConfirmPopup(`Remove "${sdg.title}"? This applies after Save All Changes.`, {
+    title: 'Remove SDG', confirmText: 'Remove', onConfirm: () => {
+      sdgsData = sdgsData.filter(item => item.id !== id);
+      renderSdgSlots(); pageDraft?.refresh();
     },
-  );
+  });
 }
 
-/** Move one badge left/right and persist the whole order in one PATCH. */
-async function reorderSdg(id, dir) {
-  const from = sdgsData.findIndex((s) => s.id === id);
-  const to = from + dir;
+/** Move one badge left/right and update the order in this page draft. */
+function reorderSdg(id, dir) {
+  if (!sdgsLoaded || settingsSaving) return;
+  const from = sdgsData.findIndex(item => item.id === id), to = from + dir;
   if (from < 0 || to < 0 || to >= sdgsData.length) return;
-
-  const ids = sdgsData.map((s) => s.id);
-  [ids[from], ids[to]] = [ids[to], ids[from]];
-
-  // Optimistic swap so the arrows feel instant, then reconcile with the server.
   [sdgsData[from], sdgsData[to]] = [sdgsData[to], sdgsData[from]];
-  renderSdgSlots();
+  sdgsData.forEach((item, index) => { item.sort_order = index; });
+  renderSdgSlots(); pageDraft?.refresh();
+}
 
-  try {
-    const res = await fetch(`${API}/admin/site-sdgs/reorder`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ ids }),
-    });
-    if (!res.ok) throw new Error();
-    broadcastSiteUpdate("sdgs-updated");
-    await loadSdgs();
-  } catch {
-    window.showAdminPopup("Failed to reorder the SDG badges.", {
-      title: "Error",
-    });
-    await loadSdgs();
-  }
+function createEditorReader() {
+  pendingImages++; pageDraft?.refresh();
+  const reader = new FileReader();
+  reader.addEventListener('loadend', () => { pendingImages--; pageDraft?.refresh(); }, { once: true });
+  return reader;
 }

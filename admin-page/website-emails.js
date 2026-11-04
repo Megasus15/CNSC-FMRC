@@ -104,7 +104,7 @@ const state = {
   bySlug: new Map(),
   activeSlug: "",
   search: "",
-  saving: false,
+  saving: false, loaded: false, drafts: new Map(), resets: new Set(),
   previewTimer: 0,
   previewSeq: 0,
   lastTokenTarget: "body_text",
@@ -253,13 +253,19 @@ const currentParts = () => {
   return out;
 };
 
-const isDirty = () => {
+const rememberActive = () => {
   const row = state.bySlug.get(state.activeSlug);
-  if (!row) return false;
-  const saved = partsOf(row);
+  if (!row) return;
   const now = currentParts();
-  return state.editableParts.some((part) => saved[part] !== now[part]);
+  if (state.resets.has(row.slug)) {
+    const defaults = partsOf({ ...row, saved: {} });
+    if (state.editableParts.every(part => defaults[part] === now[part])) return;
+    state.resets.delete(row.slug);
+  }
+  if (state.editableParts.some(part => partsOf(row)[part] !== now[part])) state.drafts.set(row.slug, now);
+  else state.drafts.delete(row.slug);
 };
+const isDirty = () => state.drafts.size > 0 || state.resets.size > 0;
 
 /** What the status line reads while the form matches what is stored. */
 const savedStatusMessage = (row) =>
@@ -273,13 +279,14 @@ const savedStatusMessage = (row) =>
  * already live.
  */
 const syncDirty = () => {
+  rememberActive();
   const save = el("emailTemplateSaveBtn");
-  if (save) save.disabled = state.saving || !isDirty();
+  if (save) save.disabled = state.saving || !state.loaded || !isDirty();
   const row = state.bySlug.get(state.activeSlug);
   if (!row) return;
   setStatus(
     isDirty()
-      ? "Unsaved changes. Choose Save Template to apply them to new emails."
+      ? "Unsaved changes. Choose Save All Changes to apply all edited templates."
       : savedStatusMessage(row),
   );
 };
@@ -289,7 +296,7 @@ const selectTemplate = (slug) => {
   if (!row) return;
 
   state.activeSlug = slug;
-  const parts = partsOf(row);
+  const parts = state.drafts.get(slug) || partsOf(state.resets.has(slug) ? { ...row, saved: {} } : row);
   const edited = hasOverride(row);
 
   const title = el("emailTemplateTitle");
@@ -324,7 +331,7 @@ const selectTemplate = (slug) => {
   const saveBtn = el("emailTemplateSaveBtn");
   if (saveBtn) saveBtn.disabled = true;
   const resetBtn = el("emailTemplateResetBtn");
-  if (resetBtn) resetBtn.disabled = !edited;
+  if (resetBtn) resetBtn.disabled = !edited && !state.drafts.has(slug);
 
   setStatus(savedStatusMessage(row));
   renderList();
@@ -431,86 +438,46 @@ const broadcastUpdate = () => {
  * falls back to the compiled-in default wording.
  */
 const persist = async (isReset) => {
-  if (state.saving || (!isReset && !isDirty())) return;
-  const slug = state.activeSlug;
-  const row = state.bySlug.get(slug);
+  if (state.saving || !state.loaded) return;
+  rememberActive();
+  const row = state.bySlug.get(state.activeSlug);
   if (!row) return;
-
-  const authToken = token();
-  if (!authToken) {
-    setStatus(
-      "Your session expired. Sign in again to save this template.",
-      true,
-    );
-    return;
+  if (isReset) {
+    state.drafts.delete(row.slug);
+    if (hasOverride(row)) state.resets.add(row.slug); else state.resets.delete(row.slug);
+    selectTemplate(row.slug); return;
   }
-
-  const parts = currentParts();
-  const button = isReset
-    ? el("emailTemplateResetBtn")
-    : el("emailTemplateSaveBtn");
-  const sibling = isReset
-    ? el("emailTemplateSaveBtn")
-    : el("emailTemplateResetBtn");
-
+  if (!isDirty()) return;
+  const submitted = new Map(state.drafts), resets = new Set(state.resets);
+  const payload = Object.fromEntries([...submitted].map(([slug, parts]) => [state.keyPrefix + slug, JSON.stringify(parts)]));
+  resets.forEach(slug => { payload[state.keyPrefix + slug] = ''; });
   state.saving = true;
-  setButtonPending(button, true, isReset ? "Restoring..." : "Saving...");
-  if (sibling) sibling.disabled = true;
-
+  el('emailTemplateForm').inert = true;
+  setButtonPending(el('emailTemplateSaveBtn'), true, 'Saving...');
   try {
     const response = await fetch(`${API}/admin/site-settings`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        [`${state.keyPrefix}${slug}`]: isReset ? "" : JSON.stringify(parts),
-      }),
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token() }, body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(
-        body?.message ||
-          (response.status === 403
-            ? "Only admin or staff accounts can edit email templates."
-            : "The template could not be saved. Try again."),
-      );
-    }
-
-    row.saved = isReset ? {} : { ...parts };
-    state.saving = false;
-    setButtonPending(button, false);
-    selectTemplate(slug);
-    broadcastUpdate();
-    setStatus(
-      isReset
-        ? `"${row.label}" is back to its original wording.`
-        : `"${row.label}" saved. New emails use it right away.`,
-    );
-    window.showAdminPopup?.(
-      isReset
-        ? `"${row.label}" has been restored to its original wording.`
-        : `"${row.label}" saved. Every new email of this type uses it right away.`,
-      { title: "Saved!" },
-    );
+    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Sign in with an authorized Admin account before saving.' : 'Your template changes could not be saved. Please try again.');
+    submitted.forEach((parts, slug) => { state.bySlug.get(slug).saved = { ...parts }; });
+    resets.forEach(slug => { state.bySlug.get(slug).saved = {}; });
+    state.drafts.clear(); state.resets.clear();
+    state.saving = false; selectTemplate(state.activeSlug);
+    broadcastUpdate(); window.showAdminPopup?.('All email template changes saved.', { title: 'Saved!', type: 'success' });
   } catch (error) {
-    const message =
-      error?.message || "The template could not be saved. Try again.";
-    state.saving = false;
-    setButtonPending(button, false);
-    if (sibling) sibling.disabled = isReset ? false : !hasOverride(row);
-    const save = el("emailTemplateSaveBtn");
-    if (save) save.disabled = !isDirty();
-    setStatus(message, true);
-    window.showAdminPopup?.(message, { title: "Error" });
+    setStatus('Template changes could not be saved. Your edits are kept here. Please try again.', true);
+    window.showAdminPopup?.(error.message || 'Please try saving again.', { title: 'Changes Not Saved' });
+  } finally {
+    state.saving = false; el('emailTemplateForm').inert = false;
+    setButtonPending(el('emailTemplateSaveBtn'), false);
+    el('emailTemplateSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save All Changes'; syncDirty();
   }
 };
 
-const loadTemplates = (...args) => window.AdminWebsiteLoading
-  ? window.AdminWebsiteLoading.during(() => loadTemplatesData(...args))
-  : loadTemplatesData(...args);
+const loadTemplates = (...args) => {
+  const work = () => window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(() => loadTemplatesData(...args)) : loadTemplatesData(...args);
+  return window.AdminWebsiteDraft ? window.AdminWebsiteDraft.confirmDiscard(work) : work();
+};
 
 const loadTemplatesData = async ({ keepActive = true } = {}) => {
   const list = el("emailTemplateList");
@@ -544,7 +511,9 @@ const loadTemplatesData = async ({ keepActive = true } = {}) => {
       );
     }
 
-    const data = (await response.json())?.data || {};
+    const data = (await response.json())?.data;
+    if (!data || !Array.isArray(data.templates)) throw new Error('Template content unavailable.');
+    state.loaded = true; state.drafts.clear(); state.resets.clear();
     state.keyPrefix =
       typeof data.key_prefix === "string" && data.key_prefix
         ? data.key_prefix
@@ -583,24 +552,13 @@ const loadTemplatesData = async ({ keepActive = true } = {}) => {
   }
 };
 
-const requestSelect = (slug) => {
-  if (slug === state.activeSlug) return;
-  if (!isDirty()) {
-    selectTemplate(slug);
-    return;
-  }
-  const label = state.bySlug.get(state.activeSlug)?.label || "this notification";
-  window.showAdminConfirmPopup?.(
-    `You have unsaved changes to "${label}". Leave them behind?`,
-    {
-      title: "Discard Changes",
-      confirmText: "Discard",
-      onConfirm: () => selectTemplate(slug),
-    },
-  );
+const requestSelect = slug => {
+  if (state.saving || slug === state.activeSlug) return;
+  rememberActive(); selectTemplate(slug);
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  window.AdminWebsiteDraft?.register({ isDirty, busy: () => state.saving });
   const search = el("emailTemplateSearch");
   search?.addEventListener("input", () => {
     state.search = String(search.value || "")
@@ -663,9 +621,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const row = state.bySlug.get(state.activeSlug);
     if (!row) return;
     window.showAdminConfirmPopup?.(
-      `Save "${row.label}"? Every new email of this type will use this wording.`,
+      'Save all edited email templates? New emails will use the saved wording.',
       {
-        title: "Save Template",
+        title: "Save All Changes",
         confirmText: "Save",
         onConfirm: () => void persist(false),
       },
@@ -676,7 +634,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const row = state.bySlug.get(state.activeSlug);
     if (!row) return;
     window.showAdminConfirmPopup?.(
-      `Restore the original wording of "${row.label}"? Your saved version is removed.`,
+      `Restore the original wording of "${row.label}" in this draft? Apply it with Save All Changes.`,
       {
         title: "Restore Default",
         confirmText: "Restore",

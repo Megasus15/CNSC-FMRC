@@ -6,16 +6,20 @@
   // Every editor compares its own saved snapshot and retains ownership of
   // loading, validation and pending-upload eligibility.
   const drafts = new Set();
+  const guards = new Set();
+  let leaving = false;
   window.AdminWebsiteDraft = {
     readFields(root) {
       return [...(root?.querySelectorAll("input:not([type=file]),textarea,select") || [])]
         .map((input, index) => [input.id || input.name || index, input.type === "checkbox" || input.type === "radio" ? input.checked : input.value]);
     },
-    create({ button, read, ready = () => true, busy = () => false }) {
+    create({ button, read, ready = () => true, busy = () => false, page = true }) {
       const target = typeof button === "string" ? document.getElementById(button) : button;
       let baseline = null;
       const snapshot = () => JSON.stringify(read());
       const draft = {
+        page,
+        busy,
         isDirty() {
           try { return baseline !== null && snapshot() !== baseline; }
           catch { return false; }
@@ -29,11 +33,48 @@
       draft.refresh();
       return draft;
     },
+    register(guard) { guards.add(guard); return () => guards.delete(guard); },
+    isDirty() { return [...drafts].some(draft => draft.page && (draft.isDirty() || draft.busy())) || [...guards].some(guard => guard.isDirty() || guard.busy?.()); },
+    confirmDiscard(action, options = {}) {
+      if (!window.AdminWebsiteDraft.isDirty()) return action();
+      return new Promise(resolve => {
+        const discard = () => { if (options.leaving) leaving = true; resolve(action()); };
+        const message = options.message || 'Discard your unsaved changes and load the saved content?';
+        if (window.showAdminConfirmPopup) window.showAdminConfirmPopup(message, {
+          title: 'Discard changes?', confirmText: 'Discard changes', cancelText: 'Keep editing',
+          onConfirm: discard, onCancel: () => resolve(false),
+        });
+        else if (window.confirm?.(message)) discard();
+        else resolve(false);
+      });
+    },
+    // Send only changed model fields. Negative IDs belong to this page draft.
+    changes(saved, current, fields) {
+      const upsert = [];
+      for (const row of current) {
+        const original = saved.find(item => item.id === row.id);
+        const values = Object.fromEntries(fields.filter(key => key in row && (!original || JSON.stringify(row[key]) !== JSON.stringify(original[key]))).map(key => [key, row[key]]));
+        if (Object.keys(values).length) upsert.push(original ? { id: row.id, ...values } : values);
+      }
+      return { upsert, delete: saved.filter(row => !current.some(item => item.id === row.id)).map(row => row.id) };
+    },
     refresh() { drafts.forEach((draft) => draft.refresh()); },
   };
   document.addEventListener("input", () => window.AdminWebsiteDraft.refresh());
   document.addEventListener("change", () => window.AdminWebsiteDraft.refresh());
   document.addEventListener("click", () => queueMicrotask(() => window.AdminWebsiteDraft.refresh()));
+  window.addEventListener?.('beforeunload', event => {
+    if (leaving || !window.AdminWebsiteDraft.isDirty()) return;
+    event.preventDefault(); event.returnValue = '';
+  });
+  document.addEventListener('click', event => {
+    const link = event.target?.closest?.('a[href]');
+    if (!link || link.target === '_blank' || link.hasAttribute('download') || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || (event.button && event.button !== 0)) return;
+    const href = link.getAttribute('href');
+    if (!href || /^(#|javascript:|mailto:|tel:)/i.test(href) || !window.AdminWebsiteDraft.isDirty()) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    window.AdminWebsiteDraft.confirmDiscard(() => window.location.assign(link.href), { leaving: true, message: 'Leave this page and discard your unsaved changes?' });
+  }, true);
 
   // A saved video can be tens of MB. Editors need its URL, not its bytes in
   // every settings read. Keep the timeout active while response bodies load.

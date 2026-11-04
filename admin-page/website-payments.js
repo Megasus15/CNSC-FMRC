@@ -47,7 +47,9 @@
     let lastSaveSucceeded = false;
     let channel = null;
     const isDirty = () => !!saved && !same(saved, draft);
+    window.AdminWebsiteDraft?.register({ isDirty, busy: () => busy && !refreshing && !!saved });
 
+    window.requestPaymentRefresh = () => window.AdminWebsiteDraft.confirmDiscard(() => load({ replaceDraft: true }));
     const render = () => {
       const count = draft ? METHODS.filter((key) => draft[key]).length : 0;
       fieldset.disabled = busy || refreshing || !draft;
@@ -70,7 +72,7 @@
       note.classList.toggle("is-paused", !!draft && count === 0);
       noteTitle.textContent = !draft || count > 0 ? "Availability applies to new product orders" : isDirty() ? "Saving will pause new product orders" : "New product orders are paused";
       status.textContent = refreshing ? "Loading payment methods…" : busy ? "Saving payment methods…" : isDirty() ? "You have unsaved changes." : saved ? (lastSaveSucceeded ? "Payment methods saved." : "All changes saved.") : "Load the saved settings before making changes.";
-      save.innerHTML = busy && saved ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving…' : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save changes';
+      save.innerHTML = busy && saved ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving…' : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save All Changes';
     };
 
     const request = async (path, options = {}) => {
@@ -184,21 +186,16 @@
     };
     enableAll.addEventListener("click", () => setAll(true));
     disableAll.addEventListener("click", () => setAll(false));
-    discard.addEventListener("click", () => {
+    discard.addEventListener("click", () => window.AdminWebsiteDraft.confirmDiscard(() => {
       if (busy || refreshing || !saved) return;
       draft = { ...saved };
       lastSaveSucceeded = false;
       errorBox.hidden = true;
       render();
       void load();
-    });
-    document.getElementById("reloadPaymentSettings").addEventListener("click", () => void load({ replaceDraft: true }));
+    }));
+    document.getElementById('reloadPaymentSettings').addEventListener('click', () => window.AdminWebsiteDraft.confirmDiscard(() => load({ replaceDraft: true })));
     retry.addEventListener("click", () => void load());
-    window.addEventListener("beforeunload", (event) => {
-      if (!isDirty()) return;
-      event.preventDefault();
-      event.returnValue = "";
-    });
     // Returning to the tab keeps the current controls and draft in place.
     // Cross-tab saves show a notice; only an explicit action reads settings again.
     const noticeExternalUpdate = () => { changedElsewhere.hidden = false; };

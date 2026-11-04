@@ -97,6 +97,9 @@ async function harness(settings = {}, role = 'admin') {
   // Appearance's DOM-marker contract has its own tests. This harness keeps its
   // real defaults/read/key behavior and records the editor's preview config.
   window.FMRC_PORTAL_APPEARANCE.apply = (_, config) => { field('portalPreview').config = { ...config }; };
+  const draftSource = fs.readFileSync(path.join(repo, 'admin-page/website-loading.js'), 'utf8');
+  context.queueMicrotask = queueMicrotask;
+  vm.runInContext(draftSource.slice(draftSource.indexOf('  const drafts ='), draftSource.indexOf('  const nativeFetch =')), context);
   vm.runInContext(editorSource, context);
   await document.emit('DOMContentLoaded');
   await settle();
@@ -159,7 +162,7 @@ test('cross-tab notices mark both portals without fetching, disabling controls, 
   assert.equal(h.controls.get('brand_name').value, 'Customer draft');
 });
 
-test('manual Refresh fetches the latest settings while retaining each dirty portal draft', async () => {
+test('confirmed Refresh replaces all portal drafts with the latest saved settings', async () => {
   const h = await harness({ portal_customer_brand_name: 'Saved customer', portal_admin_brand_name: 'Saved admin' });
   await h.input('brand_name', 'Customer draft');
   await h.selectPortal('admin');
@@ -175,15 +178,15 @@ test('manual Refresh fetches the latest settings while retaining each dirty port
   release();
   await refreshing;
   assert.equal(h.field('portalSettingsFields').disabled, false);
-  assert.equal(h.controls.get('brand_name').value, 'Customer draft');
-  assert.equal(h.field('portalSettingsUpdated').hidden, false);
+  assert.equal(h.controls.get('brand_name').value, 'Remote customer');
+  assert.equal(h.field('portalSettingsUpdated').hidden, true);
   await h.selectPortal('admin');
-  assert.equal(h.controls.get('brand_name').value, 'Admin draft');
-  assert.equal(h.field('savePortalSettings').disabled, false);
+  assert.equal(h.controls.get('brand_name').value, 'Remote admin');
+  assert.equal(h.field('savePortalSettings').disabled, true);
 });
 
 for (const role of ['admin']) {
-  test(`${role} saves only changed fields of the selected portal and preserves other drafts and remote copy`, async () => {
+  test(`${role} saves all changed portals in one request and preserves unrelated remote copy`, async () => {
     const h = await harness({
       portal_customer_brand_name: 'Saved customer', portal_customer_image_description: 'Saved copy',
       portal_admin_brand_name: 'Saved admin', hero_title: 'Website hero',
@@ -193,24 +196,21 @@ for (const role of ['admin']) {
     await h.input('brand_name', 'Admin draft');
     await h.selectPortal('customer');
     h.state.settings.portal_customer_image_description = 'Remote copy';
-    await h.click('refreshPortalSettings');
     await h.save();
     const request = h.requests.find((item) => item.method === 'PUT');
     assert.equal(request.url, 'https://fmrc.test/api/admin/site-settings');
     assert.equal(request.options.headers.Authorization, `Bearer ${role}-token`);
-    assert.deepEqual(JSON.parse(request.options.body), { portal_customer_brand_name: 'Customer draft' });
-    assert.equal(h.state.settings.portal_admin_brand_name, 'Saved admin');
+    assert.deepEqual(JSON.parse(request.options.body), { portal_customer_brand_name: 'Customer draft', portal_admin_brand_name: 'Admin draft' });
+    assert.equal(h.state.settings.portal_admin_brand_name, 'Admin draft');
     assert.equal(h.state.settings.hero_title, 'Website hero');
-    assert.equal(h.controls.get('image_description').value, 'Remote copy', 'Known remote edits merge after a partial save.');
+    assert.equal(h.state.settings.portal_customer_image_description, 'Remote copy', 'Untouched fields remain unchanged on the service.');
     assert.equal(h.field('savePortalSettings').disabled, true);
     assert.equal(h.broadcasts.length, 1);
     assert.equal(h.storage[0].key, 'fmrc_site_content_updated_at');
     await h.selectPortal('admin');
     assert.equal(h.controls.get('brand_name').value, 'Admin draft');
-    assert.equal(h.field('savePortalSettings').disabled, false);
-    await h.save();
-    const second = h.requests.filter((item) => item.method === 'PUT')[1];
-    assert.deepEqual(JSON.parse(second.options.body), { portal_admin_brand_name: 'Admin draft' });
+    assert.equal(h.field('savePortalSettings').disabled, true);
+    assert.equal(h.requests.filter(item => item.method === 'PUT').length, 1);
   });
 }
 

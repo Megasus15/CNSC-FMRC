@@ -42,6 +42,7 @@ async function emailHarness(t) {
     slug: 'order_received', label: 'Order received', group: 'Orders', saved: {}, tokens: [],
     defaults: { header_title: 'UCN-FMRC', header_subtitle: 'Your order', header_color: '#800000', body_heading: 'Order received', body_text: 'Your order is ready for review.', footer_note: 'Thank you.' },
   };
+  const second = {...row,slug:'order_ready',label:'Order ready',defaults:{...row.defaults,body_text:'Your order is ready.'}};
   const window = Object.assign(element(), {
     location: { protocol: 'https:', hostname: 'fmrc.test', origin: 'https://fmrc.test', port: '' },
     AdminSession: { getToken: () => 'admin-token' },
@@ -58,7 +59,7 @@ async function emailHarness(t) {
   });
   const fetch = async (url, options = {}) => {
     requests.push({ url, options });
-    const data = url.endsWith('/preview') ? { html: '<p>Preview</p>' } : { templates: [row] };
+    const data = url.endsWith('/preview') ? { html: '<p>Preview</p>' } : { templates: [row,second] };
     return { ok: true, status: 200, json: async () => ({ data }) };
   };
   const context = vm.createContext({ window, document, fetch, localStorage: { getItem: () => '' } });
@@ -66,7 +67,7 @@ async function emailHarness(t) {
   await document.emit('DOMContentLoaded');
   await settle();
   await settle();
-  return { document, window, field, row, requests, channels, broadcasts, context };
+  return { document, window, field, row, second, requests, channels, broadcasts, context };
 }
 
 const registryReads = (h) => h.requests.filter(({ url }) => url.endsWith('/admin/email-templates')).length;
@@ -116,6 +117,27 @@ test('Email Templates retains a draft across incoming updates and still publishe
   assert.equal(h.broadcasts.length, 1);
   assert.equal(h.broadcasts[0].type, 'updated');
   assert.equal(registryReads(h), 1, 'save does not cause a background registry reload');
+});
+
+test('template switching retains both drafts and a default reset publishes only with the main save', async t => {
+  const h=await emailHarness(t);
+  h.field('emailTplBodyText').value='First draft';await h.field('emailTplBodyText').emit('input');
+  vm.runInContext("requestSelect('order_ready')",h.context);
+  h.field('emailTplBodyText').value='Second draft';await h.field('emailTplBodyText').emit('input');
+  vm.runInContext("requestSelect('order_received')",h.context);
+  assert.equal(h.field('emailTplBodyText').value,'First draft');
+  assert.equal(h.requests.filter(r=>r.options.method==='PUT').length,0);
+  await h.field('emailTemplateSaveBtn').emit('click');await settle();
+  const payload=JSON.parse(h.requests.find(r=>r.options.method==='PUT').options.body);
+  assert.equal(JSON.parse(payload.email_tpl_order_received).body_text,'First draft');
+  assert.equal(JSON.parse(payload.email_tpl_order_ready).body_text,'Second draft');
+  const count=h.requests.filter(r=>r.options.method==='PUT').length;
+  await h.field('emailTemplateResetBtn').emit('click');await settle();
+  assert.equal(h.requests.filter(r=>r.options.method==='PUT').length,count);
+  assert.equal(h.row.saved.body_text,'First draft');
+  assert.equal(h.field('emailTplBodyText').value,h.row.defaults.body_text);
+  await h.field('emailTemplateSaveBtn').emit('click');await settle();
+  assert.equal(JSON.parse(h.requests.filter(r=>r.options.method==='PUT').at(-1).options.body).email_tpl_order_received,'');
 });
 
 test('Website Configuration content editors have no tab-return reload listeners and retain manual Refresh controls', () => {

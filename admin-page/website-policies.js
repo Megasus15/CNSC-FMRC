@@ -8,6 +8,7 @@
     const read=()=>Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]));
     const changed=()=>!!record&&JSON.stringify(read())!==baseline;
     const canEdit=()=>loaded&&record?.can_edit;
+    window.AdminWebsiteDraft?.register({isDirty:()=>!!canEdit()&&changed(),busy:()=>busy&&!!record?.can_edit});
     const sync=()=>{
       get('policyEditorFields').disabled=!canEdit()||busy;
       get('policyDraftSave').disabled=!canEdit()||busy||!changed();

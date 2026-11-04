@@ -920,6 +920,7 @@ function requestRefresh() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  window.AdminWebsiteDraft?.register({ isDirty: () => dirty, busy: () => saving || imageLoading });
   renderRows();
   wirePageEditor();
   paintAll();

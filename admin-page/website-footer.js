@@ -75,7 +75,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function loadSettings(...args) {
   const work = () => loadSettingsData(...args);
-  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+  const load = () => window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+  return settingsSaving ? load() : window.AdminWebsiteDraft.confirmDiscard(load);
 }
 
 async function loadSettingsData() {

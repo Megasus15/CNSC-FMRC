@@ -49,6 +49,9 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
     if (state.failGet) throw new Error('Network unavailable');
     return { ok: true, status: 200, json: async () => ({ data: state.settings }) };
   };
+  const draftSource = fs.readFileSync(path.join(root, 'admin-page/website-loading.js'), 'utf8');
+  window.confirm = () => true;
+  vm.runInNewContext(draftSource.slice(draftSource.indexOf('  const drafts ='), draftSource.indexOf('  const nativeFetch =')), {window,document,queueMicrotask});
   vm.runInNewContext(source, {
     window, document, fetch, AbortController, setTimeout, clearTimeout,
     localStorage: { getItem: () => '', setItem: (key, value) => storage.push({ key, value }) },

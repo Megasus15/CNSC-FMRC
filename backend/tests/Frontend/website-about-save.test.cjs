@@ -20,6 +20,12 @@ function harness(page = 'about', portal = 'admin') {
     CONFIG_PAGE: page, CONFIG_LABEL: page === 'about' ? 'About Us' : 'Home',
     API: '/api', settingsLoaded: true, settingsSaving: false,
     currentSettings: {},
+    servicesLoaded: true, sdgsLoaded: true, servicesData: [], sdgsData: [], savedServices: [], savedSdgs: [],
+    SERVICE_FIELDS: ['title'], SDG_FIELDS: ['title'],
+    BRAND_LOGOS: [{slot:'hero',key:'hero_logo_image'}], brandLogoData: {},
+    GALLERIES: { vision: {key:'vision_gallery'}, mission: {key:'mission_gallery'} }, galleryData: {vision:[],mission:[]},
+    parseGallery: raw => JSON.parse(raw || '[]'),
+    loadServices: async () => {}, loadSdgs: async () => {},
     pageDraft: null, videoUploading: false, videoUploadFailed: false, videoUploadToken: null,
     videoUploadFile: null, videoPreviewUrl: '',
     syncVideoControls() {}, paintVideoUpload() {},
@@ -36,6 +42,7 @@ function harness(page = 'about', portal = 'admin') {
         if (state.collectError) throw new Error('Broken control');
         return { editorial_about_page_copy: 'About draft', editorial_home_intro_title: 'Home draft' };
       } },
+      AdminWebsiteDraft: { changes: () => ({upsert:[],delete:[]}) },
       showAdminPopup: (message, options) => state.messages.push({ message, options }),
     },
     broadcastSiteUpdate: () => state.broadcasts++,
@@ -89,11 +96,12 @@ for (const portal of ['admin', 'staff']) {
   });
 }
 
-test('Home keeps its scene values and omits About content and separately saved logos', async () => {
+test('Home batches its scene settings and collections without touching About content', async () => {
   const h = harness('home');
   h.elements.get('heroSceneScale').value = '115';
   await h.save();
-  const payload = JSON.parse(h.state.requests[0].options.body);
+  assert.equal(h.state.requests[0].url, '/api/admin/website-pages/home');
+  const payload = JSON.parse(h.state.requests[0].options.body).settings;
   assert.equal(payload.hero_scene_scale, 115);
   assert.equal(payload.hero_bg_image, 'home-image');
   assert.equal(payload.hero_scene_accent, 'heroSceneAccent');
@@ -197,6 +205,14 @@ test('text edits do not re-upload unchanged videos or images', async () => {
   const payload = JSON.parse(h.state.requests[0].options.body);
   for (const key of ['about_video_url', 'vision_image', 'mission_image']) assert.equal(Object.hasOwn(payload, key), false);
   assert(h.state.requests[0].options.body.length < 2000);
+});
+
+test('text edits preserve unchanged galleries even when saved JSON uses whitespace', async () => {
+  const h=harness();
+  h.context.currentSettings.vision_gallery='[ "existing-photo" ]';
+  h.context.galleryData.vision=['existing-photo'];
+  await h.save();
+  assert.equal(Object.hasOwn(JSON.parse(h.state.requests[0].options.body),'vision_gallery'),false);
 });
 
 test('a referenced video is preserved while explicit media replacements and removals are saved', async () => {

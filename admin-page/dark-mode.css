@@ -1,5 +1,5 @@
 /* Shared Admin/Staff appearance. Auth pages never include this stylesheet. */
-@import url("portal-theme-coverage.css?v=2.2");
+@import url("portal-theme-coverage.css?v=2.3");
 
 html[data-portal] {
   color-scheme:light;

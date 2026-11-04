@@ -54,6 +54,7 @@
     const same = (left, right) => fields.every((field) => left?.[field] === right?.[field]);
     const dirty = (portal) => !!states[portal].saved && !same(states[portal].saved, states[portal].draft);
     const anyDirty = () => PORTALS.some(dirty);
+    window.AdminWebsiteDraft?.register({ isDirty: anyDirty, busy: () => saving || uploading });
     const resolved = (draft, portal) => appearance.read(Object.fromEntries(fields.map((field) => [appearance.key(portal, field), draft[field]])), portal);
     const showError = (message, canRetry = false) => {
       if (canRetry) {
@@ -73,7 +74,7 @@
       const config = resolved(current, active);
       fieldset.disabled = isBusy() || !state.draft;
       form.setAttribute("aria-busy", String(isBusy() || !state.draft));
-      save.disabled = isBusy() || !dirty(active);
+      save.disabled = isBusy() || !anyDirty();
       discard.disabled = isBusy() || !dirty(active);
       refresh.disabled = isBusy();
       retry.disabled = isBusy();
@@ -119,7 +120,7 @@
       fieldset.querySelectorAll("[data-reset]").forEach((button) => { button.disabled = isDefault(button.dataset.reset, current[button.dataset.reset]); });
       document.getElementById("portalPreviewState").textContent = dirty(active) ? "Draft appearance" : "Saved appearance";
       status.textContent = uploading ? "Preparing your image..." : saving ? "Saving portal appearance..." : loading && !state.saved ? "Loading saved appearance..." : dirty(active) ? "You have unsaved changes to this portal." : state.saved ? (state.savedRecently ? "Portal appearance saved." : "All changes saved.") : "Load the saved settings before editing.";
-      save.innerHTML = saving ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving...' : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save portal';
+      save.innerHTML = saving ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving...' : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save All Changes';
     };
 
     const request = async (path, options = {}) => {
@@ -187,27 +188,27 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (isBusy() || !dirty(active) || !form.reportValidity()) return;
-      const portal = active;
-      const state = states[portal];
-      const submitted = { ...state.draft };
-      // This request contains only changes to the selected portal; unrelated
-      // Website Configuration settings and the other portal cannot be overwritten.
-      const changedFields = fields.filter((field) => submitted[field] !== state.saved[field]);
-      const payload = Object.fromEntries(changedFields.map((field) => [appearance.key(portal, field), submitted[field]]));
+      if (isBusy() || !anyDirty() || !form.reportValidity()) return;
+      const submitted = PORTALS.filter(dirty).map(portal => {
+        const state = states[portal];
+        const values = { ...state.draft };
+        return { portal, values, changed: fields.filter(field => values[field] !== state.saved[field]) };
+      });
+      const payload = Object.fromEntries(submitted.flatMap(({ portal, values, changed }) => changed.map(field => [appearance.key(portal, field), values[field]])));
       saving = true;
       errorBox.hidden = true;
       render();
       try {
         const token = window.AdminSession?.getToken() || localStorage.getItem("auth_token") || "";
         await request("/admin/site-settings", { method: "PUT", headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
-        const applied = { ...(state.latest || state.saved), ...Object.fromEntries(changedFields.map((field) => [field, submitted[field]])) };
-        state.saved = resolved(applied, portal);
-        state.draft = { ...state.saved };
-        state.latest = null;
-        state.savedRecently = true;
+        submitted.forEach(({ portal, values, changed }) => {
+          const state = states[portal];
+          const applied = { ...(state.latest || state.saved), ...Object.fromEntries(changed.map(field => [field, values[field]])) };
+          state.saved = resolved(applied, portal); state.draft = { ...state.saved };
+          state.latest = null; state.savedRecently = true;
+        });
         notifyPortals();
-        window.showAdminPopup?.(`${LABELS[portal]} appearance saved.`, { title: "Saved!" });
+        window.showAdminPopup?.('All portal appearance changes saved.', { title: 'Saved!' });
       } catch (error) { showError(error.message || "Your portal appearance could not be saved. Your draft is kept here."); }
       finally {
         saving = false;
@@ -260,7 +261,10 @@
       else reloadSaved();
     });
     retry.addEventListener("click", () => void load());
-    refresh.addEventListener("click", () => void load());
+    refresh.addEventListener('click', () => window.AdminWebsiteDraft.confirmDiscard(() => {
+      PORTALS.forEach(portal => { if (states[portal].saved) states[portal].draft = { ...states[portal].saved }; });
+      return load();
+    }));
 
     fieldset.querySelectorAll("[data-reset]").forEach((button) => button.addEventListener("click", () => {
       if (isBusy() || !states[active].draft) return;
@@ -320,21 +324,6 @@
       }
     });
 
-    window.addEventListener("beforeunload", (event) => {
-      if (!anyDirty() && !saving && !uploading) return;
-      event.preventDefault();
-      event.returnValue = "";
-    });
-    document.addEventListener("click", (event) => {
-      const link = event.target.closest?.("a[href]");
-      if (!link || link.target === "_blank" || link.getAttribute("href").startsWith("#") || event.defaultPrevented || !anyDirty() || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-      event.preventDefault();
-      const href = link.href;
-      confirmDiscard(() => {
-        PORTALS.forEach((portal) => { if (states[portal].saved) states[portal].draft = { ...states[portal].saved }; });
-        window.location.assign(href);
-      }, "Leave Login Portals and discard your unsaved appearance changes?");
-    });
     // The editor loads on entry or an explicit Refresh/Retry. Returning to the
     // browser tab must leave the current preview, controls, and drafts in place.
     const markUpdated = () => {

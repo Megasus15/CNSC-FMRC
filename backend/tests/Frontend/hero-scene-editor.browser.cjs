@@ -39,8 +39,8 @@ function editorFixture(file) {
         status: 200, headers: {'Content-Type': 'application/json'}
       });
       if (route === '/api/site-settings') return reply({data: window.fixtureSettings});
-      if (route === '/api/admin/site-settings' && options.method === 'PUT') {
-        const payload = JSON.parse(options.body);
+      if (route === '/api/admin/website-pages/home' && options.method === 'PUT') {
+        const payload = JSON.parse(options.body).settings;
         window.fixtureWrites.push(payload);
         Object.assign(window.fixtureSettings, payload);
         return reply({message: 'Saved'});
@@ -125,6 +125,7 @@ test('Admin and Staff Home scene previews and save payloads match at phone and d
       cdp = await connect(targets.find((target) => target.type === 'page').webSocketDebuggerUrl);
       await cdp.send('Page.enable');
       await cdp.send('Runtime.enable');
+      await cdp.send('Page.bringToFront');
       await cdp.send('Network.enable');
       await cdp.send('Network.setBlockedURLs', { urls: ['https://*'] });
       const evaluate = async (expression) => {
@@ -185,6 +186,9 @@ test('Admin and Staff Home scene previews and save payloads match at phone and d
               progress:+scene.dataset.printProgress,
               fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
           })()`;
+          // The printer intentionally pauses during smooth scrolling.
+          await new Promise(resolve => setTimeout(resolve, 200));
+          await waitFor("document.getElementById('heroScenePreview').dataset.running === 'true'");
           const movingStart = await evaluate(headPosition);
           await new Promise((resolve) => setTimeout(resolve, 350));
           const movingEnd = await evaluate(headPosition);
@@ -214,6 +218,7 @@ test('Admin and Staff Home scene previews and save payloads match at phone and d
           assert.equal(stopped.fan, 'none', `${portal} ${width}: cooling fan stops`);
           await evaluate("document.getElementById('btnSaveAllHome').click()");
           await waitFor('window.fixtureWrites.length === 1');
+          await waitFor('settingsSaving === false');
           const payload = await evaluate('window.fixtureWrites[0]');
           assert.equal(payload.hero_scene_accent, '#ab874d');
           assert.equal(payload.hero_scene_scale, 115);

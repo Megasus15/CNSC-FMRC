@@ -41,7 +41,11 @@ const token = () =>
   (window.AdminSession && window.AdminSession.getToken()) ||
   localStorage.getItem("auth_token");
 
-let servicesData = [];
+let servicesData = [], savedServices = [];
+let servicesLoaded = false, copyLoaded = false, pageSaving = false, pageDraft = null;
+let nextDraftId = -1;
+let copyFields = new Map();
+const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order'];
 let svcImageData = null;
 let serviceDiscardGuard = null;
 const DEFAULT_SERVICE_CATEGORIES = [
@@ -55,15 +59,22 @@ let categoriesLoaded = false;
 let categoriesSaving = false;
 let categoryDraft = null;
 let serviceDraft = null;
-let serviceSaving = false;
+let serviceSaving = false, serviceImagePreparing = false, serviceImageSequence = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   serviceDraft = window.AdminWebsiteDraft?.create({ button: "btnSaveService", read: getServiceFormSnapshot,
-    ready: () => document.getElementById("serviceModal")?.classList.contains("show"), busy: () => serviceSaving });
-  loadServices();
+    ready: () => document.getElementById("serviceModal")?.classList.contains("show"), busy: () => serviceSaving || serviceImagePreparing, page: false });
+  pageDraft = window.AdminWebsiteDraft.create({ button: 'btnSaveAllServices', read: servicesSnapshot,
+    ready: () => servicesLoaded && copyLoaded && categoriesLoaded, busy: () => pageSaving || serviceImagePreparing });
+  document.getElementById('btnSaveAllServices').addEventListener('click', () => {
+    if (pageSaving || !pageDraft.isDirty()) return;
+    window.showAdminConfirmPopup('Save all Services page changes to the live website?', { title: 'Save All Changes', confirmText: 'Save', onConfirm: saveAllServices });
+  });
+  window.AdminWebsiteDraft.register({ isDirty: () => !!document.getElementById('serviceModal')?.classList.contains('show') && !!serviceDiscardGuard?.isDirty() });
   bindEvents();
   initializePageCopyEditor();
   initializeCategoryManager();
+  void refreshServicesPage();
 });
 
 function categorySlug(value) {
@@ -210,7 +221,7 @@ async function loadServiceCategoriesData() {
 
 function initializeCategoryManager() {
   categoryDraft = window.AdminWebsiteDraft?.create({ button: "btnSaveCategories",
-    read: () => serviceCategories.map((value) => String(value || "").trim()),
+    read: () => serviceCategories.map((value) => String(value || "").trim()), page: false,
     ready: () => categoriesLoaded, busy: () => categoriesSaving });
   const add = document.getElementById("btnAddCategory");
   const input = document.getElementById("newServiceCategory");
@@ -236,60 +247,11 @@ function initializeCategoryManager() {
     renderCategoryManager();
     document.getElementById("serviceCategoryStatus").textContent = "Unsaved category changes.";
   });
-  save?.addEventListener("click", () => {
-    if (!categoriesLoaded || categoriesSaving || (categoryDraft && !categoryDraft.isDirty())) return;
-    const categories = categoryPayload();
-    if (!categories) {
-      window.showAdminPopup("Use unique category labels, each 1–60 characters, with at most 30 categories.", { title: "Invalid Categories" });
-      return;
-    }
-    window.showAdminConfirmPopup("Save these service category changes for the customer filter and Add Service form?", {
-      title: "Save Categories",
-      confirmText: "Save Changes",
-      keepOpenWhilePending: true,
-      loadingText: "Saving...",
-      onConfirm: () => saveServiceCategories(categories),
-      onError: (error) => {
-        const message = error.message || "Unable to save categories.";
-        const status = document.getElementById("serviceCategoryStatus");
-        if (status) {
-          status.textContent = message;
-          status.classList.add("is-invalid");
-        }
-        window.showAdminPopup(message, { title: "Save failed" });
-      },
-      onSuccess: () => window.showAdminSuccessNotification?.("Service categories saved successfully.", { title: "Saved!" }),
-    });
-  });
   renderCategoryManager();
-  void loadServiceCategories();
+
 }
 
-async function saveServiceCategories(categories) {
-  if (!categoriesLoaded || categoriesSaving || (categoryDraft && !categoryDraft.isDirty())) return;
-  categoriesSaving = true;
-  const save = document.getElementById("btnSaveCategories");
-  syncCategoryControls();
-  try {
-    const response = await fetch(`${API}/admin/site-settings`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify({ editorial_services_categories: JSON.stringify(categories) }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(Object.values(error.errors || {}).flat().join(" ") || error.message || "Unable to save categories.");
-    }
-    serviceCategories = [...categories];
-    renderCategoryManager();
-    categoryDraft?.capture();
-    document.getElementById("serviceCategoryStatus").textContent = "Service categories saved successfully.";
-    broadcastSiteUpdate("updated");
-  } finally {
-    categoriesSaving = false;
-    syncCategoryControls();
-  }
-}
+function saveServiceCategories() { return saveAllServices(); }
 
 async function loadServices(...args) {
   const work = () => loadServicesData(...args);
@@ -297,6 +259,7 @@ async function loadServices(...args) {
 }
 
 async function loadServicesData() {
+  servicesLoaded = false;
   const grid = document.getElementById("servicesGrid");
   try {
     const res = await fetch(`${API}/services`);
@@ -304,6 +267,8 @@ async function loadServicesData() {
     const json = await res.json();
     if (!Array.isArray(json.data)) throw new Error("Unexpected services response.");
     servicesData = json.data;
+    savedServices = JSON.parse(JSON.stringify(servicesData));
+    servicesLoaded = true;
     renderCategoryManager();
     setServiceCategoryOptions();
     renderCards();
@@ -377,7 +342,7 @@ function bindEvents() {
     });
   document
     .getElementById("btnCloseServiceModal")
-    .addEventListener("click", closeModal);
+    .addEventListener("click", () => serviceDiscardGuard ? serviceDiscardGuard.cancel() : closeModal());
   document.getElementById("btnSaveService").addEventListener("click", onSave);
   document
     .getElementById("svcImgInput")
@@ -385,12 +350,15 @@ function bindEvents() {
       const file = this.files[0];
       if (!file) return;
 
+      const imageSequence = ++serviceImageSequence;
+      serviceImagePreparing = true; serviceDraft?.refresh(); pageDraft?.refresh();
+      const finishImage = () => { if (imageSequence === serviceImageSequence) { serviceImagePreparing = false; serviceDraft?.refresh(); pageDraft?.refresh(); } };
       // Cards crop consistently to 16:10; the preview preserves the full image.
       const img = new Image();
       const reader = new FileReader();
       reader.onload = (e) => {
-        img.src = e.target.result;
         img.onload = () => {
+          if (imageSequence !== serviceImageSequence) return;
           svcImageData = e.target.result;
           const preview = document.getElementById("svcImgPreview");
           const placeholder = document.getElementById("svcImgPlaceholder");
@@ -399,13 +367,17 @@ function bindEvents() {
           preview.classList.add("visible");
           placeholder.classList.add("hidden");
           if (removeBtn) removeBtn.style.display = "inline-flex";
-          serviceDraft?.refresh();
+          finishImage();
         };
         img.onerror = () => {
+          if (imageSequence !== serviceImageSequence) return;
+          finishImage();
           window.showAdminPopup?.("Choose a valid image file.", { title: "Image unavailable" });
           this.value = "";
         };
+        img.src = e.target.result;
       };
+      reader.onerror = () => { finishImage(); window.showAdminPopup('The image could not be read. Choose it again.', { title: 'Image unavailable' }); };
       reader.readAsDataURL(file);
     });
   setupChipInput("svcFeaturesArea", "svcFeaturesInput");
@@ -428,6 +400,7 @@ function clearImage(target) {
 }
 
 function openAdd() {
+  if (!servicesLoaded || pageSaving) return;
   svcImageData = null;
   document.getElementById("serviceEditId").value = "";
   document.getElementById("serviceModalTitle").textContent = "Add Service";
@@ -440,6 +413,7 @@ function openAdd() {
 }
 
 function openEdit(id) {
+  if (!servicesLoaded || pageSaving) return;
   const s = servicesData.find((x) => x.id === id);
   if (!s) return;
   svcImageData = s.image_data || null;
@@ -476,6 +450,7 @@ function openEdit(id) {
 }
 
 function closeModal() {
+  serviceImageSequence++; serviceImagePreparing = false;
   document.getElementById("serviceModal").classList.remove("show");
 }
 
@@ -532,112 +507,39 @@ function onSave() {
     return;
   }
 
-  window.showAdminConfirmPopup(`Save changes to service "${title}"?`, {
+  window.showAdminConfirmPopup(`Apply changes to service "${title}" in this draft? Publish them with Save All Changes.`, {
     title: "Confirm Edit",
-    confirmText: "Save",
+    confirmText: "Apply Changes",
     onConfirm: () => doSave(id),
   });
 }
 
-async function doSave(id) {
-  if (serviceSaving || (serviceDraft && !serviceDraft.isDirty())) return;
-  if (!validateServiceForm()) return;
-  const submitButton = document.getElementById("btnSaveService");
-  const originalSubmitButtonHtml = submitButton?.innerHTML || "";
-  serviceSaving = true;
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.innerHTML =
-      '<i class="fa-solid fa-spinner fa-spin"></i> Saving Service...';
-  }
-
+function doSave(id) {
+  if (!servicesLoaded || pageSaving || serviceImagePreparing || !validateServiceForm()) return;
+  const existing = servicesData.find(item => item.id == id);
   const payload = {
-    title: document.getElementById("svcTitle").value.trim(),
-    category: document.getElementById("svcCategory").value,
-    description: document.getElementById("svcDesc").value,
+    title: document.getElementById('svcTitle').value.trim(),
+    category: document.getElementById('svcCategory').value,
+    description: document.getElementById('svcDesc').value,
     image_data: svcImageData || null,
-    modal_description: document.getElementById("svcModalDesc").value,
-    modal_features: getChips("svcFeaturesArea"),
-    modal_materials: document
-      .getElementById("svcMaterials")
-      .value.split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean),
-    modal_best_for: document
-      .getElementById("svcBestFor")
-      .value.split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean),
-    sort_order: id
-      ? (servicesData.find((s) => s.id == id)?.sort_order ?? 0)
-      : servicesData.length,
+    modal_description: document.getElementById('svcModalDesc').value,
+    modal_features: getChips('svcFeaturesArea'),
+    modal_materials: document.getElementById('svcMaterials').value.split('\n').map(value => value.trim()).filter(Boolean),
+    modal_best_for: document.getElementById('svcBestFor').value.split('\n').map(value => value.trim()).filter(Boolean),
+    sort_order: existing?.sort_order ?? Math.max(-1, ...servicesData.map(item => item.sort_order || 0)) + 1,
   };
-
-  try {
-    const url = id ? `${API}/admin/services/${id}` : `${API}/admin/services`;
-    const method = id ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token(),
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({}));
-      throw new Error(Object.values(error.errors || {}).flat().join(" ") || error.message || "Unable to save the service.");
-    }
-    serviceDiscardGuard?.clear();
-    closeModal();
-    window.showAdminPopup("Service saved successfully!", { title: "Saved!" });
-    // The home page's offer cards are built from this list, so an open
-    // customer tab has to hear the change the same way a Home or Contact save
-    // announces itself. main.js re-reads /services on this signal.
-    broadcastSiteUpdate();
-    await loadServices();
-  } catch (error) {
-    window.showAdminPopup(error.message || "Failed to save. Try again.", { title: "Error" });
-  } finally {
-    serviceSaving = false;
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.innerHTML =
-        originalSubmitButtonHtml ||
-        '<i class="fa-solid fa-floppy-disk"></i> Save Service';
-    }
-    serviceDraft?.refresh();
-  }
+  if (existing) Object.assign(existing, payload);
+  else servicesData.push({ id: nextDraftId--, ...payload });
+  serviceDiscardGuard?.clear(); closeModal(); renderCards(); pageDraft?.refresh();
 }
 
 function doDelete(id, name) {
-  window.showAdminConfirmPopup(
-    `Delete "${name}"? It will be removed from both Services and Home pages.`,
-    {
-      title: "Delete Service",
-      confirmText: "Delete",
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`${API}/admin/services/${id}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: "Bearer " + token(),
-              Accept: "application/json",
-            },
-          });
-          if (!res.ok) throw new Error();
-          window.showAdminPopup("Service deleted.", { title: "Deleted" });
-          // Same reason as the save path: this dialog promises the service is
-          // gone from the Home page too, so say so on the realtime channel.
-          broadcastSiteUpdate();
-          await loadServices();
-        } catch {
-          window.showAdminPopup("Failed to delete.", { title: "Error" });
-        }
-      },
+  if (!servicesLoaded || pageSaving) return;
+  window.showAdminConfirmPopup(`Remove "${name}"? This applies after Save All Changes.`, {
+    title: 'Remove Service', confirmText: 'Remove', onConfirm: () => {
+      servicesData = servicesData.filter(item => item.id !== id); renderCards(); pageDraft?.refresh();
     },
-  );
+  });
 }
 
 // Chip helpers
@@ -769,7 +671,7 @@ function initializePageCopyEditor() {
   }
   let loaded = false;
   let saving = false;
-  const fields = new Map();
+  const fields = copyFields;
   const describe = (field, definition) => {
     const invalid = field.value.length > definition.maxLength;
     field.setCustomValidity(invalid ? `Use ${definition.maxLength} characters or fewer.` : "");
@@ -800,7 +702,7 @@ function initializePageCopyEditor() {
     field.addEventListener("input", () => describe(field, definition));
     fields.set(definition.key, field);
   });
-  const contentDraft = window.AdminWebsiteDraft?.create({ button: save,
+  const contentDraft = window.AdminWebsiteDraft?.create({ button: save, page: false,
     read: () => Object.fromEntries([...fields].map(([key, field]) => [key, field.value])),
     ready: () => loaded, busy: () => saving });
   async function load(...args) {
@@ -809,7 +711,7 @@ function initializePageCopyEditor() {
   }
 
   async function loadData() {
-    loaded = false;
+    loaded = false; copyLoaded = false;
     fieldset.disabled = true;
     save.disabled = true;
     retry.hidden = true;
@@ -825,7 +727,7 @@ function initializePageCopyEditor() {
         field.value = result.data[definition.key] ?? definition.default;
         describe(field, definition);
       });
-      loaded = true;
+      loaded = true; copyLoaded = true;
       fieldset.disabled = false;
       contentDraft?.capture();
       status.textContent = "All fields show their exact character limit. Existing over-limit text must be shortened before saving.";
@@ -835,60 +737,10 @@ function initializePageCopyEditor() {
       retry.hidden = false;
     }
   }
-  retry.addEventListener("click", load);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!loaded || saving || (contentDraft && !contentDraft.isDirty())) return;
-    const payload = {};
-    for (const definition of definitions) {
-      const field = fields.get(definition.key);
-      describe(field, definition);
-      if (!field.reportValidity()) { field.focus(); return; }
-      payload[definition.key] = field.value;
-    }
-    const savePageContent = async () => {
-      saving = true;
-      fieldset.disabled = true;
-      save.disabled = true;
-      save.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving...';
-      status.classList.remove("is-invalid");
-      status.textContent = "Saving Services page content...";
-      try {
-        const response = await fetch(`${API}/admin/site-settings`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token()}` },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}));
-          throw new Error(Object.values(error.errors || {}).flat().join(" ") || error.message || "The page content was not saved. Please try again.");
-        }
-        broadcastSiteUpdate();
-        contentDraft?.capture();
-        status.textContent = "Services page content saved successfully.";
-      } finally {
-        saving = false;
-        fieldset.disabled = false;
-        contentDraft?.refresh();
-        save.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes';
-      }
-    };
-    window.showAdminConfirmPopup?.("Save these Services page content changes?", {
-      title: "Save Page Content",
-      confirmText: "Save Changes",
-      cancelText: "Keep Editing",
-      loadingText: "Saving...",
-      keepOpenWhilePending: true,
-      onConfirm: savePageContent,
-      onError: (error) => {
-        status.textContent = error.message || "The page content was not saved. Please try again.";
-        status.classList.add("is-invalid");
-        window.showAdminPopup?.(error.message || "The page content was not saved. Please try again.", { title: "Save failed" });
-      },
-      onSuccess: () => window.showAdminSuccessNotification?.("Services page content saved successfully.", { title: "Saved!" }),
-    });
-  });
-  void load();
+  retry.addEventListener("click", refreshServicesPage);
+  form.addEventListener('submit', event => event.preventDefault());
+  window.loadServicePageCopy = load;
+
 }
 
 /**
@@ -910,5 +762,55 @@ function broadcastSiteUpdate(type) {
     localStorage.setItem("fmrc_site_content_updated_at", String(Date.now()));
   } catch {
     /* storage blocked — ETag polling still picks the change up */
+  }
+}
+
+function servicesSnapshot() {
+  return { services: servicesData, categories: serviceCategories,
+    copy: Object.fromEntries([...copyFields].map(([key, field]) => [key, field.value])) };
+}
+
+async function refreshServicesPage() {
+  const load = async () => {
+    await Promise.all([loadServices(), loadServiceCategories(), window.loadServicePageCopy()]);
+    pageDraft.capture();
+    if (servicesLoaded && copyLoaded && categoriesLoaded) window.AdminPageNotice?.clear('services-content');
+    else window.AdminPageNotice?.show('Services content unavailable.', { key: 'services-content', retry: refreshServicesPage });
+    pageDraft.refresh();
+  };
+  return window.AdminWebsiteDraft.confirmDiscard(load);
+}
+
+async function saveAllServices() {
+  if (pageSaving || serviceImagePreparing || !servicesLoaded || !copyLoaded || !categoriesLoaded || !pageDraft.isDirty()) return;
+  const categories = categoryPayload();
+  if (!categories || !document.getElementById('servicePageCopyForm').reportValidity()) {
+    window.showAdminPopup('Review the page content and use unique category labels before saving.', { title: 'Review Changes' }); return;
+  }
+  pageSaving = true;
+  const button = document.getElementById('btnSaveAllServices');
+  button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+  pageDraft.refresh();
+  document.querySelector('.module-content').inert = true;
+  try {
+    const response = await fetch(`${API}/admin/website-pages/services`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token() },
+      body: JSON.stringify({ settings: { ...Object.fromEntries([...copyFields].map(([key, field]) => [key, field.value])),
+        editorial_services_categories: JSON.stringify(categories) }, services: window.AdminWebsiteDraft.changes(savedServices, servicesData, SERVICE_FIELDS) }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(Object.values(error.errors || {}).flat()[0] || 'Your changes could not be saved. Please try again.');
+    }
+    broadcastSiteUpdate('updated');
+    await Promise.all([loadServices(), loadServiceCategories(), window.loadServicePageCopy()]);
+    if (!servicesLoaded || !categoriesLoaded || !copyLoaded) throw new Error('Your changes were saved, but could not be loaded. Refresh before editing again.');
+    pageDraft.capture(); window.showAdminPopup('All Services page changes saved.', { title: 'Saved!', type: 'success' });
+  } catch (error) {
+    if (error instanceof TypeError || ['AbortError','TimeoutError'].includes(error.name)) servicesLoaded = false;
+    window.showAdminPopup(error instanceof TypeError ? 'Connection lost. Refresh to check whether your changes were saved.' : error.message, { title: 'Changes Not Saved' });
+  } finally {
+    pageSaving = false; document.querySelector('.module-content').inert = false;
+    button.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save All Changes'; pageDraft.refresh();
   }
 }

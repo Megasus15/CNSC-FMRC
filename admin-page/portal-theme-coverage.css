@@ -1965,7 +1965,7 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
         background: var(--portal-action) !important
     }
     html[data-portal][data-theme="dark"] .payment-settings-page .payment-switch:focus-visible {
-        outline: 3px solid var(--portal-accent-border) !important
+        outline: 1px solid var(--admin-field-focus, var(--portal-accent)) !important
     }
     html[data-portal][data-theme="dark"] .payment-settings-page .payment-switch-state {
         color: var(--text-muted) !important
@@ -2081,7 +2081,7 @@ html[data-portal][data-theme="dark"] .portal-settings-page .portal-field select 
     html[data-portal][data-theme="dark"] .portal-save-bar strong {
         color: var(--text-main) !important
     }
-    html[data-portal][data-theme="dark"] .portal-settings-page :is(button, a, input, select, textarea):focus-visible {
+    html[data-portal][data-theme="dark"] .portal-settings-page :is(button, a):focus-visible {
         outline: 2px solid var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .badge-inventory {
@@ -3192,7 +3192,7 @@ html[data-portal][data-theme="dark"] .mt-alert.is-fault strong {
         background: var(--portal-action) !important
     }
     html[data-portal][data-theme="dark"] .mt-switch input:focus-visible + .mt-switch-track {
-        outline: 2px solid var(--portal-accent-border) !important
+        outline: 1px solid var(--admin-field-focus, var(--portal-accent)) !important
     }
     html[data-portal][data-theme="dark"] .mt-switch-state {
         color: var(--text-muted) !important

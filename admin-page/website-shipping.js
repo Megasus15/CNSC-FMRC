@@ -9,6 +9,7 @@
     let record=null, busy=false, loaded=false, baseline='', zones=[];
     let provinces=[], provincesReady=false, provincesBusy=false, provincesFailed=false, provinceRequest=null;
     const admin = () => loaded && !!record?.can_edit;
+    window.AdminWebsiteDraft?.register({isDirty:()=>admin()&&normalized(read())!==baseline,busy:()=>busy&&!!record?.can_edit});
     const money = amount => new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(amount));
     const list = value => value.split(/[\n,]+/).map(text=>text.trim()).filter(Boolean);
     const escape = text => String(text ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));

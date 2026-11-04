@@ -1,0 +1,53 @@
+/* One field focus treatment shared by Admin, Staff and their authentication. */
+:root {
+  --admin-field-focus: #800000;
+  --admin-field-halo: rgba(128, 0, 0, .1);
+}
+html[data-portal][data-theme="dark"] {
+  --admin-field-focus: var(--portal-accent, #efb0bc);
+  --admin-field-halo: rgba(239, 176, 188, .1);
+}
+/* The field owns its ring, including inside icon/password wrappers. */
+html body :is(input:not(.chip-hidden-input):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select, [contenteditable="true"], .custom-select-trigger):is(:focus, :focus-visible),
+html body .combobox-wrap.open .combobox-input,
+html body .custom-select-trigger[aria-expanded="true"],
+html body :is(select:open),
+html body .chip-input-area:focus-within {
+  border-style: solid !important;
+  border-width: 1px !important;
+  border-color: var(--admin-field-focus) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--admin-field-halo) !important;
+}
+html body .chip-hidden-input:is(:focus, :focus-visible) { outline: none !important; box-shadow: none !important; }
+html body :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--admin-field-focus); }
+html body :is(input[type="checkbox"], input[type="radio"], input[type="range"]):is(:focus, :focus-visible) {
+  outline: 1px solid var(--admin-field-focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px var(--admin-field-halo) !important;
+}
+html body :is(.settings-switch, .mt-switch) input:focus-visible + :is(.settings-switch-track, .mt-switch-track),
+html body .theme-option input:focus-visible + .theme-option-frame,
+html body .payment-switch:focus-visible,
+html body :is(.portal-layout-option:has(input:focus-visible)) {
+  outline: 1px solid var(--admin-field-focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px var(--admin-field-halo) !important;
+}
+.website-section-save[hidden] { display: none !important; }
+.admin-select-wrap { position: relative; display: inline-grid; min-width: 0; max-width: 100%; vertical-align: middle; }
+.field-stack > .admin-select-wrap, .field-group > .admin-select-wrap, .report-filter-field > .admin-select-wrap { width: 100%; }
+.admin-select-wrap > select { grid-area: 1 / 1; width: 100%; min-width: 0; appearance: none; -webkit-appearance: none; background-image: none !important; padding-right: 32px !important; }
+.admin-select-chevron { grid-area: 1 / 1; align-self: center; justify-self: end; margin-right: 12px; width: 8px; height: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; color: #6b7280; transform: translateY(-2px) rotate(45deg); pointer-events: none; transition: transform 200ms ease, color 200ms ease; }
+.admin-select-wrap.is-interacting > .admin-select-chevron { transform: translateY(2px) rotate(225deg); color: var(--admin-field-focus); }
+@supports selector(select:open) {
+  .admin-select-wrap:has(> select:open) > .admin-select-chevron { transform: translateY(2px) rotate(225deg); color: var(--admin-field-focus); }
+}
+.admin-select-wrap:has(> select:disabled) > .admin-select-chevron { opacity: .45; }
+html body .combobox-caret { transition: transform 200ms ease, color 200ms ease; }
+html body .custom-select-arrow { display: inline-flex; transition: transform 200ms ease; }
+html body .custom-select-trigger[aria-expanded="true"] .custom-select-arrow { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  html body :is(.admin-select-chevron, .combobox-caret, .custom-select-arrow) { transition: none !important; animation: none !important; }
+}
+html[data-portal-motion="reduced"] :is(.admin-select-chevron, .combobox-caret, .custom-select-arrow) { transition: none !important; animation: none !important; }
