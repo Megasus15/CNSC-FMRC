@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Archives | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=2026.1104.4" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=2026.1105.1" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -171,7 +171,7 @@
     <script src="../admin-page/dark-mode.js?v=3.1"></script>
     <link rel="stylesheet" href="../admin-page/portal-sidebar.css?v=1.3" />
     <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
-    <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1104.2" />
+    <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
   </head>
   <body>
@@ -318,7 +318,7 @@
               <i class="fa-solid fa-box-open"></i> Orders
               <span class="tab-count" id="tabCountOrder">0</span>
             </button>
-            <button class="archive-tab-btn" data-tab="custom_request"><i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> Custom Requests <span class="tab-count" id="tabCountCustomRequests">0</span></button>
+
             <button class="archive-tab-btn" data-tab="return">
               <i class="fa-solid fa-rotate-left"></i> Returns &amp; Refunds
               <span class="tab-count" id="tabCountReturn">0</span>
@@ -899,23 +899,7 @@
             </div>
           </div>
           <!-- ═══════════════ WALK-IN CUSTOMERS TABLE ═══════════════ -->
-          <div class="archive-section" id="sectionCustom_request">
-            <article class="panel">
-              <div class="panel-header"><h3>Archived Requests <span class="archive-badge badge-order"><i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> Custom Requests</span></h3></div>
-              <div class="table-wrapper"><table class="admin-table" id="customRequestArchiveTable">
-                <thead><tr><th class="admin-bulk-select-cell"></th><th>Request</th><th>Product</th><th>Customer</th><th>Service</th><th>Status</th><th>Date Archived</th><th class="sticky-action">Action</th></tr></thead>
-                <tbody id="customRequestArchiveTbody"></tbody>
-              </table></div>
-              <footer class="table-footer" id="customRequestArchiveFooter">
-                <span class="table-footer-meta" id="customRequestArchiveMeta">Page 1 of 1 • Showing 0–0 of 0</span>
-                <div class="table-pagination">
-                  <button class="page-btn" type="button" id="customRequestArchivePrev" aria-label="Previous custom requests page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-                  <input class="page-number" type="number" min="1" value="1" id="customRequestArchivePage" aria-label="Custom requests page">
-                  <button class="page-btn" type="button" id="customRequestArchiveNext" aria-label="Next custom requests page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                </div>
-              </footer>
-            </article>
-          </div>
+
 
           <div class="archive-section" id="sectionWalkin">
             <div class="panel">
@@ -1230,9 +1214,9 @@
     <script src="../admin-page/session-helper.js?v=2.4"></script>
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=2026.1104.3"></script>
+    <script src="../admin-page/admin-common.js?v=2026.1105.1"></script>
 
-    <script src="../admin-page/archives.js?v=2026.1104.4"></script>
+    <script src="../admin-page/archives.js?v=2026.1105.1"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

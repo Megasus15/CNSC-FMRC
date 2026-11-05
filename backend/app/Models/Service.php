@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Service extends Model
 {
     protected $fillable = [
-        'accepts_custom_requests',
         'title',
         'category',
         'description',
@@ -20,7 +19,6 @@ class Service extends Model
     ];
 
     protected $casts = [
-        'accepts_custom_requests' => 'boolean',
         'modal_features'  => 'array',
         'modal_materials' => 'array',
         'modal_best_for'  => 'array',

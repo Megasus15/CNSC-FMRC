@@ -56,7 +56,6 @@ final class NinjaVanShipping
 
     public static function eligibility(Order $order): ?string
     {
-        if ($error = CustomProducts::productionError($order, true)) return $error;
         if ($order->isPickup()) {
             return 'Pickup orders do not need a courier shipment.';
         }

@@ -14,7 +14,6 @@ use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Services\PayMongoService;
 use App\Services\GatewayPayments;
-use App\Services\CustomProducts;
 use App\Services\ShippingService;
 use App\Services\CommercePolicy;
 use App\Services\NinjaVanShipping;
@@ -640,7 +639,6 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->select($this->existingColumns('orders', [
-                'custom_product_quote_id', 'production_status', 'production_started_at', 'production_ready_at',
                 'id',
                 'order_no',
                 'customer_id',
@@ -926,10 +924,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'You are not allowed to update this order.'], 403);
         }
 
-        if ($order->custom_product_quote_id) {
-            $order = CustomProducts::complete($order, $request->user()->id, true);
-            return response()->json(['message'=>'Custom order marked as received.', 'data'=>$this->transformOrderDetail($order->load(['items','payment','trackingEvents','latestTrackingEvent']), false, true)]);
-        }
         if ($order->customer_stage !== 'to_receive') {
             // Quote the stage by the name this order actually shows, or a pickup
             // customer is told to look for a "To Receive" chip that does not exist.
@@ -1281,8 +1275,7 @@ class OrderController extends Controller
                     throw new \DomainException($recheck['reason'] ?? 'This order can no longer be cancelled.');
                 }
 
-                // A verified receipt may arrive after the initial eligibility
-                // check. Decide from the payment read under this order lock.
+                // Decide from the payment loaded under the order lock.
                 $immediate = $recheck['immediate'];
                 $refundDue = $fresh->payment?->status === 'paid' || (bool) $fresh->payment?->hasCustomerClaim();
 
@@ -1330,8 +1323,6 @@ class OrderController extends Controller
 
             return response()->json(['message' => 'Could not cancel this order. Please try again.'], 500);
         }
-
-        if ($order->custom_product_quote_id && $order->isCancelled() && \App\Support\CustomProductSchema::ready()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
 
         $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
         $amountLabel = $this->formatMoney((float) $order->total);
@@ -1537,8 +1528,6 @@ class OrderController extends Controller
                 $refundIssueError='The order is cancelled, but the refund needs attention. Open Online refunds to continue. Do not submit another cancellation.';
             }
         }
-        if ($order->custom_product_quote_id && $order->isCancelled() && \App\Support\CustomProductSchema::ready()) \App\Services\CustomQuoteExpiry::close($order->customQuote);
-
         $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
         $amountLabel = $this->formatMoney((float) $order->total);
         $reasonLabel = $order->cancelReasonLabel() ?? 'No reason given';
@@ -1786,12 +1775,7 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-            $orders = $orders->filter(fn ($order) => !$order->custom_product_quote_id || !CustomProducts::productionError($order));
             foreach ($orders as $order) {
-                if ($order->custom_product_quote_id) {
-                    CustomProducts::production($order, 'start', (int)$request->user()->id);
-                    continue;
-                }
                 $paymentStatus = $order->payment?->status;
                 $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
                 if (!in_array($nextCustomerStage, self::ALLOWED_CUSTOMER_STAGES, true)) {
@@ -1932,10 +1916,6 @@ class OrderController extends Controller
             return $denied;
         }
 
-        if ($order->custom_product_quote_id) {
-            $order = CustomProducts::production($order, 'start', (int)$request->user()->id);
-            return response()->json(['message'=>'Custom production started.', 'data'=>$this->transformOrderSummary($order)]);
-        }
         if ($order->lifecycle_status !== 'incoming') {
             return response()->json([
                 'message' => 'Only incoming orders can be approved.',
@@ -2073,10 +2053,6 @@ class OrderController extends Controller
             return $denied;
         }
 
-        if ($order->custom_product_quote_id) {
-            $order = CustomProducts::complete($order, $request->user()->id, false);
-            return response()->json(['message'=>'Custom order completed.', 'data'=>$this->transformOrderSummary($order)]);
-        }
         if ($order->shipment_tracking_mode === 'jnt_dropoff' && $order->lifecycle_status !== 'completed') {
             return response()->json(['message' => 'The customer confirms receipt through My Orders. Courier delivery and customer receipt are recorded separately.'], 422);
         }
@@ -2300,9 +2276,6 @@ class OrderController extends Controller
             return $denied;
         }
 
-        if ($order->custom_product_quote_id && $request->input('stage', $order->customer_stage) !== $order->customer_stage) {
-            return response()->json(['message'=>'Use custom production controls, pickup completion or J&T handover to advance this order.'],422);
-        }
         if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before updating fulfillment.'],422);
 
         $validated = $request->validate([
@@ -2316,25 +2289,6 @@ class OrderController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
         ]);
-
-        if ($order->custom_product_quote_id) {
-            // General tracking is a note action only. It must never approve an
-            // unpaid custom order or rewrite the accepted fulfillment agreement.
-            foreach (['courier_name', 'courier_tracking_no', 'location_name', 'latitude', 'longitude'] as $key) {
-                if (array_key_exists($key, $validated) && (string)$validated[$key] !== (string)$order->getAttribute($key)) {
-                    return response()->json(['message'=>'Use the custom quotation or J&T controls to change fulfillment details.'], 422);
-                }
-            }
-            if (($validated['event_type'] ?? 'admin_update') === 'courier_update') return response()->json(['message'=>'Courier updates come from the shipment controls.'], 422);
-            $order = DB::transaction(function () use ($order, $validated, $request) {
-                $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-                abort_if($fresh->hasPendingCancellation() || in_array($fresh->lifecycle_status, ['cancelled','rejected'], true), 422, 'This order cannot receive fulfillment updates right now.');
-                $this->createTrackingEvent($fresh, ['created_by_user_id'=>$request->user()->id, 'stage'=>$fresh->customer_stage,
-                    'event_type'=>'admin_update', 'title'=>trim($validated['title'] ?? '') ?: 'FMRC note', 'description'=>$validated['description'] ?? null, 'occurred_at'=>now()]);
-                return $fresh;
-            });
-            return response()->json(['message'=>'FMRC note saved.', 'data'=>$this->transformOrderDetail($order->load(['items','payment','trackingEvents']))]);
-        }
 
         if (NinjaVanShipping::installed()) {
             $active=\App\Models\CourierShipment::where('active_order_id',$order->id)->first();
@@ -3337,7 +3291,6 @@ class OrderController extends Controller
     /** One stage of this order, named the way this order should say it. */
     private function stageLabel(Order $order, ?string $stage): string
     {
-        if ($order->custom_product_quote_id && $stage === $order->customer_stage) return CustomProducts::statusLabel($order);
         $labels = $this->stageLabels($order);
 
         return $labels[(string) $stage] ?? $labels['to_pay'];
@@ -3788,9 +3741,9 @@ class OrderController extends Controller
             'lifecycle_status' => $order->lifecycle_status,
             'lifecycle_status_label' => self::LIFECYCLE_LABELS[$order->lifecycle_status] ?? 'Pending',
             'customer_stage' => $order->customer_stage,
-            'customer_stage_label' => $order->custom_product_quote_id ? CustomProducts::statusLabel($order) : ($order->lifecycle_status === 'incoming' && $payment?->status === 'paid'
+            'customer_stage_label' => $order->lifecycle_status === 'incoming' && $payment?->status === 'paid'
                 ? 'Awaiting approval'
-                : $this->stageLabel($order, $order->customer_stage)),
+                : $this->stageLabel($order, $order->customer_stage),
             'stage_labels' => $this->stageLabels($order),
             'notes' => $order->notes,
             'courier_name' => $order->courier_name,
@@ -3832,7 +3785,7 @@ class OrderController extends Controller
             }
         }
 
-        return $summary + CustomProducts::orderFields($order);
+        return $summary;
     }
 
     private function transformOrderDetail(

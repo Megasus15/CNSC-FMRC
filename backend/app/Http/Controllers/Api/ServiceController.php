@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Service;
-use App\Support\CustomProductSchema;
 use App\Support\WebsiteContentLimits;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -22,10 +21,7 @@ class ServiceController extends Controller
         $services = Service::orderBy('sort_order')->orderBy('id')->get()
             ->map(fn($s) => $this->format($s));
 
-        return response()->json([
-            'data' => $services,
-            'custom_requests_available' => CustomProductSchema::ready(),
-        ]);
+        return response()->json(['data' => $services]);
     }
 
     // ─── Admin ───────────────────────────────────────────────────────────────────
@@ -306,7 +302,6 @@ class ServiceController extends Controller
     {
         return [
             'id'                => $s->id,
-            'accepts_custom_requests' => (bool) $s->accepts_custom_requests,
             'title'             => $s->title,
             'category'          => $s->category,
             'description'       => $s->description,

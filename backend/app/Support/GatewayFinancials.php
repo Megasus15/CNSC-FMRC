@@ -27,7 +27,6 @@ final class GatewayFinancials {
     public static function total(string $kind, $start = null, $end = null): float {
         $table = $kind === 'receipts' ? 'payment_receipts' : 'payment_refunds';
         $q = $kind === 'receipts' ? self::receipts() : self::refunds();
-        CustomProductAnalytics::filter($q);
         $q->where('orders.is_archived',false);
         // Ledger timestamps are UTC; calendar filters arrive in Philippine time.
         if ($start && $end) $q->whereBetween($table.'.confirmed_at',[

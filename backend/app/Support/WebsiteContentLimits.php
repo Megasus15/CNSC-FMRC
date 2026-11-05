@@ -72,9 +72,6 @@ final class WebsiteContentLimits
         'editorial_about_cta_copy' => 500,
         'editorial_about_cta_button' => 32,
         'editorial_about_cta_contact' => 32,
-        'editorial_services_custom_title' => 80,
-        'editorial_services_custom_copy' => 400,
-        'editorial_services_custom_button' => 40,
         'editorial_services_kicker' => 48,
         'editorial_services_title' => 48,
         'editorial_services_subtitle' => 150,
@@ -118,7 +115,7 @@ final class WebsiteContentLimits
 
     public static function serviceRules(bool $partial = false): array
     {
-        $rules = ['accepts_custom_requests' => ['sometimes', 'boolean']];
+        $rules = [];
         foreach (self::SERVICE_TEXT as $key => $limit) {
             $required = in_array($key, ['title', 'category'], true);
             $rules[$key] = $required

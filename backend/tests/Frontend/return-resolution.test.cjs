@@ -138,6 +138,6 @@ test('Both portals provide the shared combined action confirmation field and cur
     const html = fs.readFileSync(path.join(__dirname, '../../..', file), 'utf8');
     assert.equal((html.match(/id="returnConfirmReceived"/g) || []).length, 1);
     assert.match(html, /data-return-section="receipt"/);
-    assert.match(html, /orders\.js\?v=6\.2-courier/);
+    assert.match(html, /orders\.js\?v=\d/);
   }
 });

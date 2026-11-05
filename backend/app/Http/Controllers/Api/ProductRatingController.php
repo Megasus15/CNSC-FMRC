@@ -33,7 +33,6 @@ class ProductRatingController extends Controller
         if ($order->customer_stage !== 'completed') {
             return response()->json(['message' => 'Only completed orders can be rated.'], 422);
         }
-        abort_if($order->custom_product_quote_id, 422, 'Custom designs remain private. Share feedback through your custom request conversation.');
 
         $validated = $request->validate([
             'order_item_id' => 'required|integer|exists:order_items,id',

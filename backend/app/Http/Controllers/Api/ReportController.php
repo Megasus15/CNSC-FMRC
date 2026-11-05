@@ -12,8 +12,6 @@ use App\Models\Product;
 use App\Models\ReportGeneration;
 use App\Models\SiteSetting;
 use App\Models\WalkInOrder;
-use App\Support\CustomProductAnalytics;
-use App\Support\CustomProductSchema;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -84,13 +82,6 @@ class ReportController extends Controller
         // the table on first use so a build that reaches the server before its
         // migration is run by hand still counts its generations.
         if (ReportGeneration::ensureSchema()) {
-            $hasSalesType = \Illuminate\Support\Facades\Schema::hasColumn('report_generations', 'sales_type');
-            // The legacy audit row can represent All or Regular before custom orders exist.
-            $salesType = $hasSalesType ? $validated['sales_type'] : 'all';
-            abort_if(!$hasSalesType && ($validated['sales_type'] === 'custom'
-                || ($validated['sales_type'] === 'regular' && CustomProductSchema::hasOrderLink()
-                    && Order::whereNotNull('custom_product_quote_id')->exists())), 503, 'This report filter is temporarily unavailable.');
-            $validated['sales_type'] = $salesType;
             $existing = ReportGeneration::query()
                 ->where('generation_key', $generationKey)
                 ->first();
@@ -101,7 +92,7 @@ class ReportController extends Controller
 
             if (! $existing) {
                 $descriptor = $data['report'];
-                $existing = DB::transaction(function () use ($generationKey, $actor, $descriptor, $validated, $hasSalesType): ReportGeneration {
+                $existing = DB::transaction(function () use ($generationKey, $actor, $descriptor, $validated): ReportGeneration {
                     $generation = ReportGeneration::query()->firstOrCreate(
                         ['generation_key' => $generationKey],
                         [
@@ -116,7 +107,7 @@ class ReportController extends Controller
                             'year' => $validated['year'],
                             'month' => $validated['month'],
                             'quarter' => $validated['quarter'],
-                        ] + ($hasSalesType ? ['sales_type' => $validated['sales_type']] : []),
+                        ],
                     );
 
                     if ($generation->wasRecentlyCreated) {
@@ -169,7 +160,6 @@ class ReportController extends Controller
         }
 
         $validated = $request->validate($rules);
-        $validated['sales_type'] = CustomProductAnalytics::type();
         $validated['category'] = (string) $validated['category'];
         $validated['period'] = (string) $validated['period'];
         $validated['year'] = (int) $validated['year'];
@@ -204,17 +194,8 @@ class ReportController extends Controller
             'product_inventory' => $this->productInventoryReport(),
         };
 
-        if (in_array($category, ['sales','completed_orders','processing_orders'], true)) {
-            $numbers = array_filter(array_map(fn($row)=>$row['order_no'] ?? $row['transaction_no'] ?? null, $content['table']['rows']));
-            $orderMetadata = Order::query()->when(CustomProductSchema::hasQuoteDetails(), fn ($q) => $q->with('customQuote.request'))
-                ->whereIn('order_no', $numbers)->get()->keyBy('order_no');
-            foreach ($content['table']['rows'] as &$row) {
-                $row = $this->customReportFields($orderMetadata->get($row['order_no'] ?? $row['transaction_no'] ?? '')) + $row;
-            }
-            unset($row);
-        }
         return [
-            'report' => $this->reportDescriptor($request, $category, $period) + ['sales_type'=>$validated['sales_type']],
+            'report' => $this->reportDescriptor($request, $category, $period),
             'metrics' => $content['metrics'],
             'chart' => $content['chart'],
             'breakdown' => $content['breakdown'],
@@ -242,7 +223,6 @@ class ReportController extends Controller
         array $validated,
     ): bool {
         return (int) $generation->generated_by_user_id === $actorId
-            && ($generation->sales_type ?? 'all') === $validated['sales_type']
             && $generation->category === $validated['category']
             && $generation->period === $validated['period']
             && (int) $generation->year === $validated['year']
@@ -265,17 +245,9 @@ class ReportController extends Controller
             .'-'.str_pad((string) $generation->id, 6, '0', STR_PAD_LEFT);
     }
 
-    private function customReportFields(?Order $order): array
-    {
-        $custom = (bool) $order?->custom_product_quote_id;
-        $q = $custom && CustomProductSchema::hasQuoteDetails() ? $order->customQuote : null;
-        return ['order_type'=>$custom ? 'Custom' : 'Regular', 'custom_reference'=>$q?->request?->reference() ?? ($custom ? 'Unavailable' : '—'),
-            'service'=>$q?->snapshot['service']['title'] ?? '—', 'shipping_fee'=>(float)($order?->shipping_fee ?? 0)];
-    }
-
     private function salesReport(array $period): array
     {
-        $onlineQuery = CustomProductAnalytics::filter(Order::query())
+        $onlineQuery = Order::query()
             ->with(['payment:id,order_id,method,status'])
             ->legacyReceipts()->where('lifecycle_status', 'completed');
         $this->applyFallbackTimestampRange(
@@ -294,7 +266,7 @@ class ReportController extends Controller
         // 'completed' and 'rejected', so nothing here is counted twice or credited
         // while it is owed back. The period is keyed off when the money was
         // confirmed (payments.paid_at) rather than when the order was accepted.
-        $advanceQuery = CustomProductAnalytics::filter(Order::query())
+        $advanceQuery = Order::query()
             ->with(['payment:id,order_id,method,status,paid_at'])
             ->gcashAdvanceRevenue();
         $this->applyPaymentTimestampRange(
@@ -304,7 +276,7 @@ class ReportController extends Controller
         );
         $advanceOrders = $advanceQuery->get();
 
-        $walkInQuery = WalkInOrder::query()->when(CustomProductAnalytics::type() === 'custom',fn($q)=>$q->whereRaw('1=0'));
+        $walkInQuery = WalkInOrder::query();
         $this->applyWalkInTimestampRange(
             $walkInQuery,
             $period['start_local'],
@@ -321,7 +293,7 @@ class ReportController extends Controller
         $refundQuery = OrderReturn::query()
             ->with(['order:id,order_no,customer_name,is_archived'])
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund')->whereHas('order', fn ($q) => CustomProductAnalytics::filter($q->legacyReceipts()));
+            ->where('resolution', 'refund')->whereHas('order', fn ($q) => $q->legacyReceipts());
         $this->applyFallbackTimestampRange(
             $refundQuery,
             'refunded_at',
@@ -429,16 +401,14 @@ class ReportController extends Controller
                 $ledger->join('payment_receipts as original_receipt', 'original_receipt.provider_payment_id', '=', 'payment_refunds.provider_payment_id');
                 $sourceColumn = 'original_receipt.source_type';
             }
-            CustomProductAnalytics::filter($ledger);
             $ledger->whereBetween($table.'.confirmed_at', [$period['start_utc'], $period['end_utc']]);
-            foreach ($ledger->select($table.'.*','orders.order_no','orders.customer_name','orders.is_archived','orders.id as custom_order_id', $sourceColumn.' as confirmed_source_type')->get() as $entry) {
+            foreach ($ledger->select($table.'.*','orders.order_no','orders.customer_name','orders.is_archived', $sourceColumn.' as confirmed_source_type')->get() as $entry) {
                 $date = \Illuminate\Support\Carbon::parse($entry->confirmed_at);
                 $amount = $entry->amount_centavos / 100;
                 if ($kind === 'receipts') { $advanceSales += $amount; $this->addToBucket($onlineSeries,$bucketKeys,$date,$amount,$period['period']); }
                 else { $refundsIssued += $amount; $this->addToBucket($refundSeries,$bucketKeys,$date,-$amount,$period['period']); }
                 $methodLabel = \App\Services\PayMongoService::methodLabel($entry->confirmed_source_type);
-                $orderMeta = $this->customReportFields(Order::find($entry->custom_order_id));
-                $rows[] = $orderMeta + ['source' => $methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
+                $rows[] = ['source' => $methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
                     'transaction_no' => $entry->order_no, 'transaction_date' => $this->formatReportTimestamp($date),
                     'customer' => $entry->customer_name, 'status' => 'Confirmed', 'payment_method' => $methodLabel,
                     'amount' => $kind === 'receipts' ? $amount : -$amount, 'archived' => (bool) $entry->is_archived,
@@ -485,10 +455,6 @@ class ReportController extends Controller
                 'columns' => [
                     $this->column('source', 'Source'),
                     $this->column('transaction_no', 'Transaction No.'),
-                    $this->column('order_type', 'Order Type'),
-                    $this->column('custom_reference', 'Custom Request'),
-                    $this->column('service', 'Service'),
-                    $this->column('shipping_fee', 'Order Shipping', 'currency'),
                     $this->column('transaction_date', 'Date', 'datetime'),
                     $this->column('customer', 'Customer'),
                     $this->column('status', 'Status', 'status'),
@@ -503,7 +469,7 @@ class ReportController extends Controller
 
     private function completedOrdersReport(array $period): array
     {
-        $query = CustomProductAnalytics::filter(Order::query())
+        $query = Order::query()
             ->with([
                 'payment:id,order_id,method,status',
                 'items:id,order_id,quantity',
@@ -540,7 +506,7 @@ class ReportController extends Controller
             $totalItems += $itemQuantity;
             $this->addToBucket($series, $bucketKeys, $completedAt, 1, $period['period']);
 
-            $rows[] = $this->customReportFields($order) + [
+            $rows[] = [
                 'order_no' => $order->order_no ?: ('ORD-'.$order->id),
                 'completed_at' => $this->formatReportTimestamp($completedAt),
                 'customer' => $order->customer_name ?: 'Unknown Customer',
@@ -592,10 +558,6 @@ class ReportController extends Controller
                 'title' => 'Completed Orders',
                 'columns' => [
                     $this->column('order_no', 'Order No.'),
-                    $this->column('order_type', 'Order Type'),
-                    $this->column('custom_reference', 'Custom Request'),
-                    $this->column('service', 'Service'),
-                    $this->column('shipping_fee', 'Shipping', 'currency'),
                     $this->column('completed_at', 'Completed', 'datetime'),
                     $this->column('customer', 'Customer'),
                     $this->column('items', 'Items', 'integer'),
@@ -611,7 +573,7 @@ class ReportController extends Controller
 
     private function processingOrdersReport(array $period): array
     {
-        $orders = CustomProductAnalytics::filter(Order::query())
+        $orders = Order::query()
             ->with(['payment:id,order_id,status'])
             ->whereIn('lifecycle_status', ['incoming', 'pending'])
             ->where('is_archived', false)
@@ -638,12 +600,12 @@ class ReportController extends Controller
             $totalValue += $amount;
             $this->addToBucket($series, $bucketKeys, $order->created_at, 1, $period['period']);
 
-            $rows[] = $this->customReportFields($order) + [
+            $rows[] = [
                 'order_no' => $order->order_no ?: ('ORD-'.$order->id),
                 'created_at' => $this->formatReportTimestamp($order->created_at),
                 'customer' => $order->customer_name ?: 'Unknown Customer',
                 'lifecycle_status' => ucfirst($lifecycle ?: 'pending'),
-                'customer_stage' => $order->custom_product_quote_id ? \App\Services\CustomProducts::statusLabel($order) : $this->stageLabel((string) $order->customer_stage),
+                'customer_stage' => $this->stageLabel((string) $order->customer_stage),
                 'payment_status' => ucfirst((string) ($order->payment?->status ?: 'pending')),
                 'amount' => round($amount, 2),
                 'archived' => (bool) $order->is_archived,
@@ -680,10 +642,6 @@ class ReportController extends Controller
                 'title' => 'Processing Orders',
                 'columns' => [
                     $this->column('order_no', 'Order No.'),
-                    $this->column('order_type', 'Order Type'),
-                    $this->column('custom_reference', 'Custom Request'),
-                    $this->column('service', 'Service'),
-                    $this->column('shipping_fee', 'Shipping', 'currency'),
                     $this->column('created_at', 'Created', 'datetime'),
                     $this->column('customer', 'Customer'),
                     $this->column('lifecycle_status', 'Status', 'status'),
@@ -1077,7 +1035,7 @@ class ReportController extends Controller
 
         $descriptor = [
             'id' => self::CATEGORY_CODES[$category].'-'.$generatedAt->format('Ymd').'-DRAFT',
-            'title' => (in_array($category,['sales','completed_orders','processing_orders'],true) && CustomProductAnalytics::type() !== 'all' ? ucfirst(CustomProductAnalytics::type()).' · ' : '').$titles[$category],
+            'title' => $titles[$category],
             'category' => $category,
             'period' => $period['period'],
             'period_label' => $period['label'],

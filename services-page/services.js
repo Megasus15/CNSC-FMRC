@@ -182,7 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
               <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
                 <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
-              ${item.accepts_custom_requests ? `<a class="cp-btn secondary service-quote-action" target="_blank" rel="noopener noreferrer" aria-label="Request a quote for ${titleAttr} (opens in a new tab)" href="../products-page/custom-products.html?service=${Number(item.id)}">Request a Quote</a>` : ""}
             </div>
           </div>
           ${imageMarkup}
@@ -232,13 +231,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = await response.json();
       if (!Array.isArray(payload?.data)) throw new Error("Unexpected services response");
-      const availableServices = payload.custom_requests_available === false
-        ? payload.data.map(item => ({ ...item, accepts_custom_requests: false }))
-        : payload.data;
-      const nextSnapshot = JSON.stringify(availableServices);
+      const nextSnapshot = JSON.stringify(payload.data);
       if (retainCards && nextSnapshot === servicesSnapshot) return;
       servicesSnapshot = nextSnapshot;
-      servicesData = availableServices;
+      servicesData = payload.data;
       renderCategoryOptions();
       servicesState = "ready";
       filterServices();

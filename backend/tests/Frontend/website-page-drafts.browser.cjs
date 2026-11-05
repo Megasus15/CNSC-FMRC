@@ -78,19 +78,14 @@ test('Home, About and Services publish only the complete explicit page save in b
 
     await h.go('/'+portal+'/website-services.html');
     await h.until('servicesLoaded&&copyLoaded&&categoriesLoaded&&pageDraft&&!pageDraft.isDirty()');
-    assert.equal(await h.run("document.querySelectorAll('#serviceCustomCopyFields input, #serviceCustomCopyFields textarea').length"),3);
-    const previousCustomTitle = settings.editorial_services_custom_title;
-    await type('pageCopy_editorial_services_custom_title','Made for you '+portal);
     await confirm();const savedTitle=settings.editorial_services_title;const savedService=services[0].title;const oldWrites=writes.length;
     await h.run(`copyFields.get('editorial_services_title').value='Draft services heading';copyFields.get('editorial_services_title').dispatchEvent(new Event('input',{bubbles:true}));serviceCategories.push(${JSON.stringify('New category '+portal)});openEdit(1)`);
     await type('svcTitle','Full service edit '+portal);
     await h.run("document.getElementById('btnSaveService').click()");
     assert.equal(writes.length,oldWrites);assert.equal(settings.editorial_services_title,savedTitle);assert.equal(services[0].title,savedService);
-    assert.equal(settings.editorial_services_custom_title,previousCustomTitle);
     assert.equal(await h.run("document.querySelectorAll('.website-section-save:not([hidden])').length"),0);
     await h.run('saveAllServices()');
     assert.equal(settings.editorial_services_title,'Draft services heading');
-    assert.equal(settings.editorial_services_custom_title,'Made for you '+portal);
     assert.ok(JSON.parse(settings.editorial_services_categories).includes('New category '+portal));
     assert.equal(services[0].title,'Full service edit '+portal);
     assert.equal(writes.at(-1).route,'/api/admin/website-pages/services');
@@ -98,7 +93,6 @@ test('Home, About and Services publish only the complete explicit page save in b
     await h.go('/'+portal+'/website-services.html');
     await h.until('servicesLoaded&&copyLoaded&&categoriesLoaded');
     assert.equal(await h.run("copyFields.get('editorial_services_title').value"),'Draft services heading');
-    assert.equal(await h.run("copyFields.get('editorial_services_custom_title').value"),'Made for you '+portal);
     // Both confirmation outcomes preserve the promised navigation behavior.
     await h.run("copyFields.get('editorial_services_title').value='Unsaved refresh';copyFields.get('editorial_services_title').dispatchEvent(new Event('input',{bubbles:true}));window.showAdminConfirmPopup=(_message,options)=>{window.fixtureConfirm=options};void refreshServicesPage()");
     await h.until('!!window.fixtureConfirm');await h.run('fixtureConfirm.onCancel()');

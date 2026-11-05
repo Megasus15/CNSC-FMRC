@@ -191,6 +191,8 @@ class LoginLockoutTest extends TestCase
 
     public function test_coarse_ip_limit_stops_identifier_spraying(): void
     {
+        // All attempts belong to one rate-limit window even on a slow runner.
+        $this->freezeTime();
         for ($attempt = 1; $attempt <= 120; $attempt++) {
             $this->attempt('/api/login', 'missing-'.$attempt)->assertUnauthorized();
         }

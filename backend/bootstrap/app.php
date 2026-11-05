@@ -22,10 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\EnforceSpectatorMode::class,
         );
-        $middleware->prependToPriorityList(
-            \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \App\Http\Middleware\RequireCustomProductSchema::class,
-        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

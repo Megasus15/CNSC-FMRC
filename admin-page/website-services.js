@@ -45,7 +45,7 @@ let servicesData = [], savedServices = [];
 let servicesLoaded = false, copyLoaded = false, pageSaving = false, pageDraft = null;
 let nextDraftId = -1;
 let copyFields = new Map();
-const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order','accepts_custom_requests'];
+const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order'];
 let svcImageData = null;
 let serviceDiscardGuard = null;
 const DEFAULT_SERVICE_CATEGORIES = [
@@ -420,7 +420,6 @@ function openEdit(id) {
   document.getElementById("serviceEditId").value = id;
   document.getElementById("serviceModalTitle").textContent = "Edit Service";
   document.getElementById("svcTitle").value = s.title || "";
-  document.getElementById("svcAcceptsCustom").checked = !!s.accepts_custom_requests;
   setServiceCategoryOptions(s.category || "Prototyping");
   document.getElementById("svcDesc").value = s.description || "";
   document.getElementById("svcModalDesc").value = s.modal_description || "";
@@ -457,7 +456,6 @@ function closeModal() {
 
 function clearForm() {
   document.getElementById("svcTitle").value = "";
-  document.getElementById("svcAcceptsCustom").checked = false;
   setServiceCategoryOptions(serviceCategories[0] || "Prototyping");
   document.getElementById("svcDesc").value = "";
   document.getElementById("svcModalDesc").value = "";
@@ -476,7 +474,6 @@ function clearForm() {
 function getServiceFormSnapshot() {
   return {
     id: String(document.getElementById("serviceEditId")?.value || ""),
-    accepts_custom_requests: !!document.getElementById("svcAcceptsCustom")?.checked,
     title: String(document.getElementById("svcTitle")?.value || ""),
     category: String(document.getElementById("svcCategory")?.value || ""),
     description: String(document.getElementById("svcDesc")?.value || ""),
@@ -521,7 +518,6 @@ function doSave(id) {
   if (!servicesLoaded || pageSaving || serviceImagePreparing || !validateServiceForm()) return;
   const existing = servicesData.find(item => item.id == id);
   const payload = {
-    accepts_custom_requests: !!document.getElementById('svcAcceptsCustom').checked,
     title: document.getElementById('svcTitle').value.trim(),
     category: document.getElementById('svcCategory').value,
     description: document.getElementById('svcDesc').value,
@@ -665,13 +661,10 @@ function validateServiceForm() {
 function initializePageCopyEditor() {
   const form = document.getElementById("servicePageCopyForm");
   const fieldset = document.getElementById("servicePageCopyFields");
-  const customFields = document.getElementById("serviceCustomCopyFields");
-  const generalFields = document.getElementById("serviceGeneralCopyFields");
   const status = document.getElementById("servicePageCopyStatus");
   const save = document.getElementById("servicePageCopySave");
   const retry = document.getElementById("servicePageCopyRetry");
-  const content = window.FMRC_PAGE_CONTENT;
-  const definitions = (content?.fields || []).filter((field) => field.page === "services");
+  const definitions = (window.FMRC_PAGE_CONTENT?.fields || []).filter((field) => field.page === "services");
   if (!form || !definitions.length) {
     if (status) status.textContent = "The page editor could not load. Please refresh this page.";
     return;
@@ -705,8 +698,7 @@ function initializePageCopyEditor() {
     count.className = "service-field-count";
     field.setAttribute("aria-describedby", count.id);
     wrapper.append(label, field, count);
-    const group = definition.key.startsWith("editorial_services_custom_") ? customFields : generalFields;
-    group.append(wrapper);
+    fieldset.append(wrapper);
     field.addEventListener("input", () => describe(field, definition));
     fields.set(definition.key, field);
   });
@@ -732,13 +724,13 @@ function initializePageCopyEditor() {
       if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) throw new Error("The saved page content was not returned. Please retry.");
       definitions.forEach((definition) => {
         const field = fields.get(definition.key);
-        field.value = content.get(definition.key, result.data);
+        field.value = result.data[definition.key] ?? definition.default;
         describe(field, definition);
       });
       loaded = true; copyLoaded = true;
       fieldset.disabled = false;
       contentDraft?.capture();
-      status.textContent = "";
+      status.textContent = "All fields show their exact character limit. Existing over-limit text must be shortened before saving.";
     } catch (error) {
       status.textContent = error.message || "Unable to load page content. Please retry.";
       status.classList.add("is-invalid");

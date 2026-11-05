@@ -174,23 +174,6 @@ Route::post('/webhooks/ship24', [ShipmentTrackingController::class, 'webhook'])
 // ────────────────────────────────────────────────────────────────────────────
 
 Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
-    $customSchema = \App\Http\Middleware\RequireCustomProductSchema::class;
-    foreach (['customer', 'admin'] as $portal) {
-        Route::prefix($portal.'/custom-requests')->middleware($customSchema)->group(function () use ($portal) {
-            $controller = \App\Http\Controllers\Api\CustomProductController::class;
-            Route::get('/', [$controller, 'index']);
-            if ($portal === 'customer') Route::post('/', [$controller, 'store'])->middleware('throttle:20,1');
-            Route::get('/{customRequest}', [$controller, 'show'])->whereNumber('customRequest');
-            Route::get('/{customRequest}/attachments/{attachment}', [$controller, 'attachment'])->whereNumber(['customRequest','attachment']);
-            Route::post('/{customRequest}/{action}', [$controller, 'action'])
-                ->whereNumber('customRequest')->where('action','save|submit|message|review|clarify|decline|save_quote|send_quote|revision|withdraw|cancel|accept|archive')->middleware('throttle:30,1');
-        });
-    }
-    Route::post('/admin/orders/{order}/production', [\App\Http\Controllers\Api\CustomProductController::class, 'production'])->middleware($customSchema);
-    Route::get('/admin/custom-requests-summary', function (Request $request) {
-        abort_unless(in_array($request->user()?->role, ['admin','staff'], true),403);
-        return response()->json(['data'=>\App\Support\CustomProductAnalytics::operational()])->header('Cache-Control','no-store');
-    })->middleware($customSchema);
     Route::get('/admin/session', [AdminSessionController::class, 'status']);
     Route::post('/admin/session/activity', [AdminSessionController::class, 'activity']);
     Route::get('/admin/preferences', [PortalPreferenceController::class, 'show']);

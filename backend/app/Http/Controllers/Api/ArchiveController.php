@@ -13,8 +13,6 @@ use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
 use App\Models\Promotion;
 use App\Models\WalkInOrder;
-use App\Models\CustomProductRequest;
-use App\Support\CustomProductSchema;
 use App\Support\AdminArchiveRecords;
 use App\Support\ReturnPresenter;
 use Carbon\Carbon;
@@ -47,7 +45,6 @@ class ArchiveController extends Controller
         $announcements = collect();
         $ratings = collect();
         $walkins = collect();
-        $customRequests = collect();
 
         try {
             // ── Inventory Items ────────────────────────────────────────────────
@@ -361,18 +358,6 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: online refunds fetch failed', ['error' => $e->getMessage()]);
         }
 
-        if (in_array($module, ['all', 'custom_request'], true) && CustomProductSchema::archivingReady()) {
-            $customRequests = AdminArchiveRecords::query('custom_requests')->with('customer')
-                ->orderByDesc('archived_at')->orderByDesc('id')->get()->map(fn ($item) => [
-                    'source_id' => $item->id, 'reference' => $item->reference(),
-                    'title' => $item->specifications['title'] ?? 'Untitled request',
-                    'service' => $item->service_snapshot['title'] ?? 'Service unavailable',
-                    'customer_name' => $item->customer?->name, 'status' => $item->status,
-                    'status_label' => \App\Services\CustomProducts::LABELS[$item->status] ?? $item->status,
-                    'archived_at' => $item->archived_at?->toIso8601String(),
-                ]);
-        }
-
         return response()->json([
             'inventory' => $inventory->values(),
             'appointments' => $appointments->values(),
@@ -383,7 +368,6 @@ class ArchiveController extends Controller
             'announcements' => $announcements->values(),
             'ratings' => $ratings->values(),
             'walkins' => $walkins->values(),
-            'custom_requests' => $customRequests->values(),
         ]);
     }
 
@@ -395,15 +379,12 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'online_refund', 'promotion', 'announcement', 'rating', 'walkin', 'custom_request'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'online_refund', 'promotion', 'announcement', 'rating', 'walkin'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
 
         $module = $validated['module'];
-        if ($module === 'custom_request' && !CustomProductSchema::archivingReady()) {
-            return response()->json(['message' => 'Custom request archiving needs the latest database update.'], 503);
-        }
         $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
 
         $restoredIds = DB::transaction(function () use ($module, $ids): array {
@@ -418,7 +399,6 @@ class ArchiveController extends Controller
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
                 'walkin' => WalkInOrder::query()->whereIn('id', $ids)->where('is_archived', true),
-                'custom_request' => CustomProductRequest::query()->whereIn('id', $ids)->where('is_archived', true)->lockForUpdate(),
             };
 
             $eligibleIds = (clone $query)
@@ -433,7 +413,6 @@ class ArchiveController extends Controller
 
             $updates = match ($module) {
                 'online_refund' => ['online_refund_archived_at' => null, 'online_refund_archived_by' => null],
-                'custom_request' => ['is_archived' => false, 'archived_at' => null, 'archived_by' => null, 'revision' => DB::raw('revision + 1'), 'updated_at' => $now],
                 'inventory', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin' => [
                     'is_archived' => false,
                     'archived_at' => null,

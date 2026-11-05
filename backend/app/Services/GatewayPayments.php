@@ -48,7 +48,6 @@ class GatewayPayments
         return $attempt;
     }
     public function checkout(Order $order, string $context = ''): array {
-        abort_unless(CustomProducts::payable($order) || $order->payment?->status === 'paid', 422, 'This quotation is no longer payable. Review your custom request.');
         abort_unless($order->payment_method === 'GCash' && self::managed($order->payment), 422, 'This order does not use automatic GCash checkout.');
         $attempt = $this->attempt($order->payment);
         if ($attempt?->checkout_id) $this->reconcile($attempt->id);
@@ -56,8 +55,7 @@ class GatewayPayments
         if ($order->payment?->status !== 'pending' || in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true)) return $this->state($order);
         abort_unless($this->provider->acceptsNewPayments(), 422, 'GCash is temporarily unavailable. Please try again later.');
         $attempt = DB::transaction(function () use ($order, $context) {
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            if (!CustomProducts::payable($lockedOrder)) return null;
+            Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $payment = Payment::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             if ($payment->status !== 'pending') return null;
             $last = DB::table('payment_attempts')->where('payment_id', $payment->id)->latest('id')->first();
@@ -80,7 +78,6 @@ class GatewayPayments
             DB::table('payment_attempts')->where('id', $attempt->id)->update(['exception' => 'checkout_requires_reconciliation']); return;
         }
         $payment = Payment::findOrFail($attempt->payment_id); $order = $payment->order;
-        if (!CustomProducts::payable($order)) return;
         if ($payment->status !== 'pending' || in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true)) return;
         $session = $this->provider->createCheckoutSession((int) $attempt->amount_centavos, 'FMRC Order '.$order->order_no, $order->order_no, $order->id, $payment->id, $attempt->app_context, $attempt->token, $attempt->checkout_method);
         if ($session['rejected'] ?? false) { DB::table('payment_attempts')->where('id', $attempt->id)->whereNull('checkout_id')->update(['status' => 'failed', 'updated_at' => now()]); return; }
@@ -161,17 +158,6 @@ class GatewayPayments
                 if (count($paid) > 1) DB::table('payment_attempts')->where('id', $a->id)->update(['exception' => 'duplicate_payment_review']);
                 return true;
             }
-            if ($order->custom_product_quote_id && !$payment->paid_at) {
-                abort_unless(\App\Support\CustomProductSchema::ready(), 503, \App\Support\CustomProductSchema::MESSAGE);
-                $quote = $order->customQuote;
-                $providerPaidAt = isset($p['attributes']['paid_at']) ? Carbon::createFromTimestamp((int)$p['attributes']['paid_at']) : now();
-                if (!$quote || $quote->status !== 'accepted' || $providerPaidAt->gt($quote->expires_at)) {
-                    $order->fill(['lifecycle_status'=>'cancelled','cancel_state'=>'approved','cancelled_at'=>now(),'cancel_reason_detail'=>'Payment received after quotation expiry. Refund review required.']);
-                    $order->save();
-                } elseif ($quote->request->status === 'payment_review' && !in_array($order->lifecycle_status,['cancelled','rejected'],true)) {
-                    $quote->request->update(['status'=>'ordered','revision'=>$quote->request->revision + 1]);
-                }
-            }
             $duplicate = $payment->paid_at !== null && $payment->paymongo_payment_id !== $p['id'];
             $closed = in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true);
             DB::table('payment_attempts')->where('id', $a->id)->update([
@@ -216,7 +202,7 @@ class GatewayPayments
         $a = $payment ? $this->attempt($payment) : null;
         $method = $a?->checkout_method ?? $this->provider->checkoutMethod();
         $closed = in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true);
-        $payable = $payment?->status === 'pending' && !$closed && !$a?->exception && (!$a || (bool) $a->livemode === $this->provider->isLive()) && $this->provider->acceptsNewPayments() && CustomProducts::payable($order);
+        $payable = $payment?->status === 'pending' && !$closed && !$a?->exception && (!$a || (bool) $a->livemode === $this->provider->isLive()) && $this->provider->acceptsNewPayments();
         return ['status' => $payment?->status ?? 'pending', 'attempt_status' => $a?->status, 'order_status' => $order->lifecycle_status,
             'checkout_method' => $method, 'method_label' => PayMongoService::methodLabel($method),
             'checkout_label' => PayMongoService::checkoutLabel($method), 'checkout_description' => PayMongoService::checkoutDescription($method),

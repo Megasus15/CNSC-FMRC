@@ -836,9 +836,7 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem("customer_auth_method", "password");
           showStatus("Login successful. Redirecting to your account...");
           await window.FMRCApp?.syncAccount();
-          const customReturn = new URLSearchParams(window.location.search).get('custom_return') || '';
-          const safeCustomReturn = /^\/(?:apps\/customer\/)?products-page\/(?:custom-products|product)\.html(?:\?[^#]*)?$/.test(customReturn);
-          window.location.href = safeCustomReturn ? customReturn : (window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html");
+          window.location.href = window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html";
           return;
         }
 
@@ -1327,9 +1325,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showStatus("Signed in with Google! Redirecting to your account...");
         setTimeout(async () => {
           await window.FMRCApp?.syncAccount();
-          const customReturn = new URLSearchParams(window.location.search).get('custom_return') || '';
-          const safeCustomReturn = /^\/(?:apps\/customer\/)?products-page\/(?:custom-products|product)\.html(?:\?[^#]*)?$/.test(customReturn);
-          window.location.href = safeCustomReturn ? customReturn : (window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html");
+          window.location.href = window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html";
         }, 400);
         return;
       }

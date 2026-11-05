@@ -1047,7 +1047,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const node = document.getElementById(id);
       if (node) node.textContent = `${heading} · ${measure}`;
     });
-    if (aovTrendYear) aovTrendYear.textContent = `${yearlyTrendYear(state)} calendar year · gross product sales (shipping excluded)`;
+    if (aovTrendYear) aovTrendYear.textContent = `${yearlyTrendYear(state)} calendar year · monthly sales`;
   };
   const aovEmptyMessages = (state) => {
     const { empty } = aovPeriodCopy(state);
@@ -1301,7 +1301,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const periodQuery = (state) => {
     const st = state && typeof state === "object" ? state : { period: state };
     const key = st.period || "month";
-    let q = `period=${encodeURIComponent(key)}&sales_type=${window.FMRCSalesType?.value() || 'all'}`;
+    let q = `period=${encodeURIComponent(key)}`;
     if (key === "custom" && st.from && st.to) {
       q += `&from=${encodeURIComponent(st.from)}&to=${encodeURIComponent(st.to)}`;
     }
@@ -1401,7 +1401,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderYearlyTrendChart = (payload) => {
     const trend = Array.isArray(payload && payload.data) ? payload.data : [];
     const year = Number(payload?.year) || currentManilaYear();
-    if (aovTrendYear) aovTrendYear.textContent = `${year} calendar year · gross product sales (shipping excluded)`;
+    if (aovTrendYear) aovTrendYear.textContent = `${year} calendar year · monthly sales`;
     const totals = AOV_MONTHS.map((_, i) => Number(trend[i] ? trend[i].total_sales || 0 : 0));
     const currentMonth = Number(new Intl.DateTimeFormat("en-PH", {
       month: "numeric", timeZone: "Asia/Manila",
@@ -1418,7 +1418,7 @@ document.addEventListener("DOMContentLoaded", () => {
         labels: AOV_MONTHS,
         tooltipLabels: AOV_MONTHS.map((month) => `${month} ${year}`),
         data: plottedTotals,
-        label: "Gross product sales",
+        label: "Sales before returns",
         currency: true,
       });
     }
@@ -1515,8 +1515,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 400);
   };
 
-  window.addEventListener('fmrc:sales-type', () => reloadDashboardAnalytics());
-  window.addEventListener('fmrc:custom-metrics-updated', () => reloadDashboardAnalytics());
   const mountDashboardAnalyticsToolbar = () => {
     const host = document.getElementById("dashboardAnalyticsToolbar");
     if (!host || !window.AnalyticsToolbar) return;

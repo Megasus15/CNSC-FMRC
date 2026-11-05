@@ -54,7 +54,6 @@ class FinancialMetrics
         $query = Order::query()
             ->legacyReceipts()->where('lifecycle_status', 'completed')
             ->where('is_archived', false);
-        CustomProductAnalytics::filter($query);
         self::between($query, 'COALESCE(orders.completed_at, orders.created_at)', $start, $end);
 
         return (float) $query->sum('total');
@@ -65,7 +64,6 @@ class FinancialMetrics
         // GCash is money in hand the moment staff verify the reference, so the
         // collection date is the payment's paid_at, not the order's timestamps.
         $query = Order::query()->gcashAdvanceRevenue()->where('is_archived', false);
-        CustomProductAnalytics::filter($query);
         if ($start && $end) {
             $query->whereHas('payment', fn (Builder $payment) => $payment->whereBetween('paid_at', [$start, $end]));
         }
@@ -75,7 +73,6 @@ class FinancialMetrics
 
     private static function walkIns(?Carbon $start, ?Carbon $end): float
     {
-        if (CustomProductAnalytics::type() === 'custom') return 0.0;
         $query = WalkInOrder::query()
             ->where('is_archived', false)
             ->whereRaw("LOWER(TRIM(COALESCE(status, ''))) NOT IN ('cancelled', 'canceled', 'archived', 'voided')");
@@ -88,7 +85,7 @@ class FinancialMetrics
     {
         $query = OrderReturn::query()
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => CustomProductAnalytics::filter($q->legacyReceipts()));
+            ->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => $q->legacyReceipts());
         self::between($query, 'COALESCE(refunded_at, decided_at)', $start, $end);
 
         return (float) $query->sum(DB::raw('COALESCE(refunded_amount, approved_amount, 0)'));
@@ -118,25 +115,25 @@ class FinancialMetrics
         $granularity = $granularity === 'month' ? 'month' : 'day';
 
         $online = self::bucketSums(
-            CustomProductAnalytics::filter(Order::query()->legacyReceipts()->where('lifecycle_status', 'completed')->where('is_archived', false)),
+            Order::query()->legacyReceipts()->where('lifecycle_status', 'completed')->where('is_archived', false),
             'COALESCE(orders.completed_at, orders.created_at)', 'total', $from, $to, $granularity
         );
         $gcash = self::bucketSums(
-            CustomProductAnalytics::filter(Order::query()->gcashAdvanceRevenue()->where('is_archived', false)),
+            Order::query()->gcashAdvanceRevenue()->where('is_archived', false),
             'orders.created_at', 'total', $from, $to, $granularity
         );
         $walkins = self::bucketSums(
-            WalkInOrder::query()->where('is_archived', false)->when(CustomProductAnalytics::type() === 'custom', fn($q)=>$q->whereRaw('1=0'))
+            WalkInOrder::query()->where('is_archived', false)
                 ->whereRaw("LOWER(TRIM(COALESCE(status, ''))) NOT IN ('cancelled', 'canceled', 'archived', 'voided')"),
             'COALESCE(order_date, created_at)', 'total', $from, $to, $granularity
         );
         $refunds = self::bucketSums(
-            OrderReturn::query()->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => CustomProductAnalytics::filter($q->legacyReceipts())),
+            OrderReturn::query()->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => $q->legacyReceipts()),
             'COALESCE(refunded_at, decided_at)', 'COALESCE(refunded_amount, approved_amount, 0)', $from, $to, $granularity
         );
 
-        $gatewayReceipts = self::bucketSums(CustomProductAnalytics::filter(GatewayFinancials::receipts())->where('orders.is_archived',false), self::gatewayLocalDate('payment_receipts.confirmed_at'), 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
-        $gatewayRefunds = self::bucketSums(CustomProductAnalytics::filter(GatewayFinancials::refunds())->where('orders.is_archived',false), self::gatewayLocalDate('payment_refunds.confirmed_at'), 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
+        $gatewayReceipts = self::bucketSums(GatewayFinancials::receipts()->where('orders.is_archived',false), self::gatewayLocalDate('payment_receipts.confirmed_at'), 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
+        $gatewayRefunds = self::bucketSums(GatewayFinancials::refunds()->where('orders.is_archived',false), self::gatewayLocalDate('payment_refunds.confirmed_at'), 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
         $series = [];
         foreach (self::buckets($from, $to, $granularity) as $bucket) {
             $key = $bucket['key'];
