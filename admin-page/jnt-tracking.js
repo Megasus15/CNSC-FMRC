@@ -28,7 +28,7 @@
   const load = async state => {
     if (state.busy || state.polling || Date.now() < (state.nextPoll || 0)) return;
     state.polling = true;
-    try { changed(state, await request('/admin/orders/'+state.order.id)); state.failures = 0; state.nextPoll = 0; }
+    try { changed(state, await request('/admin/orders/'+state.order.id), state.host.id === 'trackingManagedShipment'); state.failures = 0; state.nextPoll = 0; }
     catch (error) { state.failures = Math.min(4, (state.failures || 0) + 1); state.nextPoll = Date.now() + 5000 * 2 ** state.failures; state.message = error.message; render(state.order, state.host); }
     finally { state.polling = false; }
   };
@@ -61,7 +61,7 @@
       state.layout = layout; card.dataset.jntLayout = layout; card.dataset.orderId = String(order.id);
       const draft = state.draft || {tracking_number:state.editing ? shipment.tracking_number : '', handed_over_at:localTime(shipment.handed_over_at),
         actual_shipping_cost:shipment.actual_shipping_cost ?? '', correction_reason:'', handover_confirmed:false};
-      const prefix = 'jnt-'+order.id+'-';
+      const prefix = (host.id === 'trackingManagedShipment' ? 'tracking-jnt-' : 'jnt-')+order.id+'-';
       card.innerHTML = '<div class="shipment-heading"><h4>J&T Express delivery</h4><span class="status-pill status-yellow" data-jnt-status></span></div>'+
         '<p class="shipment-note" data-jnt-availability></p><div data-jnt-summary></div><p class="shipment-message" role="status" aria-live="polite" data-jnt-message></p>'+
         (formOpen ? '<form data-jnt-form><fieldset><legend class="jnt-form-title">'+(state.editing?'Correct the recorded waybill':'Record J&T waybill')+'</legend><div class="shipment-fields">'+
@@ -123,8 +123,8 @@
   };
   setInterval(() => {
     if (document.hidden) return;
-    for (const state of states.values()) if (state.host?.isConnected && state.host.closest('#modalOrderDetails')?.classList.contains('show')
+    for (const state of states.values()) if (state.host?.isConnected && state.host.closest('#modalOrderDetails, #modalTrackingUpdate')?.classList.contains('show')
       && state.host.querySelector('[data-courier-controls]')?.dataset.orderId === String(state.order.id)) void load(state);
   }, 5000);
-  window.AdminJntTracking = {render};
+  window.AdminJntTracking = {render, draft: orderId => states.get(String(orderId))?.draft || null, busy: orderId => Boolean(states.get(String(orderId))?.busy)};
 })();

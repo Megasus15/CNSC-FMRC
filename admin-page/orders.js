@@ -918,6 +918,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const order=event.detail?.order;if(!order?.id)return;
     upsertOrderSummaryInState(order);
     if(modalOrderDetails?.classList.contains("show"))populateOrderDetailsModal(order);
+    if(modalTrackingUpdate?.classList.contains("show") && String(trackingOrderId?.value) === String(order.id)) {
+      trackingModalOrder = order;
+      syncManagedTrackingContext(order);
+    }
   });
 
   const populateOrderDetailsModal = (order) => {
@@ -2437,6 +2441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (previous && findCourierOption(previous)) {
       trackingCourierSelect.value = previous;
     }
+    if (trackingModalOrder) syncCourierFields(trackingModalOrder);
   };
 
   const loadCourierRegistry = async () => {
@@ -2499,11 +2504,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const syncCourierFields = (order = trackingModalOrder) => {
     if (!trackingCourierSelect) return;
 
-    const shouldShowCourierFields = areCourierFieldsApplicable(order);
+    const managed = hasManagedJntTracking(order);
+    const shouldShowCourierFields = managed || areCourierFieldsApplicable(order);
+    trackingCourierSelect.disabled = managed;
+    if (trackingCourierNo) trackingCourierNo.readOnly = managed;
     if (trackingCourierField)
       trackingCourierField.hidden = !shouldShowCourierFields;
     if (trackingCourierNoField)
       trackingCourierNoField.hidden = !shouldShowCourierFields;
+
+    if (managed) {
+      if (![...trackingCourierSelect.options].some(option => option.value === 'jnt')) trackingCourierSelect.add(new Option('J&T Express', 'jnt'));
+      trackingCourierSelect.value = 'jnt';
+      if (trackingCourierOtherWrap) trackingCourierOtherWrap.hidden = true;
+      if (trackingCourierName) trackingCourierName.value = '';
+      if (trackingCourierNo) {
+        trackingCourierNo.disabled = false;
+        trackingCourierNo.value = order.courier_shipment?.tracking_number || order.courier_tracking_no || '';
+        trackingCourierNo.placeholder = 'Record the J&T waybill below';
+      }
+      return;
+    }
 
     if (!shouldShowCourierFields) {
       if (trackingCourierOtherWrap) trackingCourierOtherWrap.hidden = true;
@@ -2741,6 +2762,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!trackingPresetSelect) return;
 
     const wrap = trackingPresetSelect.closest(".field-stack");
+    if (hasManagedJntTracking(order)) {
+      if (wrap) wrap.hidden = false;
+      trackingPresetSelect.innerHTML = '<option value="">Type it myself</option>' +
+        (order.customer_stage === 'to_ship' ? '<option value="fmrc_prepared">Prepared for J&T drop-off</option>' : '');
+      return;
+    }
     if (!checkpointPresets.items.length) {
       if (wrap) wrap.hidden = true;
       return;
@@ -2778,6 +2805,13 @@ document.addEventListener("DOMContentLoaded", () => {
    * blanking the boxes would throw away the last pin the customer saw.
    */
   const applyCheckpointPreset = (key) => {
+    if (hasManagedJntTracking(trackingModalOrder)) {
+      if (key === 'fmrc_prepared' && trackingModalOrder.customer_stage === 'to_ship') {
+        trackingEventTitle.value = 'Order prepared for J&T drop-off';
+        trackingEventDescription.value = 'FMRC has prepared and packed your order for handover to J&T.';
+      }
+      return;
+    }
     const preset = checkpointPresets.items.find((item) => item.key === key);
     if (!preset) return;
 
@@ -2891,6 +2925,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const syncManagedTrackingContext = (order) => {
+    const managed = hasManagedJntTracking(order);
+    modalTrackingUpdate.querySelector('.modal-title').textContent = 'Update Tracking Status';
+    if (trackingStage?.closest('.field-stack')) trackingStage.closest('.field-stack').hidden = false;
+    if (trackingStage) {
+      trackingStage.disabled = managed;
+      if (managed) trackingStage.value = order.customer_stage;
+    }
+    for (const field of [trackingLatitude, trackingLocationName]) {
+      if (field?.closest('.field-stack')) field.closest('.field-stack').hidden = managed;
+    }
+    syncCourierFields(order);
+    const hint = document.getElementById('trackingManagedHint');
+    const host = document.getElementById('trackingManagedShipment');
+    if (hint) {
+      hint.hidden = !managed;
+      hint.textContent = 'Record the J&T handover below. Courier updates appear automatically when tracking is active. Use the timeline fields to add an FMRC update.';
+    }
+    if (host) {
+      host.hidden = !managed;
+      if (managed) window.AdminJntTracking?.render(order, host);
+      else host.replaceChildren();
+    }
+    if (!btnSaveTrackingUpdate.disabled) btnSaveTrackingUpdate.textContent = 'Save Update';
+  };
+
   const openTrackingModal = (order) => {
     if (!order || !modalTrackingUpdate) return;
 
@@ -2961,15 +3021,22 @@ document.addEventListener("DOMContentLoaded", () => {
           : String(order.longitude);
     syncTrackingMapPreview();
 
-    const notesOnly = hasManagedJntTracking(order);
-    modalTrackingUpdate.querySelector('.modal-title').textContent = notesOnly ? 'Add FMRC Note' : 'Update Tracking Status';
-    for (const field of [trackingStage, trackingPresetSelect, trackingLatitude, trackingLocationName]) {
-      if (field?.closest('.field-stack')) field.closest('.field-stack').hidden = notesOnly;
-    }
-    if (notesOnly) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
-    btnSaveTrackingUpdate.textContent = notesOnly ? 'Save Note' : 'Save Update';
+    syncManagedTrackingContext(order);
+    if (hasManagedJntTracking(order)) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
     trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
+    if (hasManagedJntTracking(order)) {
+      void request(`/admin/orders/${order.id}`).then(response => {
+        if (!response?.data || !modalTrackingUpdate.classList.contains('show') || String(trackingOrderId?.value) !== String(order.id)) return;
+        trackingModalOrder = response.data;
+        upsertOrderSummaryInState(response.data);
+        syncManagedTrackingContext(response.data);
+      }).catch(() => {
+        if (modalTrackingUpdate.classList.contains('show') && String(trackingOrderId?.value) === String(order.id)) {
+          document.getElementById('trackingManagedHint').textContent = 'Current shipment details could not be loaded. Use Refresh saved updates below before recording a handover.';
+        }
+      });
+    }
   };
 
   const closeTrackingModal = () => {
@@ -2978,7 +3045,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getTrackingFormSnapshot = () => ({
     orderId: String(trackingOrderId?.value || "").trim(),
-    stage: String(trackingStage?.value || "").trim(),
+    stage: hasManagedJntTracking(trackingModalOrder) ? '' : String(trackingStage?.value || "").trim(),
     title: String(trackingEventTitle?.value || "").trim(),
     description: String(trackingEventDescription?.value || "").trim(),
     courierKey: areCourierFieldsApplicable(trackingModalOrder)
@@ -2993,6 +3060,7 @@ document.addEventListener("DOMContentLoaded", () => {
     locationName: String(trackingLocationName?.value || "").trim(),
     latitude: String(trackingLatitude?.value || "").trim(),
     longitude: String(trackingLongitude?.value || "").trim(),
+    handover: hasManagedJntTracking(trackingModalOrder) ? window.AdminJntTracking?.draft(trackingModalOrder.id) : null,
   });
 
   trackingDiscardGuard = window.createAdminFormDiscardGuard?.({
@@ -5138,12 +5206,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnSaveTrackingUpdate?.addEventListener("click", async () => {
+    if (hasManagedJntTracking(trackingModalOrder) && window.AdminJntTracking?.busy(trackingModalOrder.id)) return;
     const orderId = trackingOrderId?.value || "";
     if (!orderId) {
       showPopup("No order selected for tracking update.", {
         title: "Update Failed",
       });
       return;
+    }
+
+    if (hasManagedJntTracking(trackingModalOrder)) {
+      const handover = document.querySelector('#trackingManagedShipment [data-jnt-form]');
+      const hasWaybillDraft = Boolean(handover?.elements.tracking_number?.value.trim());
+      if (handover && hasWaybillDraft && !handover.querySelector('fieldset').disabled) {
+        // Save the handover first and keep any timeline text in this open modal.
+        handover.requestSubmit(); return;
+      }
     }
 
     const stage = trackingStage?.value || "to_pay";
@@ -5202,7 +5280,9 @@ document.addEventListener("DOMContentLoaded", () => {
       for (const key of ['stage', 'courier_name', 'courier_tracking_no', 'location_name', 'latitude', 'longitude']) delete payload[key];
       payload.event_type = 'admin_update';
       if (!payload.title && !payload.description) {
-        showPopup('Enter a note for the customer before saving.', {title:'Note Required'});
+        const handover = document.querySelector('#trackingManagedShipment [data-jnt-form]');
+        if (handover && !handover.querySelector('fieldset').disabled) { handover.requestSubmit(); return; }
+        showPopup('Enter a timeline title or description before saving an FMRC update.', {title:'Update Required'});
         trackingEventTitle?.focus(); return;
       }
     }

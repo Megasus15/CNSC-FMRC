@@ -18,7 +18,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
   let settings={revision:0,has_saved_draft:false,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
   let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false,provinceUnavailable=false,rejectShippingOnce=false,trackingReads=0;
   const provinceCatalog=[{code:'0307100000',name:'Zambales'},{code:'0501600000',name:'Camarines Norte'},{code:'0500500000',name:'Albay'}];
-  const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[];
+  const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[],trackingWrites=[];
   let policySettings={revision:0,can_edit:true,has_saved_draft:false,published:null,draft:{title:'FMRC Transaction Terms and Refund Policy',terms_text:'Ordering and delivery\nReview the full order total and fulfillment details before ordering.',refund_text:'Eligible concerns\nContact FMRC to review defective, incorrect, or incomplete items and appropriate remedies.'}};
   const profile={id:33,role:'customer',email:'client@gmail.com',name:'Fixture Client',phone_number:'09171234567',address_line:'1 Test Street',barangay:'Barangay 1',city_municipality:'Daet',province:'Camarines Norte',postal_code:'4600',address_details:'Near the main gate',department:'Student',customer_type:'Student'};
   const product={id:1,name:'Prototype',category:'Fabrication',code:'SHIP',price:123.45,stock:20,stock_status:'in_stock',is_blocked:false,image_data:'/images/FMRC Logo.png'};
@@ -36,6 +36,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       if(route==='/api/admin/session')return json({server_time:new Date().toISOString(),idle_warning_at:new Date(Date.now()+3600000).toISOString(),idle_expires_at:new Date(Date.now()+3780000).toISOString(),absolute_expires_at:new Date(Date.now()+21600000).toISOString()});
       if(route==='/api/maintenance')return json({installed:true,data:{},site_page_installed:true,site_page:{}});
       if(route==='/api/site-settings')return json({data:{payment_cash_on_pickup_enabled:'1',payment_cash_on_delivery_enabled:'0',payment_gcash_enabled:'1',payment_gcash_ready:'1',payment_checkout_method:'qrph'}});
+      if(route==='/api/couriers')return json({default:'jnt',data:[{key:'jnt',label:'J&T Express'},{key:'pickup',label:'Pickup at FMRC',accepts_tracking_no:false},{key:'other',label:'Other courier'}]});
       if(route==='/api/admin/shipping-tracking'){trackingReads++;return json({data:{installed:true,enabled:false,ready:false,can_edit:role==='admin',registrations:0,registration_limit:10,message:'Automatic tracking is not active. Saved J&T waybills remain available.'}});}
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/products')return json({data:[product]});
@@ -82,9 +83,20 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
         }
         return json({data:order});
       }
+      if(route==='/api/admin/orders/71/tracking'&&req.method==='PATCH'){
+        let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);trackingWrites.push(input);
+        if(order.shipment_tracking_mode==='jnt_dropoff'){
+          for(const key of ['stage','courier_name','courier_tracking_no','latitude','longitude'])assert.equal(key in input,false,'J&T timeline edits cannot replace '+key);
+          assert.equal(input.event_type,'admin_update');
+        }else{
+          order.customer_stage=input.stage;order.courier_name=input.courier_name;order.courier_tracking_no=input.courier_tracking_no;
+        }
+        order.timeline.push({id:order.timeline.length+1,title:input.title,description:input.description,source_label:'FMRC',metadata:{source:'fmrc'}});
+        return json({data:order});
+      }
       if(route==='/api/customer/orders')return json({data:[order]});
       if(route==='/api/customer/orders/71'||route==='/api/admin/orders/71')return json({data:order});
-      if(route==='/api/admin/orders')return json({incoming:[order],directory:[],payments:[],returns:[],returns_summary:{},cancellations_summary:{},generated_at:new Date().toISOString()});
+      if(route==='/api/admin/orders')return json({incoming:order.lifecycle_status==='incoming'?[order]:[],directory:order.lifecycle_status==='incoming'?[]:[order],payments:[],returns:[],returns_summary:{},cancellations_summary:{},generated_at:new Date().toISOString()});
       return json({data:[]});
     }
     const file=path.resolve(root,'.'+route);
@@ -395,30 +407,46 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     console.log('Verified unavailable-delivery pickup recovery, zero-fee pickup and Customer saved order pricing.');
     order.lifecycle_status='pending';order.payment_method='GCash';order.payment_status='paid';order.shipment_tracking_mode='jnt_dropoff';
     for(const portal of ['admin','staff']){
-      order.customer_stage='to_ship';order.customer_stage_label='To Ship';order.timeline=[];
+      order.customer_stage='to_ship';order.customer_stage_label='To Ship';order.timeline=[];order.courier_tracking_no=null;
       order.courier_shipment={provider:'Ship24',carrier:'J&T Express',tracking_provider:'ship24',status:'pending',status_label:'Waybill not yet recorded',availability_message:'Automatic tracking is not active. Use the saved waybill on J&T tracking.',can_record:true,can_correct:false,can_refresh:false};
-      await navigate('/'+portal+'-page/orders.html');await until(`!!document.querySelector('[data-order-view="71"]')`);await run(`document.querySelector('[data-order-view="71"]').click()`);
-      await until(`!!document.querySelector('[data-jnt-form]')`);
-      await input('jnt-71-number','0012345678901234567890123456789012345678901234567890');await input('jnt-71-cost','140.00');
-      await run(`document.getElementById('jnt-71-number').focus();document.getElementById('jnt-71-number').setSelectionRange(3,3);document.querySelector('[data-jnt-load]').click()`);
+      await navigate('/'+portal+'-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);
+      await until(`!!document.querySelector('#modalTrackingUpdate.show [data-jnt-form]')`);
+      assert.equal(await run(`document.querySelector('#modalTrackingUpdate .modal-title').textContent`),'Update Tracking Status');
+      assert.equal(await run(`document.getElementById('btnSaveTrackingUpdate').textContent`),'Save Update');
+      for(const id of ['trackingStage','trackingPresetSelect','trackingCourierField','trackingCourierNoField'])assert.equal(await run(`getComputedStyle(document.getElementById('${id}').closest('.field-stack')).display==='none'`),false,id+' remains visible for '+portal);
+      assert.equal(await run(`document.getElementById('trackingStage').disabled`),true);
+      assert.equal(await run(`document.getElementById('trackingCourierSelect').value`),'jnt');
+      await run(`document.getElementById('trackingPresetSelect').value='fmrc_prepared';document.getElementById('trackingPresetSelect').dispatchEvent(new Event('change'))`);
+      assert.equal(await run(`document.getElementById('trackingStage').value`),'to_ship');
+      assert.match(await run(`document.getElementById('trackingEventTitle').value`),/prepared for J&T/);
+      await run(`document.getElementById('trackingEventTitle').value='';document.getElementById('trackingEventDescription').value='';document.getElementById('trackingPresetSelect').value='';document.querySelector('#modalTrackingUpdate .modal-body-scroll').scrollTop=0`);
+      await until(`!document.querySelector('.fmrc-load-veil.is-on')&&!document.querySelector('.fmrc-load-boot')&&(!document.querySelector('.fmrc-load-veil')||Number(getComputedStyle(document.querySelector('.fmrc-load-veil')).opacity)<0.05)`);
+      await shot(portal+'-update-tracking-modal');
+      await input('tracking-jnt-71-number','0012345678901234567890123456789012345678901234567890');await input('tracking-jnt-71-cost','140.00');
+      await run(`document.getElementById('tracking-jnt-71-number').focus();document.getElementById('tracking-jnt-71-number').setSelectionRange(3,3);document.querySelector('[data-jnt-load]').click()`);
       await pause(350);
-      assert.equal(await run(`document.getElementById('jnt-71-number').value`),'0012345678901234567890123456789012345678901234567890');
-      assert.equal(await run(`document.activeElement.id`),'jnt-71-number');
-      assert.equal(await run(`document.getElementById('jnt-71-number').selectionStart`),3);
-      assert.match(await run(`getComputedStyle(document.getElementById('jnt-71-number')).fontFamily`),/Poppins/);
-      await run(`document.getElementById('jnt-71-confirmed').click()`);
+      assert.equal(await run(`document.getElementById('tracking-jnt-71-number').value`),'0012345678901234567890123456789012345678901234567890');
+      assert.equal(await run(`document.activeElement.id`),'tracking-jnt-71-number');
+      assert.equal(await run(`document.getElementById('tracking-jnt-71-number').selectionStart`),3);
+      assert.match(await run(`getComputedStyle(document.getElementById('tracking-jnt-71-number')).fontFamily`),/Poppins/);
+      await run(`document.getElementById('tracking-jnt-71-confirmed').click()`);
+      await input('trackingEventTitle','Prepared for J&T handover');
       const beforeShip=shipmentWrites.length;
-      await run(`document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Record J&T Handover');
+      await run(`document.getElementById('btnSaveTrackingUpdate').click()`);await confirm('Record J&T Handover');
       await until(`document.querySelector('[data-courier-controls]').getAttribute('aria-busy')==='true'`);
       assert(await run(`document.querySelector('[data-jnt-form] fieldset').disabled`));
       await run(`document.querySelector('[data-jnt-form]').requestSubmit()`);
       await until(`!!document.querySelector('[data-jnt-refresh]')&&!document.querySelector('[data-jnt-refresh]').disabled`);
       assert.equal(shipmentWrites.length,beforeShip+1);assert.equal(shipmentWrites.at(-1).input.actual_shipping_cost,140);
+      assert.equal(await run(`document.getElementById('trackingStage').value`),'to_receive');
+      assert.equal(await run(`document.getElementById('trackingCourierNo').value`),'0012345678901234567890123456789012345678901234567890');
+      assert.equal(await run(`document.getElementById('trackingEventTitle').value`),'Prepared for J&T handover','Recording the waybill preserves an unsaved timeline update');
+      await run(`document.getElementById('trackingEventTitle').value=''`);
       assert.equal(order.total_amount,342.4,'J&T branch cost leaves the accepted payable total unchanged');
       assert.equal(await run(`document.querySelector('[data-jnt-correct]').hidden`),portal==='staff');
       if(portal==='admin'){
-        await run(`document.querySelector('[data-jnt-correct]').click()`);await input('jnt-71-number','009876543210');await input('jnt-71-reason','Verified against the branch receipt');
-        await run(`document.getElementById('jnt-71-confirmed').click();document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Correct J&T Waybill');
+        await run(`document.querySelector('[data-jnt-correct]').click()`);await input('tracking-jnt-71-number','009876543210');await input('tracking-jnt-71-reason','Verified against the branch receipt');
+        await run(`document.getElementById('tracking-jnt-71-confirmed').click();document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Correct J&T Waybill');
         await until(`document.querySelector('.jnt-waybill')?.textContent==='009876543210'`);assert.equal(shipmentWrites.at(-1).input.expected_version,1);
         assert.match(await run(`document.querySelector('[data-jnt-history]').textContent`),/waybill corrected/);
       }
@@ -433,6 +461,12 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       order.timeline.push({id:99,title:'Out for delivery',occurred_at:'2026-11-03',occurred_at_label:'Nov 3, 2026',time_precision:'date',source_label:'J&T via Ship24',metadata:{source:'ship24',tracking_number:order.courier_tracking_no}});
       await run(`document.querySelector('[data-jnt-load]').click()`);await until(`document.querySelector('[data-jnt-status]').textContent==='Out for delivery'`);
       assert.match(await run(`document.querySelector('[data-jnt-history]').textContent`),/J&T via Ship24/);
+      await input('trackingEventTitle','Packaging instructions confirmed');
+      const beforeNote=trackingWrites.length;
+      await run(`document.getElementById('btnSaveTrackingUpdate').click()`);await confirm('Confirm Tracking Update');
+      for(let tries=0;tries<100&&trackingWrites.length===beforeNote;tries++)await pause(50);
+      assert.equal(trackingWrites.length,beforeNote+1);
+      assert.equal(trackingWrites.at(-1).title,'Packaging instructions confirmed');
       await navigate('/'+portal+'-page/orders.html');await until(`!!document.querySelector('[data-order-view="71"]')`);await run(`document.querySelector('[data-order-view="71"]').click()`);
       await until(`document.querySelector('[data-jnt-status]')?.textContent==='Out for delivery'`);
       await run(`document.querySelector('[data-jnt-refresh]').click()`);await until(`document.querySelector('[data-jnt-refresh]').disabled`);

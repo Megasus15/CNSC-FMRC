@@ -104,3 +104,82 @@ test('Orders retain label-free cancellation/refund filters and filter walk-ins b
   }
   t.diagnostic('Orders control screenshots: ' + h.artifacts);
 });
+
+test('Tracking modal keeps J&T, legacy delivery and cash pickup saves separate in Admin and Staff', {skip: !chrome, timeout: 120000}, async t => {
+  const base = {customer_id: 33, customer_name: 'Fixture client', product_name: 'Prototype', quantity: 1,
+    total_amount: 100, payment_status: 'paid', payment_amount: 100, lifecycle_status: 'pending', customer_stage: 'to_ship',
+    created_at: '2026-11-05T08:00:00+08:00', stage_labels: {to_pay: 'To Pay', to_ship: 'To Ship', to_receive: 'To Receive', completed: 'Completed'}};
+  const orders = [
+    {...base, id: 71, order_no: 'JNT-71', fulfillment_type: 'delivery', payment_method: 'GCash', shipment_tracking_mode: 'jnt_dropoff',
+      courier_name: 'J&T Express', courier_shipment: {tracking_provider: 'ship24', status: 'pending', status_label: 'Waybill not yet recorded',
+        can_record: false, record_reason: 'Complete the delivery address before recording the J&T handover.', availability_message: 'Automatic tracking is not active.'}},
+    {...base, id: 72, order_no: 'LEGACY-72', fulfillment_type: 'delivery', payment_method: 'COD', courier_name: 'J&T Express', courier_tracking_no: 'LEGACY12345'},
+    {...base, id: 73, order_no: 'PICKUP-73', fulfillment_type: 'pickup', is_pickup: true, payment_method: 'COP',
+      stage_labels: {to_pay: 'To Pay', to_ship: 'Preparing', to_receive: 'Ready for Pickup', completed: 'Collected'}},
+  ];
+  const writes = [];
+  const h = await browserFixture(t, async ({req, route, json, role}) => {
+    if (route === '/api/couriers') { json({default: 'jnt', data: [{key: 'jnt', label: 'J&T Express'}, {key: 'other', label: 'Other courier'}]}); return true; }
+    if (route === '/api/admin/tracking/checkpoint-presets') {
+      json({data: [{key: 'packed', title: 'Packed', label: 'Packed', fulfillment: 'both', stage: 'to_ship'}]}); return true;
+    }
+    if (route === '/api/admin/orders') { json({incoming: [], directory: orders, payments: [], returns: []}); return true; }
+    const match = route.match(/^\/api\/admin\/orders\/(\d+)(\/tracking)?$/);
+    if (!match) return false;
+    const order = orders.find(value => value.id === Number(match[1]));
+    if (req.method === 'PATCH') {
+      let body = ''; for await (const chunk of req) body += chunk;
+      const input = JSON.parse(body); writes.push({role, id: order.id, input});
+      Object.assign(order, {customer_stage: input.stage, courier_name: input.courier_name, courier_tracking_no: input.courier_tracking_no});
+    }
+    json({data: order}); return true;
+  });
+  const open = async id => {
+    await h.until(`!!document.querySelector('[data-order-track="${id}"]')`);
+    await h.run(`document.querySelector('[data-order-track="${id}"]').click()`);
+    await h.until("document.getElementById('modalTrackingUpdate').classList.contains('show')");
+    await h.until("!document.querySelector('.fmrc-load-veil.is-on')&&!document.querySelector('.fmrc-load-boot')&&(!document.querySelector('.fmrc-load-veil')||Number(getComputedStyle(document.querySelector('.fmrc-load-veil')).opacity)<0.05)");
+    assert.equal(await h.run("document.querySelector('#modalTrackingUpdate .modal-title').textContent"), 'Update Tracking Status');
+  };
+  for (const portal of ['admin', 'staff']) {
+    await h.go('/' + portal + '-page/orders.html');
+    await open(71);
+    assert(await h.run("document.getElementById('trackingStage').disabled"));
+    for (const width of [390, 1440]) {
+      await h.send('Emulation.setDeviceMetricsOverride', {width, height: 900, deviceScaleFactor: 1, mobile: false});
+      await h.shot(portal + '-jnt-tracking-modal-' + width);
+    }
+    await h.run("document.getElementById('btnCancelTrackingUpdate').click()");
+    await h.until("!document.getElementById('modalTrackingUpdate').classList.contains('show')");
+    for (const id of [72, 73]) {
+      await open(id);
+      assert.equal(await h.run("document.getElementById('trackingStage').disabled"), false);
+      assert.equal(await h.run("document.getElementById('trackingManagedShipment').hidden"), true);
+      assert.equal(await h.run("document.getElementById('trackingCourierField').hidden"), id === 73);
+      assert.equal(await h.run("document.getElementById('trackingCourierNoField').hidden"), id === 73);
+      assert.equal(await h.run("document.getElementById('trackingCourierNo').readOnly"), false);
+      const before = writes.length;
+      const previousPage = await h.run('performance.timeOrigin');
+      await h.run(`document.getElementById('trackingStage').value='to_receive';document.getElementById('trackingEventTitle').value='Prepared by ${portal}';document.getElementById('btnSaveTrackingUpdate').click()`);
+      await h.until("document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Confirm Tracking Update'");
+      await h.run("document.getElementById('adminSystemPopupOk').click()");
+      await h.until(`performance.timeOrigin!==${previousPage} && document.readyState==='complete'`);
+      assert.equal(writes.length, before + 1);
+      assert.equal(writes.at(-1).role, portal);
+      assert.equal(writes.at(-1).input.stage, 'to_receive');
+      assert.equal(writes.at(-1).input.courier_tracking_no, id === 73 ? null : 'LEGACY12345');
+      await open(id);
+      assert.equal(await h.run("document.getElementById('trackingStage').value"), 'to_receive');
+      if (id === 72) assert.equal(await h.run("document.getElementById('trackingCourierNo').value"), 'LEGACY12345');
+      for (const width of [390, 1440]) {
+        await h.send('Emulation.setDeviceMetricsOverride', {width, height: 900, deviceScaleFactor: 1, mobile: false});
+        assert.equal(await h.run('document.documentElement.scrollWidth>innerWidth+1'), false);
+        await h.shot(portal + '-tracking-' + id + '-' + width);
+      }
+      await h.run("document.getElementById('btnCancelTrackingUpdate').click()");
+      await h.until("!document.getElementById('modalTrackingUpdate').classList.contains('show')");
+    }
+    assert.deepEqual(await h.run('fixtureErrors'), []);
+  }
+  t.diagnostic('Tracking modal screenshots: ' + h.artifacts);
+});

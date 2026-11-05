@@ -817,6 +817,7 @@
         <div class="modal-body-scroll">
           <div class="form-grid">
             <input type="hidden" id="trackingOrderId" />
+            <p class="field-hint full" id="trackingManagedHint" hidden>Record the J&amp;T handover below. Courier updates appear automatically when tracking is active. Use the timeline fields to add an FMRC update.</p>
             <div class="field-stack">
               <label>Order No.</label
               ><input id="trackingOrderNo" class="input-field" readonly />
@@ -898,6 +899,7 @@
                 placeholder="ex. Daet Distribution Hub"
               />
             </div>
+            <div class="full" id="trackingManagedShipment" hidden></div>
             <!--
               Latitude/longitude are what put this checkpoint on the customer's
               map. Optional: a courier who only says "in transit" gives no
@@ -1734,9 +1736,9 @@
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=2026.1105.1"></script>
-    <script src="../admin-page/jnt-tracking.js?v=1.0"></script>
+    <script src="../admin-page/jnt-tracking.js?v=1.1-tracking-modal"></script>
 <script src="../admin-page/courier-shipments.js?v=2.0"></script>
-<script src="../admin-page/orders.js?v=2026.1105.1"></script>
+<script src="../admin-page/orders.js?v=2026.1105.2"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="../admin-page/gateway-payments.css?v=2026.1104.5">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
