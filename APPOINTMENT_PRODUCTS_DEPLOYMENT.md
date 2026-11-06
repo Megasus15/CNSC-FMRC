@@ -54,6 +54,16 @@ The migration's `down()` refuses destructive rollback. Disable new intake to sto
 - Keep Ship24's current activation policy. Do not turn on automatic tracking merely because this migration ran. FMRC can record an actual J&T handover and waybill while automatic tracking remains inactive.
 - Clear Laravel caches after changing the feature flag. Versioned canonical assets also serve Customer and Team PWA routes; no reinstall is needed for ordinary network-fetched pages.
 
+## Frontend repair: assets 2026.1106.2
+
+The review and confirmation receipts now keep the custom-product brief on its own full-width row. Appointment details and the verification QR retain readable space on desktop and stack on phones. The same layout is used by the PNG receipt download.
+
+Admin and Staff retain the open product editor, selected tab, focus, text selection, scroll position and unsaved fields/files during quiet refreshes. Save Details uses the outlined style with a maroon hover; the active custom-product tab stays maroon when hovered, focused or pressed.
+
+Deploy the changed canonical HTML, CSS and JavaScript together. This repair requires no additional database migration or feature-flag change. Refresh existing pages after deployment and continue the already booked appointment rather than creating another booking.
+
+Local verification covered 320/390/768/1024/1440/1920 px receipt layouts, both operator themes, actual five-second refreshes with incoming updates, and real PNG exports through html2canvas at phone/desktop widths. Ordinary appointment browser regressions and 79 portal/PWA backend tests also passed. This is local verification, separate from the supervised Hostinger walkthrough.
+
 ## Staging acceptance, before enabling production intake
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.

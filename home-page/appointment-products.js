@@ -64,6 +64,8 @@
     const openDetails=new Map([...root.querySelectorAll('details')].map(d=>[d.querySelector('summary')?.textContent,d.open]));
     const focused=root.contains(document.activeElement)?document.activeElement:null;
     const focusName=focused?.getAttribute('name'),focusTab=focused?.getAttribute('data-ap-tab'),focusForm=focused?.closest('[data-ap-form]')?.dataset.apForm;
+    const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd]:null;
+    const scrollHost=root.closest('.modal-body-scroll,.appointment-content'),scrollTop=scrollHost?.scrollTop;
 
     const current=job.quotations.find(q=>['sent','accepted','closing'].includes(q.state));
     const order=job.orders[0], activeOrder=order&&!['cancelled','rejected'].includes(order.lifecycle_status);
@@ -73,7 +75,7 @@
       <div class="ap-tabs" role="tablist" aria-label="Custom product details">${['Overview','Quotation','Conversation'].map((t,i)=>button(t,`role="tab" id="ap-tab-${ctx.key}-${i}" aria-controls="ap-pane-${ctx.key}-${i}" tabindex="${ctx.tab===i?0:-1}" aria-selected="${ctx.tab===i}" data-ap-tab="${i}"`,ctx.tab!==i)).join('')}</div>
       <section role="tabpanel" id="ap-pane-${ctx.key}-0" aria-labelledby="ap-tab-${ctx.key}-0" data-ap-pane="0" ${ctx.tab!==0?'hidden':''}>${!admin&&job.state==='needs_information'?'<div class="ap-actions">'+button('Provide Details','data-ap-go-conversation')+'</div>':''}${!activeOrder&&current?.state==='sent'?'<div class="ap-actions">'+button(admin?'View Quotation':'Review Quotation','data-ap-go-quote')+'</div>':admin&&job.state==='ready_for_quote'?'<div class="ap-actions">'+button('Prepare Quotation','data-ap-go-quote')+'</div>':''}${specs(job.requirements)}${job.outcome_note?`<p><strong>FMRC update:</strong> ${esc(job.outcome_note)}</p>`:''}
         ${fileList(job.files)}${activeOrder?`<div class="ap-actions"><a class="ap-btn" href="${esc(link(admin?`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/orders.html?order_id=${order.id}`:`/home-page/main.html?orders=1&order_id=${order.id}`))}">${admin?'Open Order':order.payment_status==='pending'?'Continue Payment':'View Order'} ${esc(order.order_no)}</a></div>`:''}
-        ${editable?`<details><summary>Update product details</summary><form data-ap-form="requirements">${briefFields(job.requirements,[{id:job.service_id,title:job.service_name}])}<div class="ap-actions"><button class="ap-btn" type="submit">Save Details</button></div></form></details>`:''}
+        ${editable?`<details><summary>Update product details</summary><form data-ap-form="requirements">${briefFields(job.requirements,[{id:job.service_id,title:job.service_name}])}<div class="ap-actions"><button class="ap-btn is-secondary" type="submit">Save Details</button></div></form></details>`:''}
         ${admin&&!activeOrder&&!['cancelled','declined'].includes(job.state)?`<details ${!job.discussed_at?'open':''}><summary>Record consultation outcome</summary><form data-ap-form="outcome"><div class="ap-grid"><label class="ap-field"><span>Next step *</span><select name="outcome"><option value="ready_for_quote">Ready to prepare quotation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up appointment needed</option><option value="declined">Unable to fulfill</option></select></label><label class="ap-field"><span>Meeting discussed *</span><select name="discussed_appointment_id">${[{id:appointment.id,reference_no:appointment.reference_no},...(job.follow_ups||[])].filter((a,i,all)=>all.findIndex(b=>b.id===a.id)===i).map(a=>`<option value="${a.id}">${esc(a.reference_no)}</option>`).join('')}</select></label>${field('note','Summary for the customer',job.outcome_note,'textarea',true,true)}<label class="ap-check"><input type="checkbox" name="discussion_confirmed"><span>The meeting took place and the custom-product requirements were discussed. This is required before quoting.</span></label></div><div class="ap-actions"><button class="ap-btn" type="submit">Save Outcome</button></div></form></details>`:''}
         ${!admin&&job.state==='follow_up'?`<details open><summary>Book a follow-up</summary><form data-ap-form="follow-up"><div class="ap-grid">${field('appointment_date','Available date','','date',true)}<label class="ap-field"><span>Available time *</span><select name="appointment_time" required><option value="">Choose a date first</option></select></label><label class="ap-field"><span>Meeting method *</span><select name="appointment_method"><option value="face_to_face">Face-to-face at FMRC</option><option value="online">Online</option></select></label></div><div class="ap-actions"><button class="ap-btn" type="submit">Confirm Follow-up</button></div></form></details>`:''}
         ${editable?`<details><summary>Cancel custom request</summary><p class="ap-help">This closes only the product request. Your appointment stays in its history. Paid orders use the cancellation and refund actions in Orders.</p><form data-ap-form="cancel">${field('note','Reason','','textarea',true,true)}<div class="ap-actions"><button class="ap-btn is-secondary" type="submit">Cancel Custom Request</button></div></form></details>`:''}
@@ -92,7 +94,7 @@
       </section>
       <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">Private discussion with FMRC. Changes to an approved agreement require a revised quotation.</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
-    for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();form.addEventListener('input',()=>form.dataset.dirty='true'); }
+    for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true'); }
     root.onclick=async event=>{
       if(event.target.closest('[data-ap-go-conversation]')){root.querySelector('[data-ap-tab="2"]').click();return;}
       if(event.target.closest('[data-ap-go-quote]')){root.querySelector('[data-ap-tab="1"]').click();return;}
@@ -112,7 +114,8 @@
         form.querySelector('[type=submit]').disabled=false;
       }catch(e){form.querySelector('[data-ap-policy]').textContent=e.message;}
     }
-    if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);(replacement||root.querySelector('[data-ap-tab][aria-selected=true]'))?.focus({preventScroll:true});}
+    if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);const target=replacement||root.querySelector('[data-ap-tab][aria-selected=true]');target?.focus({preventScroll:true});if(selection&&replacement?.setSelectionRange)replacement.setSelectionRange(...selection);}
+    if(scrollHost)scrollHost.scrollTop=scrollTop;
   }
   const rootFocus=root=>root.querySelector('[data-ap-tab][aria-selected=true]')?.focus({preventScroll:true});
   async function followUpTimes(form) {
@@ -147,14 +150,24 @@
     clearTimeout(ctx.timer);ctx.timer=setTimeout(async()=>{
       if(!ctx.root.isConnected){contexts.delete(ctx.root);return;}
       if(document.hidden||!ctx.root.getClientRects().length||ctx.busy){poll(ctx);return;}
+      const before=ctx.job;
       try{const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}`);ctx.failures=0;
+        if(!ctx.root.isConnected||contexts.get(ctx.root)!==ctx)return;
+        if(ctx.busy||ctx.job!==before){poll(ctx);return;}
         if(JSON.stringify(result.data)!==JSON.stringify(ctx.job)){if(dirty(ctx.root)){ctx.latest=result.data;ctx.root.querySelector('[data-ap-update]').hidden=false;}else{ctx.job=result.data;await paint(ctx);}}
       }catch{ctx.failures=Math.min(3,(ctx.failures||0)+1);}poll(ctx);
     },Math.min(30000,5000*2**(ctx.failures||0)));
   }
   function mount(root,job,appointment,admin) {
     if(!root||!job)return;root.classList.add('ap-panel');root.dataset.apJob=job.id;if(job.unavailable){root.innerHTML='<h3>'+icon+'Custom Product</h3><p>Custom-product details are temporarily unavailable. Your appointment is unchanged. Use Refresh to try again.</p>';return;}
-    const old=contexts.get(root);if(old&&dirty(root))return; if(old)clearTimeout(old.timer);
+    const old=contexts.get(root);
+    if(old&&old.job.id===job.id){
+      old.appointment=appointment;
+      if(JSON.stringify(old.job)===JSON.stringify(job))return;
+      if(old.busy||dirty(root)){old.latest=job;root.querySelector('[data-ap-update]').hidden=false;return;}
+      old.job=job;void paint(old);return;
+    }
+    if(old)clearTimeout(old.timer);
     const ctx={root,job,appointment,admin,key:old?.key||uid(),tab:old?.tab||((job.quotations||[]).some(q=>q.state==='sent')&&!admin?1:0)};contexts.set(root,ctx);void paint(ctx);poll(ctx);
   }
   async function mountCustomer(host,appointment) {

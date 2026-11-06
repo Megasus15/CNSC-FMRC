@@ -1081,10 +1081,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Appointment View Modal ─────────────────────────────────────────────────
   const openAppointmentViewModal = (appt) => {
-    if(viewingAppointment?.id===appt.id && window.FMRCAppointmentProducts?.isDirty(document.getElementById("apptViewBody")))return;
-    viewingAppointment = appt;
     const modal = document.getElementById("modalViewAppointment");
     if (!modal) return;
+    const body = document.getElementById("apptViewBody");
+    const sameAppointment = viewingAppointment?.id === appt.id && modal.classList.contains("show");
+    if(sameAppointment && window.FMRCAppointmentProducts?.isDirty(body))return;
+    if(sameAppointment && JSON.stringify(viewingAppointment)===JSON.stringify(appt))return;
+    const productPanel = sameAppointment ? body?.querySelector("[data-ap-appointment]") : null;
+    const scrollTop = sameAppointment ? body?.scrollTop || 0 : 0;
+    const focused = sameAppointment && body?.contains(document.activeElement) ? document.activeElement : null;
+    const focusForm = focused?.closest("[data-ap-form]")?.dataset.apForm;
+    const focusName = focused?.getAttribute("name");
+    const selection = focused && typeof focused.selectionStart === "number" ? [focused.selectionStart,focused.selectionEnd] : null;
+    viewingAppointment = appt;
 
     const archiveFromViewButton = document.getElementById("btnArchiveFromView");
     const canArchive = isAppointmentCompleted(appt);
@@ -1106,7 +1115,6 @@ document.addEventListener("DOMContentLoaded", () => {
       detailed: true,
     });
 
-    const body = document.getElementById("apptViewBody");
     if (body) {
       body.innerHTML = `
         <div class="appt-view-header-row">
@@ -1156,10 +1164,18 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="appt-details-section-heading"><h4>Design files</h4><p>Private files submitted for this appointment.</p></div>
           <div class="appt-view-files">${fileHtml}</div>
         </section>`;
+      // Reuse the live editor so polling retains its tabs, disclosures and files.
+      if(productPanel)body.querySelector(".appt-view-header-row").after(productPanel);
     }
 
     window.AdminAppointmentDetails?.render(appt,body);
     modal.classList.add("show");
+    if(sameAppointment && body){
+      const target=focused?.isConnected ? focused : focusForm && focusName ? body.querySelector(`[data-ap-form="${CSS.escape(focusForm)}"] [name="${CSS.escape(focusName)}"]`) : null;
+      target?.focus({preventScroll:true});
+      if(target && selection && typeof target.setSelectionRange === "function")target.setSelectionRange(...selection);
+      body.scrollTop=scrollTop;
+    }
   };
 
   window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;state.appointments=state.appointments.map(row=>row.id===item.id?item:row);renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});

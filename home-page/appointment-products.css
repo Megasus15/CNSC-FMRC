@@ -12,7 +12,6 @@
 .ap-badge { display:inline-flex; align-items:center; padding:4px 9px; border-radius:999px; background:rgba(128,0,0,.07); color:var(--ap-wine,var(--portal-accent,#800000)); font-size:12px; font-weight:600; line-height:1.5; }
 .ap-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--ap-line); padding-bottom:14px; margin-bottom:20px; }
 .ap-panel .ap-tabs button { min-height:38px; font-size:12px; padding:8px 14px; }
-.ap-tabs [aria-selected=true] { background:var(--ap-solid); color:#fff; }
 .ap-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 22px; margin-block:18px; }
 .ap-field { display:grid; align-content:start; gap:7px; font-size:13px; line-height:1.5; font-weight:600; min-width:0; margin:0; }
 .ap-field.is-wide, .ap-grid > .ap-check, .ap-grid > .ap-help { grid-column:1 / -1; }
@@ -31,6 +30,8 @@
 .ap-panel .ap-btn:active:not(:disabled) { box-shadow:inset 0 1px 3px rgba(0,0,0,.14); }
 .ap-panel .ap-btn:focus-visible { outline:2px solid var(--ap-wine); outline-offset:3px; }
 .ap-panel .ap-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+.ap-panel .ap-tabs .ap-btn[aria-selected="true"],
+.ap-panel .ap-tabs .ap-btn[aria-selected="true"]:is(:hover,:focus-visible,:active) { background:var(--ap-solid); color:#fff; box-shadow:none; }
 .ap-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 22px; padding:18px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); border:1px solid var(--ap-line); border-radius:8px; margin:16px 0; }
 .ap-summary dt { font-size:12px; font-weight:500; color:var(--ap-muted); margin:0 0 4px; }
 .ap-summary dd { margin:0; font-size:13px; line-height:1.65; overflow-wrap:anywhere; white-space:pre-wrap; }
@@ -47,6 +48,16 @@
 .ap-booking { grid-column:1 / -1!important; margin:6px 0!important; }
 .ap-booking > .ap-check { font-weight:700; }
 .ap-booking [data-ap-brief] { margin-top:20px; padding-top:18px; border-top:1px solid var(--ap-line); }
+/* The receipt has a details/QR row, followed by an optional full-width brief. */
+#appointmentFlow .ticket-body--split { display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:24px; align-items:start; }
+#appointmentFlow .ticket-body--split > .ticket-grid { min-width:0; }
+#appointmentFlow .ticket-body--split > .ticket-qr { align-self:stretch; }
+#appointmentFlow [data-ap-booking-review] { min-width:0; margin:24px 0 0; }
+#appointmentFlow .ticket-body--split > [data-ap-booking-review] { grid-column:1 / -1; margin:0; }
+#appointmentFlow [data-ap-booking-review] .ap-summary { margin-bottom:0; }
+@media(max-width:760px) {
+  #appointmentFlow .ticket-body--split { grid-template-columns:minmax(0,1fr); gap:20px; }
+}
 .ap-update { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:12px; padding:12px; margin-bottom:16px; border:1px solid var(--ap-line); border-radius:8px; }
 .ap-panel [hidden] { display:none!important; }
 .service-card-footer { flex-wrap:wrap; gap:12px; }
