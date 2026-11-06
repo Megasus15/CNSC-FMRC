@@ -12,7 +12,7 @@ final class AppointmentFiles
 {
     public const EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'stl', 'obj', 'step', 'stp', 'iges', 'igs', 'dxf', 'dwg'];
 
-    public static function validate(Request $request): array
+    public static function validate(Request $request, bool $allowOperator = false): array
     {
         $files = $request->file('attachments', []);
         if ($request->hasFile('attachment')) {
@@ -38,7 +38,7 @@ final class AppointmentFiles
         if ($total > 50 * 1024 * 1024) {
             self::reject('The combined file size must be 50 MB or less.');
         }
-        if ($files && (! $request->user('sanctum') || $request->user('sanctum')->role !== 'customer')) {
+        if ($files && (! $request->user('sanctum') || !in_array($request->user('sanctum')->role, $allowOperator ? ['customer','admin','staff'] : ['customer'], true))) {
             abort(401, 'Sign in to attach private design files.');
         }
 

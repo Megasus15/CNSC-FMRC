@@ -36,5 +36,6 @@
       }});
     };
   };
-  window.AdminAppointmentDetails={render,files};
+  const baseRender=render;
+  window.AdminAppointmentDetails={render:(appointment,host)=>{baseRender(appointment,host);window.FMRCAppointmentProducts?.mountAdmin(host,appointment);},files};
 })();

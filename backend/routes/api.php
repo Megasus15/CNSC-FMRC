@@ -149,6 +149,9 @@ Route::get('/maintenance', [MaintenanceController::class, 'index']);
 
 // Public: Services (shared between home "What We Offer" and Services page)
 Route::get('/services', [ServiceController::class, 'index']);
+Route::get('/appointment-products/availability', [\App\Http\Controllers\Api\AppointmentProductController::class, 'availability']);
+Route::post('/appointment-products/claim-link', [\App\Http\Controllers\Api\AppointmentProductController::class, 'requestClaim'])
+    ->middleware(['throttle:3,1',\App\Http\Middleware\EnsureAppointmentProductSchema::class]);
 Route::get('/services/{service}/image', [ServiceController::class, 'image']);
 
 // Public: Home hero SDG badges (ETag-revalidated for cheap polling)
@@ -188,6 +191,27 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::patch('/appointments/{appointment}/complete', [AppointmentController::class, 'markCompleted']);
 
     Route::get('/customer/appointments', [AppointmentController::class, 'customerIndex']);
+    Route::middleware(\App\Http\Middleware\EnsureAppointmentProductSchema::class)->group(function () {
+        $controller = \App\Http\Controllers\Api\AppointmentProductController::class;
+        Route::get('/customer/appointment-products/drafts', [$controller, 'drafts']);
+        Route::post('/customer/appointment-products/drafts', [$controller, 'saveDraft'])->middleware('throttle:30,1');
+        Route::post('/customer/appointment-products/claim', [$controller, 'claim'])->middleware('throttle:10,1');
+        Route::post('/customer/appointments/{appointment}/product', [$controller, 'optIn']);
+        foreach (['customer','admin'] as $portal) {
+            Route::get('/'.$portal.'/appointment-products/{job}', [$controller, 'show']);
+            Route::put('/'.$portal.'/appointment-products/{job}/requirements', [$controller, 'updateBrief']);
+            Route::post('/'.$portal.'/appointment-products/{job}/messages', [$controller, 'message'])->middleware('throttle:30,1');
+            Route::get('/'.$portal.'/appointment-products/{job}/files/{file}', [$controller, 'file'])->whereNumber('file');
+            Route::post('/'.$portal.'/appointment-products/{job}/cancel', [$controller, 'cancel']);
+        }
+        Route::delete('/customer/appointment-products/{job}/files/{file}', [$controller, 'removeDraftFile'])->whereNumber('file');
+        Route::post('/customer/appointment-products/{job}/follow-up', [$controller, 'followUp']);
+        Route::post('/customer/appointment-products/{job}/quotations/{quote}/accept', [$controller, 'accept']);
+        Route::post('/admin/appointment-products/{job}/outcome', [$controller, 'outcome']);
+        Route::post('/admin/appointment-products/{job}/quotations', [$controller, 'quotation']);
+        Route::post('/admin/orders/{order}/custom-product', [\App\Http\Controllers\Api\AppointmentProductOrderController::class, 'action']);
+        Route::post('/customer/orders/{order}/custom-payment-method', [\App\Http\Controllers\Api\AppointmentProductOrderController::class, 'switchPayment']);
+    });
     Route::get('/customer/appointments/{appointment}', [AppointmentController::class, 'customerShow']);
     Route::post('/customer/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule']);
     Route::get('/customer/appointments/{appointment}/attachments/{file}', [AppointmentController::class, 'attachment'])->where('file','[0-9]+|legacy');

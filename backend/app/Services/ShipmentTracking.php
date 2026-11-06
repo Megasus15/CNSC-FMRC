@@ -63,10 +63,14 @@ final class ShipmentTracking
             return $correction ? 'Only an active delivery can have its waybill corrected.' : 'Accept and prepare this order before handing it to J&T.';
         }
         $order->loadMissing('payment');
-        if ($order->payment_method !== 'GCash' || $order->payment?->status !== 'paid') {
+        if (AppointmentProducts::custom($order)) {
+            try { AppointmentProducts::assertProduction($order,true); }
+            catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) { return $error->getMessage(); }
+        }
+        if ((!AppointmentProducts::custom($order) && $order->payment_method !== 'GCash') || $order->payment?->status !== 'paid') {
             return 'Payment must be confirmed before this order can be handed to J&T.';
         }
-        if (! GatewayPayments::managed($order->payment)) {
+        if (! GatewayPayments::managed($order->payment) && !(AppointmentProducts::custom($order) && $order->payment_method === 'Cash at FMRC' && AppointmentProducts::paid($order))) {
             return 'A confirmed online payment is required before recording a new J&T handover.';
         }
         if (GatewayPayments::managed($order->payment)) {

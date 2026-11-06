@@ -6317,6 +6317,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const switchAptStep = (stepNumber) => {
+    window.FMRCAppointmentProducts?.review?.(stepNumber);
     // Messages belong to the step that raised them.
     removeAptAlert();
     document
@@ -6378,6 +6379,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  window.FMRCAppointmentBooking = {
+    files: () => uploadedAppointmentFiles,
+    open: () => document.querySelector('.btn-appointment')?.click(),
+    restoreFiles: files => { uploadedAppointmentFiles=files; if(aptFileName)aptFileName.textContent=files.map(f=>f.name).join(', '); }
+  };
   const submitAppointment = async () => {
     const { date, time } = getSelectedSchedule();
     if (!date || !time) {
@@ -6463,7 +6469,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     formData.append("appointment_method",document.getElementById("aptMethod")?.value || "face_to_face");
-    for(const file of uploadedAppointmentFiles)formData.append("attachments[]",file);
+    window.FMRCAppointmentProducts?.append(formData);
+    for(const file of (window.FMRCAppointmentProducts?.selected() ? window.FMRCAppointmentProducts.newFiles(uploadedAppointmentFiles) : uploadedAppointmentFiles))formData.append("attachments[]",file);
 
     const token = localStorage.getItem("customer_token");
 
@@ -6493,6 +6500,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       submittedAppointment = payload?.data || null;
+      if (submittedAppointment?.custom_product) window.FMRCAppointmentProducts?.booked();
       appointmentSubmitted = true;
       stopAptPolling();
       return { ok: true, error: null };
@@ -6887,6 +6895,7 @@ document.addEventListener("DOMContentLoaded", () => {
      life of the page, which turned Step 4 into a dead end. Both halves are
      released below. */
   const resetAppointmentFlowState = () => {
+    window.FMRCAppointmentProducts?.reset();
     Object.keys(appointmentSelections).forEach(
       (key) => delete appointmentSelections[key],
     );
@@ -7307,6 +7316,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const hasAppointmentFormInput = () => {
+    if(window.FMRCAppointmentProducts?.isSigningIn())return false;
+    if(window.FMRCAppointmentProducts?.selected())return true;
     // 1. Text / Textarea inputs
     const textIds = [
       "aptLName",
@@ -7454,6 +7465,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnCancelTo1", () => switchAptStep(1));
   bindClick("btnGoToStep3", async () => {
     if (!validateAppointmentStep2()) return;
+    if(window.FMRCAppointmentProducts && !await window.FMRCAppointmentProducts.validate())return;
     await fetchCalendarAvailability();
     switchAptStep(3);
   });
@@ -11617,6 +11629,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const renderDetailModal = (detail) => {
         if (!detailModal || !detailContent || !detailTitle) return;
+        if(window.FMRCAppointmentProducts?.isDirty(detailContent))return;
 
         const safeOrderNo = escapeHtml(
           detail.order_no_display || `#${detail.order_no || detail.id || "-"}`,
@@ -11701,7 +11714,7 @@ document.addEventListener("DOMContentLoaded", () => {
                  detail.cancel_refund_due && detail.payment_is_confirmed
                    ? detail.payment_is_automated
                      ? "Your refund is awaiting PayMongo processing. Check Payment details for its status and any secure claim form."
-                     : "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
+                     : detail.payment_method === "Cash at FMRC" ? "FMRC will arrange the cash refund. Admin records it after the money has actually been returned to you." : "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
                    : detail.cancel_refund_due
                      ? "You sent a GCash reference that nobody had verified yet. Staff will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."
                      : detail.payment_is_refunded
@@ -11957,11 +11970,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         detailModal.classList.add("show");
         detailModal.setAttribute("aria-hidden", "false");
+        window.FMRCAppointmentProducts?.mountOrder(detailContent,detail,false);
         hydrateCustomerOrderImages(detailContent);
       };
 
-      const closeDetailModal = () => {
+      const closeDetailModal = async () => {
         if (!detailModal) return;
+        if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(detailContent))return;
         detailModal.classList.remove("show");
         detailModal.setAttribute("aria-hidden", "true");
         state.activeDetailId = null;
@@ -14070,8 +14085,8 @@ const openReturnRequestModal = (() => {
       hideDropdown(dropdown);
       openOrdersModal(userInfo);
     });
-  dropdown.querySelector("#viewAppointmentsBtn")?.addEventListener("click",event=>{event.preventDefault();hideDropdown(dropdown);window.FMRCAppointments?.open();});
-  if(new URLSearchParams(location.search).get("my_appointments")==="1")window.FMRCAppointments?.open();
+  dropdown.querySelector("#viewAppointmentsBtn")?.addEventListener("click",event=>{event.preventDefault();hideDropdown(dropdown);window.FMRCAppointments?.open(new URLSearchParams(location.search).get("appointment_id"));});
+  if(new URLSearchParams(location.search).get("my_appointments")==="1")window.FMRCAppointments?.open(new URLSearchParams(location.search).get("appointment_id"));
   if (new URLSearchParams(window.location.search).get("orders") === "1") {
     openOrdersModal(userInfo);
   }

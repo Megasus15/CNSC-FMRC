@@ -32,6 +32,7 @@
     overlay.querySelectorAll('[data-appointment-download]').forEach(button=>button.onclick=()=>download(item,button));
     const form=overlay.querySelector('[data-appointment-reschedule]');
     if(form){const date=form.elements.appointment_date;date.onchange=()=>times(form,item);times(form,item);form.onsubmit=event=>reschedule(event,item);}
+    window.FMRCAppointmentProducts?.mountCustomer(overlay.querySelector('[data-appointment-content]'),item);
     message('');controls();overlay.querySelector('[data-appointment-content]').scrollTop=0;overlay.querySelector('[data-appointment-back]').focus({preventScroll:true});
   };
   const times=(form,item)=>{
@@ -60,21 +61,23 @@
     catch{message('The file could not be downloaded. Please try again.',true);}finally{button.disabled=false;}
   };
   const load=async()=>{
-    if(busy)return;const version=++loadVersion;busy=true;controls();message('Loading your appointments…');
+    if(busy)return;if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(overlay))return;const version=++loadVersion;busy=true;controls();message('Loading your appointments…');
     try{const [json,availability]=await Promise.all([request('/customer/appointments'),request('/appointments/calendar')]);if(version!==loadVersion)return;calendar=availability;active=null;
       json.data=[...json.data].sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0)||Number(b.id)-Number(a.id));
       heading(false);
       overlay.querySelector('[data-appointment-content]').innerHTML=json.data.length?'<div class="appointment-list-heading"><p>All times are in Philippine time (UTC+8).</p><span>'+json.data.length+' '+(json.data.length===1?'appointment':'appointments')+'</span></div><div class="appointment-list">'+json.data.map(item=>'<article class="appointment-card"><div class="appointment-card-heading"><span class="appointment-reference">'+escape(item.reference_no)+'</span>'+statusBadge(item)+'</div><h3 class="appointment-service">'+escape(item.purpose||'FMRC appointment')+'</h3>'+schedule(item)+'<div class="appointment-card-actions"><button type="button" class="appointment-button ux-dlg__btn ux-dlg__btn--primary" data-appointment-action data-appointment-view="'+item.id+'">View appointment </button></div></article>').join('')+'</div>':'<div class="appointment-empty"><span class="appointment-empty-icon" aria-hidden="true">◷</span><h3>No appointments yet</h3><p>Your bookings will appear here. Visit the Home page to schedule an appointment with FMRC.</p></div>';
-      overlay.querySelectorAll('[data-appointment-view]').forEach(button=>button.onclick=()=>detail(json.data.find(item=>item.id===Number(button.dataset.appointmentView))));message('');overlay.querySelector('[data-appointment-content]').scrollTop=0;}
+      overlay.querySelectorAll('[data-appointment-view]').forEach(button=>button.onclick=()=>detail(json.data.find(item=>item.id===Number(button.dataset.appointmentView))));message('');overlay.querySelector('[data-appointment-content]').scrollTop=0;window.FMRCAppointmentProducts?.draftList(overlay.querySelector('[data-appointment-content]'));window.FMRCAppointmentProducts?.claimPanel(overlay.querySelector('[data-appointment-content]'));if(pendingId){const match=json.data.find(a=>String(a.id)===String(pendingId));pendingId=null;if(match)detail(match);}}
     catch(error){message(error.message,true);}finally{busy=false;controls();}
   };
-  const open=()=>{
+  let pendingId=null;
+  const open=id=>{
+    pendingId=id||null;
     if(!token())return window.showCustomerPopup('Sign in to view your appointments.',{title:'Sign in required'});
     if(!overlay){overlay=document.createElement('div');overlay.id='customerAppointmentsModal';overlay.className='appointment-modal-overlay ux-dlg';overlay.innerHTML="<section class=\"appointment-modal ux-dlg__card\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"customerAppointmentsTitle\" aria-describedby=\"customerAppointmentsSubtitle\">\n  <header class=\"appointment-modal-head ux-dlg__head\">\n    <button type=\"button\" class=\"appointment-close ux-dlg__close\" data-appointments-close aria-label=\"Close appointments\">×</button>\n    <span class=\"ux-dlg__badge\" aria-hidden=\"true\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M16 3v4M8 3v4M3 11h18M8 16l2 2 5-5\"/></svg></span>\n    <p class=\"ux-dlg__eyebrow\">Customer appointments</p>\n    <h2 class=\"ux-dlg__title\" id=\"customerAppointmentsTitle\">My Appointments</h2>\n    <p id=\"customerAppointmentsSubtitle\" data-appointment-subtitle hidden>View your schedule, meeting details, and submitted designs.</p>\n  </header>\n  <p class=\"appointment-notice\" role=\"status\" aria-live=\"polite\" data-appointment-message hidden></p>\n  <div class=\"appointment-content\" data-appointment-content></div>\n  <footer class=\"appointment-modal-footer ux-dlg__foot is-confirm\">\n    <button type=\"button\" class=\"appointment-button ux-dlg__btn ux-dlg__btn--ghost\" data-appointment-action data-appointments-refresh>Refresh</button>\n    <button type=\"button\" class=\"appointment-button ux-dlg__btn ux-dlg__btn--primary\" data-appointments-close>Close</button>\n  </footer>\n</section>";document.body.appendChild(overlay);overlay.querySelectorAll('[data-appointments-close]').forEach(button=>button.onclick=close);overlay.querySelector('[data-appointments-refresh]').onclick=load;
       overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}if(event.key==='Tab'){const nodes=[...overlay.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),summary')].filter(node=>node.getClientRects().length);if(event.shiftKey&&document.activeElement===nodes[0]){event.preventDefault();nodes.at(-1)?.focus();}else if(!event.shiftKey&&document.activeElement===nodes.at(-1)){event.preventDefault();nodes[0]?.focus();}}});
     }
     opener=document.activeElement;overlay.classList.add('show');document.body.style.overflow='hidden';overlay.querySelector('[data-appointments-close]').focus();load();
   };
-  const close=()=>{if(busy)return;overlay.classList.remove('show');document.body.style.overflow='';opener?.focus();};
+  const close=async()=>{if(busy)return;if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(overlay))return;overlay.classList.remove('show');document.body.style.overflow='';opener?.focus();};
   window.FMRCAppointments={open};
 })();

@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Services\PayMongoService;
+use App\Services\AppointmentProducts;
 use App\Services\GatewayPayments;
 use App\Services\ShippingService;
 use App\Services\CommercePolicy;
@@ -938,6 +939,10 @@ class OrderController extends Controller
             return response()->json(['message' => 'Rejected orders cannot be updated.'], 422);
         }
 
+        $order=DB::transaction(function()use($order,$request){
+            $order=Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($order->customer_stage==='to_receive' && !in_array($order->lifecycle_status,['cancelled','rejected','completed'],true),422,'This order is no longer awaiting receipt. Review its latest status.');
+            if (AppointmentProducts::custom($order)) AppointmentProducts::assertProduction($order,true);
         $order->customer_stage = 'completed';
         $order->lifecycle_status = 'completed';
         $order->completed_at = Carbon::now();
@@ -965,6 +970,8 @@ class OrderController extends Controller
             'metadata'           => ['source' => 'customer_received'],
         ]);
 
+            return $order;
+        });
         $order->load([
             'items' => fn ($query) => $query
                 ->select($this->customerOrderItemColumns()),
@@ -1239,6 +1246,14 @@ class OrderController extends Controller
             ], 503);
         }
 
+        if (AppointmentProducts::custom($order) && $order->payment?->status === 'pending') {
+            DB::transaction(function()use($order){$locked=Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_if($locked->collection_hold && $locked->collection_hold!=='cancel',422,'Finish the pending payment action before cancelling.');
+                $locked->forceFill(['collection_hold'=>'cancel'])->save();});
+            try { AppointmentProducts::closeCheckout($order->fresh()); }
+            catch(\Throwable $e) {if(AppointmentProducts::moneyHeld($order->fresh())>0)$order->forceFill(['collection_hold'=>null])->save();throw $e;}
+            $order->refresh();
+        }
         $availability = $order->cancellationAvailability();
 
         if (! $availability['allowed']) {
@@ -1287,6 +1302,7 @@ class OrderController extends Controller
                 $fresh->cancel_decided_by_user_id = null;
 
                 if ($immediate) {
+                    if (AppointmentProducts::custom($fresh)) $fresh->collection_hold=null;
                     $fresh->cancel_state = 'approved';
                     $fresh->lifecycle_status = 'cancelled';
                     $fresh->cancelled_at = now();
@@ -1314,6 +1330,7 @@ class OrderController extends Controller
                     'cancel_decision_note',
                     'cancel_refund_due',
                     'lifecycle_status',
+                    'collection_hold',
                 ]))->syncOriginal();
             });
         } catch (\DomainException $error) {
@@ -1776,6 +1793,8 @@ class OrderController extends Controller
                 ->get();
 
             foreach ($orders as $order) {
+                AppointmentProducts::assertProduction($order);
+                if (AppointmentProducts::custom($order)) { $order->appointment_production_status='in_production';$order->production_revision++; }
                 $paymentStatus = $order->payment?->status;
                 $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
                 if (!in_array($nextCustomerStage, self::ALLOWED_CUSTOMER_STAGES, true)) {
@@ -1911,6 +1930,10 @@ class OrderController extends Controller
 
     public function approve(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order)) {
+            $request->merge(['action'=>'start','expected_revision'=>$request->input('expected_revision',$order->production_revision),'request_key'=>$request->input('request_key',(string) \Illuminate\Support\Str::uuid())]);
+            return app(AppointmentProductOrderController::class)->action($request,$order);
+        }
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -1997,6 +2020,7 @@ class OrderController extends Controller
             $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($fresh->lifecycle_status, ['incoming','pending'], true), 422, 'This order can no longer be rejected. Refresh its status.');
             $order->setRawAttributes($fresh->getAttributes(), true);
+            abort_if(AppointmentProducts::custom($order) && $order->appointment_production_status==='ready',422,'Use the assistance and return workflow for a production-ready custom order.');
             $order->lifecycle_status = 'rejected';
             $order->rejected_at = Carbon::now();
             $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $reason);
@@ -2048,6 +2072,7 @@ class OrderController extends Controller
 
     public function complete(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order)) return response()->json(['message'=>'Use the custom-product collection action or customer receipt confirmation.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -2135,6 +2160,7 @@ class OrderController extends Controller
                     ->whereHas('payment');
             }
 
+            foreach((clone $query)->get() as $candidate) AppointmentProducts::protectOrderArchive($candidate);
             $eligibleIds = (clone $query)
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
@@ -2175,6 +2201,7 @@ class OrderController extends Controller
             return $denied;
         }
 
+        AppointmentProducts::protectOrderArchive($order);
         $order->is_archived = true;
         $order->archived_at = Carbon::now();
         $order->save();
@@ -2194,6 +2221,7 @@ class OrderController extends Controller
         }
 
         // Archive the order (moves it out of payment history)
+        AppointmentProducts::protectOrderArchive($order);
         $order->is_archived = true;
         $order->archived_at = Carbon::now();
         $order->save();
@@ -2224,6 +2252,7 @@ class OrderController extends Controller
 
     public function adminDestroy(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order)) return response()->json(['message'=>'This order retains an accepted quotation and financial history. Archive the closed order instead.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -2242,6 +2271,7 @@ class OrderController extends Controller
 
     public function adminDestroyPayment(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order)) return response()->json(['message'=>'Custom-order receipts and refund history must be retained.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -2271,6 +2301,7 @@ class OrderController extends Controller
 
     public function updateTracking(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order) && ($request->input('stage',$order->customer_stage)!==$order->customer_stage || $request->input('event_type')==='courier_update')) return response()->json(['message'=>'Use Start Production, Mark Ready, pickup collection, or J&T handover for this custom order.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -2455,6 +2486,7 @@ class OrderController extends Controller
 
     public function updatePaymentStatus(Request $request, Order $order): JsonResponse
     {
+        if (AppointmentProducts::custom($order)) return response()->json(['message'=>'Use the custom-order receipt or refund action. Online payments require provider confirmation.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
             return $denied;
@@ -3089,6 +3121,7 @@ class OrderController extends Controller
             || in_array($order->customer_stage, ['to_receive', 'completed'], true)
             || $order->picked_up_at !== null || $order->completed_at !== null;
         $commonReason = match (true) {
+            AppointmentProducts::custom($order) => 'Use the custom-order payment actions for advance receipts, corrections and refunds.',
             (bool) $order->is_archived => 'Restore this archived order before changing its payment.',
             $this->paymentIsAutomated($order) => 'This payment is managed by the payment provider. Manual payment changes are unavailable.',
             $status === 'refunded' => 'The refund has already been recorded. This payment is closed.',
@@ -3785,6 +3818,12 @@ class OrderController extends Controller
             }
         }
 
+        $summary = array_merge($summary, AppointmentProducts::orderData($order));
+        if (AppointmentProducts::custom($order)) {
+            $summary['customer_stage_label']=$summary['custom_product']['stage'];
+            $summary['rating_total_items']=0;
+            $summary['has_rating']=true;
+        }
         return $summary;
     }
 

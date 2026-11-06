@@ -161,7 +161,9 @@ class AdminDashboardController extends Controller
 
         $verifiedGcashRevenue += $this->safely('revenue.gateway', fn () => \App\Support\GatewayFinancials::total('receipts'), 0.0, $unavailable);
         $refundedAmount += $this->safely('revenue.gateway_refunds', fn () => \App\Support\GatewayFinancials::total('refunds'), 0.0, $unavailable);
-        $totalRevenue = round($completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue - $refundedAmount, 2);
+        $cashAdvance=\App\Support\AppointmentProductMetrics::cashTotal('receipts');
+        $refundedAmount+=\App\Support\AppointmentProductMetrics::cashTotal('refunds');
+        $totalRevenue = round($completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue + $cashAdvance - $refundedAmount, 2);
 
         // ─── Total Inventory Items ───
         $totalInventoryItems = $this->safely('counts.total_inventory_items', fn () => InventoryItem::query()->count(), 0, $unavailable);
@@ -176,6 +178,7 @@ class AdminDashboardController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->where('orders.lifecycle_status', 'completed')
             ->where('orders.is_archived', false)
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('orders','appointment_product_job_id'),fn($q)=>$q->whereNull('orders.appointment_product_job_id'))
             ->whereMonth('orders.created_at', $now->month)
             ->whereYear('orders.created_at', $now->year)
             ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_sold'))
@@ -210,6 +213,7 @@ class AdminDashboardController extends Controller
                 ->join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->where('orders.lifecycle_status', 'completed')
                 ->where('orders.is_archived', false)
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('orders','appointment_product_job_id'),fn($q)=>$q->whereNull('orders.appointment_product_job_id'))
                 ->groupBy('order_items.product_id')
                 ->select(
                     'order_items.product_id',
@@ -226,6 +230,7 @@ class AdminDashboardController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->where('orders.lifecycle_status', 'completed')
             ->where('orders.is_archived', false)
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('orders','appointment_product_job_id'),fn($q)=>$q->whereNull('orders.appointment_product_job_id'))
             ->select(
                 'order_items.product_name',
                 DB::raw('SUM(order_items.quantity) as total_sold'),
@@ -240,6 +245,11 @@ class AdminDashboardController extends Controller
                 'total_sold' => (int) $item->total_sold,
                 'total_revenue' => (float) $item->total_revenue,
             ]), collect(), $unavailable);
+
+        $customSales=$this->safely('analytics.custom_products',fn()=>\App\Support\AppointmentProductMetrics::sales(),[],$unavailable);
+        $salesByCategory=collect($salesByCategory->all())->merge($customSales)->sortByDesc('total_revenue')->take(3)->values();
+        $topPerformance=collect($topPerformance->all())->merge($customSales)->sortByDesc('total_revenue')->take(3)->values();
+        $topSelling=collect($topSelling->all())->merge($this->safely('analytics.custom_products',fn()=>\App\Support\AppointmentProductMetrics::sales($now->copy()->startOfMonth(),$now->copy()->endOfMonth()),[],$unavailable))->sortByDesc('total_sold')->take(3)->values();
 
         // Yearly sales trend (current year, monthly totals)
         $currentYear = $now->year;
@@ -263,7 +273,7 @@ class AdminDashboardController extends Controller
         for ($m = 1; $m <= 12; $m++) {
             $yearlyTrend[] = [
                 'month' => $m,
-                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0),
+                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0) + array_sum(array_column($this->safely('analytics.custom_products',fn()=>\App\Support\AppointmentProductMetrics::sales($now->copy()->startOfYear()->month($m)->startOfMonth(),$now->copy()->startOfYear()->month($m)->endOfMonth()),[],$unavailable),'total_revenue')),
             ];
         }
 
@@ -359,6 +369,7 @@ class AdminDashboardController extends Controller
                     'total_revenue' => $totalRevenue,
                     'total_inventory_items' => $totalInventoryItems,
                 ],
+                'custom_work' => $this->safely('custom_work',fn()=>\App\Support\AppointmentProductMetrics::workload(),['available'=>false],$unavailable),
                 'analytics_summary' => [
                     'top_selling' => $topSelling,
                     'sales_by_category' => $salesByCategory,

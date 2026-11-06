@@ -48,6 +48,7 @@ class GatewayPayments
         return $attempt;
     }
     public function checkout(Order $order, string $context = ''): array {
+        AppointmentProducts::assertPayable($order);
         abort_unless($order->payment_method === 'GCash' && self::managed($order->payment), 422, 'This order does not use automatic GCash checkout.');
         $attempt = $this->attempt($order->payment);
         if ($attempt?->checkout_id) $this->reconcile($attempt->id);
@@ -55,7 +56,8 @@ class GatewayPayments
         if ($order->payment?->status !== 'pending' || in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true)) return $this->state($order);
         abort_unless($this->provider->acceptsNewPayments(), 422, 'GCash is temporarily unavailable. Please try again later.');
         $attempt = DB::transaction(function () use ($order, $context) {
-            Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $locked=Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            AppointmentProducts::assertPayable($locked);
             $payment = Payment::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             if ($payment->status !== 'pending') return null;
             $last = DB::table('payment_attempts')->where('payment_id', $payment->id)->latest('id')->first();
@@ -71,13 +73,16 @@ class GatewayPayments
         if ($attempt && !$attempt->checkout_id) $this->createSession($attempt);
         return $this->state($order->fresh());
     }
-    public function createSession(object $attempt): void {
+    public function createSession(object $attempt, bool $recoverForClosure = false): void {
         if ((bool) $attempt->livemode !== $this->provider->isLive() || !$this->provider->acceptsNewPayments() || !PayMongoService::supportsMethod($attempt->checkout_method)) return;
         // Provider keys expire at 24h. Never repeat an unresolved POST after that boundary.
         if (Carbon::parse($attempt->created_at)->lt(now()->subHours(23))) {
             DB::table('payment_attempts')->where('id', $attempt->id)->update(['exception' => 'checkout_requires_reconciliation']); return;
         }
         $payment = Payment::findOrFail($attempt->payment_id); $order = $payment->order;
+        // Recovery repeats only this attempt's original idempotency key, then the caller expires it.
+        // It must remain possible after a quote closes; otherwise a lost create response can never be reconciled.
+        if (AppointmentProducts::custom($order) && !$recoverForClosure && ($order->collection_hold || !\App\Models\AppointmentProductQuote::whereKey($order->appointment_product_quote_id)->where('state','accepted')->where('expires_at','>',now())->exists())) return;
         if ($payment->status !== 'pending' || in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true)) return;
         $session = $this->provider->createCheckoutSession((int) $attempt->amount_centavos, 'FMRC Order '.$order->order_no, $order->order_no, $order->id, $payment->id, $attempt->app_context, $attempt->token, $attempt->checkout_method);
         if ($session['rejected'] ?? false) { DB::table('payment_attempts')->where('id', $attempt->id)->whereNull('checkout_id')->update(['status' => 'failed', 'updated_at' => now()]); return; }
@@ -169,6 +174,14 @@ class GatewayPayments
                 $order->payment_reference = $p['id'];
                 if ($order->lifecycle_status === 'pending' && $order->customer_stage === 'to_pay') $order->customer_stage = 'to_ship';
                 $order->save();
+                if (AppointmentProducts::custom($order)) {
+                    $quote=\App\Models\AppointmentProductQuote::find($order->appointment_product_quote_id);
+                    $paidAt=isset($p['attributes']['paid_at']) ? Carbon::createFromTimestampUTC($p['attributes']['paid_at']) : now();
+                    if (!$quote || $quote->state!=='accepted' || $closed || $paidAt->gt($quote->expires_at)) {
+                        $order->forceFill(['appointment_production_status'=>'payment_review'])->save();
+                        DB::table('payment_attempts')->where('id',$a->id)->update(['exception'=>'quotation_payment_review']);
+                    }
+                }
             }
             OrderTrackingEvent::create(['order_id' => $order->id, 'stage' => $order->customer_stage, 'event_type' => 'system',
                 'title' => PayMongoService::methodLabel($a->checkout_method).' payment confirmed', 'description' => $closed ? 'Payment received after the order closed. The team will review the refund.' : 'Payment received. Order preparation requires team approval.', 'occurred_at' => now()]);

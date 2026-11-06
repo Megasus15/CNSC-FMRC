@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Appointments | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=7.4" />
+    <link rel="stylesheet" href="dashboard.css?v=2026.1106.1" />
     <link rel="stylesheet" href="admin-modules.css?v=2026.1105.1" />
     <link
       rel="stylesheet"
@@ -28,7 +28,8 @@
   <link rel="stylesheet" href="appointment-details.css?v=1.2-copy">
   <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-  </head>
+      <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1106.1">
+</head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -171,6 +172,8 @@
           <div class="panel">
             <div class="panel-header">
               <h3>Client Appointments</h3>
+              <select id="appointmentWorkFilter" class="filter-select" aria-label="Appointment type"><option value="all">All appointments</option><option value="custom">With custom products</option></select>
+              <select id="appointmentProductStageFilter" class="filter-select" aria-label="Custom-product progress" hidden><option value="all">All custom stages</option><option value="awaiting_consultation">Awaiting consultation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up needed</option><option value="ready_for_quote">Preparing quotation</option><option value="quoted">Quotation ready</option><option value="awaiting_payment">Awaiting payment</option><option value="awaiting_production">Awaiting production</option><option value="in_production">In production</option><option value="ready">Ready for pickup / shipping</option><option value="in_transit">In transit</option><option value="completed">Completed product</option><option value="payment_review">Payment needs review</option><option value="cancelled">Cancelled</option><option value="declined">Unable to fulfill</option></select>
               <input
                 class="search-input"
                 id="appointmentSearchInput"
@@ -607,8 +610,9 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1105.1"></script>
-    <script src="appointment-details.js?v=1.2-copy"></script>
-<script src="appointments.js?v=2026.1104.3"></script>
+    <script src="appointment-details.js?v=2026.1106.1"></script>
+<script src="appointments.js?v=2026.1106.1"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
-  </body>
+      <script src="../home-page/appointment-products.js?v=2026.1106.1"></script>
+</body>
 </html>

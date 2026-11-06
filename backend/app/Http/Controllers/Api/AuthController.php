@@ -657,6 +657,7 @@ class AuthController extends Controller
             ], 422);
         }
 
+        \App\Services\AppointmentProducts::protectAccount($user);
         $user->tokens()->delete();
         $user->delete();
 
@@ -686,6 +687,7 @@ class AuthController extends Controller
 
             $eligibleIds = $users->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
             foreach ($users as $user) {
+                \App\Services\AppointmentProducts::protectAccount($user);
                 $user->tokens()->delete();
                 $user->delete();
             }

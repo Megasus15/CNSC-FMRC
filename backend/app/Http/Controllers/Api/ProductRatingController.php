@@ -20,6 +20,7 @@ class ProductRatingController extends Controller
     /** Customer: submit or update one product review inside a completed order. */
     public function store(Request $request, Order $order): JsonResponse
     {
+        abort_if(\App\Services\AppointmentProducts::custom($order),422,'Custom designs stay private. Contact FMRC through your appointment for assistance.');
         if ($denied = $this->ensureCustomer($request)) {
             return $denied;
         }

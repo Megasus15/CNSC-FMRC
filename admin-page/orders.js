@@ -1029,6 +1029,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "-";
     }
 
+    window.FMRCAppointmentProducts?.mountOrder(body,order,true);
     window.AdminCourierShipments?.render(order,body);
     modalOrderDetails.classList.add("show");
   };
@@ -1493,7 +1494,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="incoming-orders" value="${order.id}" aria-label="Select ${escapeHtml(order.order_no_display || `order ${order.order_no || order.id}`)}" /></td>
             <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
-            <td class="order-items-cell">${renderOrderItemsInline(order)}</td>
+            <td class="order-items-cell">${renderOrderItemsInline(order)}${order.order_type==="custom"?`<span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
             <td>${escapeHtml(formatQuantity(order.quantity))}</td>
             <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
@@ -1501,7 +1502,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
-              <button data-tooltip="Approve Order" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>
+              ${order.order_type!=="custom"||order.custom_product?.available_actions?.start_production?`<button data-tooltip="${order.order_type==="custom"?"Start Production":"Approve Order"}" aria-label="${order.order_type==="custom"?"Start Production":"Approve Order"}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
               <button data-tooltip="Reject Order" data-order-reject="${order.id}"><i class="fa-solid fa-xmark"></i></button>
             </td>
           </tr>
@@ -1536,7 +1537,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return `
           <tr>
             <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}</td>
+            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
             <td>${renderPaymentMethodCell(order)}</td>
@@ -1707,7 +1708,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="rejected-orders" value="${order.id}" aria-label="Select ${orderNo}" /></td>
             <td>${orderNo}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}</td>
+            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
             <td>${renderPaymentMethodCell(order)}</td>
@@ -1735,7 +1736,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const refunded = order.payment_status === "refunded";
         const paid = order.payment_status === "paid";
         const label = refunded ? "Refund recorded" : paid ? "Refund due" : "Verify payment";
-        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
+        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
       },
     });
   };
@@ -2332,6 +2333,8 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshPaymentsFromDirectory();
       mapOrderById();
       renderAll();
+      const productOrderId=new URLSearchParams(location.search).get('order_id');
+      if(productOrderId&&!state.productDeepLinkOpened){const linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);if(linked){state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);}}
       window.AdminPageNotice.clear("orders");
       state.lastSyncAt = Date.now();
     } catch (error) {
@@ -3931,6 +3934,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const config = actionMap[action];
     if (!config) return;
+    if(action==='approve' && state.ordersById.get(String(orderId))?.order_type==='custom')Object.assign(config,{
+      title:'Start Production',message:'Start production of this approved custom product? Full payment must be confirmed first.',
+      confirmText:'Start Production',loadingText:'Starting production...',success:'Custom-product production started.'});
 
     if (action === "approve") {
       window.showAdminConfirmPopup?.(config.message, {
@@ -5573,6 +5579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gatewayOrderTimer = setTimeout(pollGatewayOrders, gatewayOrderDelay);
   };
   gatewayOrderTimer = setTimeout(pollGatewayOrders, 5000);
+  window.addEventListener('fmrc:custom-order-updated', () => { void syncOrders(false, {force:true,source:'action'}); });
   window.addEventListener('online', pollGatewayOrders);
   window.addEventListener('focus', pollGatewayOrders);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pollGatewayOrders(); });

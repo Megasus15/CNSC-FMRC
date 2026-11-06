@@ -12,6 +12,11 @@ final class GatewayFinancials {
             $q=$kind==='receipts' ? self::receipts() : self::refunds();
             $parts[]=$q->where('orders.is_archived',false)->selectRaw('COUNT(*) as entries, COALESCE(SUM('.$table.'.amount_centavos),0) as amount, MAX('.$table.'.confirmed_at) as confirmed')->first();
         }
+        if (AppointmentProductMetrics::cashReady()) {
+            $parts[]=AppointmentProductMetrics::cash(false)->where('orders.is_archived',false)
+                ->selectRaw('COUNT(*) as entries, COALESCE(SUM(amount_centavos),0) as amount, MAX(confirmed_at) as confirmed')->first();
+            $parts[]=DB::table('orders')->whereNotNull('appointment_product_job_id')->selectRaw('COUNT(*) as entries, SUM(production_revision) as revision, MAX(updated_at) as updated')->first();
+        }
         return hash('sha256',json_encode($parts));
     }
     public static function receipts() {

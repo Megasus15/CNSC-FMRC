@@ -16,6 +16,7 @@ class Order extends Model
     use SkipsMissingColumns;
 
     protected $fillable = [
+        'appointment_product_job_id', 'appointment_product_quote_id', 'appointment_production_status', 'production_revision',
         'order_no',
         'customer_id',
         'customer_name',
@@ -211,6 +212,11 @@ class Order extends Model
     public function cancellationAvailability(): array
     {
         $deny = fn (string $why) => ['allowed' => false, 'immediate' => false, 'reason' => $why];
+        if (\App\Services\AppointmentProducts::custom($this) && !in_array($this->lifecycle_status,['cancelled','rejected','completed'],true)) {
+            if ($this->hasPendingCancellation()) return $deny('Your cancellation request is already being reviewed.');
+            if ($this->appointment_production_status === 'in_production' || $this->appointment_production_status === 'ready') return $deny('Production has begun. Contact FMRC for assistance or use Return / Refund after receipt.');
+            return ['allowed'=>true,'immediate'=>!($this->payment?->status==='paid' || \App\Services\AppointmentProducts::moneyHeld($this)>0),'reason'=>null];
+        }
 
         if ($this->isCancelled()) {
             return $deny('This order has already been cancelled.');
@@ -370,6 +376,7 @@ class Order extends Model
      */
     /** Existing cash/manual receipt accounting; provider payments use the gateway ledger. */
     public function scopeLegacyReceipts(Builder $query): Builder {
+        if (\Illuminate\Support\Facades\Schema::hasColumn('orders','appointment_product_job_id')) $query->whereNull('orders.appointment_product_job_id');
         return $query->where(function (Builder $q) {
             $q->where('payment_method', '!=', 'GCash')->orWhereHas('payment', function (Builder $p) {
                 $p->whereIn('status', ['paid','refunded'])->whereNull('gateway')

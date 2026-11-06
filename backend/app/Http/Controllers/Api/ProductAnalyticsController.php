@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\WalkInOrder;
 use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
+use App\Support\AppointmentProductMetrics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -99,6 +100,7 @@ class ProductAnalyticsController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
+        AppointmentProductMetrics::regular($onlineQuery);
         $this->scopeToPeriod($onlineQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
         $onlineQuery->select(
                 'order_items.product_name as product_name',
@@ -136,6 +138,8 @@ class ProductAnalyticsController extends Controller
         $combinedBindings = array_merge($onlineBindings, $walkInBindings);
 
         $topProducts = DB::select($combinedSql, $combinedBindings);
+        foreach(AppointmentProductMetrics::sales($startDate,$endDate) as $row)$topProducts[]=(object)$row;
+        $topProducts=collect($topProducts)->sortByDesc('total_sold')->take(8);
 
         return response()->json([
             'data' => collect($topProducts)->map(fn($item) => [
@@ -163,6 +167,7 @@ class ProductAnalyticsController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
+        AppointmentProductMetrics::regular($categoryQuery);
         $this->scopeToPeriod($categoryQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
 
         $categoryData = CategorySalesBuckets::fold(
@@ -177,7 +182,7 @@ class ProductAnalyticsController extends Controller
         );
 
         return response()->json([
-            'data' => $categoryData->values(),
+            'data' => $categoryData->merge(AppointmentProductMetrics::sales($startDate,$endDate))->sortByDesc('total_revenue')->values(),
         ]);
     }
 
@@ -202,6 +207,7 @@ class ProductAnalyticsController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false);
+        AppointmentProductMetrics::regular($rows);
         $this->scopeToPeriod($rows, self::ORDER_SALE_DATE, $startDate, $endDate);
         $rows = $rows
             ->groupBy('order_items.product_id', 'order_items.product_name')
@@ -215,6 +221,7 @@ class ProductAnalyticsController extends Controller
 
         $meta = CategorySalesBuckets::meta($rows->pluck('product_id')->all());
         $merged = [];
+        foreach(AppointmentProductMetrics::sales($startDate,$endDate) as $row)$merged['custom:'.$row['service']]=$row;
 
         foreach ($rows as $row) {
             $code = trim((string) ($meta[$row->product_id]->code ?? ''));
@@ -285,14 +292,15 @@ class ProductAnalyticsController extends Controller
             ? "CAST(strftime('%m', {$dateColumn}) AS INTEGER)"
             : "MONTH({$dateColumn})";
 
-        $monthlyData = Order::query()
+        $monthlyQuery=Order::query();AppointmentProductMetrics::regular($monthlyQuery);
+        $monthlyData = $monthlyQuery
             ->whereIn('lifecycle_status', $countedStatuses)
             ->where('is_archived', false)
             ->whereYear($dateColumn, $year)
             ->whereNotNull($dateColumn)
             ->select(
                 DB::raw("{$monthExpression} as month"),
-                DB::raw('SUM(total) as total_sales'),
+                DB::raw(\Illuminate\Support\Facades\Schema::hasColumn('orders','appointment_product_job_id') ? 'SUM(CASE WHEN appointment_product_job_id IS NOT NULL THEN subtotal ELSE total END) as total_sales' : 'SUM(total) as total_sales'),
                 DB::raw('COUNT(*) as order_count')
             )
             ->groupBy('month')
@@ -302,10 +310,12 @@ class ProductAnalyticsController extends Controller
 
         $months = [];
         for ($m = 1; $m <= 12; $m++) {
+            $monthStart=Carbon::create($year,$m,1,0,0,0,'Asia/Manila');
+            $custom=AppointmentProductMetrics::sales($monthStart,$monthStart->copy()->endOfMonth());
             $months[] = [
                 'month' => $m,
-                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0),
-                'order_count' => (int) ($monthlyData[$m]->order_count ?? 0),
+                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0)+array_sum(array_column($custom,'total_revenue')),
+                'order_count' => (int) ($monthlyData[$m]->order_count ?? 0)+array_sum(array_column($custom,'order_count')),
             ];
         }
 

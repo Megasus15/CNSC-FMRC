@@ -312,6 +312,19 @@ final class EmailTemplate
                 'footer_note' => '🔒 If you did not request a password reset, please ignore this email. Your password will remain unchanged. Never share your OTP with anyone.',
             ],
         ],
+        'appointment_product_update' => [
+            'label'=>'Custom-product consultation update','group'=>'Appointments',
+            'tokens'=>['client_name','reference_no','update'],
+            'defaults'=>['header_title'=>Branding::NAME,'header_subtitle'=>self::SUB,'header_color'=>self::MAROON,
+                'body_heading'=>'Your Custom Product Consultation','body_text'=>"Hi {client_name},\n\n{update}\n\nAppointment: {reference_no}",
+                'footer_note'=>'Sign in to review private designs, quotations, and the linked order.'],
+        ],
+        'appointment_connect' => [
+            'label'=>'Connect a guest appointment','group'=>'Appointments','tokens'=>['reference_no'],
+            'defaults'=>['header_title'=>Branding::NAME,'header_subtitle'=>self::SUB,'header_color'=>self::MAROON,
+                'body_heading'=>'Connect Your Appointment','body_text'=>"Sign in using the email on appointment {reference_no} to connect it to your account. The private link below expires in one hour.",
+                'footer_note'=>'If you did not request this link, you can ignore this message.'],
+        ],
         'appointment_confirmed' => [
             'label' => 'Appointment confirmed',
             'group' => 'Appointments',

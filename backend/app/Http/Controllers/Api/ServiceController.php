@@ -67,6 +67,12 @@ class ServiceController extends Controller
         return $this->imageResponse($request, $imageBytes, $mimeType, $service->updated_at);
     }
 
+    private function checkProductSchema(array $values): void
+    {
+        abort_if(array_key_exists('accepts_appointment_products',$values) && !\Illuminate\Support\Facades\Schema::hasColumn('services','accepts_appointment_products'),503,
+            'Custom-product service settings are not installed yet. Other service edits remain available.');
+    }
+
     public function store(Request $request): JsonResponse
     {
         if ($denied = $this->denyUnlessEditor($request)) {
@@ -74,6 +80,7 @@ class ServiceController extends Controller
         }
 
         $validated = $request->validate(WebsiteContentLimits::serviceRules(), WebsiteContentLimits::messages());
+        $this->checkProductSchema($validated);
 
         $service = Service::create($validated);
 
@@ -90,6 +97,7 @@ class ServiceController extends Controller
         }
 
         $validated = $request->validate(WebsiteContentLimits::serviceRules(partial: true), WebsiteContentLimits::messages());
+        $this->checkProductSchema($validated);
 
         if (isset($validated['image_data'])) {
             $val = trim((string) $validated['image_data']);
@@ -311,6 +319,8 @@ class ServiceController extends Controller
             'modal_materials'   => $s->modal_materials ?? [],
             'modal_best_for'    => $s->modal_best_for ?? [],
             'sort_order'        => $s->sort_order,
+            'accepts_appointment_products' => (bool) $s->accepts_appointment_products,
+            'appointment_products_available' => \App\Services\AppointmentProducts::enabled() && (bool) $s->accepts_appointment_products,
             'created_at'        => $s->created_at,
             'updated_at'        => $s->updated_at,
         ];

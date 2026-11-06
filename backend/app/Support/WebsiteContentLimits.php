@@ -131,6 +131,7 @@ final class WebsiteContentLimits
         }
         $rules['image_data'] = ['sometimes', 'nullable', 'string'];
         $rules['sort_order'] = ['sometimes', 'integer', 'min:0'];
+        $rules['accepts_appointment_products'] = ['sometimes', 'boolean'];
 
         return $rules;
     }

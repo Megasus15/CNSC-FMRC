@@ -1,0 +1,60 @@
+/* Optional content inherits each portal's established type and surface tokens. */
+.ap-panel { --ap-ink:var(--text-main,var(--customer-ink-strong,#312a30)); --ap-muted:var(--text-muted,var(--customer-ink-muted,#716770)); --ap-line:var(--border-color,var(--ux-dlg-foot-line,#ebdba7)); --ap-paper:var(--surface,var(--customer-paper,#fdfaf6)); --ap-wine:var(--portal-accent,var(--customer-wine,#800000)); --ap-solid:var(--portal-action,var(--customer-wine,#800000)); color:var(--ap-ink); background:var(--ap-paper); border:1px solid var(--ap-line); border-radius:10px; padding:22px; margin-block:20px; font:inherit; min-width:0; }
+.ap-panel *, .ap-panel :is(input,select,textarea,button) { box-sizing:border-box; font-family:inherit; }
+.ap-panel h3, .ap-panel h4 { margin:0; color:var(--ap-wine); font-size:16px; line-height:1.5; font-weight:700; }
+.ap-panel p { font-size:13px; line-height:1.7; margin:8px 0 0; overflow-wrap:anywhere; }
+.ap-panel small, .ap-help { font-size:12px; line-height:1.6; color:var(--ap-muted); }
+.ap-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
+.ap-head > div { min-width:0; flex:1 1 230px; }
+.ap-head h3 { display:flex; align-items:center; gap:10px; }
+.ap-icon { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; flex-shrink:0; color:var(--ap-wine); background:rgba(128,0,0,.07); border-radius:9px; }
+.ap-icon svg { width:20px; height:20px; }
+.ap-badge { display:inline-flex; align-items:center; padding:4px 9px; border-radius:999px; background:rgba(128,0,0,.07); color:var(--ap-wine,var(--portal-accent,#800000)); font-size:12px; font-weight:600; line-height:1.5; }
+.ap-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--ap-line); padding-bottom:14px; margin-bottom:20px; }
+.ap-panel .ap-tabs button { min-height:38px; font-size:12px; padding:8px 14px; }
+.ap-tabs [aria-selected=true] { background:var(--ap-solid); color:#fff; }
+.ap-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 22px; margin-block:18px; }
+.ap-field { display:grid; align-content:start; gap:7px; font-size:13px; line-height:1.5; font-weight:600; min-width:0; margin:0; }
+.ap-field.is-wide, .ap-grid > .ap-check, .ap-grid > .ap-help { grid-column:1 / -1; }
+.ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { width:100%; min-width:0; min-height:46px; border:1px solid var(--ap-line); border-radius:9px; background:var(--ap-paper); color:var(--ap-ink); padding:11px 13px; font-size:13px; line-height:1.6; font-weight:400; }
+.ap-panel textarea { resize:vertical; min-height:92px; }
+.ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus { border:1px solid var(--ap-wine); outline:0; box-shadow:0 0 0 3px rgba(128,0,0,.1); }
+.ap-panel :is(input,select,textarea):disabled { opacity:.65; cursor:not-allowed; }
+.ap-check { display:flex; align-items:flex-start; gap:10px; font-size:13px; line-height:1.65; font-weight:500; cursor:pointer; }
+.ap-check input[type=checkbox] { width:17px; height:17px; margin:3px 0 0; flex-shrink:0; accent-color:var(--ap-wine); outline:none!important; box-shadow:none!important; }
+.ap-check input[type=checkbox]:focus-visible { outline:2px solid #8b8b8b!important; outline-offset:3px; }
+.ap-actions { display:flex; justify-content:flex-end; align-items:center; gap:10px; flex-wrap:wrap; padding-top:18px; margin-top:18px; border-top:1px solid var(--ap-line); }
+.ap-panel .ap-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--ap-wine); border-radius:8px; min-height:43px; padding:10px 16px; background:var(--ap-solid); color:#fff; font:inherit; font-size:13px; font-weight:600; text-decoration:none; cursor:pointer; line-height:1.5; transition:background-color .2s,color .2s,box-shadow .2s; }
+.ap-panel .ap-btn.is-secondary { color:var(--ap-wine); background:transparent; }
+.ap-panel .ap-btn:hover:not(:disabled) { background:var(--ap-paper); color:var(--ap-wine); box-shadow:0 3px 10px rgba(70,10,20,.09); }
+.ap-panel .ap-btn.is-secondary:hover:not(:disabled) { background:var(--ap-solid); color:#fff; }
+.ap-panel .ap-btn:active:not(:disabled) { box-shadow:inset 0 1px 3px rgba(0,0,0,.14); }
+.ap-panel .ap-btn:focus-visible { outline:2px solid var(--ap-wine); outline-offset:3px; }
+.ap-panel .ap-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+.ap-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 22px; padding:18px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); border:1px solid var(--ap-line); border-radius:8px; margin:16px 0; }
+.ap-summary dt { font-size:12px; font-weight:500; color:var(--ap-muted); margin:0 0 4px; }
+.ap-summary dd { margin:0; font-size:13px; line-height:1.65; overflow-wrap:anywhere; white-space:pre-wrap; }
+.ap-files { list-style:none; display:grid; gap:8px; padding:0; margin:16px 0; }
+.ap-files li { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid var(--ap-line); border-radius:8px; font-size:12px; overflow-wrap:anywhere; }
+.ap-panel .ap-file { border:0; background:transparent; color:var(--ap-wine); text-align:left; cursor:pointer; text-decoration:underline; font:inherit; overflow-wrap:anywhere; }
+.ap-message { border:1px solid var(--ap-line); border-radius:9px; padding:14px; margin:12px 0; }
+.ap-message strong { font-size:13px; }
+.ap-message p { white-space:pre-wrap; }
+.ap-message small { display:block; margin-top:6px; }
+.ap-panel details { border-top:1px solid var(--ap-line); margin-top:20px; padding-top:16px; }
+.ap-panel summary { cursor:pointer; font-size:13px; font-weight:600; line-height:1.6; }
+.ap-terms { max-height:220px; overflow:auto; white-space:pre-wrap; padding:14px; border:1px solid var(--ap-line); border-radius:8px; font-size:12px; line-height:1.7; margin-block:12px; }
+.ap-booking { grid-column:1 / -1!important; margin:6px 0!important; }
+.ap-booking > .ap-check { font-weight:700; }
+.ap-booking [data-ap-brief] { margin-top:20px; padding-top:18px; border-top:1px solid var(--ap-line); }
+.ap-update { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:12px; padding:12px; margin-bottom:16px; border:1px solid var(--ap-line); border-radius:8px; }
+.ap-panel [hidden] { display:none!important; }
+.service-card-footer { flex-wrap:wrap; gap:12px; }
+.service-card-footer .ap-consult-link { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:9px 13px; border:1px solid var(--customer-wine,#6b202b); border-radius:8px; color:var(--customer-wine,#6b202b); text-decoration:none; font:inherit; font-size:12px; font-weight:600; transition:background-color .2s,color .2s; }
+.service-card-footer .ap-consult-link:hover { background:var(--customer-wine,#6b202b); color:#fff; }
+.service-card-footer .ap-consult-link:focus-visible { outline:2px solid var(--customer-wine,#6b202b); outline-offset:3px; }
+#customerAppointmentsModal .appointment-modal.has-custom-product, #modalViewAppointment .appointment-view-modal.has-custom-product { width:min(1100px,100%); max-width:1100px; }
+@media(max-width:700px) { .ap-panel { padding:16px; margin-block:16px; } .ap-grid,.ap-summary { grid-template-columns:1fr; gap:16px; } .ap-head { gap:12px; } .ap-actions { gap:10px; } .ap-panel .ap-btn { max-width:100%; } .ap-tabs { gap:6px; } .ap-panel .ap-tabs button { flex:1; padding:8px; } }
+@media(prefers-reduced-motion:reduce) { .ap-panel *, .service-card-footer .ap-consult-link { transition:none!important; animation:none!important; } }
+
+html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }

@@ -63,6 +63,7 @@ class WebsitePageController extends Controller
                     'is_visible' => ['sometimes', 'boolean'],
                 ];
                 $validated = Validator::make($row, $rules, WebsiteContentLimits::messages())->validate();
+                abort_if($collection==='services' && array_key_exists('accepts_appointment_products',$validated) && !\Illuminate\Support\Facades\Schema::hasColumn('services','accepts_appointment_products'),503,'Custom-product service settings are not installed yet. Other service edits remain available.');
                 $changes[$collection]['upsert'][] = ['id' => $row['id'] ?? null, 'values' => $validated];
             }
         }

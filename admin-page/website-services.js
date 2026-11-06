@@ -45,7 +45,7 @@ let servicesData = [], savedServices = [];
 let servicesLoaded = false, copyLoaded = false, pageSaving = false, pageDraft = null;
 let nextDraftId = -1;
 let copyFields = new Map();
-const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order'];
+const SERVICE_FIELDS = ['title','category','description','image_data','modal_description','modal_features','modal_materials','modal_best_for','sort_order','accepts_appointment_products'];
 let svcImageData = null;
 let serviceDiscardGuard = null;
 const DEFAULT_SERVICE_CATEGORIES = [
@@ -71,6 +71,9 @@ document.addEventListener("DOMContentLoaded", () => {
     window.showAdminConfirmPopup('Save all Services page changes to the live website?', { title: 'Save All Changes', confirmText: 'Save', onConfirm: saveAllServices });
   });
   window.AdminWebsiteDraft.register({ isDirty: () => !!document.getElementById('serviceModal')?.classList.contains('show') && !!serviceDiscardGuard?.isDirty() });
+  fetch(API+'/appointment-products/availability').then(r=>r.json()).then(json=>{
+    const input=document.getElementById('svcAppointmentProducts');if(input)input.disabled=!json.data?.schema_ready;
+  }).catch(()=>{});
   bindEvents();
   initializePageCopyEditor();
   initializeCategoryManager();
@@ -422,6 +425,7 @@ function openEdit(id) {
   document.getElementById("svcTitle").value = s.title || "";
   setServiceCategoryOptions(s.category || "Prototyping");
   document.getElementById("svcDesc").value = s.description || "";
+  document.getElementById("svcAppointmentProducts").checked=!!s.accepts_appointment_products;
   document.getElementById("svcModalDesc").value = s.modal_description || "";
   document.getElementById("svcMaterials").value = (
     s.modal_materials || []
@@ -455,6 +459,7 @@ function closeModal() {
 }
 
 function clearForm() {
+  document.getElementById("svcAppointmentProducts").checked=false;
   document.getElementById("svcTitle").value = "";
   setServiceCategoryOptions(serviceCategories[0] || "Prototyping");
   document.getElementById("svcDesc").value = "";
@@ -485,6 +490,7 @@ function getServiceFormSnapshot() {
     materials: String(document.getElementById("svcMaterials")?.value || ""),
     bestFor: String(document.getElementById("svcBestFor")?.value || ""),
     image: String(svcImageData || ""),
+    appointmentProducts: !!document.getElementById("svcAppointmentProducts")?.checked,
   };
 }
 
@@ -518,6 +524,7 @@ function doSave(id) {
   if (!servicesLoaded || pageSaving || serviceImagePreparing || !validateServiceForm()) return;
   const existing = servicesData.find(item => item.id == id);
   const payload = {
+    ...(!document.getElementById('svcAppointmentProducts').disabled?{accepts_appointment_products:document.getElementById('svcAppointmentProducts').checked}:{}),
     title: document.getElementById('svcTitle').value.trim(),
     category: document.getElementById('svcCategory').value,
     description: document.getElementById('svcDesc').value,
@@ -796,7 +803,7 @@ async function saveAllServices() {
     const response = await fetch(`${API}/admin/website-pages/services`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token() },
       body: JSON.stringify({ settings: { ...Object.fromEntries([...copyFields].map(([key, field]) => [key, field.value])),
-        editorial_services_categories: JSON.stringify(categories) }, services: window.AdminWebsiteDraft.changes(savedServices, servicesData, SERVICE_FIELDS) }),
+        editorial_services_categories: JSON.stringify(categories) }, services: window.AdminWebsiteDraft.changes(savedServices, servicesData, SERVICE_FIELDS.filter(field=>field!=='accepts_appointment_products'||!document.getElementById('svcAppointmentProducts').disabled)) }),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

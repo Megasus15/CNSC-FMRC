@@ -360,7 +360,7 @@ class AdminPortalConsistencyTest extends TestCase
             $this->assertStringNotContainsString($copy, $editorJs, $copy);
         }
         $this->assertSame(
-            27,
+            29,
             count(\App\Support\EmailTemplate::TEMPLATES),
             'Every Gmail notification must be registered as an editable template.',
         );

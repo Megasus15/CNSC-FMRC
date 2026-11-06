@@ -37,14 +37,17 @@ class FinancialMetrics
         $gcash = self::gcashAdvance($start, $end) + GatewayFinancials::total('receipts', $start, $end);
         $walkins = self::walkIns($start, $end);
         $refunds = self::refunds($start, $end) + GatewayFinancials::total('refunds', $start, $end);
+        $cash=AppointmentProductMetrics::cashTotal('receipts',$start,$end);
+        $refunds+=AppointmentProductMetrics::cashTotal('refunds',$start,$end);
 
         return [
-            'collected' => round($online + $gcash + $walkins - $refunds, 2),
+            'collected' => round($online + $gcash + $walkins + $cash - $refunds, 2),
             'breakdown' => [
                 'online' => round($online, 2),
                 'gcash_advance' => round($gcash, 2),
                 'walkins' => round($walkins, 2),
                 'refunds' => round($refunds, 2),
+                'cash_advance' => round($cash,2),
             ],
         ];
     }
@@ -135,10 +138,14 @@ class FinancialMetrics
         $gatewayReceipts = self::bucketSums(GatewayFinancials::receipts()->where('orders.is_archived',false), self::gatewayLocalDate('payment_receipts.confirmed_at'), 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
         $gatewayRefunds = self::bucketSums(GatewayFinancials::refunds()->where('orders.is_archived',false), self::gatewayLocalDate('payment_refunds.confirmed_at'), 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
         $series = [];
+        $cash=[];
+        if(AppointmentProductMetrics::cashReady()) $cash=self::bucketSums(AppointmentProductMetrics::cash(false)->where('orders.is_archived',false),
+            self::gatewayLocalDate('appointment_cash_entries.confirmed_at'),
+            "CASE WHEN appointment_cash_entries.kind = 'receipt' THEN appointment_cash_entries.amount_centavos / 100.0 ELSE -appointment_cash_entries.amount_centavos / 100.0 END",$from,$to,$granularity);
         foreach (self::buckets($from, $to, $granularity) as $bucket) {
             $key = $bucket['key'];
             $amount = ($online[$key] ?? 0) + ($gcash[$key] ?? 0) + ($walkins[$key] ?? 0) - ($refunds[$key] ?? 0) + ($gatewayReceipts[$key] ?? 0) - ($gatewayRefunds[$key] ?? 0);
-            $series[] = ['label' => $bucket['label'], 'amount' => round($amount, 2)];
+            $series[] = ['label' => $bucket['label'], 'amount' => round($amount + ($cash[$key]??0), 2)];
         }
 
         return $series;

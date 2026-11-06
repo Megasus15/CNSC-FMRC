@@ -1232,6 +1232,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `Online ${formatCurrencyCompact(b.online || 0)}`,
         `Walk-in ${formatCurrencyCompact(b.walkins || 0)}`,
         `Online payment ${formatCurrencyCompact(b.gcash_advance || 0)}`,
+        ...(b.cash_advance ? [`Advance cash ${formatCurrencyCompact(b.cash_advance)}`] : []),
       ].join("  ·  ");
       if (Number(b.refunds || 0) > 0)
         line += `  ·  −${formatCurrencyCompact(b.refunds || 0)} refunds`;
@@ -1532,6 +1533,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const applyDashboardSummaryPayload = (summary) => {
     if(typeof summary?.financial_revision === 'string') dashboardFinancialRevision=summary.financial_revision;
+    const work=summary?.custom_work;
+    let customWork=document.getElementById('appointmentCustomWorkSummary');
+    if(work?.available && (work.enabled || Object.entries(work).some(([k,v])=>!['available','enabled'].includes(k)&&Number(v)>0))) {
+      if(!customWork){customWork=document.createElement('section');customWork.id='appointmentCustomWorkSummary';customWork.className='appointment-custom-work';document.querySelector('.analytics-period-bar')?.before(customWork);}
+      const values=[['Awaiting review','awaiting_review'],['Quotations awaiting payment','quotations_awaiting_payment'],['Paid · Awaiting production','awaiting_production'],['In production','in_production']];
+      customWork.innerHTML='<header><span class="table-card-icon" aria-hidden="true"><i class="fa-solid fa-cube"></i></span><h3>Custom Product Work</h3><a href="appointments.html?custom_products=1" class="btn-admin btn-secondary">Open Appointments</a></header><div>'+values.map(([label,key])=>'<a href="'+(['awaiting_production','in_production'].includes(key)?'orders.html':'appointments.html?custom_products=1')+'"><span>'+label+'</span><strong>'+Number(work[key]||0)+'</strong></a>').join('')+'</div>';
+    } else if(customWork)customWork.remove();
     const counts = summary?.counts || {};
     const appointments = Array.isArray(summary?.recent_appointments)
       ? summary.recent_appointments

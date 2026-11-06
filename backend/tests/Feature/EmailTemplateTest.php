@@ -39,7 +39,7 @@ class EmailTemplateTest extends TestCase
     {
         $slugs = EmailTemplate::slugs();
 
-        $this->assertCount(27, $slugs, 'All 27 Gmail notifications must be editable.');
+        $this->assertCount(29, $slugs, 'All 29 Gmail notifications must be editable.');
         $this->assertSame($slugs, array_unique($slugs));
 
         $counts = array_fill_keys(EmailTemplate::GROUPS, 0);
@@ -69,7 +69,7 @@ class EmailTemplateTest extends TestCase
             'Orders' => 10,
             'Returns & Refunds' => 6,
             'Account & Access' => 3,
-            'Appointments' => 2,
+            'Appointments' => 4,
             'Admin Security' => 4,
             'Staff Requests' => 2,
         ], $counts);
@@ -303,7 +303,7 @@ class EmailTemplateTest extends TestCase
 
         $rows = collect(EmailTemplate::registry());
 
-        $this->assertCount(27, $rows);
+        $this->assertCount(29, $rows);
 
         $welcome = $rows->firstWhere('slug', 'account_welcome');
         $this->assertSame(['body_heading' => 'Welcome aboard'], $welcome['saved']);

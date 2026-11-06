@@ -1250,7 +1250,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `<tr>
           <td>${escHtml(p.product_code || "N/A")}</td>
-          <td>${escHtml(p.product_name || "Unnamed")}</td>
+          <td>${p.order_type==="custom"?`<a class="photo-link" href="appointments.html?custom_products=1&custom_service=${encodeURIComponent(p.service||"")}" title="View custom work and linked orders in Appointments">${escHtml(p.product_name||"Custom Product")}</a>`:escHtml(p.product_name || "Unnamed")}</td>
           <td>${escHtml(p.category || "N/A")}</td>
           <td>${escHtml(p.total_sold ?? 0)}</td>
           <td>${escHtml(revenue)}</td>

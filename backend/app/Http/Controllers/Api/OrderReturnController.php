@@ -708,6 +708,18 @@ class OrderReturnController extends Controller
             return $this->onlineReturnRefund($request, $orderReturn, $gatewayPayment);
         }
 
+        if (\App\Services\AppointmentProducts::custom($orderReturn->order) && ($request->input('stage','released')==='released')) {
+            abort_unless($request->user()->role==='admin',403,'Only Admin can release a refund.');
+            if ($blocked=$this->guardTransition($orderReturn,'refunded')) return $blocked;
+            $request->merge(['action'=>'cash_refund','expected_revision'=>(int)$orderReturn->order->production_revision,
+                'request_key'=>hash('sha256','return:'.$orderReturn->id.':'.$request->input('refund_reference')),
+                'receipt_reference'=>$request->input('refund_reference'),'refund_released'=>true,'return_id'=>$orderReturn->id,
+                'amount'=>$request->input('amount',$orderReturn->approved_amount),'note'=>$request->input('note')?:'Released refund for '.$orderReturn->return_no]);
+            app(AppointmentProductOrderController::class)->action($request,$orderReturn->order);
+            $orderReturn->refresh()->load(['order.items','order.payment','items','events','customer:id,name,email','handler:id,name,role']);
+            return response()->json(['message'=>'Cash refund recorded in the order ledger.','data'=>$this->transformReturnDetail($orderReturn,true)]);
+        }
+
         $validated = $request->validate([
             'stage'            => ['nullable', Rule::in(['processing', 'released'])],
             'refund_method'    => ['required', Rule::in(OrderReturn::REFUND_METHODS)],

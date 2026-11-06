@@ -182,6 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
                 <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
+              ${item.appointment_products_available?`<a class="ap-consult-link" href="${escAttr(window.FMRCApp?.url('/home-page/main.html?appointment=1&custom_service='+item.id)||'/home-page/main.html?appointment=1&custom_service='+item.id)}">Book a Consultation <i class="fa-regular fa-calendar" aria-hidden="true"></i></a>`:''}
             </div>
           </div>
           ${imageMarkup}

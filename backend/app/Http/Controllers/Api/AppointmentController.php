@@ -11,6 +11,7 @@ use App\Models\AppointmentCalendarDay;
 use App\Models\AppointmentTimeSlot;
 use App\Services\AppointmentFiles;
 use App\Services\AppointmentScheduling;
+use App\Services\AppointmentProducts;
 use App\Support\OrderNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -50,6 +51,17 @@ class AppointmentController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $custom=$request->boolean('product_requested');
+        if ($custom) {
+            AppointmentProducts::requireIntake();
+            abort_unless($request->user('sanctum')?->role === 'customer',401,'Sign in to request a custom product. Your appointment details can be kept while you sign in.');
+            if (is_string($request->input('product_data'))) $request->merge(['product_data'=>json_decode($request->input('product_data'),true)]);
+            $request->validate(['product_data'=>'required|array','request_key'=>'required|string|max:80|regex:/^[A-Za-z0-9-]+$/',
+                'product_draft_id'=>'nullable|integer','product_revision'=>'required_with:product_draft_id|integer|min:0']);
+            AppointmentProducts::brief($request->input('product_data'));
+            $prior=\App\Models\AppointmentProductJob::where('customer_id',$request->user('sanctum')->id)->where('request_key',$request->input('request_key'))->first();
+            if ($prior?->appointment_id) return response()->json(['message'=>'Appointment already booked.','data'=>$this->transformAppointment($prior->appointment)],201);
+        }
         $validated = $request->validate([
             'last_name' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
             'first_name' => ['required', 'string', 'max:25', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
@@ -78,8 +90,13 @@ class AppointmentController extends Controller
         $this->ensureDefaultSlots();
         $stored = AppointmentFiles::store($files);
         try {
-            $appointment = DB::transaction(function () use ($validated, $request, $stored) {
+            $replayed=false;
+            $appointment = DB::transaction(function () use ($validated, $request, $stored, $custom, &$replayed) {
                 AppointmentScheduling::lock();
+                if ($custom) {
+                    $prior=\App\Models\AppointmentProductJob::where('customer_id',$request->user('sanctum')->id)->where('request_key',$request->input('request_key'))->lockForUpdate()->first();
+                    if ($prior?->appointment_id) { $replayed=true; return $prior->appointment; }
+                }
                 $starts = AppointmentScheduling::available($validated['appointment_date'], $validated['appointment_time']);
                 $appointment = Appointment::create([
                     'reference_no' => null,
@@ -118,12 +135,16 @@ class AppointmentController extends Controller
                     DB::table('appointment_attachments')->insert($file + ['appointment_id' => $appointment->id]);
                 }
 
+                if ($custom) AppointmentProducts::booked($appointment,$request->input('product_data'),$request->user('sanctum')->id,
+                    $request->input('request_key'),$request->integer('product_draft_id')?:null,$request->input('product_revision'),$stored);
+
                 return $appointment;
             });
         } catch (\Throwable $error) {
             AppointmentFiles::clean($stored);
             throw $error;
         }
+        if ($replayed) { AppointmentFiles::clean($stored); return response()->json(['message'=>'Appointment already booked.','data'=>$this->transformAppointment($appointment)],201); }
 
         // --- Admin/Staff Notification: New Appointment ---
         try {
@@ -181,6 +202,7 @@ class AppointmentController extends Controller
         if ($denied = $this->ensureAdminOrStaff($request)) {
             return $denied;
         }
+        AppointmentProducts::protectAppointment($appointment);
         if ($appointment->attachment_path) {
             Storage::disk('public')->delete($appointment->attachment_path);
         }
@@ -205,6 +227,7 @@ class AppointmentController extends Controller
 
         $archivedIds = DB::transaction(function () use ($ids): array {
             AppointmentScheduling::lock();
+            foreach (Appointment::whereIn('id',$ids)->where('status','Completed')->get() as $item) AppointmentProducts::protectAppointment($item,true);
             $eligibleIds = Appointment::query()
                 ->whereIn('id', $ids)
                 ->where('status', 'Completed')
@@ -248,6 +271,7 @@ class AppointmentController extends Controller
             ], 422);
         }
 
+        AppointmentProducts::protectAppointment($appointment,true);
         $appointment->status = 'Archived';
         $appointment->save();
 
@@ -262,7 +286,7 @@ class AppointmentController extends Controller
         if ($denied = $this->ensureAdminOrStaff($request)) {
             return $denied;
         }
-        $appointment->status = 'Pending';
+        $appointment->status = AppointmentProducts::jobFor($appointment) ? 'Completed' : 'Pending';
         $appointment->save();
 
         return response()->json([
@@ -650,6 +674,9 @@ class AppointmentController extends Controller
             'online' => 'Online','face_to_face' => 'Face-to-face at FMRC',default => 'Not recorded'
         }];
         if ($private) {
+            $job=AppointmentProducts::jobFor($appointment);
+            $extra['custom_product']=$job ? AppointmentProducts::present($job) : ($appointment->getAttribute('product_job_id') ? ['id'=>$appointment->product_job_id,'unavailable'=>true,'stage'=>'Custom-product details unavailable'] : null);
+            $extra['custom_products_available']=AppointmentProducts::enabled();
             $files = AppointmentFiles::records($appointment->id);
             if ($appointment->attachment_path) {
                 $files[] = ['id' => 'legacy', 'name' => $appointment->attachment_name, 'size' => null, 'download_url' => $attachmentUrl];

@@ -577,9 +577,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const filteredAppointments = () => {
     const query = (searchInput?.value || "").trim().toLowerCase();
-    if (!query) return state.appointments;
-
-    return state.appointments.filter((item) => {
+    let source=state.appointments;
+    if(document.getElementById('appointmentWorkFilter')?.value==='custom') {
+      source=source.filter(a=>!!a.custom_product);
+      const service=new URLSearchParams(location.search).get('custom_service');if(service)source=source.filter(a=>a.custom_product.service_name===service);
+      const stage=document.getElementById('appointmentProductStageFilter')?.value;
+      if(stage&&stage!=='all')source=source.filter(a=>(a.custom_product.progress||a.custom_product.state)===stage);
+    }
+    if (!query) return source;
+    return source.filter((item) => {
       const haystack = [
         item.reference_no,
         item.client_name,
@@ -589,6 +595,7 @@ document.addEventListener("DOMContentLoaded", () => {
         item.client_type,
         item.purpose,
         item.additional_notes,
+        item.custom_product?.requirements?.name,item.custom_product?.service_name,item.custom_product?.stage,
       ]
         .join(" ")
         .toLowerCase();
@@ -596,6 +603,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  for(const id of ['appointmentWorkFilter','appointmentProductStageFilter'])document.getElementById(id)?.addEventListener('change',()=>{
+    document.getElementById('appointmentProductStageFilter').hidden=document.getElementById('appointmentWorkFilter').value!=='custom';
+    searchInput?.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  window.addEventListener('fmrc:custom-product-updated',event=>{
+    const job=event.detail?.job;if(!job)return;state.appointments=state.appointments.map(a=>a.id===job.appointment_id||a.custom_product?.id===job.id?{...a,custom_product:job}:a);renderTable();
+  });
   const calculateRowsPerPage = () => {
     return window.AdminTablePagination?.PAGE_SIZE || 10;
   };
@@ -671,7 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${safe(item.email)}</td>
           <td title="${safe(item.full_address)}">${safe(item.full_address)}</td>
           <td>${safe(item.client_type)}</td>
-          <td>${safe(item.purpose)}</td>
+          <td>${safe(item.purpose)}${item.custom_product?`<br><span class="ap-badge">Custom · ${safe(item.custom_product.stage)}</span>`:""}</td>
           <td>${fileCell}</td>
           <td title="${safe(item.additional_notes)}">${safe(item.additional_notes)}</td>
           <td>${prettyDate(item.appointment_date)}</td>
@@ -1067,6 +1081,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Appointment View Modal ─────────────────────────────────────────────────
   const openAppointmentViewModal = (appt) => {
+    if(viewingAppointment?.id===appt.id && window.FMRCAppointmentProducts?.isDirty(document.getElementById("apptViewBody")))return;
     viewingAppointment = appt;
     const modal = document.getElementById("modalViewAppointment");
     if (!modal) return;
@@ -1149,7 +1164,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;state.appointments=state.appointments.map(row=>row.id===item.id?item:row);renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
 
-  ["btnCloseApptView", "btnCloseApptView2"].forEach(id => document.getElementById(id)?.addEventListener("click", () => {
+  ["btnCloseApptView", "btnCloseApptView2"].forEach(id => document.getElementById(id)?.addEventListener("click", async () => {
+    if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(document.getElementById("apptViewBody")))return;
     document.getElementById("modalViewAppointment")?.classList.remove("show");
     viewingAppointment = null;
   }));
@@ -1284,6 +1300,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       await Promise.all(tasks);
       renderTable();
+      const linkedId=new URLSearchParams(location.search).get('appointment_id');
+      if(linkedId&&!state.productDeepLinkOpened){const linked=state.appointments.find(a=>String(a.id)===linkedId);if(linked){state.productDeepLinkOpened=true;openAppointmentViewModal(linked);}}
 
       if (!isCalendarOpen) {
         renderCalendar();
@@ -1790,6 +1808,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     });
+
+  if(new URLSearchParams(location.search).get('custom_products')==='1'){
+    const filter=document.getElementById('appointmentWorkFilter');if(filter)filter.value='custom';
+    const progress=document.getElementById('appointmentProductStageFilter');if(progress)progress.hidden=false;
+  }
+  // Only the optional workflow adds quiet progress refresh; schedule drafts stay untouched.
+  let productPollFailures=0;
+  const pollProductProgress=()=>setTimeout(async()=>{
+    try {
+      if(!document.hidden && !document.querySelector('#adminSystemPopup.show') && !tableBody?.querySelector('input:checked') && !modalCalendar?.classList.contains('show')) {
+        await fetchAppointments();renderTable();
+        const current=state.appointments.find(a=>a.id===viewingAppointment?.id);
+        if(current&&document.getElementById('modalViewAppointment')?.classList.contains('show'))openAppointmentViewModal(current);
+      }
+      productPollFailures=0;
+    }catch{productPollFailures=Math.min(3,productPollFailures+1);}pollProductProgress();
+  },Math.min(30000,5000*2**productPollFailures));
+  fetch(API_BASE_URL+'/appointment-products/availability').then(r=>r.json()).then(json=>{
+    if(json.data?.enabled || state.appointments.some(a=>a.custom_product))pollProductProgress();
+  }).catch(()=>{});
 
   void refreshAll().finally(() => {
     // Open the booking a header notification points at; matching on the

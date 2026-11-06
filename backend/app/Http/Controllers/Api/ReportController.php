@@ -194,6 +194,13 @@ class ReportController extends Controller
             'product_inventory' => $this->productInventoryReport(),
         };
 
+        if(in_array($category,['sales','completed_orders','processing_orders'],true) && collect($content['table']['rows'])->contains('order_type','Custom Products')) {
+            $content['table']['columns'][]=$this->column('appointment_reference','Appointment');
+            $content['table']['columns'][]=$this->column('service','Custom Service');
+            $content['table']['columns'][]=$this->column('product_gross_sales',$category==='sales'?'Product Value (excl. shipping)':'Product Gross Sales','currency');
+            $content['table']['columns'][]=$this->column('shipping_fee','Shipping','currency');
+        }
+
         return [
             'report' => $this->reportDescriptor($request, $category, $period),
             'metrics' => $content['metrics'],
@@ -408,7 +415,9 @@ class ReportController extends Controller
                 if ($kind === 'receipts') { $advanceSales += $amount; $this->addToBucket($onlineSeries,$bucketKeys,$date,$amount,$period['period']); }
                 else { $refundsIssued += $amount; $this->addToBucket($refundSeries,$bucketKeys,$date,-$amount,$period['period']); }
                 $methodLabel = \App\Services\PayMongoService::methodLabel($entry->confirmed_source_type);
-                $rows[] = ['source' => $methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
+                $sourceOrder=Order::where('order_no',$entry->order_no)->first();
+                $customSource=($sourceOrder && \App\Services\AppointmentProducts::custom($sourceOrder)) ? \App\Services\AppointmentProducts::orderData($sourceOrder)['custom_product'] : null;
+                $rows[] = ['source' => ($customSource ? 'Custom Products · '.($customSource['service']??'Service unavailable').' · '.($customSource['appointment_reference']??'Appointment unavailable').' · ' : '').$methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
                     'transaction_no' => $entry->order_no, 'transaction_date' => $this->formatReportTimestamp($date),
                     'customer' => $entry->customer_name, 'status' => 'Confirmed', 'payment_method' => $methodLabel,
                     'amount' => $kind === 'receipts' ? $amount : -$amount, 'archived' => (bool) $entry->is_archived,
@@ -416,8 +425,30 @@ class ReportController extends Controller
             }
         }
 
+        $cashAdvance=0;$hasCashEntries=false;$cashSeries=array_fill(0,count($labels),0);
+        if(\App\Support\AppointmentProductMetrics::cashReady() && \Illuminate\Support\Facades\Schema::hasTable('appointment_product_jobs')) {
+            foreach(\App\Support\AppointmentProductMetrics::cash()->whereBetween('appointment_cash_entries.confirmed_at',[$period['start_utc'],$period['end_utc']])
+                ->select('appointment_cash_entries.*','orders.order_no','orders.customer_name','orders.is_archived','product_job.service_name','product_job.appointment_id')->get() as $entry) {
+                $hasCashEntries=true;$date=\Illuminate\Support\Carbon::parse($entry->confirmed_at,'UTC');$amount=$entry->amount_centavos/100;
+                if($entry->kind==='refund'){$refundsIssued+=$amount;$this->addToBucket($refundSeries,$bucketKeys,$date,-$amount,$period['period']);}
+                else {$signed=$entry->kind==='reversal'?-$amount:$amount;$cashAdvance+=$signed;$this->addToBucket($cashSeries,$bucketKeys,$date,$signed,$period['period']);}
+                $reference=\App\Models\Appointment::find($entry->appointment_id)?->reference_no;
+                $rows[]=['source'=>'Custom Products · '.$entry->service_name.' · '.$reference,'transaction_no'=>$entry->order_no,'transaction_date'=>$this->formatReportTimestamp($date),
+                    'customer'=>$entry->customer_name,'status'=>ucfirst($entry->kind).' confirmed','payment_method'=>'Cash at FMRC','amount'=>$entry->kind==='receipt'?$amount:-$amount,'archived'=>(bool)$entry->is_archived,'_sort_at'=>$this->timestampValue($date)];
+            }
+        }
+        foreach ($rows as &$reportRow) {
+            $number=$reportRow['order_no']??$reportRow['transaction_no']??null;
+            $linked=$number ? Order::where('order_no',$number)->first() : null;
+            if($linked && \App\Services\AppointmentProducts::custom($linked)) {
+                $custom=\App\Services\AppointmentProducts::orderData($linked)['custom_product'];
+                $reportRow+=['order_type'=>'Custom Products','appointment_reference'=>$custom['appointment_reference']??'Unavailable',
+                    'service'=>$custom['service']??'Unavailable','product_gross_sales'=>(float)$linked->subtotal,'shipping_fee'=>(float)$linked->shipping_fee];
+            } else $reportRow+=['order_type'=>'Regular','appointment_reference'=>'','service'=>'','product_gross_sales'=>null,'shipping_fee'=>null];
+        }
+        unset($reportRow);
         $rows = $this->sortAndCleanRows($rows);
-        $grossSales = $onlineSales + $advanceSales + $walkInSales;
+        $grossSales = $onlineSales + $advanceSales + $walkInSales + $cashAdvance;
         $netSales = $grossSales - $refundsIssued;
 
         return [
@@ -435,6 +466,7 @@ class ReportController extends Controller
                 'labels' => $labels,
                 'series' => [
                     ['name' => 'Online Sales', 'values' => $this->roundSeries($onlineSeries)],
+                    ...($hasCashEntries ? [['name'=>'Advance Cash Receipts','values'=>$this->roundSeries($cashSeries)]] : []),
                     ['name' => 'Walk-in Sales', 'values' => $this->roundSeries($walkInSeries)],
                     ['name' => 'Refunds', 'values' => $this->roundSeries($refundSeries)],
                 ],
@@ -445,6 +477,7 @@ class ReportController extends Controller
                 'items' => [
                     ['label' => 'Completed Online Orders', 'value' => round($onlineSales, 2)],
                     ['label' => 'Verified Online Payments', 'value' => round($advanceSales, 2)],
+                    ...($cashAdvance ? [['label'=>'Confirmed Advance Cash Receipts','value'=>round($cashAdvance,2)]] : []),
                     ['label' => 'Walk-in Orders', 'value' => round($walkInSales, 2)],
                     ['label' => 'Refunds (Approved & Released)', 'value' => round(-$refundsIssued, 2)],
                     ['label' => 'Net Sales', 'value' => round($netSales, 2)],
@@ -519,6 +552,16 @@ class ReportController extends Controller
             ];
         }
 
+        foreach ($rows as &$reportRow) {
+            $number=$reportRow['order_no']??$reportRow['transaction_no']??null;
+            $linked=$number ? Order::where('order_no',$number)->first() : null;
+            if($linked && \App\Services\AppointmentProducts::custom($linked)) {
+                $custom=\App\Services\AppointmentProducts::orderData($linked)['custom_product'];
+                $reportRow+=['order_type'=>'Custom Products','appointment_reference'=>$custom['appointment_reference']??'Unavailable',
+                    'service'=>$custom['service']??'Unavailable','product_gross_sales'=>(float)$linked->subtotal,'shipping_fee'=>(float)$linked->shipping_fee];
+            } else $reportRow+=['order_type'=>'Regular','appointment_reference'=>'','service'=>'','product_gross_sales'=>null,'shipping_fee'=>null];
+        }
+        unset($reportRow);
         $rows = $this->sortAndCleanRows($rows);
         $orderCount = count($rows);
         ksort($paymentCounts);
@@ -613,6 +656,16 @@ class ReportController extends Controller
             ];
         }
 
+        foreach ($rows as &$reportRow) {
+            $number=$reportRow['order_no']??$reportRow['transaction_no']??null;
+            $linked=$number ? Order::where('order_no',$number)->first() : null;
+            if($linked && \App\Services\AppointmentProducts::custom($linked)) {
+                $custom=\App\Services\AppointmentProducts::orderData($linked)['custom_product'];
+                $reportRow+=['order_type'=>'Custom Products','appointment_reference'=>$custom['appointment_reference']??'Unavailable',
+                    'service'=>$custom['service']??'Unavailable','product_gross_sales'=>(float)$linked->subtotal,'shipping_fee'=>(float)$linked->shipping_fee];
+            } else $reportRow+=['order_type'=>'Regular','appointment_reference'=>'','service'=>'','product_gross_sales'=>null,'shipping_fee'=>null];
+        }
+        unset($reportRow);
         $rows = $this->sortAndCleanRows($rows);
 
         return [

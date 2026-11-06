@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -425,6 +426,9 @@ class ArchiveController extends Controller
             };
 
             $query->whereIn('id', $eligibleIds)->update($updates);
+            if ($module==='appointment' && Schema::hasColumn('appointments','product_job_id')) {
+                Appointment::whereIn('id',$eligibleIds)->whereNotNull('product_job_id')->update(['status'=>'Completed']);
+            }
 
             return $eligibleIds;
         });
@@ -475,6 +479,11 @@ class ArchiveController extends Controller
                 'walkin' => WalkInOrder::query()->whereIn('id', $ids)->where('is_archived', true),
             };
 
+            if ($module==='appointment' && Schema::hasColumn('appointments','product_job_id')) $query->whereNull('product_job_id');
+            if (Schema::hasColumn('orders','appointment_product_job_id')) {
+                if ($module==='order') $query->whereNull('appointment_product_job_id');
+                if ($module==='return') $query->whereHas('order',fn($q)=>$q->whereNull('appointment_product_job_id'));
+            }
             $eligibleIds = (clone $query)
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
@@ -551,6 +560,7 @@ class ArchiveController extends Controller
         try {
             // Appointments
             $totalDeleted += Appointment::query()
+                ->when(Schema::hasColumn('appointments','product_job_id'),fn($q)=>$q->whereNull('product_job_id'))
                 ->where('status', 'Archived')
                 ->where('updated_at', '<=', $cutoffDate)
                 ->delete();
@@ -561,6 +571,7 @@ class ArchiveController extends Controller
         try {
             // Orders
             $totalDeleted += Order::query()
+                ->when(Schema::hasColumn('orders','appointment_product_job_id'),fn($q)=>$q->whereNull('appointment_product_job_id'))
                 ->where('is_archived', true)
                 ->where('archived_at', '<=', $cutoffDate)
                 ->delete();
@@ -571,6 +582,7 @@ class ArchiveController extends Controller
         try {
             // Returns & refunds (including evidence cleanup; items/events cascade)
             $returns = OrderReturn::query()
+                ->when(Schema::hasColumn('orders','appointment_product_job_id'),fn($q)=>$q->whereHas('order',fn($o)=>$o->whereNull('appointment_product_job_id')))
                 ->where('is_archived', true)
                 ->where('archived_at', '<=', $cutoffDate)
                 ->get();
