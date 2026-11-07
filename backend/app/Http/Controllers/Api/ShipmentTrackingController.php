@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Services\Ship24Client;
-use App\Services\Ship24Tracking;
+use App\Services\SeventeenTrackClient;
+use App\Services\SeventeenTrackTracking;
 use App\Services\ShipmentTracking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,15 +67,15 @@ final class ShipmentTrackingController extends Controller
     public function updateSettings(Request $request): JsonResponse
     {
         $this->authorize($request, true);
-        abort_unless(ShipmentTracking::installed(), 503);
+        abort_unless(ShipmentTracking::subscriptionsInstalled(), 503);
         $input = $request->validate(['enabled' => ['required', 'boolean'], 'expected_revision' => ['required', 'integer', 'min:0']]);
         DB::transaction(function () use ($input) {
-            $settings = DB::table('shipment_tracking_settings')->where('id', 1)->lockForUpdate()->first();
+            $settings = DB::table('shipment_tracking_settings')->where('id', ShipmentTracking::settings()->id)->lockForUpdate()->first();
             abort_unless((int) $settings->revision === (int) $input['expected_revision'], 409, 'Tracking settings changed. Refresh before saving.');
-            if ($input['enabled'] && (! ShipmentTracking::verified($settings) || ! config('ship24.enabled'))) {
+            if ($input['enabled'] && (! ShipmentTracking::verified($settings) || ! config('track17.enabled'))) {
                 ShipmentTracking::fail('Complete the account, J&T waybill, and webhook checks before activating automatic tracking.');
             }
-            DB::table('shipment_tracking_settings')->where('id', 1)->update(['enabled' => $input['enabled'], 'revision' => $settings->revision + 1, 'updated_at' => now()]);
+            DB::table('shipment_tracking_settings')->where('id', $settings->id)->update(['enabled' => $input['enabled'], 'revision' => $settings->revision + 1, 'updated_at' => now()]);
         });
 
         return $this->settings($request);
@@ -86,33 +86,28 @@ final class ShipmentTrackingController extends Controller
         return response('', 200);
     }
 
-    public function webhook(Request $request, Ship24Tracking $tracking): JsonResponse
+    public function webhook17(Request $request, SeventeenTrackTracking $tracking): JsonResponse
     {
-        $secret = (string) config('ship24.webhook_secret');
-        abort_unless($secret !== '' && hash_equals($secret, (string) $request->bearerToken()), 401);
-        abort_unless(strlen($request->getContent()) <= 1048576, 413);
-        abort_unless(ShipmentTracking::installed() && Ship24Client::configured(), 503);
+        $raw = $request->getContent();
+        abort_unless(strlen($raw) <= 1048576, 413);
+        $key = (string) config('track17.api_key');
+        $signature = (string) $request->header('sign');
+        abort_unless($key !== '' && preg_match('/^[a-fA-F0-9]{64}$/', $signature)
+            && hash_equals(hash('sha256', $raw.'/'.$key), strtolower($signature)), 401);
+        abort_unless(ShipmentTracking::subscriptionsInstalled() && SeventeenTrackClient::configured(), 503);
         $input = $request->validate([
-            'trackings' => ['required', 'array', 'min:1', 'max:100'],
-            'trackings.*.tracker' => ['required', 'array'],
-            'trackings.*.tracker.trackerId' => ['required', 'string', 'max:100'],
-            'trackings.*.tracker.clientTrackerId' => ['nullable', 'string', 'max:100'],
-            'trackings.*.tracker.trackingNumber' => ['required', 'string', 'max:100'],
-            'trackings.*.tracker.shipmentReference' => ['nullable', 'string', 'max:100'],
-            'trackings.*.metadata' => ['sometimes', 'array'], 'trackings.*.metadata.messageId' => ['sometimes', 'string', 'max:100'],
-            'trackings.*.metadata.topic' => ['sometimes', 'in:tracking/events'],
-            'trackings.*.shipment' => ['sometimes', 'array'],
-            'trackings.*.events' => ['present', 'array', 'max:500'],
-            'trackings.*.events.*.eventId' => ['required', 'string', 'max:100'],
-            'trackings.*.events.*.status' => ['nullable', 'string', 'max:2000'],
-            'trackings.*.events.*.statusMilestone' => ['nullable', 'string', 'max:80'],
-            'trackings.*.events.*.occurrenceDatetime' => ['required', 'string', 'max:50'],
-            'trackings.*.events.*.courierCode' => ['nullable', 'string', 'max:100'],
-            'trackings.*.events.*.location' => ['nullable', 'string', 'max:1000'],
-            'trackings.*.events.*.order' => ['nullable', 'integer'],
+            'event' => ['required', 'in:TRACKING_UPDATED,TRACKING_STOPPED'], 'data' => ['required', 'array'],
+            'data.number' => ['required', 'string', 'max:50'], 'data.carrier' => ['required', 'integer'],
+            'data.tag' => ['nullable', 'string', 'max:100'], 'data.destination_country' => ['nullable', 'string', 'max:3'],
+            'data.track_info' => ['nullable', 'array'], 'data.track_info.latest_status' => ['sometimes', 'nullable', 'array'],
+            'data.track_info.latest_event' => ['sometimes', 'nullable', 'array'],
+            'data.track_info.tracking.providers' => ['sometimes', 'nullable', 'array', 'max:20'],
+            'data.track_info.tracking.providers.*.provider' => ['required', 'array'],
+            'data.track_info.tracking.providers.*.events' => ['sometimes', 'nullable', 'array', 'max:2000'],
+            'data.track_info.tracking.providers.*.events.*' => ['array'],
         ]);
-        $tracking->receive($input['trackings']);
+        $tracking->receive($input);
 
-        return response()->json(['received' => true], 202);
+        return response()->json(['received' => true], 200);
     }
 }

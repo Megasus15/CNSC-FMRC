@@ -171,11 +171,10 @@ Route::get('/couriers', [OrderController::class, 'couriers']);
 // Sanctum, because PayMongo is the caller, not a logged-in customer.
 Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
 Route::post('/webhooks/ninjavan', [CourierShipmentController::class, 'webhook']);
-// Ship24 authenticates with its own bearer secret, never a portal session/cookie.
-// Some hosting proxies forward HEAD as GET. Both readiness methods return an empty response.
-Route::match(['GET', 'HEAD'], '/webhooks/ship24', [ShipmentTrackingController::class, 'head'])
+// 17TRACK signs the original request bytes and requires HTTP 200 after durable receipt.
+Route::match(['GET', 'HEAD'], '/webhooks/17track', [ShipmentTrackingController::class, 'head'])
     ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);
-Route::post('/webhooks/ship24', [ShipmentTrackingController::class, 'webhook'])
+Route::post('/webhooks/17track', [ShipmentTrackingController::class, 'webhook17'])
     ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);
 // ────────────────────────────────────────────────────────────────────────────
 

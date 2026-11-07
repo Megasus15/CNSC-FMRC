@@ -1,0 +1,138 @@
+# J&T delivery with 17TRACK automatic tracking
+
+17TRACK is FMRC's only active tracking provider. Staff records the actual J&T waybill once. The existing minute worker registers it, receives signed updates, and saves the timeline. Admin, Staff, and Customer Orders display saved changes automatically while the relevant view is open.
+
+Local tests are separate from live verification. An API account, deployment, matching real parcel results, a signed callback, and actual notification delivery are still needed before calling the live integration complete.
+
+## 1. Create the API account
+
+1. Open [17TRACK Tracking API](https://www.17track.net/en/api) and select **Start My Free Trial**. Choose the API service for your custom FMRC website.
+2. Enter the real project/company details, website `https://ucn-fabmanlab.com`, and an email and phone controlled by the team. Complete the requested verification.
+3. Open the [API console](https://admin.17track.net/api/dashboard), then Settings. Obtain the API security key and check the available tracking credits. Public tracking success alone does not establish API access.
+4. Keep the key privately in Hostinger's backend `.env`. Do not put it into frontend code, screenshots, Git, or chat.
+
+Documentation checked on November 7, 2026 says new accounts receive **200 tracking numbers once**, not monthly. Use the actual account balance when choosing the FMRC budget. Diagnostics and other applications using the same account also consume credits.
+
+## 2. Deploy the application and additive migration
+
+Deploy the backend and canonical root frontend folders together. Laravel and the Apache aliases serve those root folders. Do not copy into `backend/public/frontend`; that directory contains obsolete recursive copies.
+
+For the existing production database, run in Hostinger's terminal:
+
+```sh
+php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan migrate --path=database/migrations/2026_11_07_000001_add_17track_subscriptions.php --force
+```
+
+This requires the existing shipment tables. A fresh development installation should run the normal full migrations. The migration preserves physical handovers, waybills, shipping prices, timelines, and historical provider identifiers. It creates a separate disabled 17TRACK configuration. Previous provider verification cannot enable it.
+
+The old tracking client, command, configuration, and webhook routes have been removed. Historical rows and original migrations remain for database compatibility. Remove the obsolete webhook from the old provider dashboard and unused `SHIP24_*` settings from the production `.env`. This release does not use those credentials.
+
+## 3. Configure the backend privately
+
+In `public_html/backend/.env`, add or update:
+
+```dotenv
+TRACK17_API_KEY=YOUR_PRIVATE_API_SECURITY_KEY
+TRACK17_ENABLED=false
+TRACK17_REGISTRATION_LIMIT=200
+TRACK17_ALLOW_DEMO_HANDOVER=false
+```
+
+Replace the placeholder privately. Set the limit to FMRC's confirmed allocation. It is a **lifetime local budget**: calendar changes and key rotation never replenish consumed reservations. Increase it only when additional credits are actually available to FMRC.
+
+Then run:
+
+```sh
+php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan config:clear
+```
+
+If this installation normally caches configuration, rebuild that cache after environment changes.
+
+## 4. Configure the webhook
+
+1. In 17TRACK's API Settings → WebHook, save:
+
+   `https://ucn-fabmanlab.com/api/webhooks/17track`
+
+2. Run the dashboard webhook test. GET/HEAD readiness returns an empty HTTP 200; this alone does not verify a parcel update.
+3. Real POST callbacks require the `sign` header. FMRC verifies SHA-256 of the untouched request body, `/`, and the API key. It returns **HTTP 200 after durable storage**, then processes the message through the minute worker.
+4. If a dashboard dummy message is rejected, check its response and selected key. Do not disable signatures. The owned diagnostic parcel below provides a meaningful signed update test. Unknown subscriptions are isolated and cannot update customers.
+
+## 5. Keep the existing cron
+
+The existing Hostinger Custom cron should remain:
+
+```sh
+/usr/bin/php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan shipments:process
+```
+
+Use `* * * * *` (every minute). Keep one runner. If the installation already runs Laravel's scheduler every minute, it already schedules this command; do not add another runner. Existing payment/PWA jobs remain independent.
+
+Open Admin → Shipping & Delivery. **Background processing** should show **Running** after the worker runs. A blank cron output alone does not indicate failure: successful runs are normally silent. Check the heartbeat and queued-update counts.
+
+## 6. Test your owned parcel separately
+
+This diagnostic can use one tracking credit. It does not create an FMRC order, write customer history, send customer notifications, or satisfy the genuine FMRC handover check.
+
+```sh
+php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan 17track:verify --carrier=100240 --tracking-number=JT0026952419687 --postcode=4604 --register-diagnostic
+```
+
+Use the parcel's actual destination postcode. If known, append its actual shipment date as `--ship-date=2026-11-07`. Do not guess the date for another parcel. The command validates J&T Express (PH), carrier `100240`, against the official carrier directory.
+
+The first attempt may report saved registration but no events yet. Repeat the **same** command later: it reuses the persisted subscription and reads saved results. It reports API events and any signed diagnostic callback. If a pre-existing API registration has another subscription tag, FMRC rejects it instead of taking it over. Use a fresh owned diagnostic parcel or resolve that conflicting registration in the API console.
+
+## 7. Verify one genuine FMRC delivery and activate
+
+1. Customer places an online-paid delivery order. FMRC approves and prepares it. An eligible appointment-linked custom order can use its existing confirmed Cash at FMRC rules.
+2. Staff physically hands the parcel, sender details, and customer/recipient details to J&T. J&T supplies the actual waybill. Keep its complete number, including the `JT` prefix when present.
+3. Admin or Staff opens Orders → **Update Tracking Status**. Record the waybill, actual handover time, and handover confirmation. The optional branch cost is internal; it does not change the accepted customer fee. Saving moves **To Ship → To Receive**.
+4. Run this command, replacing the example with the real FMRC order number (a database ID also works):
+
+   ```sh
+   php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan 17track:verify --carrier=100240 --order=ORD-261107-00101 --real-handover
+   ```
+
+5. Retry with the same order until matching API scan events arrive. Keep the webhook and minute worker running. **Real waybill** and **Webhook delivery** must become **Verified** for this 17TRACK account. An outside diagnostic parcel cannot unlock these checks.
+6. Set `TRACK17_ENABLED=true` in the backend `.env`, then clear/rebuild configuration as above.
+7. In Admin → Shipping & Delivery, choose **Activate automatic tracking**. Staff can view readiness but cannot activate the provider or correct waybills.
+8. Verify the next courier event appears automatically in an already-open Admin/Staff order and Customer Orders. Confirm the actual notification arrives. Follow the real parcel through delivery and the customer's separate **Order received** action.
+
+After activation, eligible new and existing unfinished J&T handovers register automatically. Cancelled, completed, refund-pending/refunded, demonstration, pickup, and already courier-delivered shipments are excluded. Existing history and last confirmed status remain during registration and outages.
+
+## Timing and safeguards
+
+- Standard 17TRACK carrier checks normally occur every **6–12 hours**; its documentation specifies longer checks for some statuses, including delivered/exception parcels. This mode does not buy instant carrier lookups.
+- Once a signed update reaches FMRC, the next minute worker processes it. Visible Admin/Staff order views poll saved data about every five seconds; Customer Orders polls about every three seconds. Admin does not need to keep refreshing Shipping & Delivery.
+- Every six hours, FMRC also reads saved provider results to recover missed callbacks. Manual refresh requests the same saved results through the worker, with a 15-minute limit. It does not force a fresh carrier scan or purchase an immediate lookup.
+- Repeated snapshots and milestone notifications are deduplicated. Older scans cannot replace newer confirmed status. Expiration/stoppage retains the last confirmed information.
+- Courier events cannot change payments, refunds, stock, revenue, shipping charges, or complete an order. Courier **Delivered** and customer-confirmed **Completed** remain separate.
+- The full Update Tracking Status modal remains available. Courier stages cannot be fabricated manually; FMRC notes and actual handover controls remain usable. Background updates preserve unsaved form drafts.
+
+## Troubleshooting
+
+| Display | Check |
+| --- | --- |
+| Setup/verification required | Private API key, cached configuration, correct carrier, real FMRC parcel, signed matching callback |
+| Waiting for registration | Activation, order eligibility, worker heartbeat, local budget |
+| `response_mismatch` | Wrong tag/carrier/account or another application's registration; do not retag blindly |
+| `credentials_rejected` | API key and account permissions; saved waybills remain available |
+| `quota_limit_reached` | Provider balance and FMRC lifetime allocation; do not reset counters |
+| `rate_limited` / `connection_unknown` | Allow backoff; reuse the same subscription/order rather than creating another |
+| Stopped/expired tracking | Use the official J&T fallback and investigate in the API console |
+| Notifications awaiting delivery | Minute worker and existing email/PWA configuration |
+
+## Pause / rollback
+
+Pause in Admin or set `TRACK17_ENABLED=false` and refresh configuration. New registrations and scheduled result lookups stop. Signed callbacks and queued notifications remain processable; keep the minute worker running. Saved waybills and history remain available through the official J&T fallback.
+
+Do not drop tables to pause tracking. Corrected waybills stop the old 17TRACK subscription only after identity checks. Stopping tracking never cancels physical J&T transport. There is no automatic fallback to another tracking provider.
+
+## Official references
+
+Local validation for this change: the full backend suite passed 799 tests / 10,204 assertions. After the final carrier-identity guard, all 33 focused tracking/handover/payment-flow tests passed / 344 assertions. All 210 frontend checks passed, including the isolated Apache check outside the restricted runner. Chrome checks passed for Admin/Staff full modals, operator drafts, legacy delivery/cash pickup behavior, Customer automatic tracking, and responsive layouts. Provider calls in these tests used fixtures; no real payment, live API registration, or live notification delivery is claimed.
+
+- [17TRACK API documentation](https://api.17track.net/en/doc)
+- [API account and webhook quick guide](https://help.17track.net/hc/en-us/articles/30944262120729--Tracking-API-Quick-Guide)
+- [Official carrier directory](https://res.17track.net/asset/carrier/info/apicarrier.all.json)
+- [J&T Philippines tracking](https://www.jtexpress.ph/track-and-trace?waybillNo=&flag=1)

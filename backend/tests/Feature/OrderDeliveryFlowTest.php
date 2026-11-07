@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\ShipmentTracker;
 use App\Models\User;
+use App\Services\ShipmentTracking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -32,11 +33,12 @@ class OrderDeliveryFlowTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-11-03T07:00:00Z'));
         Mail::fake();
         Http::preventStrayRequests();
+        $verifyCommand = '17track:verify';
+        $carrierCode = 100240;
+        config(['track17.api_key' => 'fixture17', 'track17.enabled' => false]);
         config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true,
             'payments.paymongo.secret_key' => 'sk_live_fixture_for_isolated_tests_only',
-            'payments.paymongo.webhook_secret' => 'fixture-payment-hook', 'payments.paymongo.checkout_method' => 'qrph',
-            'ship24.enabled' => false, 'ship24.api_key' => 'fixture-tracking-key',
-            'ship24.webhook_secret' => 'fixture-tracking-hook', 'ship24.monthly_registration_limit' => 10]);
+            'payments.paymongo.webhook_secret' => 'fixture-payment-hook', 'payments.paymongo.checkout_method' => 'qrph']);
         $session = [];
         $paid = false;
         $external = [];
@@ -61,25 +63,16 @@ class OrderDeliveryFlowTest extends TestCase
                 }
                 $this->fail('Unexpected payment provider request: '.$request->method().' '.$request->url());
             },
-            'api.ship24.com/*' => function ($request) use (&$external, &$results) {
-                if (str_ends_with($request->url(), '/couriers')) {
-                    return Http::response(['data' => ['couriers' => [['courierCode' => 'fixture-jnt-ph',
-                        'courierName' => 'J&T Express Philippines', 'countryCode' => 'PH', 'requiredFields' => [], 'isDeprecated' => false]]]]);
+            'res.17track.net/*' => Http::response([['key' => 100240, '_name' => 'J&T Express (PH)', '_country_iso' => 'PH']]),
+            'api.17track.net/*' => function ($request) use (&$external, &$results) {
+                $item = $request->data()[0];
+                if (str_ends_with($request->url(), '/register')) {
+                    $external = $item;
+                } elseif (str_ends_with($request->url(), '/gettrackinfo')) {
+                    $item = $external + ['track_info' => $results[0]['data']['track_info'] ?? ['latest_status' => ['status' => 'NotFound']]];
                 }
-                if ($request->method() === 'POST' && str_ends_with($request->url(), '/trackers')) {
-                    $payload = $request->data();
-                    $external = ['trackerId' => 'tracker-deliveryfixture', 'trackingNumber' => $payload['trackingNumber'],
-                        'clientTrackerId' => $payload['clientTrackerId'], 'shipmentReference' => $payload['shipmentReference']];
 
-                    return Http::response(['data' => ['tracker' => $external]], 201);
-                }
-                if (str_contains($request->url(), '/results')) {
-                    return Http::response(['data' => ['trackings' => $results]]);
-                }
-                if ($request->method() === 'GET' && str_contains($request->url(), '/trackers/')) {
-                    return Http::response(['data' => ['tracker' => $external]]);
-                }
-                $this->fail('Unexpected tracking provider request: '.$request->method().' '.$request->url());
+                return Http::response(['code' => 0, 'data' => ['accepted' => [$item], 'rejected' => []]]);
             },
         ]);
 
@@ -96,7 +89,7 @@ class OrderDeliveryFlowTest extends TestCase
                 'cities' => ['Daet'], 'postal_codes' => ['4600'], 'fee' => '85.00',
                 'preparation_days' => 1, 'transit_min_days' => 1, 'transit_max_days' => 3]]]])->assertOk();
         $this->postJson('/api/admin/shipping-settings/publish', ['expected_revision' => $revision + 1, 'approved' => true])->assertOk();
-        $this->artisan('ship24:verify', ['--carrier' => 'fixture-jnt-ph'])->assertSuccessful();
+        $this->artisan($verifyCommand, ['--carrier' => $carrierCode])->assertSuccessful();
 
         Sanctum::actingAs($customer);
         $destination = ['fulfillment_type' => 'delivery', 'delivery_recipient_name' => $customer->name,
@@ -144,7 +137,7 @@ class OrderDeliveryFlowTest extends TestCase
         $this->assertDatabaseCount('shipment_trackers', 1);
         $tracker = ShipmentTracker::firstOrFail();
         $this->artisan('shipments:process')->assertSuccessful();
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/trackers'));
+        Http::assertNotSent(fn ($request) => (str_contains($request->url(), '/trackers') || str_ends_with($request->url(), '/register')));
 
         Sanctum::actingAs($customer);
         $before = $this->getJson('/api/customer/orders/'.$order->id)->assertOk()
@@ -152,21 +145,21 @@ class OrderDeliveryFlowTest extends TestCase
             ->assertJsonPath('data.courier_shipment.tracking_available', false);
         $etag = $before->headers->get('ETag');
         $this->assertDatabaseHas('customer_notifications', ['user_id' => $customer->id,
-            'event_key' => 'shipment:'.$tracker->id.':handover', 'target' => '/home-page/main.html?orders=1&order_id='.$order->id]);
+            'event_key' => 'shipment:'.$tracker->id.':handover', 'target' => '/home-page/?orders=1&order_id='.$order->id]);
         $this->assertNotNull(DB::table('shipment_notification_outbox')->where('milestone', 'handover')->value('sent_at'));
 
         // A genuine deployment uses this command only for a real handover. All provider responses here are fixtures.
-        $this->artisan('ship24:verify', ['--carrier' => 'fixture-jnt-ph', '--order' => $order->id, '--real-handover' => true])->assertFailed();
+        $this->artisan($verifyCommand, ['--carrier' => $carrierCode, '--order' => $order->id, '--real-handover' => true])->assertFailed();
         Carbon::setTestNow(now()->addMinutes(1));
         $results = [$this->scan($external, 'in_transit')];
-        $this->artisan('ship24:verify', ['--carrier' => 'fixture-jnt-ph', '--order' => $order->id, '--real-handover' => true])->assertSuccessful();
-        $this->postJson('/api/webhooks/ship24', ['trackings' => $results], ['Authorization' => 'Bearer fixture-tracking-hook'])->assertAccepted();
+        $this->artisan($verifyCommand, ['--carrier' => $carrierCode, '--order' => $order->id, '--real-handover' => true])->assertSuccessful();
+        $this->trackingHook($results);
         $this->artisan('shipments:process')->assertSuccessful();
 
         Sanctum::actingAs($admin);
-        config(['ship24.enabled' => true]);
+        config(['track17.enabled' => true]);
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => true,
-            'expected_revision' => DB::table('shipment_tracking_settings')->value('revision')])->assertOk()->assertJsonPath('data.enabled', true);
+            'expected_revision' => ShipmentTracking::settings()->revision])->assertOk()->assertJsonPath('data.enabled', true);
         Sanctum::actingAs($customer);
         $updated = $this->getJson('/api/customer/orders/'.$order->id, ['If-None-Match' => $etag])->assertOk()
             ->assertJsonPath('data.courier_shipment.status', 'in_transit')->assertJsonPath('data.courier_shipment.tracking_available', true);
@@ -176,12 +169,12 @@ class OrderDeliveryFlowTest extends TestCase
             Carbon::setTestNow(now()->addMinutes(1));
             $update = $this->scan($external, $status);
             for ($i = 0; $i < 2; $i++) {
-                $this->postJson('/api/webhooks/ship24', ['trackings' => [$update]], ['Authorization' => 'Bearer fixture-tracking-hook'])->assertAccepted();
+                $this->trackingHook([$update]);
             }
             $this->artisan('shipments:process')->assertSuccessful();
             $this->getJson('/api/customer/orders/'.$order->id)->assertOk()->assertJsonPath('data.courier_shipment.status', $status)
                 ->assertJsonPath('data.customer_stage', 'to_receive')->assertJsonPath('data.payment_status', 'paid')->assertJsonPath('data.total_amount', 485);
-            $this->assertSame(1, DB::table('order_tracking_events')->where('shipment_tracker_id', $tracker->id)->where('provider_event_id', $status)->count());
+            $this->assertSame(1, DB::table('order_tracking_events')->where('shipment_tracker_id', $tracker->id)->where('event_type', 'courier_update')->where('title', ShipmentTracking::LABELS[$status])->count());
             $this->assertSame(1, DB::table('customer_notifications')->where('event_key', 'shipment:'.$tracker->id.':'.$status)->count());
         }
         $this->assertSame('pending', $order->fresh()->lifecycle_status);
@@ -192,16 +185,29 @@ class OrderDeliveryFlowTest extends TestCase
         $this->assertSame(1, $product->fresh()->stock);
         $this->assertDatabaseCount('payment_receipts', 1);
         $this->assertDatabaseCount('payment_refunds', 0);
-        foreach (['https://api.paymongo.com/v2/checkout_sessions', 'https://api.ship24.com/public/v1/trackers'] as $url) {
+        foreach (['https://api.paymongo.com/v2/checkout_sessions', 'https://api.17track.net/track/v2.4/register'] as $url) {
             $this->assertCount(1, Http::recorded(fn ($request) => $request->method() === 'POST' && $request->url() === $url));
+        }
+    }
+
+    private function trackingHook(array $updates): void
+    {
+        foreach ($updates as $message) {
+            $raw = json_encode($message);
+            $this->call('POST', '/api/webhooks/17track', [], [], [], ['CONTENT_TYPE' => 'application/json',
+                'HTTP_SIGN' => hash('sha256', $raw.'/fixture17')], $raw)->assertOk();
         }
     }
 
     private function scan(array $external, string $status): array
     {
-        return ['metadata' => ['messageId' => 'message-'.$status, 'topic' => 'tracking/events'], 'tracker' => $external,
-            'shipment' => ['destinationCountryCode' => 'PH'], 'events' => [['eventId' => $status, 'status' => 'Fixture courier scan',
-                'statusMilestone' => $status, 'courierCode' => 'fixture-jnt-ph', 'occurrenceDatetime' => now()->toIso8601String(),
-                'location' => 'Fixture hub', 'order' => 1]]];
+        $stage = ['in_transit' => 'InTransit', 'out_for_delivery' => 'OutForDelivery', 'delivered' => 'Delivered'][$status];
+
+        return ['event' => 'TRACKING_UPDATED', 'data' => $external + ['track_info' => [
+            'latest_status' => ['status' => $stage], 'tracking' => ['providers' => [[
+                'provider' => ['key' => 100240], 'events' => [['time_utc' => now()->toIso8601String(),
+                    'stage' => $stage, 'description' => 'Fixture courier scan', 'location' => 'Fixture hub']],
+            ]]],
+        ]]];
     }
 }

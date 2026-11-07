@@ -8350,7 +8350,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   };
 
-  // J&T shipments use saved Ship24 events and an official courier fallback.
+  // J&T shipments use saved automatic courier events and an official courier fallback.
   // Keep this public-link helper for historical couriers and customer returns.
   const UNIVERSAL_TRACKING_URL = "https://www.17track.net/en/tracking";
 
@@ -11773,7 +11773,7 @@ document.addEventListener("DOMContentLoaded", () => {
           && entry?.longitude !== null && entry?.longitude !== undefined && entry?.longitude !== ''
           && Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude))
           && Math.abs(Number(entry.latitude)) <= 90 && Math.abs(Number(entry.longitude)) <= 180;
-        const automaticShipment = detail.courier_shipment?.tracking_provider === 'ship24';
+        const automaticShipment = detail.courier_shipment?.tracking_provider === '17track';
         const withCoords =
           (automaticShipment ? null : timeline.find(hasCoordinates)) ||
           (!automaticShipment && hasCoordinates(detail) ? detail : isPickupOrder ? {

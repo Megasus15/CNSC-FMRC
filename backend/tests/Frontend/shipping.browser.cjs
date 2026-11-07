@@ -37,7 +37,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       if(route==='/api/maintenance')return json({installed:true,data:{},site_page_installed:true,site_page:{}});
       if(route==='/api/site-settings')return json({data:{payment_cash_on_pickup_enabled:'1',payment_cash_on_delivery_enabled:'0',payment_gcash_enabled:'1',payment_gcash_ready:'1',payment_checkout_method:'qrph'}});
       if(route==='/api/couriers')return json({default:'jnt',data:[{key:'jnt',label:'J&T Express'},{key:'pickup',label:'Pickup at FMRC',accepts_tracking_no:false},{key:'other',label:'Other courier'}]});
-      if(route==='/api/admin/shipping-tracking'){trackingReads++;return json({data:{installed:true,enabled:false,ready:false,can_edit:role==='admin',registrations:0,registration_limit:10,message:'Automatic tracking is not active. Saved J&T waybills remain available.'}});}
+      if(route==='/api/admin/shipping-tracking'){trackingReads++;return json({data:{installed:true,enabled:false,ready:false,provider:'17track',provider_name:'17TRACK',budget_basis:'lifetime',budget_used:2,budget_remaining:198,standard_interval:'6–12 hours',can_edit:role==='admin',registrations:0,registration_limit:200,message:'Automatic tracking is not active. Saved J&T waybills remain available.'}});}
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/products')return json({data:[product]});
       if(route==='/api/psgc/provinces'){if(provinceUnavailable){await pause(1600);return json({message:'Province list unavailable'},502);}return json(provinceCatalog);}
@@ -408,7 +408,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     order.lifecycle_status='pending';order.payment_method='GCash';order.payment_status='paid';order.shipment_tracking_mode='jnt_dropoff';
     for(const portal of ['admin','staff']){
       order.customer_stage='to_ship';order.customer_stage_label='To Ship';order.timeline=[];order.courier_tracking_no=null;
-      order.courier_shipment={provider:'Ship24',carrier:'J&T Express',tracking_provider:'ship24',status:'pending',status_label:'Waybill not yet recorded',availability_message:'Automatic tracking is not active. Use the saved waybill on J&T tracking.',can_record:true,can_correct:false,can_refresh:false};
+      order.courier_shipment={provider:'17TRACK',carrier:'J&T Express',tracking_provider:'17track',status:'pending',status_label:'Waybill not yet recorded',availability_message:'Automatic tracking is not active. Use the saved waybill on J&T tracking.',can_record:true,can_correct:false,can_refresh:false};
       await navigate('/'+portal+'-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);
       await until(`!!document.querySelector('#modalTrackingUpdate.show [data-jnt-form]')`);
       assert.equal(await run(`document.querySelector('#modalTrackingUpdate .modal-title').textContent`),'Update Tracking Status');
@@ -458,9 +458,11 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
         assert.equal(await run(`(()=>{const el=document.querySelector('[data-courier-controls]');return el.scrollWidth>el.clientWidth+1})()`),false,'Shipment card fits '+portal+' '+width+' '+theme+'; screenshots '+artifacts);
       }
       Object.assign(order.courier_shipment,{status:'out_for_delivery',status_label:'Out for delivery',last_updated_at_label:'Nov 3, 2026',location:'Daet delivery hub'});
-      order.timeline.push({id:99,title:'Out for delivery',occurred_at:'2026-11-03',occurred_at_label:'Nov 3, 2026',time_precision:'date',source_label:'J&T via Ship24',metadata:{source:'ship24',tracking_number:order.courier_tracking_no}});
-      await run(`document.querySelector('[data-jnt-load]').click()`);await until(`document.querySelector('[data-jnt-status]').textContent==='Out for delivery'`);
-      assert.match(await run(`document.querySelector('[data-jnt-history]').textContent`),/J&T via Ship24/);
+      order.timeline.push({id:99,title:'Out for delivery',occurred_at:'2026-11-03',occurred_at_label:'Nov 3, 2026',time_precision:'date',source_label:'J&T via 17TRACK',metadata:{source:'17track',tracking_number:order.courier_tracking_no}});
+      await input('trackingEventTitle','Preserve this automatic draft');
+      await until(`document.querySelector('[data-jnt-status]').textContent==='Out for delivery'`);
+      assert.equal(await run(`document.getElementById('trackingEventTitle').value`),'Preserve this automatic draft','Automatic status updates preserve operator drafts');
+      assert.match(await run(`document.querySelector('[data-jnt-history]').textContent`),/J&T via 17TRACK/);
       await input('trackingEventTitle','Packaging instructions confirmed');
       const beforeNote=trackingWrites.length;
       await run(`document.getElementById('btnSaveTrackingUpdate').click()`);await confirm('Confirm Tracking Update');
@@ -478,7 +480,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     order.delivery_lat=14.1122;order.delivery_lng=122.955;order.latitude=null;order.longitude=null;
     await navigate('/products-page/product.html');await until(`!!document.getElementById('viewOrdersBtn')`);await run(`document.getElementById('viewOrdersBtn').click()`);await until(`!!document.querySelector('[data-order-detail="71"]')`);await run(`document.querySelector('[data-order-detail="71"]').click()`);
     await until(`document.querySelector('#customerOrderDetailModal')?.textContent.includes('Out for delivery')`);
-    assert.match(await run(`document.querySelector('#customerOrderDetailModal').textContent`),/J&T via Ship24/);
+    assert.match(await run(`document.querySelector('#customerOrderDetailModal').textContent`),/J&T via 17TRACK/);
     assert.match(await run(`document.querySelector('#customerOrderDetailModal').textContent`),/Automatic tracking is not active/);
     assert.equal(await run(`document.querySelectorAll('#customerOrderDetailModal iframe').length`),0,'Destination is not a courier checkpoint');
     assert.equal(await run(`document.querySelector('#customerOrderDetailModal a[href="https://www.jtexpress.ph"]')?.textContent.trim()`),'Open J&T Express tracking');
@@ -489,7 +491,14 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`(()=>{const el=document.querySelector('.customer-order-detail-content');return el.scrollWidth>el.clientWidth+1})()`),false,'Customer detail fits '+width);
       await shot('customer-jnt-'+width);
     }
-    console.log('Verified Customer J&T timeline, date precision, official fallback and destination-map separation. Screenshots: '+artifacts);
+    Object.assign(order.courier_shipment,{status:'delivered',status_label:'Delivered',last_updated_at:'2026-11-07T08:00:00Z',last_updated_at_label:'Nov 7, 2026 4:00 PM'});
+    order.timeline.push({id:102,title:'Delivered by J&T',occurred_at:'2026-11-07T08:00:00Z',occurred_at_label:'Nov 7, 2026 4:00 PM',source_label:'J&T via 17TRACK',metadata:{source:'17track',tracking_number:order.courier_tracking_no}});
+    await until(`document.querySelector('#customerOrderDetailModal')?.textContent.includes('Delivered by J&T')`);
+    assert.equal(order.customer_stage,'to_receive','Courier delivery leaves customer receipt confirmation separate');
+    assert.equal(order.payment_status,'paid');
+    assert.deepEqual(await run('fixtureErrors'),[]);
+    await shot('customer-jnt-automatic-delivered');
+    console.log('Verified automatic Customer J&T updates, date precision, official fallback and destination-map separation. Screenshots: '+artifacts);
   }finally{
     cdp?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   }

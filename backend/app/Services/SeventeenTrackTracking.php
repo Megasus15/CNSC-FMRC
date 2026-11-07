@@ -1,0 +1,435 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\ShipmentTracker;
+use App\Models\ShipmentTrackingSubscription as Subscription;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+final class SeventeenTrackTracking
+{
+    public function __construct(private SeventeenTrackClient $client) {}
+
+    public function verifyCarrier(int $code): array
+    {
+        $carrier = collect($this->client->couriers())->firstWhere('key', $code);
+        if ($code !== (int) config('track17.carrier_code') || ! $carrier
+            || ($carrier['_country_iso'] ?? '') !== 'PH' || ! preg_match('/J\s*&\s*T/i', $carrier['_name'] ?? '')) {
+            ShipmentTracking::fail('Choose the current J&T Express (PH) entry from the 17TRACK carrier directory.');
+        }
+        $settings = ShipmentTracking::settings();
+        $changed = $settings->account_fingerprint !== SeventeenTrackClient::fingerprint() || (string) $settings->carrier_code !== (string) $code;
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update([
+            'carrier_code' => (string) $code, 'carrier_requirements' => json_encode(['destination_country', 'destination_postal_code']),
+            'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'carrier_verified_at' => now(),
+            'revision' => DB::raw('revision + 1'), 'updated_at' => now(),
+            ...($changed ? ['enabled' => false, 'waybill_verified_at' => null, 'verified_tracker_id' => null,
+                'last_webhook_at' => null, 'last_test_webhook_at' => null, 'quota_retry_at' => null] : []),
+        ]);
+
+        return $carrier;
+    }
+
+    public static function eligible(ShipmentTracker $tracker, bool $includeDelivered = false): bool
+    {
+        return $tracker->active_order_id && ! $tracker->demo && ($includeDelivered || $tracker->status !== 'delivered')
+            && ShipmentTracking::eligibility($tracker->order, true) === null;
+    }
+
+    public function subscription(ShipmentTracker $tracker): Subscription
+    {
+        return DB::transaction(function () use ($tracker) {
+            ShipmentTracker::whereKey($tracker->id)->lockForUpdate()->firstOrFail();
+            $saved = Subscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first();
+            if ($saved) {
+                return $saved;
+            }
+
+            return Subscription::create(['tracker_id' => $tracker->id, 'provider' => '17track', 'tag' => (string) Str::uuid(),
+                'tracking_number' => $tracker->tracking_number, 'carrier_code' => (string) config('track17.carrier_code'),
+                'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'next_attempt_at' => now()]);
+        });
+    }
+
+    public function diagnostic(string $number, string $postcode, ?string $shipDate = null): Subscription
+    {
+        $number = strtoupper(trim($number));
+        if (! preg_match('/^[A-Z0-9-]{5,50}$/', $number) || ! preg_match('/^\d{4}$/', $postcode)) {
+            ShipmentTracking::fail('Use the complete waybill and its four-digit Philippine destination postcode.');
+        }
+        $sub = Subscription::where('provider', '17track')->where('diagnostic', true)->where('tracking_number', $number)
+            ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->first();
+        if (! $sub) {
+            $tag = (string) Str::uuid();
+            $payload = ['number' => $number, 'carrier' => (int) config('track17.carrier_code'), 'tag' => $tag,
+                'origin_country' => 'PH', 'destination_country' => 'PH', 'destination_postal_code' => $postcode];
+            if ($shipDate) {
+                $payload['ship_date'] = Carbon::parse($shipDate)->format('Y/m/d');
+            }
+            $sub = Subscription::create(['provider' => '17track', 'diagnostic' => true, 'tag' => $tag,
+                'tracking_number' => $number, 'carrier_code' => (string) config('track17.carrier_code'),
+                'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'registration_payload' => $payload]);
+        }
+        $this->register($sub, true);
+        $this->synchronize($sub->fresh());
+        $this->processInbox(microtime(true) + 5);
+
+        return $sub->fresh();
+    }
+
+    public function verifyWaybill(ShipmentTracker $tracker): bool
+    {
+        if (! self::eligible($tracker)) {
+            ShipmentTracking::fail('Verify an active, paid FMRC order with its actual recorded J&T handover.');
+        }
+        $sub = $this->subscription($tracker);
+        // Key rotation never resets the lifetime budget. Rebind only after an explicit matching lookup.
+        if ($sub->account_fingerprint !== SeventeenTrackClient::fingerprint()) {
+            $external = $this->client->item('gettrackinfo', $this->identity($sub));
+            if (! $this->matches($sub, $external, false)) {
+                throw new SeventeenTrackException('account_changed');
+            }
+            $sub->update(['account_fingerprint' => SeventeenTrackClient::fingerprint(), 'last_webhook_at' => null]);
+        }
+        $this->register($sub, true);
+        $this->synchronize($sub->fresh());
+        $this->processInbox(microtime(true) + 5);
+        $sub->refresh();
+        if (! $sub->last_event_at || $sub->last_error_code || $tracker->fresh()->needs_review) {
+            return false;
+        }
+        DB::table('shipment_tracking_settings')->where('provider', '17track')
+            ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->update([
+                'waybill_verified_at' => now(), 'verified_tracker_id' => $tracker->id,
+                'revision' => DB::raw('revision + 1'), 'updated_at' => now(),
+            ]);
+
+        return true;
+    }
+
+    private function identity(Subscription $sub): array
+    {
+        return ['number' => $sub->tracking_number, 'carrier' => (int) $sub->carrier_code];
+    }
+
+    private function matches(Subscription $sub, array $data, bool $account = true): bool
+    {
+        return (! $account || $sub->account_fingerprint === SeventeenTrackClient::fingerprint())
+            && strtoupper((string) ($data['number'] ?? '')) === $sub->tracking_number
+            && (int) ($data['carrier'] ?? 0) === (int) $sub->carrier_code
+            && hash_equals($sub->tag, (string) ($data['tag'] ?? ''));
+    }
+
+    public function register(Subscription $sub, bool $verification = false): void
+    {
+        $settings = ShipmentTracking::settings();
+        if (! SeventeenTrackClient::configured() || ! $settings?->carrier_verified_at
+            || $settings->account_fingerprint !== SeventeenTrackClient::fingerprint()
+            || (! $verification && ! ShipmentTracking::enabled())) {
+            return;
+        }
+        if ($sub->account_fingerprint !== SeventeenTrackClient::fingerprint()) {
+            throw new SeventeenTrackException('account_changed');
+        }
+        if (! $sub->diagnostic && ! self::eligible($sub->tracker)) {
+            return;
+        }
+        if (! preg_match('/^[A-Z0-9-]{5,50}$/', $sub->tracking_number)) {
+            throw new SeventeenTrackException('details_rejected');
+        }
+        if ($sub->registered_at) {
+            return;
+        }
+        $external = null;
+        if ($sub->registration_requested_at) {
+            try {
+                $external = $this->client->item('gettrackinfo', $this->identity($sub));
+                if (! $this->matches($sub, $external)) {
+                    throw new SeventeenTrackException('response_mismatch');
+                }
+            } catch (SeventeenTrackException $error) {
+                if ($error->reason !== 'not_registered') {
+                    throw $error;
+                }
+            }
+        }
+        if (! $external) {
+            DB::transaction(function () use ($sub) {
+                $settings = DB::table('shipment_tracking_settings')->where('provider', '17track')->lockForUpdate()->first();
+                $reserved = Subscription::where('provider', '17track')->whereNotNull('registration_requested_at')->count();
+                if ((! $sub->registration_requested_at && $reserved >= max(0, (int) config('track17.registration_limit')))
+                    || ($settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture())) {
+                    throw new SeventeenTrackException('quota_limit_reached', 86400);
+                }
+                if (! $sub->registration_payload) {
+                    $tracker = $sub->tracker;
+                    $sub->registration_payload = $this->identity($sub) + ['tag' => $sub->tag, 'origin_country' => 'PH',
+                        'destination_country' => 'PH', 'destination_postal_code' => $tracker->order->delivery_postal_code,
+                        'ship_date' => $tracker->handed_over_at->copy()->tz('Asia/Manila')->format('Y/m/d')];
+                }
+                $sub->registration_requested_at ??= now();
+                $sub->save();
+            });
+            try {
+                $external = $this->client->item('register', $sub->registration_payload);
+            } catch (SeventeenTrackException $error) {
+                if ($error->reason !== 'already_registered') {
+                    throw $error;
+                }
+                $external = $this->client->item('gettrackinfo', $this->identity($sub));
+                if (! $this->matches($sub, $external)) {
+                    throw new SeventeenTrackException('response_mismatch');
+                }
+            }
+            // Registration can omit tag in its acknowledgement, but may never contradict our persisted tag.
+            if (isset($external['tag']) && ! hash_equals($sub->tag, (string) $external['tag'])) {
+                throw new SeventeenTrackException('response_mismatch');
+            }
+        }
+        DB::transaction(function () use ($sub) {
+            $sub = Subscription::whereKey($sub->id)->lockForUpdate()->firstOrFail();
+            if (! $sub->diagnostic) {
+                $tracker = ShipmentTracker::whereKey($sub->tracker_id)->lockForUpdate()->firstOrFail();
+                if (! self::eligible($tracker)) {
+                    $sub->update(['registered_at' => now(), 'registration_state' => 'superseded', 'stop_pending' => true]);
+
+                    return;
+                }
+                Subscription::where('active_tracker_id', $tracker->id)->where('id', '!=', $sub->id)
+                    ->update(['active_tracker_id' => null, 'stop_pending' => true, 'updated_at' => now()]);
+                $sub->active_tracker_id = $tracker->id;
+                ShipmentTrackingEvents::touchOrder($tracker);
+            }
+            $sub->fill(['registered_at' => $sub->registered_at ?? now(), 'registration_state' => 'active',
+                'attempts' => 0, 'last_error_code' => null, 'next_attempt_at' => now()])->save();
+        });
+    }
+
+    public function synchronize(Subscription $sub): void
+    {
+        if (! $sub->registered_at || $sub->account_fingerprint !== SeventeenTrackClient::fingerprint()) {
+            throw new SeventeenTrackException('account_changed');
+        }
+        $data = $this->client->item('gettrackinfo', $this->identity($sub));
+        if (! $this->matches($sub, $data)) {
+            throw new SeventeenTrackException('response_mismatch');
+        }
+        $this->receive(['event' => 'TRACKING_UPDATED', 'data' => $data], false);
+        $sub->update(['last_checked_at' => now(), 'next_attempt_at' => now()->addHours(6), 'attempts' => 0]);
+    }
+
+    public function receive(array $message, bool $webhook = true): void
+    {
+        $data = $message['data'];
+        $events = [];
+        $info = is_array($data['track_info'] ?? null) ? $data['track_info'] : [];
+        $providers = $info['tracking']['providers'] ?? [];
+        foreach ($providers as $provider) {
+            if ((int) ($provider['provider']['key'] ?? 0) === (int) config('track17.carrier_code')) {
+                foreach ($provider['events'] ?? [] as $event) {
+                    if (is_array($event)) {
+                        $events[] = array_intersect_key($event, array_flip(['time_iso', 'time_utc', 'time_raw', 'description', 'location', 'stage', 'sub_status']));
+                    }
+                }
+            }
+        }
+        if (! $providers && ! $events && is_array($info['latest_event'] ?? null)) {
+            $events[] = array_intersect_key($info['latest_event'], array_flip(['time_iso', 'time_utc', 'time_raw', 'description', 'location', 'stage', 'sub_status']));
+        }
+        $payload = ['event' => $message['event'], 'number' => strtoupper((string) $data['number']), 'carrier' => (int) $data['carrier'],
+            'tag' => $data['tag'] ?? '', 'latest_status' => $info['latest_status']['status'] ?? null,
+            'destination_country' => $data['destination_country'] ?? null, 'events' => $events, 'webhook' => $webhook];
+        $key = hash('sha256', '17track:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
+        DB::table('shipment_webhook_inbox')->insertOrIgnore(['provider' => '17track', 'message_key' => $key,
+            'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'payload' => json_encode($payload),
+            'state' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    private static function status(?string $status): ?string
+    {
+        return match ($status) {
+            'InfoReceived' => 'info_received', 'PickedUp', 'Departure', 'Arrival', 'InTransit' => 'in_transit',
+            'AvailableForPickup' => 'available_for_pickup', 'OutForDelivery' => 'out_for_delivery',
+            'DeliveryFailure' => 'failed_attempt', 'Delivered' => 'delivered', 'Exception', 'Returning', 'Returned' => 'exception',
+            default => null,
+        };
+    }
+
+    private function event(array $event, int $position): ?array
+    {
+        $raw = $event['time_raw'] ?? [];
+        // Preserve date-only precision instead of manufacturing midnight scan times.
+        $time = ! empty($raw['date']) && empty($raw['time']) ? $raw['date']
+            : ($event['time_utc'] ?? $event['time_iso'] ?? null);
+        if (! $time && ! empty($raw['date'])) {
+            $time = $raw['date'].'T'.($raw['time'] ?? '00:00:00').($raw['timezone'] ?? '+08:00');
+        }
+        if (! is_string($time) || ! ShipmentTrackingEvents::eventTime($time)) {
+            return null;
+        }
+        $text = Str::limit(trim((string) ($event['description'] ?? '')), 500, '');
+        $location = Str::limit(trim((string) ($event['location'] ?? '')), 160, '');
+
+        return ['eventId' => '17:'.hash('sha256', json_encode([$time, $text, $location, $event['stage'] ?? null, $event['sub_status'] ?? null])),
+            'courierCode' => (string) config('track17.carrier_code'), 'occurrenceDatetime' => $time,
+            'status' => $text, 'location' => $location, 'statusMilestone' => self::status($event['stage'] ?? null),
+            'statusCode' => $event['sub_status'] ?? null, 'order' => $position];
+    }
+
+    public function processInbox(float $deadline): void
+    {
+        $ids = DB::table('shipment_webhook_inbox')->where('provider', '17track')->where('state', 'pending')
+            ->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))->orderBy('id')->limit(100)->pluck('id');
+        foreach ($ids as $id) {
+            if (microtime(true) >= $deadline) {
+                break;
+            }
+            try {
+                DB::transaction(function () use ($id) {
+                    $row = DB::table('shipment_webhook_inbox')->where('id', $id)->lockForUpdate()->first();
+                    if ($row->state !== 'pending') {
+                        return;
+                    }
+                    $data = json_decode($row->payload, true);
+                    $sub = Subscription::where('provider', '17track')->where('tag', $data['tag'])
+                        ->where('account_fingerprint', $row->account_fingerprint)->lockForUpdate()->first();
+                    $state = 'processed';
+                    if (! $sub || $sub->tracking_number !== $data['number'] || (int) $sub->carrier_code !== $data['carrier']
+                        || ! $sub->registration_requested_at || ($data['destination_country'] && $data['destination_country'] !== 'PH')) {
+                        $state = 'quarantined';
+                    } elseif (! $sub->diagnostic && (! $sub->active_tracker_id || ! self::eligible($sub->tracker, true))) {
+                        // A callback can race the registration acknowledgement. Retry only while registration is genuinely in flight.
+                        $inFlight = ! $sub->registered_at && self::eligible($sub->tracker);
+                        $state = $inFlight ? 'pending' : 'ignored';
+                    } else {
+                        $events = array_values(array_filter(array_map(fn ($event, $i) => $this->event($event, $i),
+                            $data['events'], array_keys($data['events']))));
+                        usort($events, fn ($a, $b) => [ShipmentTrackingEvents::eventTime($a['occurrenceDatetime'])['instant'], $a['eventId']]
+                            <=> [ShipmentTrackingEvents::eventTime($b['occurrenceDatetime'])['instant'], $b['eventId']]);
+                        if (! $sub->diagnostic) {
+                            $earliest = $sub->tracker->handed_over_at->copy()->subDay();
+                            $events = array_values(array_filter($events, fn ($event) => Carbon::parse(ShipmentTrackingEvents::eventTime($event['occurrenceDatetime'])['instant'])->gte($earliest)));
+                        }
+                        // Some couriers omit stages on individual scans. The snapshot's current status belongs only to its newest valid scan.
+                        if ($events && ! end($events)['statusMilestone'] && self::status($data['latest_status'])) {
+                            $events[array_key_last($events)]['statusMilestone'] = self::status($data['latest_status']);
+                        }
+                        foreach ($events as $position => $event) {
+                            $event['order'] = $position;
+                            if (! $sub->diagnostic) {
+                                app(ShipmentTrackingEvents::class)->applyEvent($sub->tracker, $event, '17track', (string) $sub->carrier_code);
+                            }
+                        }
+                        $latest = end($events);
+                        if ($latest) {
+                            $instant = Carbon::parse(ShipmentTrackingEvents::eventTime($latest['occurrenceDatetime'])['instant']);
+                            if (! $sub->last_event_at || $instant->gt($sub->last_event_at)) {
+                                $sub->last_event_at = $instant;
+                            }
+                        }
+                        $stopped = $sub->registration_state === 'stopped' || $data['event'] === 'TRACKING_STOPPED' || $data['latest_status'] === 'Expired';
+                        $sub->registration_state = $stopped ? 'stopped' : 'active';
+                        $sub->last_error_code = $stopped ? 'tracking_stopped' : ($events ? null : 'no_events');
+                        if ($data['webhook']) {
+                            $sub->last_webhook_at = Carbon::parse($row->created_at);
+                            DB::table('shipment_tracking_settings')->where('provider', '17track')
+                                ->where('account_fingerprint', $row->account_fingerprint)
+                                ->update([$sub->diagnostic ? 'last_test_webhook_at' : 'last_webhook_at' => $sub->last_webhook_at, 'updated_at' => now()]);
+                        }
+                        $sub->save();
+                        if (! $sub->diagnostic) {
+                            ShipmentTrackingEvents::touchOrder($sub->tracker);
+                        }
+                    }
+                    DB::table('shipment_webhook_inbox')->where('id', $id)->update(['state' => $state,
+                        'next_attempt_at' => $state === 'pending' ? now()->addMinute() : null,
+                        'processed_at' => $state === 'pending' ? null : now(), 'updated_at' => now()]);
+                });
+            } catch (\Throwable) {
+                DB::table('shipment_webhook_inbox')->where('id', $id)->update(['attempts' => DB::raw('attempts + 1'),
+                    'next_attempt_at' => now()->addMinutes(5), 'updated_at' => now()]);
+                Log::warning('17TRACK update awaits processing', ['inbox_id' => $id]);
+            }
+        }
+    }
+
+    public function failed(Subscription $sub, SeventeenTrackException $error): void
+    {
+        $state = match ($error->reason) {
+            'quota_limit_reached' => 'limited', 'details_rejected', 'response_mismatch', 'account_changed' => 'failed',
+            default => 'retry',
+        };
+        $sub->update(['registration_state' => $state, 'last_error_code' => $error->reason, 'attempts' => $sub->attempts + 1,
+            'next_attempt_at' => now()->addSeconds(max($error->retryAfter, min(21600, 60 * 2 ** min(8, $sub->attempts))))]);
+        if ($error->reason === 'quota_limit_reached') {
+            DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['quota_retry_at' => now()->addDay()]);
+        }
+        if ($sub->tracker) {
+            ShipmentTrackingEvents::touchOrder($sub->tracker);
+        }
+    }
+
+    public function process(float $deadline): void
+    {
+        $this->processInbox($deadline);
+        if (SeventeenTrackClient::configured()) {
+            foreach (Subscription::where('provider', '17track')->where('stop_pending', true)
+                ->where('account_fingerprint', SeventeenTrackClient::fingerprint())
+                ->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))->limit(5)->get() as $sub) {
+                if (microtime(true) >= $deadline) {
+                    break;
+                }
+                try {
+                    if ($sub->registration_requested_at) {
+                        // Never stop another application's subscription after a rejected/ambiguous registration.
+                        $external = $this->client->item('gettrackinfo', $this->identity($sub));
+                        if (! $this->matches($sub, $external)) {
+                            $sub->update(['stop_pending' => false, 'registration_state' => 'superseded', 'last_error_code' => 'response_mismatch']);
+
+                            continue;
+                        }
+                        $this->client->item('stoptrack', $this->identity($sub));
+                    }
+                    $sub->update(['stop_pending' => false, 'registration_state' => 'superseded']);
+                } catch (SeventeenTrackException $error) {
+                    if (in_array($error->reason, ['not_registered', 'already_stopped'], true)) {
+                        $sub->update(['stop_pending' => false, 'registration_state' => 'superseded']);
+                    } else {
+                        $this->failed($sub, $error);
+                    }
+                }
+            }
+        }
+        if (ShipmentTracking::enabled()) {
+            foreach (ShipmentTracker::whereNotNull('active_order_id')->where('demo', false)->where('status', '!=', 'delivered')->orderBy('id')->get() as $tracker) {
+                if (microtime(true) >= $deadline) {
+                    break;
+                }
+                if (! self::eligible($tracker)) {
+                    continue;
+                }
+                $sub = $this->subscription($tracker);
+                if (in_array($sub->registration_state, ['failed', 'stopped', 'superseded'], true)) {
+                    continue;
+                }
+                if ($sub->next_attempt_at?->isFuture()) {
+                    continue;
+                }
+                try {
+                    $this->register($sub);
+                    $sub->refresh();
+                    if ($sub->registered_at && microtime(true) < $deadline) {
+                        $this->synchronize($sub);
+                    }
+                } catch (SeventeenTrackException $error) {
+                    $this->failed($sub, $error);
+                }
+            }
+        }
+        $this->processInbox($deadline);
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['last_processed_at' => now()]);
+    }
+}

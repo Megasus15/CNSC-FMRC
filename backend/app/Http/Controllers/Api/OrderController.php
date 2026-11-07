@@ -4228,7 +4228,9 @@ class OrderController extends Controller
             'occurred_at' => $time['raw'] ?? $this->formatPhilippineIso($event->occurred_at),
             'occurred_at_label' => $time['label'] ?? $this->formatPhilippineLabel($event->occurred_at),
             'time_precision' => $time['precision'] ?? 'datetime',
-            'source_label' => ($event->metadata['source'] ?? '') === 'ship24' ? 'J&T via Ship24' : 'FMRC',
+            'source_label' => match ($event->metadata['source'] ?? '') {
+                'ship24' => 'J&T historical update', '17track' => 'J&T via 17TRACK', default => 'FMRC',
+            },
             'metadata' => $event->metadata,
         ];
     }

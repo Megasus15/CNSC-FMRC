@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderTrackingEvent;
 use App\Models\ShipmentTracker;
+use App\Models\ShipmentTrackingSubscription;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class ShipmentTracking
 {
@@ -31,24 +33,42 @@ final class ShipmentTracking
         return [...NinjaVanShipping::relations(), ...(self::installed() ? ['latestShipmentTracker'] : [])];
     }
 
+    public static function subscriptionsInstalled(): bool
+    {
+        return self::installed() && Schema::hasTable('shipment_tracking_subscriptions');
+    }
+
+    public static function provider(): string
+    {
+        return '17track';
+    }
+
     public static function settings(): ?object
     {
-        return self::installed() ? DB::table('shipment_tracking_settings')->find(1) : null;
+        return self::subscriptionsInstalled() ? DB::table('shipment_tracking_settings')->where('provider', '17track')->first() : null;
     }
 
     public static function verified(?object $settings = null): bool
     {
         $settings ??= self::settings();
 
-        return Ship24Client::configured() && $settings && $settings->carrier_verified_at && $settings->waybill_verified_at
-            && $settings->last_webhook_at && hash_equals(Ship24Client::fingerprint(), (string) $settings->account_fingerprint);
+        return SeventeenTrackClient::configured() && $settings && $settings->carrier_verified_at && $settings->waybill_verified_at
+            && $settings->last_webhook_at && hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint);
     }
 
     public static function enabled(): bool
     {
-        $settings = self::settings();
+        return config('track17.enabled') && self::settings()?->enabled && self::verified();
+    }
 
-        return config('ship24.enabled') && $settings?->enabled && self::verified($settings);
+    public static function subscription(?ShipmentTracker $tracker): ?ShipmentTrackingSubscription
+    {
+        if (! $tracker || ! self::subscriptionsInstalled()) {
+            return null;
+        }
+
+        return ShipmentTrackingSubscription::where('active_tracker_id', $tracker->id)->first()
+            ?? ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->latest('id')->first();
     }
 
     public static function eligibility(Order $order, bool $correction = false): ?string
@@ -64,13 +84,16 @@ final class ShipmentTracking
         }
         $order->loadMissing('payment');
         if (AppointmentProducts::custom($order)) {
-            try { AppointmentProducts::assertProduction($order,true); }
-            catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) { return $error->getMessage(); }
+            try {
+                AppointmentProducts::assertProduction($order, true);
+            } catch (HttpException $error) {
+                return $error->getMessage();
+            }
         }
-        if ((!AppointmentProducts::custom($order) && $order->payment_method !== 'GCash') || $order->payment?->status !== 'paid') {
+        if ((! AppointmentProducts::custom($order) && $order->payment_method !== 'GCash') || $order->payment?->status !== 'paid') {
             return 'Payment must be confirmed before this order can be handed to J&T.';
         }
-        if (! GatewayPayments::managed($order->payment) && !(AppointmentProducts::custom($order) && $order->payment_method === 'Cash at FMRC' && AppointmentProducts::paid($order))) {
+        if (! GatewayPayments::managed($order->payment) && ! (AppointmentProducts::custom($order) && $order->payment_method === 'Cash at FMRC' && AppointmentProducts::paid($order))) {
             return 'A confirmed online payment is required before recording a new J&T handover.';
         }
         if (GatewayPayments::managed($order->payment)) {
@@ -97,7 +120,7 @@ final class ShipmentTracking
 
     private static function demoAllowed(): bool
     {
-        return ! app()->environment('production') && config('ship24.allow_demo_handover');
+        return ! app()->environment('production') && config('track17.allow_demo_handover');
     }
 
     public static function fail(string $message): never
@@ -148,8 +171,13 @@ final class ShipmentTracking
                     self::fail('This waybill is already linked to another active order. Check the J&T receipt.');
                 }
                 if ($active) {
+                    if (self::subscriptionsInstalled()) {
+                        ShipmentTrackingSubscription::where('tracker_id', $active->id)->update([
+                            'active_tracker_id' => null, 'stop_pending' => true, 'updated_at' => now(),
+                        ]);
+                    }
                     $active->update(['active_order_id' => null, 'active_waybill' => null, 'registration_state' => 'superseded',
-                        'unsubscribe_pending' => $active->registration_payload !== null, 'version' => $active->version + 1]);
+                        'version' => $active->version + 1]);
                 }
                 $demo = GatewayPayments::managed($order->payment) && ! DB::table('payment_receipts')->where('payment_id', $order->payment->id)
                     ->where('provider_payment_id', $order->payment->paymongo_payment_id)->value('livemode');
@@ -193,6 +221,10 @@ final class ShipmentTracking
             }
             $tracker->update(['last_refresh_requested_at' => now(), 'next_attempt_at' => now(), 'attempts' => 0,
                 'registration_state' => $tracker->provider_tracker_id ? 'active' : 'pending']);
+            if (self::subscriptionsInstalled()) {
+                ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->where('provider', '17track')
+                    ->update(['next_attempt_at' => now(), 'attempts' => 0, 'registration_state' => DB::raw("CASE WHEN registration_state = 'stopped' THEN 'stopped' WHEN registered_at IS NULL THEN 'pending' ELSE 'active' END"), 'updated_at' => now()]);
+            }
         });
     }
 
@@ -207,27 +239,49 @@ final class ShipmentTracking
         if (! $settings) {
             return ['installed' => false, 'enabled' => false, 'ready' => false, 'message' => 'Shipment tracking setup is not installed yet.'];
         }
-        $same = hash_equals(Ship24Client::fingerprint(), (string) $settings->account_fingerprint);
+        $same = hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint);
+        $subscriptions = ShipmentTrackingSubscription::where('provider', '17track');
+        $limit = max(0, (int) config('track17.registration_limit'));
+        $used = (clone $subscriptions)->whereNotNull('registration_requested_at')->count();
+        $failed = ShipmentTracker::whereNotNull('active_order_id')->where(function ($q) {
+            $q->where('needs_review', true)->orWhereIn('id', ShipmentTrackingSubscription::select('tracker_id')
+                ->where('provider', '17track')->whereIn('registration_state', ['failed', 'stopped']));
+        })->count();
 
         return ['installed' => true, 'revision' => (int) $settings->revision, 'enabled' => self::enabled(),
-            'ready' => self::verified($settings) && (bool) config('ship24.enabled'), 'configured' => Ship24Client::configured(),
+            'provider' => '17track', 'provider_name' => '17TRACK', 'dashboard_url' => 'https://admin.17track.net/api/dashboard',
+            'ready' => self::verified($settings) && (bool) config('track17.enabled'), 'configured' => SeventeenTrackClient::configured(),
             'carrier_verified' => $same && (bool) $settings->carrier_verified_at,
             'waybill_verified' => $same && (bool) $settings->waybill_verified_at,
             'webhook_verified' => $same && (bool) $settings->last_webhook_at,
             'carrier_code' => $settings->carrier_code, 'last_processed_at' => $settings->last_processed_at,
             'processor_healthy' => $settings->last_processed_at && Carbon::parse($settings->last_processed_at)->gt(now()->subMinutes(3)),
             'last_webhook_at' => $settings->last_webhook_at,
-            'registrations' => ShipmentTracker::where('registered_at', '>=', Carbon::now('Asia/Manila')->startOfMonth()->utc())->count(),
-            'registration_limit' => max(0, (int) config('ship24.monthly_registration_limit')),
-            'pending' => ShipmentTracker::whereNotNull('active_order_id')->whereIn('registration_state', ['pending', 'retry', 'limited'])->count(),
-            'failed' => ShipmentTracker::whereNotNull('active_order_id')->where(fn ($q) => $q->where('registration_state', 'failed')->orWhere('needs_review', true))->count(),
+            'registrations' => (clone $subscriptions)->whereNotNull('registered_at')->count(),
+            'registration_limit' => $limit, 'budget_used' => $used, 'budget_remaining' => max(0, $limit - $used),
+            'budget_basis' => 'lifetime', 'standard_interval' => '6–12 hours',
+            'diagnostic_webhook_verified' => $same && (bool) $settings->last_test_webhook_at,
+            'pending' => self::pending17(), 'failed' => $failed,
             'quota_limited' => $settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture(),
-            'pending_updates' => DB::table('shipment_webhook_inbox')->where('state', 'pending')->count(),
-            'quarantined_updates' => DB::table('shipment_webhook_inbox')->where('state', 'quarantined')->count(),
+            'pending_updates' => DB::table('shipment_webhook_inbox')->where('provider', '17track')->where('state', 'pending')->count(),
+            'quarantined_updates' => DB::table('shipment_webhook_inbox')->where('provider', '17track')->where('state', 'quarantined')->count(),
             'pending_notifications' => DB::table('shipment_notification_outbox')->whereNull('sent_at')->count(),
-            'message' => self::enabled() ? 'Automatic tracking is active. Updates follow J&T scans and Ship24 availability.'
+            'message' => self::enabled() ? 'Automatic tracking is active. Updates follow J&T scans and 17TRACK availability.'
                 : 'Automatic tracking is not active. FMRC can still record waybills and use J&T tracking.',
         ];
+    }
+
+    private static function pending17(): int
+    {
+        return ShipmentTracker::whereNotNull('active_order_id')->where('demo', false)->where('status', '!=', 'delivered')
+            ->get()->filter(function ($tracker) {
+                if (! SeventeenTrackTracking::eligible($tracker)) {
+                    return false;
+                }
+                $sub = ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first();
+
+                return ! $sub || in_array($sub->registration_state, ['pending', 'retry', 'limited'], true);
+            })->count();
     }
 
     public static function present(Order $order, bool $operator = false, bool $history = false): ?array
@@ -247,7 +301,8 @@ final class ShipmentTracking
             }
         }
         $automatic = self::enabled();
-        $state = $tracker?->registration_state ?? 'not_recorded';
+        $subscription = $tracker && self::subscriptionsInstalled() ? ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first() : null;
+        $state = $subscription?->registration_state ?? ($tracker ? 'pending' : 'not_recorded');
         $notice = match (true) {
             (bool) $tracker?->demo => 'Demonstration only. This shipment is not connected to a courier.',
             ! $tracker => 'Record the waybill after handing the parcel to J&T. The accepted customer shipping fee stays unchanged.',
@@ -255,19 +310,20 @@ final class ShipmentTracking
             $state === 'failed' => 'Automatic tracking needs attention. Your saved waybill and last updates remain available.',
             ! $automatic => 'Automatic tracking is not active. Use the saved waybill on J&T tracking.',
             $state === 'retry' => 'Tracking updates are temporarily unavailable. Your last recorded updates are shown.',
+            $state === 'stopped' => 'Automatic tracking has stopped. Your saved waybill and latest confirmed updates remain available.',
             $state === 'pending' => 'The waybill is saved. Automatic tracking registration is pending.',
-            default => 'Updates appear after J&T records a scan and Ship24 makes it available.',
+            default => 'Updates appear after J&T records a scan and 17TRACK makes it available.',
         };
-        $data = ['id' => $tracker?->id, 'provider' => 'Ship24', 'carrier' => 'J&T Express', 'tracking_provider' => 'ship24',
+        $data = ['id' => $tracker?->id, 'provider' => '17TRACK', 'carrier' => 'J&T Express', 'tracking_provider' => '17track',
             'status' => $tracker?->status ?? 'pending', 'status_label' => $tracker ? self::LABELS[$tracker->status] ?? self::LABELS['pending'] : 'Waybill not yet recorded',
             'provider_status' => $tracker?->provider_status, 'tracking_number' => $tracker?->tracking_number,
             'registration_state' => $state, 'tracking_available' => $automatic && $state === 'active', 'availability_message' => $notice,
-            'tracking_url' => 'https://www.jtexpress.ph', 'tracking_url_is_prefilled' => false, 'demo' => (bool) $tracker?->demo,
+            'tracking_url' => 'https://www.jtexpress.ph/track-and-trace?waybillNo=&flag=1', 'tracking_url_is_prefilled' => false, 'demo' => (bool) $tracker?->demo,
             'handed_over_at' => $tracker?->handed_over_at?->toIso8601String(),
             'handed_over_at_label' => $tracker?->handed_over_at?->copy()->tz('Asia/Manila')->format('M j, Y g:i A'),
             'last_updated_at' => $tracker?->last_event_at?->toIso8601String(),
             'last_updated_at_label' => $tracker?->last_event_time['label'] ?? null,
-            'last_checked_at' => $tracker?->last_checked_at?->toIso8601String(), 'location' => $tracker?->location,
+            'last_checked_at' => ($subscription?->last_checked_at ?? $tracker?->last_checked_at)?->toIso8601String(), 'location' => $tracker?->location,
             'history_revision' => (int) ($order->courier_history_version ?? 0)];
         if ($operator) {
             $role = strtolower((string) auth()->user()?->role);
@@ -276,7 +332,7 @@ final class ShipmentTracking
                 'can_correct' => $role === 'admin' && $tracker && self::eligibility($order, true) === null,
                 'can_refresh' => $tracker && ! $tracker->demo && $automatic && (! $tracker->last_refresh_requested_at || $tracker->last_refresh_requested_at->lte(now()->subMinutes(15))),
                 'needs_review' => (bool) $tracker?->needs_review, 'actual_shipping_cost' => $tracker?->actual_shipping_cost,
-                'last_error_code' => $tracker?->last_error_code];
+                'last_error_code' => $subscription?->last_error_code ?? $tracker?->last_error_code];
         }
 
         return $data;

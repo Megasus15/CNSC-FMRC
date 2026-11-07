@@ -46,7 +46,7 @@
     } finally { state.busy = false; render(state.order, state.host); }
   };
   const render = (order, host) => {
-    if (!host || order.courier_shipment?.tracking_provider !== 'ship24') return;
+    if (!host || order.courier_shipment?.tracking_provider!=='17track') return;
     let state = states.get(String(order.id));
     if (!state) { state = {draft:null,editing:false,busy:false,polling:false,message:'',layout:null}; states.set(String(order.id),state); }
     if (!Array.isArray(order.timeline) && Array.isArray(state.order?.timeline)) order = {...order, timeline:state.order.timeline};
@@ -116,7 +116,7 @@
     const refresh = card.querySelector('[data-jnt-refresh]'); if (refresh) refresh.disabled = state.busy || !shipment.can_refresh;
     const correct = card.querySelector('[data-jnt-correct]'); if (correct) {correct.hidden=!shipment.can_correct || state.editing;correct.disabled=state.busy;}
     card.querySelector('[data-jnt-load]').disabled = state.busy;
-    const entries = (order.timeline || []).filter(entry => entry.metadata?.source === 'ship24' || entry.metadata?.tracking_number);
+    const entries = (order.timeline || []).filter(entry => entry.metadata?.source === '17track' || entry.metadata?.tracking_number);
     const history = entries.length ? '<details open><summary>Shipment history</summary><ol class="shipment-events">'+entries.map(entry=>'<li><strong>'+escape(entry.title)+'</strong><time>'+escape(entry.occurred_at_label)+'</time><span>'+escape(entry.source_label || 'FMRC')+(entry.metadata?.tracking_number?' · '+escape(entry.metadata.tracking_number):'')+'</span>'+(entry.location_name?'<span>'+escape(entry.location_name)+'</span>':'')+'</li>').join('')+'</ol></details>' : '';
     const historyHost=card.querySelector('[data-jnt-history]');
     if (historyHost.dataset.value !== history) {const open=historyHost.querySelector('details')?.open;historyHost.innerHTML=history;historyHost.dataset.value=history;if(open===false&&historyHost.firstElementChild)historyHost.firstElementChild.open=false;}

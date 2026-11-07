@@ -111,7 +111,7 @@ test('Tracking modal keeps J&T, legacy delivery and cash pickup saves separate i
     created_at: '2026-11-05T08:00:00+08:00', stage_labels: {to_pay: 'To Pay', to_ship: 'To Ship', to_receive: 'To Receive', completed: 'Completed'}};
   const orders = [
     {...base, id: 71, order_no: 'JNT-71', fulfillment_type: 'delivery', payment_method: 'GCash', shipment_tracking_mode: 'jnt_dropoff',
-      courier_name: 'J&T Express', courier_shipment: {tracking_provider: 'ship24', status: 'pending', status_label: 'Waybill not yet recorded',
+      courier_name: 'J&T Express', courier_shipment: {tracking_provider: '17track', status: 'pending', status_label: 'Waybill not yet recorded',
         can_record: false, record_reason: 'Complete the delivery address before recording the J&T handover.', availability_message: 'Automatic tracking is not active.'}},
     {...base, id: 72, order_no: 'LEGACY-72', fulfillment_type: 'delivery', payment_method: 'COD', courier_name: 'J&T Express', courier_tracking_no: 'LEGACY12345'},
     {...base, id: 73, order_no: 'PICKUP-73', fulfillment_type: 'pickup', is_pickup: true, payment_method: 'COP',

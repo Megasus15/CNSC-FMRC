@@ -2495,7 +2495,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .toLowerCase()
       .replace(/[\s_-]+/g, "");
 
-  const hasManagedJntTracking = order => order?.shipment_tracking_mode === 'jnt_dropoff' || (order?.courier_shipment?.tracking_provider === 'ship24' && Boolean(order.courier_shipment.id));
+  const hasManagedJntTracking = order => order?.shipment_tracking_mode === 'jnt_dropoff' || (order?.courier_shipment?.tracking_provider === '17track' && Boolean(order.courier_shipment.id));
   const areCourierFieldsApplicable = (order = trackingModalOrder) => {
     if (hasManagedJntTracking(order)) return false;
     const method = normalizePaymentMethodKey(
