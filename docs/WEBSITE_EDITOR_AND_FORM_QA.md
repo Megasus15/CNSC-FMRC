@@ -97,6 +97,12 @@ The top table shows published rates in pages of five, with the shared portal pag
 
 `ShippingQuotesTest` checks persistence, no-store response headers, removed destinations, pickup, and existing order snapshots. `shipping-refresh.browser.cjs` reproduces a cacheable settings response and checks both portals, rate editing/removal/publication, unsaved-change protection, and slow/failed refreshes. `shipping.browser.cjs` covers the connected checkout and tracking flows with an isolated provider fixture. These checks do not change or verify hosted production data.
 
+## Customer My Orders cache recovery
+
+Opening My Orders now requests a complete fresh list while showing any saved rows during loading. Background polls still use ETags. This repairs an empty or incomplete session cache that could otherwise keep receiving HTTP 304 and display zero orders indefinitely. An invalid JSON/HTML or unexpected successful response is treated as a failed load; it cannot overwrite the saved order list or display a false live empty state. Only an explicit successful `data: []` response represents no orders.
+
+Deploy the canonical Customer HTML pages together with `home-page/main.js` (asset version `2026.1107.11`). This fix requires no database migration or order/payment changes. `customer-orders-cache.browser.cjs` reproduces the stale empty-cache condition and verifies recovery, notification deep links, invalid-response preservation, and valid empty lists on both website and Customer PWA routes. `customer-orders-response.test.cjs` verifies the response contract.
+
 ## Regression commands
 
 ```powershell
@@ -104,6 +110,8 @@ php artisan test --compact --filter="WebsitePageSaveTest|WebsiteContentValidatio
 php artisan test --compact --filter=ShippingQuotesTest
 node --test backend/tests/Frontend/shipping-refresh.browser.cjs
 node --test backend/tests/Frontend/order-fulfillment-ui.browser.cjs
+node --test backend/tests/Frontend/customer-orders-response.test.cjs
+node --test backend/tests/Frontend/customer-orders-cache.browser.cjs
 node --test backend/tests/Frontend/website-drafts.test.cjs backend/tests/Frontend/website-about-save.test.cjs backend/tests/Frontend/website-editor-refresh.test.cjs backend/tests/Frontend/website-portals.test.cjs backend/tests/Frontend/website-payments.test.cjs backend/tests/Frontend/website-loading.test.cjs backend/tests/Frontend/admin-only-website-settings.test.cjs backend/tests/Frontend/page-content.test.cjs
 node --test --test-concurrency=1 backend/tests/Frontend/admin-form-controls.browser.cjs backend/tests/Frontend/website-page-drafts.browser.cjs backend/tests/Frontend/hero-scene-editor.browser.cjs backend/tests/Frontend/website-about-save.browser.cjs backend/tests/Frontend/shipping.browser.cjs
 ```

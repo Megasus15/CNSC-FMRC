@@ -8535,6 +8535,9 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     if (response.status === 304) {
+      if (!etag) {
+        throw new Error('Unable to load your orders. Please reopen My Orders to try again.');
+      }
       return {
         notModified: true,
         orders: null,
@@ -8554,9 +8557,16 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
+    // A redirected HTML page, invalid JSON or an unexpected deployment response
+    // is a failed load, never evidence that the customer has no orders. Keep the
+    // last good rows and ETag instead of caching a false empty list.
+    if (!data || !Array.isArray(data.data)) {
+      throw new Error('Unable to load your orders. Your saved orders have been kept. Please try again.');
+    }
+
     return {
       notModified: false,
-      orders: Array.isArray(data.data) ? data.data : [],
+      orders: data.data,
       // Returns/refunds ship with the order list so the Returns tab, the
       // per-order badges and the ETag all come from this one request.
       returns: Array.isArray(data.returns) ? data.returns : [],
@@ -12634,7 +12644,11 @@ document.addEventListener("DOMContentLoaded", () => {
             ) {
               state.cancelReasonOptions = cachedEntry.cancelReasonOptions;
             }
-            state.etag = String(cachedEntry.etag || "");
+            // Opening the drawer explicitly requests a complete fresh list.
+            // A locally incomplete cache can otherwise receive 304 forever,
+            // leaving real orders invisible even though the API still has them.
+            // Subsequent background polls can use the new response's ETag.
+            state.etag = "";
             renderOrders();
             setSyncStatus("syncing", "Checking for new updates...");
           } else {
