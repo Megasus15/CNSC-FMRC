@@ -12,7 +12,22 @@
   const icon = '<span class="ap-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>';
   const contexts = new Map();
   let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), uploaded = new Set(), draftBusy = false, signingIn = false;
-  const field = (name,label,value='',type='text',required=false,wide=false) => `<label class="ap-field${wide?' is-wide':''}"><span>${esc(label)}${required?' *':''}</span>${type==='textarea'?`<textarea name="${esc(name)}" maxlength="2000" ${required?'required':''}>${esc(value)}</textarea>`:`<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${type==='number'?'min="1" step="1"':''} ${required?'required':''} maxlength="${name.includes('name')?'160':'400'}">`}</label>`;
+  const numberLimits = {quantity:[1,100000,1],unit_price:[0.01,100000,0.01],shipping_fee:[0,100000,0.01],budget:[0,10000000,0.01]};
+  const field = (name,label,value='',type='text',required=false,wide=false) => {
+    const limits=numberLimits[name.replace(/^spec_/,'')];
+    const attributes=type==='number'?`min="${limits?.[0]??0}" max="${limits?.[1]??100000}" step="${limits?.[2]??1}" inputmode="${limits?.[2]===0.01?'decimal':'numeric'}" data-ap-number="${limits?.[2]===0.01?'decimal':'integer'}"`:name==='delivery_postal_code'?'inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" data-ap-number="integer"':name==='delivery_contact_no'?'inputmode="tel" autocomplete="tel" maxlength="16" pattern="[+]?[0-9]{7,15}" placeholder="e.g. 09171234567"':name==='lead_time'?'maxlength="300" placeholder="e.g. 5 working days after full payment"':`maxlength="${name.includes('name')?'160':name.startsWith('delivery_')?'200':'400'}"`;
+    return `<label class="ap-field${wide?' is-wide':''}"><span>${esc(label)}${required?' *':''}</span>${type==='textarea'?`<textarea name="${esc(name)}" maxlength="2000" ${required?'required':''}>${esc(value)}</textarea>`:`<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${attributes} ${required?'required':''}>`}</label>`;
+  };
+  function bindNumberFields(root) {
+    root.querySelectorAll('[data-ap-number]').forEach(input=>{
+      const decimal=input.dataset.apNumber==='decimal',valid=value=>(decimal?/^\d*(?:\.\d{0,2})?$/:/^\d*$/).test(value);
+      input.addEventListener('keydown',event=>{if(!event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key.length===1&&!/\d/.test(event.key)&&!(decimal&&event.key==='.'))event.preventDefault();});
+      input.addEventListener('beforeinput',event=>{if(event.data&&!event.inputType?.startsWith('delete')&&!(decimal?/^[\d.]+$/:/^\d+$/).test(event.data))event.preventDefault();});
+      input.addEventListener('paste',event=>{if(!valid(event.clipboardData.getData('text').trim())){event.preventDefault();input.setCustomValidity(decimal?'Enter a number with up to two decimal places.':'Enter whole numbers only.');input.reportValidity();}});
+      input.addEventListener('input',()=>input.setCustomValidity(valid(input.value)?'':decimal?'Enter a number with up to two decimal places.':'Enter whole numbers only.'));
+      input.addEventListener('blur',()=>{if(valid(input.value))input.setCustomValidity('');});
+    });
+  }
   const button = (text, attrs='', secondary=false) => `<button type="button" class="ap-btn${secondary?' is-secondary':''}" ${attrs}>${text}</button>`;
   const popup = async (message,title='Custom product') => {
     if(team) { window.showAdminPopup?.(message,{title,type:['Saved','Draft saved'].includes(title)?'success':'modal'}); return; }
@@ -28,6 +43,117 @@
     if(!res.ok) { const error = new Error(Object.values(json.errors||{}).flat()[0] || json.message || 'This action could not be confirmed. Your entries are still here. Please try again.'); error.status=res.status; throw error; }
     return json;
   };
+  // Reuse the Customer address API. Only place names enter the agreed quotation;
+  // PSGC codes stay in the picker and drive the province/city/barangay cascade.
+  const placeRequests = new Map();
+  const placeKey = value => String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('en-PH');
+  const placeList = path => {
+    if(!placeRequests.has(path))placeRequests.set(path,request('/psgc/'+path).then(items=>{
+      if(!Array.isArray(items)||items.some(item=>!/^\d{10}$/.test(item?.code)||typeof item.name!=='string'||!item.name.trim()))throw Error('Place list unavailable.');
+      return [...new Map(items.map(item=>[item.code,{code:item.code,name:item.name.trim()}])).values()].sort((a,b)=>a.name.localeCompare(b.name,'en-PH'));
+    }).catch(error=>{placeRequests.delete(path);throw error;}));
+    return placeRequests.get(path);
+  };
+  const placeField = (key,label,value,id) => `<div class="ap-field"><label for="${id}">${label} *</label><div class="combobox-wrap ap-place" data-ap-place="${key}"><input type="hidden" name="delivery_${key}" value="${esc(value)}"><svg class="ap-place-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="${id}" class="combobox-input" data-ap-place-search="${key}" type="text" value="${esc(value)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-list" aria-describedby="${id}-status" autocomplete="off" spellcheck="false" placeholder="Search ${key==='city'?'cities or municipalities':key==='province'?'provinces':'barangays'}…"><button type="button" class="combobox-caret" data-ap-place-toggle aria-label="Show ${key==='city'?'cities and municipalities':key==='province'?'provinces':'barangays'}" tabindex="-1"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 7 6 6 6-6"/></svg></button><ul id="${id}-list" class="ap-place-list" role="listbox" aria-label="${label}" hidden></ul></div><div class="ap-place-feedback"><small id="${id}-status" data-ap-place-status="${key}" role="status" aria-live="polite"></small><button type="button" class="ap-place-retry" data-ap-place-retry="${key}" hidden>Try again</button></div></div>`;
+  function quotationPlaces(form,isSaving) {
+    let alive=true,started=false;
+    const events=new AbortController(),signal=events.signal;
+    const states=['province','city','barangay'].map(key=>{
+      const wrap=form.querySelector(`[data-ap-place="${key}"]`);
+      return {key,wrap,input:wrap.querySelector('[data-ap-place-search]'),value:wrap.querySelector('[type=hidden]'),list:wrap.querySelector('[role=listbox]'),toggle:wrap.querySelector('button'),status:form.querySelector(`[data-ap-place-status="${key}"]`),retry:form.querySelector(`[data-ap-place-retry="${key}"]`),items:[],sequence:0,active:-1,loading:false};
+    });
+    const delivery=()=>form.elements.fulfillment_type.value==='delivery';
+    const submit=form.querySelector('[type=submit]');
+    const busy=()=>delivery()&&states.some(state=>state.loading);
+    const message=(state,text)=>{state.note=text;state.status.textContent=text;state.status.removeAttribute('data-ap-count');};
+    const check=state=>state.input.setCustomValidity(state.input.value===state.value.value&&state.value.value?'':'Choose a '+(state.key==='city'?'city or municipality':state.key)+' from the list.');
+    const close=state=>{state.wrap.classList.remove('open');state.list.hidden=true;state.input.value=state.value.value;state.input.setAttribute('aria-expanded','false');state.input.removeAttribute('aria-activedescendant');state.active=-1;message(state,state.note||'');check(state);};
+    const position=state=>{
+      const viewport=form.closest('.modal-body-scroll')?.getBoundingClientRect()||{top:0,bottom:innerHeight},r=state.input.getBoundingClientRect();
+      const below=Math.min(viewport.bottom,innerHeight)-r.bottom-10,above=r.top-Math.max(viewport.top,0)-10,up=below<160&&above>below;
+      state.wrap.classList.toggle('is-above',up);state.list.style.maxHeight=Math.max(80,Math.min(232,up?above:below))+'px';
+    };
+    const activate=(state,index)=>{
+      const options=[...state.list.querySelectorAll('[role=option]')];state.active=options.length?(index+options.length)%options.length:-1;
+      options.forEach((option,i)=>option.classList.toggle('is-active',i===state.active));
+      if(state.active<0)state.input.removeAttribute('aria-activedescendant');else{state.input.setAttribute('aria-activedescendant',options[state.active].id);options[state.active].scrollIntoView({block:'nearest'});}
+    };
+    const open=(state,query='')=>{
+      if(state.input.disabled)return;states.forEach(other=>{if(other!==state)close(other);});
+      const matches=state.items.filter(item=>placeKey(item.name).includes(placeKey(query)));
+      state.list.innerHTML=matches.map(item=>`<li role="option" id="${state.input.id}-${item.code}" data-code="${item.code}" aria-selected="${placeKey(item.name)===placeKey(state.value.value)}">${esc(item.name)}</li>`).join('')||'<li class="ap-place-empty" role="presentation">No matches. Try another name.</li>';
+      state.status.textContent=matches.length+' '+(matches.length===1?'match':'matches')+' found.';state.status.setAttribute('data-ap-count','');state.list.hidden=false;state.wrap.classList.add('open');state.input.setAttribute('aria-expanded','true');state.input.removeAttribute('aria-activedescendant');state.active=-1;position(state);
+    };
+    const waiting=(state,text)=>{state.sequence++;state.loading=false;state.items=[];state.selected=null;state.path=null;state.wrap.removeAttribute('aria-busy');state.value.value='';close(state);state.input.disabled=true;state.toggle.disabled=true;message(state,text);state.retry.hidden=true;};
+    const load=async(state,path)=>{
+      const sequence=++state.sequence;state.path=path;state.loading=true;close(state);state.wrap.setAttribute('aria-busy','true');state.input.disabled=true;state.toggle.disabled=true;message(state,'Loading '+(state.key==='city'?'cities and municipalities':state.key==='province'?'provinces':'barangays')+'…');state.retry.hidden=true;submit.disabled=busy()||isSaving();
+      try{
+        let items=await placeList(path);if(!alive||!form.isConnected||sequence!==state.sequence)return false;
+        if(state.key==='province'&&!items.some(item=>item.code==='1300000000'))items=[...items,{code:'1300000000',name:'Metro Manila (NCR)'}].sort((a,b)=>a.name.localeCompare(b.name,'en-PH'));
+        const saved=state.value.value,match=items.find(item=>placeKey(item.name)===placeKey(saved)||(item.code==='1300000000'&&/^(metro manila|ncr|national capital region)( \(ncr\))?$/i.test(saved)));
+        state.items=items;state.selected=match;state.input.disabled=!items.length&&!saved;state.toggle.disabled=state.input.disabled;
+        if(saved&&!match)state.items=[{code:'saved',name:saved},...items];
+        message(state,saved&&!match?'Saved '+(state.key==='city'?'city/municipality':state.key)+' retained. Select a listed place to change it.':items.length?'': 'No places available for this selection.');
+        check(state);return true;
+      }catch{
+        if(!alive||!form.isConnected||sequence!==state.sequence)return false;
+        state.input.disabled=!state.value.value;state.toggle.disabled=true;message(state,'Could not load '+(state.key==='city'?'cities and municipalities':state.key==='province'?'provinces':'barangays')+'. Your entries are kept.');state.retry.hidden=false;return false;
+      }finally{if(alive&&sequence===state.sequence){state.loading=false;state.wrap.removeAttribute('aria-busy');submit.disabled=busy()||isSaving();}}
+    };
+    const cityPath=code=>(code==='1300000000'?'regions/':'provinces/')+code+'/cities-municipalities';
+    const hydrate=async()=>{
+      if(!await load(states[0],'provinces'))return;
+      if(states[0].selected&&await load(states[1],cityPath(states[0].selected.code))&&states[1].selected)await load(states[2],'cities-municipalities/'+states[1].selected.code+'/barangays');
+    };
+    const choose=(state,code)=>{
+      const item=state.items.find(item=>item.code===code);if(!item)return;
+      const changed=state.value.value!==item.name;state.value.value=item.name;state.input.value=item.name;state.selected=item;close(state);state.input.focus({preventScroll:true});
+      if(!changed)return;
+      if(state.key==='province'){waiting(states[1],'Choose a province first.');waiting(states[2],'Choose a city or municipality first.');if(code!=='saved')void load(states[1],cityPath(code));}
+      if(state.key==='city'){waiting(states[2],'Choose a city or municipality first.');if(code!=='saved')void load(states[2],'cities-municipalities/'+code+'/barangays');}
+      state.value.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+    states.forEach(state=>{
+      state.input.addEventListener('focus',()=>open(state),{signal});
+      state.input.addEventListener('input',()=>{check(state);open(state,state.input.value);},{signal});
+      state.input.addEventListener('keydown',event=>{
+        if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();if(state.list.hidden)open(state);activate(state,state.active<0?(event.key==='ArrowDown'?0:-1):state.active+(event.key==='ArrowDown'?1:-1));}
+        else if(['Home','End'].includes(event.key)&&!state.list.hidden){event.preventDefault();activate(state,event.key==='Home'?0:-1);}
+        else if(event.key==='Enter'&&!state.list.hidden){event.preventDefault();const item=state.list.querySelectorAll('[role=option]')[state.active<0?0:state.active];if(item)choose(state,item.dataset.code);}
+        else if(event.key==='Escape'&&!state.list.hidden){event.preventDefault();event.stopPropagation();close(state);}
+        else if(event.key==='Tab')close(state);
+      },{signal});
+      state.wrap.addEventListener('focusout',event=>{if(!state.wrap.contains(event.relatedTarget))close(state);},{signal});
+      state.toggle.addEventListener('mousedown',event=>event.preventDefault(),{signal});
+      state.toggle.addEventListener('click',()=>{if(state.list.hidden){state.input.focus({preventScroll:true});open(state);}else close(state);},{signal});
+      state.list.addEventListener('mousedown',event=>event.preventDefault(),{signal});
+      state.list.addEventListener('click',event=>{const option=event.target.closest('[role=option]');if(option)choose(state,option.dataset.code);},{signal});
+      state.retry.addEventListener('click',async()=>{const loaded=state.key==='province'?await hydrate():await load(state,state.path);if(loaded&&state.key==='city'&&state.selected)await load(states[2],'cities-municipalities/'+state.selected.code+'/barangays');if(!state.input.disabled)state.input.focus();},{signal});
+      state.input.disabled=!state.value.value;state.toggle.disabled=true;check(state);
+    });
+    message(states[1],states[1].value.value?'Saved city/municipality retained. Choose a listed province to change it.':'Choose a province first.');
+    message(states[2],states[2].value.value?'Saved barangay retained. Choose a listed city or municipality to change it.':'Choose a city or municipality first.');
+    document.addEventListener('pointerdown',event=>states.forEach(state=>{if(!state.wrap.contains(event.target))close(state);}),{signal});
+    form.closest('.modal-body-scroll')?.addEventListener('scroll',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
+    window.addEventListener('resize',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
+    const fee=form.elements.shipping_fee;let deliveryFee=fee.value||'0';
+    const sync=()=>{
+      const shown=delivery();form.querySelector('[data-ap-delivery]').hidden=!shown;
+      form.querySelectorAll('[data-ap-delivery] input:not([type=hidden])').forEach(input=>{input.required=shown;});
+      if(shown&&fee.readOnly)fee.value=deliveryFee;
+      if(!shown){if(!fee.readOnly)deliveryFee=fee.value;fee.value='0';fee.setCustomValidity('');}fee.readOnly=!shown;
+      if(shown&&!started){started=true;void hydrate();}else if(!shown)states.forEach(close);
+      submit.disabled=busy()||isSaving();
+    };
+    const validate=()=>{
+      if(!delivery())return true;
+      if(busy()){void popup('Please wait for the delivery places to finish loading. Your quotation is still here.','Check delivery address');return false;}
+      const invalid=states.find(state=>!state.value.value||state.input.value!==state.value.value);
+      if(invalid){check(invalid);if(!invalid.input.disabled){invalid.input.focus();invalid.input.reportValidity();}else{void popup('Select the province, city or municipality, and barangay before sending this delivery quotation. If a list could not load, choose Try again.','Check delivery address');}return false;}
+      return true;
+    };
+    sync();return {sync,busy,validate,dispose:()=>{alive=false;events.abort();}};
+  }
   const loadAvailability = async () => {
     if(availability&&Date.now()-availabilityLoadedAt<30000)return availability;
     if(!availabilityPending)availabilityPending=request('/appointment-products/availability').then(result=>{availability=result.data;availabilityLoadedAt=Date.now();return availability;}).finally(()=>availabilityPending=null);
@@ -49,7 +175,7 @@
     ${field(prefix+'dimensions','Dimensions or size',data.dimensions,'text',final)}${field(prefix+'material','Material',data.material,'text',final)}
     ${field(prefix+'colors','Colors',data.colors,'text',final)}${field(prefix+'finish','Finish',data.finish,'text',final)}
     ${field(prefix+'personalization','Text or personalization',data.personalization,'textarea',false,true)}
-    ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'text')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date')}
+    ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'number')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date')}
       <label class="ap-check"><input type="checkbox" name="${prefix}needs_advice" ${data.needs_advice?'checked':''}><span>${operator?'The customer needs advice on some specifications.':'I need advice from the FMRC team on some specifications.'}</span></label>`:''}
     ${field(prefix+'instructions','Additional instructions',data.instructions,'textarea',false,true)}
   </div>`;
@@ -135,6 +261,7 @@
     const focusName=focused?.getAttribute('name'),focusTab=focused?.getAttribute('data-ap-tab'),focusForm=focused?.closest('[data-ap-form]')?.dataset.apForm;
     const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd]:null;
     const scrollHost=root.closest('.modal-body-scroll,.appointment-content'),scrollTop=scrollHost?.scrollTop;
+    ctx.places?.dispose();
 
     const current=job.quotations.find(q=>['sent','accepted','closing'].includes(q.state));
     const order=job.orders[0], activeOrder=order&&!['cancelled','rejected'].includes(order.lifecycle_status);
@@ -157,13 +284,16 @@
           <dl class="ap-summary"><div><dt>Unit price × quantity</dt><dd>${money(q.agreement.unit_price)} × ${q.agreement.specifications.quantity}</dd></div><div><dt>Product subtotal</dt><dd>${money(q.agreement.product_subtotal)}</dd></div><div><dt>Shipping</dt><dd>${money(q.agreement.shipping_fee)}</dd></div><div><dt>Total</dt><dd><strong>${money(q.agreement.total)}</strong></dd></div><div><dt>Production lead time</dt><dd>${esc(q.agreement.lead_time)}</dd></div><div><dt>Fulfillment</dt><dd>${q.agreement.fulfillment_type==='pickup'?'Pickup at FMRC':'J&T delivery'}${q.agreement.fulfillment_type==='delivery'?'<br>'+Object.values(q.agreement.delivery).map(esc).join(', '):''}</dd></div></dl>
           ${!admin&&q.state==='sent'&&Date.parse(q.expires_at)>Date.now()?`<form data-ap-form="accept" data-quote="${q.id}"><div data-ap-policy><p>Loading current transaction terms…</p></div><label class="ap-check"><input type="checkbox" name="specifications_accepted" required><span>I approve this design, quantity, specifications, price, lead time, and pickup/delivery arrangement.</span></label><div class="ap-grid"><label class="ap-field"><span>Payment method *</span><select name="payment_method"><option value="online">Pay online</option><option value="cash">Full advance cash payment at FMRC</option></select></label></div><div class="ap-actions"><button type="submit" class="ap-btn" disabled>Approve Quotation</button></div></form>`:''}
         </article>`).join(''):`<p class="ap-help">${esc(quotationHint(ctx))}</p>`}
-        ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Complete the final specifications. Use “Not applicable” where appropriate. Prices include design and fabrication costs.</p><form data-ap-form="quotation">${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<div class="ap-grid">${field('design_notes','Final design / proof description',current?.agreement.design_notes,'textarea',true,true)}${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'text',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'text',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true,true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup">Pickup at FMRC</option><option value="delivery">J&T delivery</option></select></label></div>
-          <fieldset data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${Object.entries({delivery_recipient_name:'Recipient name',delivery_contact_no:'Contact number',delivery_street:'Street / building',delivery_barangay:'Barangay',delivery_city:'City / municipality',delivery_province:'Province',delivery_postal_code:'Postal code'}).map(([n,l])=>field(n,l,current?.agreement.delivery?.[n])).join('')}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
-          ${job.files.length?`<fieldset><legend>Design proofs included in the quotation</legend>${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
+        ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Complete the final specifications. Use “Not applicable” where appropriate. Prices include design and fabrication costs.</p><form data-ap-form="quotation">${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<div class="ap-grid">${field('design_notes','Final design / proof description',current?.agreement.design_notes,'textarea',true,true)}${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'number',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'number',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup" ${current?.agreement.fulfillment_type!=='delivery'?'selected':''}>Pickup at FMRC</option><option value="delivery" ${current?.agreement.fulfillment_type==='delivery'?'selected':''}>J&T delivery</option></select></label></div>
+          <fieldset class="ap-form-section" data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${field('delivery_recipient_name','Recipient name',current?.agreement.delivery?.delivery_recipient_name,'text',true)}${field('delivery_contact_no','Contact number',current?.agreement.delivery?.delivery_contact_no,'tel',true)}${field('delivery_street','Street / building',current?.agreement.delivery?.delivery_street,'text',true,true)}${placeField('province','Province / Metro Manila',current?.agreement.delivery?.delivery_province,'ap-'+ctx.key+'-province')}${placeField('city','City / municipality',current?.agreement.delivery?.delivery_city,'ap-'+ctx.key+'-city')}${placeField('barangay','Barangay',current?.agreement.delivery?.delivery_barangay,'ap-'+ctx.key+'-barangay')}${field('delivery_postal_code','Postal code',current?.agreement.delivery?.delivery_postal_code,'text',true)}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
+          ${job.files.length?`<fieldset class="ap-form-section"><legend>Design proofs included in the quotation</legend><div class="ap-proof-options">${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</div></fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
       </section>
       <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">${admin?'Private conversation with the customer. Agree any changes before sending a revised quotation. Manage paid-order changes through the cancellation and refund process in Orders.':'Private conversation with the FMRC team. Ask questions and share design files here. Discuss changes before payment; for a paid order, request help in My Orders.'}</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC team')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
     for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true'); }
+    bindNumberFields(root);
+    const quotationForm=root.querySelector('[data-ap-form="quotation"]');
+    ctx.places=quotationForm?quotationPlaces(quotationForm,()=>!!ctx.busy):null;
     const serviceSelect=root.querySelector('[data-ap-form="requirements"] [name="service_id"]');
     if(serviceSelect){void refreshServices(ctx,serviceSelect);serviceSelect.onfocus=()=>void refreshServices(ctx,serviceSelect);}
     root.onclick=async event=>{
@@ -176,7 +306,7 @@
     root.onkeydown=event=>{const tab=event.target.closest('[data-ap-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?2:(Number(tab.dataset.apTab)+(event.key==='ArrowRight'?1:2))%3;const button=root.querySelector('[data-ap-tab="'+next+'"]');button.click();button.focus();};
     root.onsubmit=event=>{const form=event.target.closest('[data-ap-form]');if(form){event.preventDefault();void submit(ctx,form);}};
     root.onchange=event=>{
-      if(event.target.name==='fulfillment_type'){const wrap=event.target.form.querySelector('[data-ap-delivery]');wrap.hidden=event.target.value!=='delivery';wrap.querySelectorAll('input').forEach(i=>i.required=!wrap.hidden);}
+      if(event.target.name==='fulfillment_type')ctx.places?.sync();
       if(event.target.name==='appointment_date')void followUpTimes(event.target.form);
     };
     for(const form of root.querySelectorAll('[data-ap-form="accept"]')) {
@@ -196,7 +326,9 @@
     }catch(e){await popup('Available follow-up times could not be loaded. Please choose the date again.');}
   }
   async function submit(ctx,form) {
-    if(ctx.busy||!form.reportValidity())return;
+    if(ctx.busy)return;
+    if(form.dataset.apForm==='quotation'&&ctx.places&&!ctx.places.validate())return;
+    if(!form.reportValidity())return;
     const action=form.dataset.apForm;
     ctx.busy=true;
     if(action==='requirements'&&Number(form.elements.service_id.value)!==Number(ctx.job.service_id)&&!await confirm('Change the fabrication service? FMRC must review the new requirements before quoting. Any unpaid quotation will be withdrawn; the appointment schedule and history stay the same.','Change service')){ctx.busy=false;return;}
@@ -218,11 +350,11 @@
       await popup(result.message||'Changes saved.','Saved');
       if(result.order_id)location.href=link('/home-page/?orders=1&order_id='+result.order_id);
     }catch(e){await popup(e.message,'Action not completed');form.querySelector('input,textarea,select')?.focus();}
-    finally{ctx.busy=false;if(submit.isConnected)submit.disabled=false;}
+    finally{ctx.busy=false;if(submit.isConnected)submit.disabled=false;ctx.places?.sync();}
   }
   function poll(ctx) {
     clearTimeout(ctx.timer);ctx.timer=setTimeout(async()=>{
-      if(!ctx.root.isConnected){contexts.delete(ctx.root);return;}
+      if(!ctx.root.isConnected){ctx.places?.dispose();contexts.delete(ctx.root);return;}
       if(document.hidden||!ctx.root.getClientRects().length||ctx.busy){poll(ctx);return;}
       const before=ctx.job;
       try{const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}`);ctx.failures=0;
@@ -240,14 +372,14 @@
       if(older(job,old.job)||older(job,old.latest))return;
       if(JSON.stringify(old.job)===JSON.stringify(job))return;
       if(old.busy||dirty(root)){old.latest=job;root.querySelector('[data-ap-update]').hidden=false;return;}
-      old.job=job;void paint(old);return;
+      old.job=job;return paint(old);
     }
-    if(old)clearTimeout(old.timer);
-    const ctx={root,job,appointment,admin,key:old?.key||uid(),tab:old?.tab||((job.quotations||[]).some(q=>q.state==='sent')&&!admin?1:0)};contexts.set(root,ctx);void paint(ctx);poll(ctx);
+    if(old){clearTimeout(old.timer);old.places?.dispose();}
+    const ctx={root,job,appointment,admin,key:old?.key||uid(),tab:old?.tab||((job.quotations||[]).some(q=>q.state==='sent')&&!admin?1:0)};contexts.set(root,ctx);const ready=paint(ctx);poll(ctx);return ready;
   }
   async function mountCustomer(host,appointment) {
     let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const overview=host.querySelector('.appointment-overview');if(overview)overview.after(root);else host.append(root);}
-    if(appointment.custom_product){root.closest('.appointment-modal')?.classList.add('has-custom-product');mount(root,appointment.custom_product,appointment,false);return;}
+    if(appointment.custom_product){root.closest('.appointment-modal')?.classList.add('has-custom-product');return mount(root,appointment.custom_product,appointment,false);}
     root.closest('.appointment-modal')?.classList.remove('has-custom-product');if(!appointment.custom_products_available){root.remove();return;}
     root.className='ap-panel';root.innerHTML=`<div class="ap-head"><div><h3>${icon}Have a custom-product idea?</h3><p>Add a request to discuss with the FMRC team. Your appointment schedule stays the same.</p></div></div>${button('Request a Custom Product','data-ap-opt-in',true)}`;
     root.querySelector('[data-ap-opt-in]').onclick=async()=>{try{const available=await loadAvailability();if(!available.services.length)return popup('The FMRC team is not accepting new custom-product consultations at the moment. Your appointment is unchanged.');root.innerHTML=`<h3>Custom Product</h3><form>${briefFields({},available.services)}<div class="ap-actions"><button type="submit" class="ap-btn">Add to Appointment</button></div></form>`;

@@ -140,6 +140,29 @@ class PsgcController extends Controller
         return response()->json($provinces);
     }
 
+    /** Region-level lookup also covers Metro Manila, which has no province. */
+    public function regionCitiesMunicipalities(string $regionCode): JsonResponse
+    {
+        if (! preg_match('/^\d{10}$/', $regionCode)) {
+            return $this->errorResponse('Invalid region code.', 422);
+        }
+
+        $endpoint = "regions/{$regionCode}/cities-municipalities";
+        $data = $this->psgcFetch($endpoint);
+        if (! is_array($data) || ! array_is_list($data)
+            || collect($data)->contains(fn ($place) => ! is_array($place)
+                || ! preg_match('/^\d{10}$/', (string) ($place['code'] ?? ''))
+                || ! is_string($place['name'] ?? null) || trim($place['name']) === '')) {
+            Cache::forget('psgc_'.md5($endpoint));
+
+            return response()->json(['message' => 'The city and municipality list is temporarily unavailable. Please try again.'], 502);
+        }
+
+        return response()->json(collect($data)->map(fn ($place) => [
+            'code' => (string) $place['code'], 'name' => trim($place['name']),
+        ])->unique('code')->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all());
+    }
+
     /**
      * GET /api/psgc/provinces/{provinceCode}/cities-municipalities
      * Returns cities and municipalities that belong to the given province.

@@ -3,7 +3,9 @@
 /* Keep the shared dialog controls on the Customer site's Montserrat family. */
 #customerAppointmentsModal.ux-dlg .ux-dlg__card :is(.ux-dlg__title, .ux-dlg__eyebrow, .ux-dlg__btn, .ux-dlg__close) { font-family: "Montserrat", sans-serif; }
 #customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-modal-footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-modal-footer .ux-dlg__btn { flex: 0 0 auto; width: auto; min-width: 96px; }
+#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-button { flex: 0 0 auto; width: auto; min-width: 0; min-height: 42px; padding: 10px 16px; font-size: 13px; font-weight: 600; line-height: 1.5; letter-spacing: 0; white-space: nowrap; box-shadow: none; transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out; }
+#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-button:is(:hover,:active,:focus-visible) { box-shadow: none; }
+#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-modal-footer .ux-dlg__btn { flex: 0 0 auto; width: auto; min-width: 86px; }
 #customerAppointmentsModal.show { display: flex; }
 #customerAppointmentsModal .appointment-modal.ux-dlg__card { width: min(860px, 100%); max-width: 860px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); min-height: 0; margin: 0; padding: 0; gap: 0; overflow: hidden; transform: none; border: 1px solid var(--ux-dlg-edge); border-radius: var(--ux-dlg-radius, 8px); box-shadow: var(--ux-dlg-shadow); }
 #customerAppointmentsModal .appointment-modal-head, #customerAppointmentsModal .appointment-modal-footer { flex: 0 0 auto; }
@@ -24,12 +26,11 @@
 #customerAppointmentsModal .appointment-schedule > div:last-child { grid-column: 1 / -1; }
 #customerAppointmentsModal .appointment-schedule dt { margin-bottom: 5px; color: #806612; font-family: "Montserrat", sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
 #customerAppointmentsModal .appointment-schedule dd { margin: 0; font-size: 13px; line-height: 1.65; font-weight: 500; overflow-wrap: anywhere; }
-#customerAppointmentsModal .appointment-card-actions { display: flex; margin-top: auto; padding-top: 22px; }
+#customerAppointmentsModal .appointment-card-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 18px; }
 #customerAppointmentsModal .appointment-detail-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 #customerAppointmentsModal .appointment-detail-toolbar [data-appointment-back] { margin-right: auto; }
 #customerAppointmentsModal .appointment-delete { gap: 7px; color: var(--customer-wine, #6b202b); }
 #customerAppointmentsModal .appointment-delete svg { width: 17px; height: 17px; flex: 0 0 17px; }
-#customerAppointmentsModal .appointment-detail-toolbar .ux-dlg__btn { width: auto; min-height: 44px; padding: 12px 16px; font-size: 13px; }
 #customerAppointmentsModal .appointment-detail { display: grid; gap: 18px; }
 #customerAppointmentsModal .appointment-section h3 { margin: 0 0 12px; font-family: "Montserrat", sans-serif; font-size: 16px; line-height: 1.5; font-weight: 700; color: var(--customer-wine, #6b202b); }
 #customerAppointmentsModal .appointment-section p { margin: 0; font-size: 13px; line-height: 1.7; }
@@ -80,9 +81,11 @@
   #customerAppointmentsModal .appointment-card .appointment-service { font-size: 14px; margin: 12px 0 16px; }
   #customerAppointmentsModal .appointment-card .appointment-schedule { grid-template-columns: 1fr; gap: 14px; }
   #customerAppointmentsModal .appointment-card .appointment-schedule dd { font-size: 12px; }
-  #customerAppointmentsModal .appointment-card-actions .ux-dlg__btn { padding: 12px 6px; font-size: 12px; line-height: 1.5; }
+  #customerAppointmentsModal .appointment-card-actions { align-items: flex-end; gap: 8px; }
+  #customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-card-actions .appointment-button { max-width: 100%; min-height: 40px; padding: 9px 10px; font-size: 12px; white-space: normal; }
   #customerAppointmentsModal .appointment-overview .appointment-schedule { grid-template-columns: 1fr 1fr; }
   #customerAppointmentsModal .appointment-overview .appointment-schedule > div:last-child { grid-column: 1 / -1; }
   #customerAppointmentsModal .appointment-fields { grid-template-columns: 1fr; }
-  #customerAppointmentsModal .appointment-detail-toolbar .ux-dlg__btn { min-width: 0; flex: 1; padding: 12px 8px; font-size: 12px; }
+  #customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-detail-toolbar .appointment-button { padding: 9px 12px; font-size: 12px; }
 }
+@media (prefers-reduced-motion: reduce) { #customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-button { transition: none; } }

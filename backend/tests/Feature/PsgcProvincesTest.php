@@ -49,4 +49,36 @@ class PsgcProvincesTest extends TestCase
         $this->getJson('/api/psgc/provinces')->assertOk()->assertJsonPath('0.name', 'Camarines Norte');
         Http::assertSentCount(4);
     }
+
+    public function test_metro_manila_cities_use_the_region_lookup_and_existing_barangay_cascade(): void
+    {
+        Http::fake([
+            'https://psgc.cloud/api/regions/1300000000/cities-municipalities' => Http::response([
+                ['code' => '1380500000', 'name' => 'Quezon City', 'unused' => true],
+                ['code' => '1380100000', 'name' => 'City of Manila'],
+            ]),
+            'https://psgc.cloud/api/cities-municipalities/1380100000/barangays' => Http::response([
+                ['code' => '1380101001', 'name' => 'Barangay 1'],
+            ]),
+        ]);
+        $expected = [['code' => '1380100000', 'name' => 'City of Manila'], ['code' => '1380500000', 'name' => 'Quezon City']];
+        $this->getJson('/api/psgc/regions/1300000000/cities-municipalities')->assertOk()->assertExactJson($expected);
+        $this->getJson('/api/psgc/regions/1300000000/cities-municipalities')->assertOk()->assertExactJson($expected);
+        $this->getJson('/api/psgc/cities-municipalities/1380100000/barangays')->assertOk()->assertJsonPath('0.name', 'Barangay 1');
+        $this->getJson('/api/psgc/regions/bad/cities-municipalities')->assertStatus(422);
+        Http::assertSentCount(2);
+    }
+
+    public function test_failed_region_lookup_retries_without_caching_a_malformed_response(): void
+    {
+        Http::fake(['https://psgc.cloud/api/regions/1300000000/cities-municipalities' => Http::sequence()
+            ->push([], 503)->push(['error' => 'Unavailable'])
+            ->push([['code' => '1380100000', 'name' => 'City of Manila']])]);
+        for ($i = 0; $i < 2; $i++) {
+            $this->getJson('/api/psgc/regions/1300000000/cities-municipalities')->assertStatus(502)
+                ->assertJsonPath('message', 'The city and municipality list is temporarily unavailable. Please try again.');
+        }
+        $this->getJson('/api/psgc/regions/1300000000/cities-municipalities')->assertOk()->assertJsonPath('0.name', 'City of Manila');
+        Http::assertSentCount(3);
+    }
 }

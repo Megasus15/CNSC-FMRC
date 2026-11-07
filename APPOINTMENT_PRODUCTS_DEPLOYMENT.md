@@ -128,6 +128,36 @@ Local verification: 66 Laravel tests / 753 assertions cover ordinary/optional ap
 
 Additional checks passed: 58 portal consistency tests / 746 assertions, 19 Customer/payment/worker tests, PHP/JavaScript syntax, CSS parsing and `git diff --check`. The separate Customer/Team PWA browser suite passed on an isolated rerun after a transient browser-target navigation error in its initial run. All 50 changed canonical HTML pages contain asset-version changes only.
 
+## Appointment layout and Refresh: assets 2026.1107.4
+
+The shared Admin/Staff quotation form now groups delivery and proof selections with the portal's thin borders, rounded corners, compact headings and padded rows. Lead time and fulfillment share a balanced row on wide screens and stack on phones. The custom-product panel follows the appointment body's existing spacing; fixed modal headers and footers remain in place.
+
+Customer appointment actions use compact, natural widths, consistent typography and visible gaps between Delete and View appointment. Refresh/Close retain their right-aligned footer layout. Notifications and FMRC Announcements use 120 ms color transitions throughout their buttons, tabs and notification rows, with transitions disabled for reduced motion.
+
+Customer **Refresh** now reloads the current appointment when its detail is open, preserving its selected custom-product tab, expanded sections and scroll position. In **My Appointments**, it refreshes the list instead. Unsaved custom-product changes retain the existing discard confirmation, failed requests leave the current view intact, and duplicate clicks issue one request. **All appointments** remains the explicit action for returning to the list.
+
+Deploy all changed canonical HTML, JavaScript and CSS together, then reload open Customer/Admin/Staff pages. These changes are frontend-only: there is no new SQL, migration, feature flag or cron change for this update. Continue the existing **AP-00054** after deployment. The previous customer-deletion migration remains a separate release step if it has not already been applied.
+
+Local verification: 58 portal consistency tests / 746 assertions, five frontend/style checks and three Chrome suites passed. Browser checks cover ordinary/custom appointments, refreshed details and lists across Customer pages and the Customer PWA, failed/duplicate refreshes, unsaved edits, retained tabs/scroll/expanded transaction terms after delayed loading, compact separated actions, quotation delivery/proof groups at 320/390/768/1440 px, both operator themes, actual 120 ms notification/announcement hovers and reduced motion. Payment/API responses are isolated fixtures; the existing Hostinger job and live providers were not changed by these checks.
+
+## Quotation fields and button states: assets 2026.1107.5
+
+Admin and Staff share the same updated Appointment details controls. Quantity accepts whole numbers from 1 to 100,000. Unit price accepts ₱0.01–₱100,000 and shipping accepts ₱0–₱100,000, with at most two decimal places. Optional budget uses a numeric field; postal codes remain four-digit text so a leading zero is retained. Contact numbers use a telephone field. Dimensions, materials, design descriptions and production lead time remain text because they contain units or written specifications. Existing server price, quantity, total and revision validation remains authoritative.
+
+Delivery uses searchable Province / Metro Manila → City / municipality → Barangay dropdowns, using the existing cached PSGC proxy and an additive region-city lookup for Metro Manila. The [PSGC API documentation](https://psgc.cloud/api-docs) describes these province/region and city/barangay lookups. The search fields support keyboard selection, loading, retry, no matches and reduced motion. Changing a parent clears its dependent places; a late response cannot replace a newer selection. Only selected place names enter the quotation. Saved addresses are retained when a place has been renamed or a lookup fails. Revising a quotation keeps its saved delivery choice. Switching to pickup sets shipping to zero; switching back restores the entered delivery fee.
+
+Filled maroon actions in the operator Appointment details modal hover darker with white text. Outlined actions fill maroon. Selected Overview / Quotation / Conversation tabs remain filled. The Customer button rules and Orders actions retain their existing behavior.
+
+Deploy the changed backend controller/routes and all versioned canonical assets together. From the active Hostinger `public_html/backend` directory, clear cached routes/configuration:
+
+```bash
+php artisan optimize:clear
+```
+
+No new migration, SQL, feature flag or cron change is required for this update. Reload Admin and Staff pages after deployment. Resume the existing **AP-00054 → Quotation → J&T delivery**; do not recreate the appointment. Confirm recipient, address, final specifications, unit price, shipping and lead time with the customer before sending. Approval, verified payment, production and real J&T handover/customer receipt remain subsequent walkthrough steps.
+
+Local checks: 91 Laravel tests / 1,201 assertions cover optional appointments, server-side number validation for both roles, cached/retryable province and Metro Manila lookups, and portal consistency. Another 24 PWA tests / 236 assertions verify canonical and Customer/Team routes. Five frontend/style checks and both appointment Chrome suites passed with isolated API fixtures. Browser coverage includes number entry/paste, stale location responses, keyboard search, loading failure/retry, saved delivery hydration, failed-send preservation and idempotent retry, pickup/delivery fee switching, both operator themes and 320/390/768/1440 px layouts. Screenshot review verified the search icon, text, chevron and dropdown positions; Customer Refresh retains the selected appointment/tab/expanded terms. Live AP-00054, payment and courier verification still follows the user's deployment.
+
 ## Original staging acceptance checklist
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.

@@ -72,6 +72,11 @@ test('one customer bell separates personal updates from announcements across pag
         assert.equal(await run(`['#announcementModalTitle','[data-notifications-tab]','.fmrc-notification-item','.fmrc-notifications-page'].every(selector=>getComputedStyle(document.querySelector(selector)).fontFamily.includes('Montserrat'))`),true,'shared customer typography');
         assert.equal(await run(`(()=>{const card=document.querySelector('#announcementModal .fmrc-announcement-card'),footer=document.querySelector('.fmrc-notifications-footer');return card.scrollWidth<=card.clientWidth+1&&footer.scrollWidth<=footer.clientWidth+1})()`),true,'Delete and Clear all fit at '+width);
       }
+      const selector='[data-notifications-tab="announcements"]';
+      const point=await run(`(()=>{const b=document.querySelector(${JSON.stringify(selector)}),r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await pause(170);
+      assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),'rgb(113, 35, 48)','The tab hover completes quickly');
+      assert.equal(await run(`['[data-notifications-tab]','.fmrc-notification-item','.fmrc-notification-delete','.fmrc-announcement__button','.fmrc-announcement__close'].every(selector=>getComputedStyle(document.querySelector('#announcementModal '+selector)).transitionDuration.split(',').every(t=>parseFloat(t)<=.12))`),true,'All notification controls use quick hover timing');
+      await run(`document.querySelector('[data-notifications-tab="announcements"]').click()`);assert.equal(await run(`[...document.querySelectorAll('#announcementModal .fmrc-announcement__button')].filter(b=>b.getClientRects().length).every(b=>getComputedStyle(b).transitionDuration.split(',').every(t=>parseFloat(t)<=.12))`),true,'FMRC Announcements uses the same quick hover');await run(`document.querySelector('[data-notifications-tab="notifications"]').click()`);await until(`!!document.querySelector('[data-notification-id="54"]')&&!document.querySelector('[data-notification-delete="54"]').disabled`);
       assert.deepEqual(await run('fixtureErrors'),[]);
     }
     await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
@@ -87,7 +92,7 @@ test('one customer bell separates personal updates from announcements across pag
     await run(`document.getElementById('announcementModalCloseX').click();localStorage.removeItem('customer_token');dispatchEvent(new Event('focus'));document.getElementById('announcementBell').click()`);
     await until(`document.querySelector('#customerNotificationList h3')?.textContent==='Your updates, in one place'`);assert.equal(await run(`document.querySelectorAll('[data-notification-id]').length`),0);
     const before=requests;await run(`dispatchEvent(new Event('focus'))`);await pause(100);assert.equal(requests,before);
-    await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});assert.equal(await run(`getComputedStyle(document.querySelector('[data-notifications-tab]')).transitionDuration`),'0s');
+    await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});assert.equal(await run(`getComputedStyle(document.querySelector('[data-notifications-tab]')).transitionDuration`),'0s');assert.equal(await run(`[...document.querySelectorAll('#announcementModal .fmrc-announcement__button,#announcementModal .fmrc-announcement__close')].every(button=>getComputedStyle(button).transitionDuration==='0s')`),true,'Reduced motion applies to announcement and notification actions');
     console.log('Customer bell verified with private fixtures; screenshot: '+path.join(artifacts,'customer-bell.png'));
   }finally{cdp?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

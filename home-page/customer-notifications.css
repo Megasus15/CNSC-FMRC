@@ -6,6 +6,7 @@
   max-height: calc(100dvh - 40px);
 }
 #announcementModal.fmrc-notification-center [hidden] { display: none !important; }
+#announcementModal.fmrc-notification-center :is(.fmrc-announcement__button,.fmrc-announcement__close) { transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out; }
 #announcementModal .fmrc-notifications-tabs {
   display: flex;
   flex: 0 0 auto;
@@ -27,7 +28,7 @@
   color: #712330;
   font: 700 13px/1.4 "Montserrat", sans-serif;
   cursor: pointer;
-  transition: color 200ms, background-color 200ms, border-color 200ms;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
 }
 #announcementModal .fmrc-notifications-tabs button:hover,
 #announcementModal .fmrc-notifications-tabs button[aria-selected="true"] {
@@ -68,12 +69,12 @@
   font: 500 13px/1.6 "Montserrat", sans-serif;
   text-align: left;
   cursor: pointer;
-  transition: background-color 200ms, border-color 200ms;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
 }
 #announcementModal .fmrc-notification-row { display: flex; align-items: center; gap: 4px; min-width: 0; padding-right: 14px; border: 1px solid #e9dfd7; border-radius: 12px; background: #fdfaf6; }
 #announcementModal .fmrc-notification-row.is-unread { background: #fbf2ed; border-color: #dfc6c6; }
 #announcementModal .fmrc-notification-item:hover { background: #f4e7e2; }
-#announcementModal .fmrc-notification-delete { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 8px; border: 1px solid #e9dfd7; border-radius: 50%; background: transparent; color: #712330; cursor: pointer; transition: background-color 200ms, color 200ms; }
+#announcementModal .fmrc-notification-delete { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 8px; border: 1px solid #e9dfd7; border-radius: 50%; background: transparent; color: #712330; cursor: pointer; transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out; }
 #announcementModal .fmrc-notification-delete svg { width: 18px; height: 18px; }
 #announcementModal .fmrc-notification-delete:hover { background: #712330; border-color: #712330; color: #fffaf6; }
 #announcementModal .fmrc-notification-delete:disabled { opacity: .5; cursor: default; }
@@ -117,6 +118,7 @@
   #announcementModal .fmrc-notifications-empty { min-height: 220px; padding: 16px 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  #announcementModal.fmrc-notification-center :is(.fmrc-announcement__button,.fmrc-announcement__close),
   #announcementModal .fmrc-notifications-tabs button,
   #announcementModal .fmrc-notification-delete,
   #announcementModal .fmrc-notification-item { transition: none !important; }

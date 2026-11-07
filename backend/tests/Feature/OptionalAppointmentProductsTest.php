@@ -165,6 +165,28 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertSame('sent', $j->quotes()->first()->state);
     }
 
+    public function test_quotation_numbers_remain_validated_on_the_server_for_both_operators(): void
+    {
+        $job = $this->booked();
+        $quote = $this->quote($job, ['unit_price' => '12.50']);
+        $this->assertEquals(62.50, $quote->agreement['total']);
+        $revision = $job->fresh()->revision;
+        foreach ([$this->admin, $this->staff] as $operator) {
+            Sanctum::actingAs($operator);
+            foreach ([['unit_price' => 'abc'], ['unit_price' => -1], ['unit_price' => '12.501'], ['unit_price' => 100001],
+                ['shipping_fee' => -1], ['shipping_fee' => '0.001'], ['shipping_fee' => 'abc'],
+                ['specifications' => array_replace($this->brief(), ['quantity' => 1.5])]] as $invalid) {
+                $body = $invalid + ['request_key' => (string) Str::uuid(), 'expected_revision' => $revision,
+                    'specifications' => $this->brief(), 'unit_price' => '12.50', 'shipping_fee' => 0,
+                    'fulfillment_type' => 'pickup', 'lead_time' => 'Five working days', 'design_notes' => 'Approved final design.'];
+                $this->postJson('/api/admin/appointment-products/'.$job->id.'/quotations', $body)->assertUnprocessable();
+            }
+        }
+        $this->assertSame($revision, $job->fresh()->revision);
+        $this->assertSame(1, $job->quotes()->count());
+        $this->assertSame('sent', $quote->fresh()->state);
+    }
+
     public function test_both_operators_save_and_read_back_the_ready_outcome_in_the_appointment_feed(): void
     {
         foreach ([$this->admin, $this->staff] as $i => $operator) {

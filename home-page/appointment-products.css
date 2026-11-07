@@ -22,10 +22,45 @@
 .ap-check { display:flex; align-items:flex-start; gap:10px; font-size:13px; line-height:1.65; font-weight:500; cursor:pointer; }
 .ap-check input[type=checkbox] { width:17px; height:17px; margin:3px 0 0; flex-shrink:0; accent-color:var(--ap-wine); outline:none!important; box-shadow:none!important; }
 .ap-check input[type=checkbox]:focus-visible { outline:2px solid #8b8b8b!important; outline-offset:3px; }
+.ap-panel .ap-form-section { min-width:0; width:100%; margin:22px 0 0; padding:16px 18px 18px; border:1px solid var(--ap-line); border-radius:8px; }
+.ap-panel .ap-form-section > legend { max-width:100%; margin-left:-5px; padding:0 5px; color:var(--ap-ink); font-size:13px; line-height:1.6; font-weight:600; overflow-wrap:anywhere; }
+.ap-panel .ap-form-section > .ap-grid { margin:4px 0 0; }
+.ap-panel .ap-proof-options { display:grid; gap:10px; }
+.ap-panel .ap-proof-options .ap-check { align-items:center; min-height:44px; margin:0; padding:10px 12px; border:1px solid var(--ap-line); border-radius:8px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); }
+.ap-panel .ap-proof-options input[type=checkbox] { margin-top:0; }
+.ap-panel .ap-proof-options .ap-check span { min-width:0; overflow-wrap:anywhere; }
+/* Match the Province search field without adding a second border or focus ring. */
+.ap-place { position:relative; min-width:0; }
+.ap-panel .ap-place input.combobox-input { padding-left:36px; padding-right:40px; cursor:text; }
+.ap-place-search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ap-muted); pointer-events:none; }
+.ap-panel .ap-place .combobox-caret { position:absolute; inset:0 0 0 auto; display:flex; align-items:center; justify-content:center; width:38px; height:100%; transform:none; padding:0; border:0; border-radius:0 8px 8px 0; background:transparent; color:var(--ap-wine); cursor:pointer; }
+.ap-place .combobox-caret svg { width:16px; height:16px; transition:transform 200ms ease; }
+.ap-place.open .combobox-caret svg { transform:rotate(180deg); }
+.ap-panel .ap-place .combobox-caret:disabled { cursor:not-allowed; opacity:.45; }
+.ap-place-list { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:30; max-height:232px; overflow-y:auto; overscroll-behavior:contain; margin:0; padding:5px; list-style:none; border:1px solid var(--ap-line); border-radius:9px; background:var(--ap-paper); box-shadow:0 8px 24px rgba(40,15,20,.12); }
+.ap-place.is-above .ap-place-list { top:auto; bottom:calc(100% + 6px); }
+.ap-place-list li { display:flex; align-items:center; min-height:40px; padding:9px 11px; border-radius:5px; color:var(--ap-ink); font-size:13px; line-height:1.6; font-weight:400; overflow-wrap:anywhere; cursor:pointer; }
+.ap-place-list li:is(:hover,.is-active) { background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); color:var(--ap-wine); }
+.ap-place-list li[aria-selected="true"] { font-weight:600; }
+.ap-place-list .ap-place-empty { color:var(--ap-muted); cursor:default; }
+.ap-place-feedback { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0; font-weight:400; }
+.ap-place-feedback:has(small:empty):not(:has(button:not([hidden]))) { display:none; }
+.ap-place-feedback small[data-ap-count] { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.ap-panel .ap-place-retry { padding:0; border:0; background:transparent; color:var(--ap-wine); font:inherit; font-size:12px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .ap-actions { display:flex; justify-content:flex-end; align-items:center; gap:10px; flex-wrap:wrap; padding-top:18px; margin-top:18px; border-top:1px solid var(--ap-line); }
 .ap-panel .ap-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--ap-wine); border-radius:8px; min-height:43px; padding:10px 16px; background:var(--ap-solid); color:#fff; font:inherit; font-size:13px; font-weight:600; text-decoration:none; cursor:pointer; line-height:1.5; transition:background-color .2s,color .2s,box-shadow .2s; }
 .ap-panel .ap-btn.is-secondary { color:var(--ap-wine); background:transparent; }
 .ap-panel .ap-btn:hover:not(:disabled) { background:var(--ap-paper); color:var(--ap-wine); box-shadow:0 3px 10px rgba(70,10,20,.09); }
+/* Operator filled actions darken; outlined actions fill maroon. */
+#modalViewAppointment { --appointment-action:var(--portal-action,#800000); --appointment-hover:#650d20; }
+html[data-theme="dark"] #modalViewAppointment { --appointment-hover:#76263b; }
+#modalViewAppointment .ap-btn:hover:not(:disabled):not(.is-secondary) { background:var(--appointment-hover); border-color:var(--appointment-hover); color:#fff; }
+#modalViewAppointment .ap-btn.is-secondary:hover:not(:disabled) { background:var(--appointment-action); border-color:var(--appointment-action); color:#fff; }
+#modalViewAppointment .btn-admin:hover:not(:disabled):not(.btn-secondary) { background:var(--appointment-hover)!important; border-color:var(--appointment-hover)!important; color:#fff!important; }
+#modalViewAppointment :is(.btn-admin.btn-secondary,.appointment-view-close):hover:not(:disabled) { background:var(--appointment-action)!important; border-color:var(--appointment-action)!important; color:#fff!important; }
+#modalViewAppointment .appointment-file-button:hover:not(:disabled) { background:var(--appointment-action); border-color:var(--appointment-action); color:#fff; }
+#modalViewAppointment .appointment-file-button:hover:not(:disabled) .appointment-file-action { color:#fff; }
+#modalViewAppointment .ap-tabs .ap-btn[aria-selected="true"]:is(:hover,:focus-visible,:active) { background:var(--ap-solid); border-color:var(--ap-solid); color:#fff; box-shadow:none; }
 .ap-panel .ap-btn.is-secondary:hover:not(:disabled) { background:var(--ap-solid); color:#fff; }
 .ap-panel .ap-btn:active:not(:disabled) { box-shadow:inset 0 1px 3px rgba(0,0,0,.14); }
 .ap-panel .ap-btn:focus-visible { outline:2px solid var(--ap-wine); outline-offset:3px; }
@@ -82,7 +117,10 @@
 #serviceModal .service-details-actions[hidden] { display:none; }
 @media(max-width:480px) { .service-card .service-card-footer .service-action { flex:1 0 auto; white-space:normal; } #serviceModal .service-details-actions { padding:16px 20px; } #serviceModal .service-details-actions .service-action { width:100%; } }
 #customerAppointmentsModal .appointment-modal.has-custom-product, #modalViewAppointment .appointment-view-modal.has-custom-product { width:min(1100px,100%); max-width:1100px; }
+#modalViewAppointment #apptViewBody > .ap-panel { margin:0; padding:20px; }
 @media(max-width:700px) { .ap-panel { padding:16px; margin-block:16px; } .ap-grid,.ap-summary { grid-template-columns:1fr; gap:16px; } .ap-head { gap:12px; } .ap-actions { gap:10px; } .ap-panel .ap-btn { max-width:100%; } .ap-tabs { gap:6px; } .ap-panel .ap-tabs button { flex:1; padding:8px; } }
+@media(max-width:700px) { #modalViewAppointment #apptViewBody > .ap-panel { padding:16px; } .ap-panel .ap-form-section { padding:14px; margin-top:18px; } }
 @media(prefers-reduced-motion:reduce) { .ap-panel *, .service-card .service-card-footer .service-action, #serviceModal .service-action { transition:none!important; animation:none!important; } }
+html[data-portal-motion="reduced"] .ap-panel * { transition:none!important; animation:none!important; }
 
 html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }
