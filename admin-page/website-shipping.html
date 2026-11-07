@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="portal-sidebar.css?v=1.3" />
     <script src="portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="website-loading.css?v=1.1" />
-  <link rel="stylesheet" href="website-shipping.css?v=1.5-actions" />
+  <link rel="stylesheet" href="website-shipping.css?v=2026.1107.1" />
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
   </head>
@@ -144,7 +144,8 @@
 
         <section class="module-content payment-settings-page shipping-page" aria-labelledby="shippingPageTitle">
   <div class="page-toolbar"><div class="toolbar-title"><h2 id="shippingPageTitle">Shipping &amp; Delivery</h2><p>Set where you deliver, the shipping fee, and the expected delivery time.</p></div><button class="btn-admin btn-secondary" type="button" id="shippingRefresh"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button></div>
-  <section class="payment-settings-card wm-section shipping-live"><div class="shipping-section-heading"><div><h3>Current delivery settings</h3><p>These are the delivery options customers can use now.</p></div><span class="shipping-status" id="shippingPublishedVersion">Loading settings…</span></div><div id="shippingPublished"></div><p id="shippingPublishedCalendar" class="shipping-calendar-note"></p><div class="shipping-facts"><span><i class="fa-solid fa-box" aria-hidden="true"></i> One shipping fee per order</span><span><i class="fa-solid fa-store" aria-hidden="true"></i> Free pickup at FMRC</span><span><i class="fa-regular fa-calendar" aria-hidden="true"></i> Estimates use working days</span></div><details class="shipping-help"><summary>How delivery estimates and fees work</summary><p>Preparation and transit exclude the nonworking days below. Dates use Philippine time. FMRC covers any difference between the customer's accepted shipping fee and the courier's booking cost. These settings do not book a courier.</p></details></section>
+  <p class="shipping-refresh-status" id="shippingRefreshStatus" role="status" aria-live="polite" hidden></p>
+  <section class="payment-settings-card wm-section shipping-live"><div class="shipping-section-heading"><div><h3>Published delivery settings</h3><p>These are the delivery options customers can use now.</p></div><span class="shipping-status" id="shippingPublishedVersion">Loading settings…</span></div><div class="shipping-pending" id="shippingPendingChanges" role="status" hidden><strong>Delivery changes are not live yet</strong><p id="shippingPendingMessage"></p><div class="shipping-action-row"><button class="btn-admin btn-secondary" type="button" id="shippingReviewChanges">Review and publish</button></div></div><div id="shippingPublished"></div><p id="shippingPublishedCalendar" class="shipping-calendar-note"></p><div class="shipping-facts"><span><i class="fa-solid fa-box" aria-hidden="true"></i> One shipping fee per order</span><span><i class="fa-solid fa-store" aria-hidden="true"></i> Free pickup at FMRC</span><span><i class="fa-regular fa-calendar" aria-hidden="true"></i> Estimates use working days</span></div><details class="shipping-help"><summary>How delivery estimates and fees work</summary><p>Preparation and transit exclude the nonworking days below. Dates use Philippine time. FMRC covers any difference between the customer's accepted shipping fee and the courier's booking cost. These settings do not book a courier.</p></details></section>
   <section class="payment-settings-card wm-section" id="shippingEditor" hidden>
     <div class="shipping-section-heading"><div><h3>Edit delivery settings</h3><p>Make your changes, save a draft, then confirm approval and publish.</p></div><span class="shipping-status">Admin only</span></div>
     <form id="shippingForm" novalidate><fieldset id="shippingFields" disabled>
@@ -165,7 +166,7 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="website-loading.js?v=1.3"></script>
     <script src="admin-common.js?v=2026.1107.3"></script>
-    <script src="website-shipping.js?v=2026.1104.4"></script>
-    <script src="shipping-tracking-status.js?v=2026.1107.2"></script>
+    <script src="website-shipping.js?v=2026.1107.1"></script>
+    <script src="shipping-tracking-status.js?v=2026.1107.3"></script>
   </body>
 </html>

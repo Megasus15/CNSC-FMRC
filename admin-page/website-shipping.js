@@ -6,7 +6,7 @@
     if (!get('shippingForm')) return;
     const api = (window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port!=='8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
     const headers = () => ({Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()});
-    let record=null, busy=false, loaded=false, baseline='', zones=[];
+    let record=null, busy=false, refreshing=false, loaded=false, baseline='', zones=[];
     let provinces=[], provincesReady=false, provincesBusy=false, provincesFailed=false, provinceRequest=null;
     const admin = () => loaded && !!record?.can_edit;
     window.AdminWebsiteDraft?.register({isDirty:()=>admin()&&normalized(read())!==baseline,busy:()=>busy&&!!record?.can_edit});
@@ -124,8 +124,12 @@
       get('shippingProvinceStatus').textContent=provincesBusy?'Loading provinces…':provincesFailed?'The province list is unavailable. Reload it to continue.':'';
       get('shippingProvinceRetry').hidden=!provincesFailed;get('shippingProvinceRetry').disabled=busy||provincesBusy;
       get('shippingDraftPreview').innerHTML=record ? table(values) : '';
-      get('shippingRefresh').disabled=busy;
-      get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?'No unsaved changes':'Published settings · Read only';
+      get('shippingRefresh').disabled=busy||refreshing;
+      const pending=admin()&&(changed||(savedDraft&&!same));
+      get('shippingPendingChanges').hidden=!pending;
+      get('shippingPendingMessage').textContent=changed?'Your edits are not saved yet. Save draft, then approve and publish to update customer delivery rates.':'Your draft is saved but not published. Customers still use the published rates below until you publish these changes.';
+      get('shippingReviewChanges').disabled=busy;
+      get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?(savedDraft&&!same?'Draft saved — waiting to be published':'No unsaved changes'):'Published settings · Read only';
       const hint=get('shippingPublishHint');
       if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':provinceLock?'Load the province list before saving or publishing.':invalidProvince?'Select a province from the list for each delivery area.':changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
     };
@@ -160,7 +164,7 @@
     const fetchData = async (path,options={}) => {
       const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
       try {
-      const response=await fetch(api+path,{...options,headers:headers(),signal:controller.signal});
+      const response=await fetch(api+path,{...options,cache:'no-store',headers:headers(),signal:controller.signal});
       const json=await response.json().catch(()=>({}));
       if(response.status===401)throw safeFailure('Your session has expired. Sign in again to continue.');
       if(response.status===403)throw safeFailure('Your account does not have permission to manage these settings.');
@@ -218,13 +222,14 @@
     };
     const load = async () => {
       busy=true;loaded=false;sync();
-      try { populate(await fetchData('/admin/shipping-settings')); }
+      try { populate(await fetchData('/admin/shipping-settings')); return true; }
       catch (failure) {
         loaded=false;
         showError(failure.message,{title:'Shipping settings unavailable'});
         get('shippingPublished').textContent='Published shipping settings are unavailable. Please try again.';
         get('shippingPublishedVersion').textContent='Settings unavailable';
         get('shippingPublishedCalendar').textContent='';
+        return false;
       }
       finally { busy=false;sync(); }
     };
@@ -274,12 +279,31 @@
     document.addEventListener('click',event=>{if(!event?.target)return;get('shippingZones').querySelectorAll('[data-province-picker].open').forEach(picker=>{if(!picker.contains(event.target))closeProvincePicker(picker);});});
     get('shippingApproved').addEventListener('change',sync);
     get('shippingAddZone').addEventListener('click',()=>{const values=read().zones;if(values.length>=100)return;values.push({id:crypto.randomUUID(),name:'',province:'',cities:[],postal_codes:[],fee:'',preparation_days:1,transit_min_days:1,transit_max_days:3});renderZones(values);sync();});
-    get('shippingZones').addEventListener('click',event=>{const button=event.target.closest('[data-remove-zone]');if(!button)return;window.showAdminConfirmPopup('Remove this zone from the draft?',{title:'Remove destination zone',confirmText:'Remove',onConfirm:()=>{const values=read().zones;values.splice(Number(button.dataset.removeZone),1);renderZones(values);sync();}});});
+    get('shippingZones').addEventListener('click',event=>{const button=event.target.closest('[data-remove-zone]');if(!button)return;
+      const last=read().zones.length===1;
+      window.showAdminConfirmPopup(last?'Remove the last delivery area from the draft? Delivery will be turned off when you save and publish this change.':'Remove this delivery area from the draft? Save and publish to remove it from customer checkout.',
+        {title:'Remove destination zone',confirmText:'Remove',onConfirm:()=>{const values=read().zones;values.splice(Number(button.dataset.removeZone),1);if(!values.length)get('shippingEnabled').checked=false;renderZones(values);sync();}});
+    });
     get('shippingForm').addEventListener('submit',event=>{event.preventDefault();if(!admin()||busy||!dirty()||!validateDraft())return;const values=read();window.showAdminConfirmPopup('Save these shipping settings as a draft?',{title:'Save Shipping Draft',confirmText:'Save draft',onConfirm:()=>mutate('/admin/shipping-settings/draft',{expected_revision:record.revision,settings:values})});});
     get('shippingPublish').addEventListener('click',()=>{if(get('shippingPublish').disabled)return;window.showAdminConfirmPopup('Publish these FMRC-approved rates and delivery estimates for new checkouts?',{title:'Publish Shipping Settings',confirmText:'Publish',onConfirm:()=>mutate('/admin/shipping-settings/publish',{expected_revision:record.revision,approved:true})});});
     get('shippingDiscard').addEventListener('click',()=>{if(!busy&&record)populate(record);});
-    const loadAll = async () => { await Promise.all([load(), window.FMRCShippingTracking?.refresh()]); };
-    const refresh = () => {if(busy)return;if(dirty())window.showAdminConfirmPopup('Discard unsaved changes and load the latest shipping settings?',{title:'Refresh Shipping Settings',confirmText:'Load latest',onConfirm:loadAll});else void loadAll();};
+    const refreshLabel=get('shippingRefresh').innerHTML;
+    const loadAll = async () => {
+      if(refreshing)return;
+      refreshing=true;get('shippingRefreshStatus').hidden=false;get('shippingRefreshStatus').textContent='Refreshing delivery settings and tracking status…';
+      get('shippingRefresh').innerHTML='<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i> Refreshing…';
+      get('shippingRefresh').setAttribute('aria-busy','true');sync();
+      try{
+        const results=await Promise.allSettled([load(),window.FMRCShippingTracking?.refresh()??false]);
+        const [rates,tracking]=results.map(result=>result.status==='fulfilled'&&result.value===true);
+        get('shippingRefreshStatus').textContent=!rates?'Delivery settings could not be refreshed. Please try again.':!tracking?'Delivery settings refreshed. Tracking status could not be refreshed. Please try again.':'Delivery settings and tracking status refreshed.';
+      }finally{refreshing=false;get('shippingRefresh').innerHTML=refreshLabel;get('shippingRefresh').setAttribute('aria-busy','false');sync();}
+    };
+    get('shippingReviewChanges').addEventListener('click',()=>{
+      get('shippingEditor').scrollIntoView({block:'start',behavior:'smooth'});
+      (get('shippingApproved').disabled?get('shippingSave'):get('shippingApproved')).focus({preventScroll:true});
+    });
+    const refresh = () => {if(busy||refreshing)return;if(dirty())window.showAdminConfirmPopup('Discard unsaved changes and load the latest shipping settings?',{title:'Refresh Shipping Settings',confirmText:'Load latest',onConfirm:loadAll});else void loadAll();};
     get('shippingRefresh').addEventListener('click',refresh);get('shippingProvinceRetry').addEventListener('click',()=>void loadProvinces());
     void (window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(load) : load());
   });

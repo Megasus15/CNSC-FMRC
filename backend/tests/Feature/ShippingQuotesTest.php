@@ -27,8 +27,8 @@ class ShippingQuotesTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
-        config(['payments.gateway'=>'paymongo', 'payments.paymongo.enabled'=>true, 'payments.paymongo.secret_key'=>'sk_test_fixture', 'payments.paymongo.webhook_secret'=>'fixture']);
-        Http::fake(['api.paymongo.com/v2/checkout_sessions'=>Http::response(['data'=>['id'=>'cs_shipping', 'attributes'=>['checkout_url'=>'https://checkout.paymongo.com/fixture','livemode'=>false]]])]);
+        config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_test_fixture', 'payments.paymongo.webhook_secret' => 'fixture']);
+        Http::fake(['api.paymongo.com/v2/checkout_sessions' => Http::response(['data' => ['id' => 'cs_shipping', 'attributes' => ['checkout_url' => 'https://checkout.paymongo.com/fixture', 'livemode' => false]]])]);
         Carbon::setTestNow(Carbon::parse('2026-11-06 08:00:00', 'UTC'));
         $this->product = Product::create(['name' => 'Prototype', 'code' => 'SHIPPING-TEST', 'category' => 'Fabrication', 'price' => 123.45, 'stock' => 30]);
         $this->customer = User::factory()->create(['role' => 'customer']);
@@ -143,6 +143,48 @@ class ShippingQuotesTest extends TestCase
         $this->assertSame('2026-11-13', $quote['estimated_delivery_to']);
         $larger = $this->quote(['items' => [['product_id' => $this->product->id, 'quantity' => 4]]]);
         $this->assertEquals(85.50, $larger['shipping_fee']);
+    }
+
+    public function test_rate_edits_and_deletions_publish_fresh_snapshots_and_can_disable_the_last_area(): void
+    {
+        $settings = $this->settings();
+        $settings['zones'][0]['cities'] = ['Daet'];
+        $other = $settings['zones'][0];
+        $other['id'] = (string) Str::uuid();
+        $other['name'] = 'Labo';
+        $other['cities'] = ['Labo'];
+        $settings['zones'][] = $other;
+        $this->publish($settings);
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+        $shown = $this->getJson('/api/admin/shipping-settings')->assertOk();
+        $this->assertTrue($shown->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($shown->headers->hasCacheControlDirective('private'));
+        $shown->assertHeader('Vary', 'Authorization');
+        $settings['zones'][0]['fee'] = '99.50';
+        array_pop($settings['zones']);
+        $saved = $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => $shown->json('data.revision'), 'settings' => $settings])
+            ->assertOk()->assertJsonCount(1, 'data.draft.zones')->assertJsonCount(2, 'data.published.zones');
+        $this->assertTrue($saved->headers->hasCacheControlDirective('no-store'));
+        $this->assertEquals(85.50, $this->quote()['shipping_fee']);
+        Sanctum::actingAs($admin);
+        $published = $this->postJson('/api/admin/shipping-settings/publish', ['expected_revision' => $saved->json('data.revision'), 'approved' => true])
+            ->assertOk()->assertJsonCount(1, 'data.published.zones')->assertJsonPath('data.published.zones.0.fee', '99.50');
+        $this->assertTrue($published->headers->hasCacheControlDirective('no-store'));
+        $this->assertEquals(99.50, $this->quote()['shipping_fee']);
+        Sanctum::actingAs(User::factory()->create(['role' => 'staff']));
+        $staff = $this->getJson('/api/admin/shipping-settings')->assertOk()->assertJsonCount(1, 'data.published.zones')
+            ->assertJsonMissingPath('data.draft')->assertJsonPath('data.published.zones.0.fee', '99.50');
+        $this->assertTrue($staff->headers->hasCacheControlDirective('no-store'));
+        Sanctum::actingAs($admin);
+        $settings['enabled'] = false;
+        $settings['zones'] = [];
+        $removed = $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => $published->json('data.revision'), 'settings' => $settings])->assertOk();
+        $this->postJson('/api/admin/shipping-settings/publish', ['expected_revision' => $removed->json('data.revision'), 'approved' => true])
+            ->assertOk()->assertJsonPath('data.published.enabled', false)->assertJsonPath('data.published.zones', []);
+        $this->assertFalse($this->quote()['available']);
+        $this->assertTrue($this->quote(['fulfillment_type' => 'pickup'])['available']);
+        $this->assertSame(0, $this->quote(['fulfillment_type' => 'pickup'])['shipping_fee']);
     }
 
     public function test_order_snapshots_survive_new_rates_and_all_portals_agree(): void

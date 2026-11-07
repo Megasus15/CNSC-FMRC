@@ -16,7 +16,7 @@
     const toggle = panel.querySelector('[data-tracking-toggle]');
     const escape = text => String(text ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     const date = value => value ? new Date(value.includes('T') ? value : value.replace(' ','T')+'Z').toLocaleString('en-PH',{timeZone:'Asia/Manila'}) : 'Not yet received';
-    let record = null, busy = false;
+    let record = null, busy = false, request = null;
     const render = () => {
       toggle.hidden = !record?.can_edit;
       toggle.disabled = busy || !record?.installed || (!record.enabled && !record.ready);
@@ -47,26 +47,30 @@
       ];
       panel.querySelector('[data-tracking-facts]').innerHTML = facts.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd>'+escape(value)+'</dd></div>').join('');
     };
-    const load = async (payload = null) => {
-      if (busy) return;
+    const load = (payload = null) => {
+      if (request) return request;
       busy = true; render();
-      const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),15000);
-      try {
-        const response = await fetch(api+'/admin/shipping-tracking', {method:payload?'PUT':'GET',body:payload?JSON.stringify(payload):undefined,cache:'no-store',signal:controller.signal,
-          headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()}});
-        const json = await response.json().catch(()=>({}));
-        if (!response.ok || !json.data) {
-          const message = Object.values(json.errors||{}).flat()[0] || json.message;
-          throw Error(response.status<500 && message && !/SQLSTATE|Laravel|Exception/i.test(message) ? message : 'Tracking availability could not be loaded. Please try again.');
-        }
-        record = json.data;
-      } catch (error) {
-        panel.querySelector('[data-tracking-message]').textContent = error.name==='AbortError'||error.name==='TypeError' ? 'Tracking status could not be refreshed. Check your connection and try again.' : error.message;
-        busy=false;toggle.disabled=true;return;
-      } finally { clearTimeout(timer);busy=false; }
-      render();
+      request = (async () => {
+        const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),15000);
+        try {
+          const response = await fetch(api+'/admin/shipping-tracking', {method:payload?'PUT':'GET',body:payload?JSON.stringify(payload):undefined,cache:'no-store',signal:controller.signal,
+            headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()}});
+          const json = await response.json().catch(()=>({}));
+          if (!response.ok || !json.data) {
+            const message = Object.values(json.errors||{}).flat()[0] || json.message;
+            throw Error(response.status<500 && message && !/SQLSTATE|Laravel|Exception/i.test(message) ? message : 'Tracking availability could not be loaded. Please try again.');
+          }
+          record = json.data;
+        } catch (error) {
+          panel.querySelector('[data-tracking-message]').textContent = error.name==='AbortError'||error.name==='TypeError' ? 'Tracking status could not be refreshed. Check your connection and try again.' : error.message;
+          busy=false;toggle.disabled=true;return false;
+        } finally { clearTimeout(timer);busy=false; }
+        render();
+        return true;
+      })().finally(()=>{request=null;});
+      return request;
     };
-    window.FMRCShippingTracking = Object.freeze({refresh: load});
+    window.FMRCShippingTracking = Object.freeze({refresh: () => load()});
     toggle.onclick=()=>{
       if(toggle.disabled)return;
       window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for verified J&T shipments within the configured credit budget?',

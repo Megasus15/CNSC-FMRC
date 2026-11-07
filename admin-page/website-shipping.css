@@ -13,6 +13,10 @@
 .shipping-facts i { color: var(--primary-color); }
 .shipping-page .shipping-calendar-note:empty { display: none; }
 .shipping-page .shipping-calendar-note { margin-top: 14px; font-size: .78rem; }
+.shipping-page .shipping-refresh-status { margin: 0 0 16px; font-size: .83rem; }
+.shipping-pending { margin-bottom: 20px; padding: 16px; border: 1px solid var(--primary-color); border-radius: 8px; background: var(--surface-alt, #f8f5f1); }
+.shipping-pending > strong { color: var(--text-main); font-size: .9rem; }
+.shipping-pending > p { margin-top: 6px; font-size: .83rem; }
 .shipping-check { display: flex; align-items: flex-start; gap: 10px; font-size: .85rem; line-height: 1.6; cursor: pointer; }
 .shipping-check input,.shipping-weekdays input { width: 16px; height: 16px; flex-shrink: 0; margin-top: 3px; accent-color: var(--primary-color); }
 .shipping-enable { padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-alt, #f8f5f1); }

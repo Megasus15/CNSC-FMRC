@@ -22,7 +22,14 @@ final class ShippingController extends Controller
         $this->authorize($request);
         $record = ShippingService::settings();
 
-        return response()->json(['data' => $this->snapshot($record, strtolower($request->user()->role) === 'admin')]);
+        return $this->settingsResponse($record, strtolower($request->user()->role) === 'admin');
+    }
+
+    private function settingsResponse(object $record, bool $admin): JsonResponse
+    {
+        return response()->json(['data' => $this->snapshot($record, $admin)])
+            ->header('Cache-Control', 'private, no-store, max-age=0')
+            ->header('Vary', 'Authorization');
     }
 
     private function snapshot(object $record, bool $admin): array
@@ -102,7 +109,7 @@ final class ShippingController extends Controller
             return ShippingService::settings();
         });
 
-        return response()->json(['data' => $this->snapshot($record, true)]);
+        return $this->settingsResponse($record, true);
     }
 
     public function publish(Request $request): JsonResponse
@@ -137,7 +144,7 @@ final class ShippingController extends Controller
             return ShippingService::settings();
         });
 
-        return response()->json(['data' => $this->snapshot($record, true)]);
+        return $this->settingsResponse($record, true);
     }
 
     public function quote(Request $request): JsonResponse
