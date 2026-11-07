@@ -13,7 +13,7 @@ class CustomerOrderReceiveTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_customer_can_mark_to_receive_order_as_received(): void
+    public function test_customer_receipt_route_is_retired_without_modifying_the_order(): void
     {
         $customer = User::factory()->create([
             'role' => 'customer',
@@ -45,22 +45,9 @@ class CustomerOrderReceiveTest extends TestCase
 
         $response = $this->postJson("/api/customer/orders/{$order->id}/received");
 
-        $response->assertOk()
-            ->assertJsonPath('message', 'Order marked as received.')
-            ->assertJsonPath('data.customer_stage', 'completed')
-            ->assertJsonPath('data.lifecycle_status', 'completed');
-
-        $this->assertDatabaseHas('orders', [
-            'id' => $order->id,
-            'customer_stage' => 'completed',
-            'lifecycle_status' => 'completed',
-        ]);
-
-        $this->assertDatabaseHas('order_tracking_events', [
-            'order_id' => $order->id,
-            'event_type' => 'system',
-            'title' => 'Order Received',
-        ]);
+        $response->assertConflict()->assertJsonPath('code', 'order_completion_managed');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'customer_stage' => 'to_receive', 'lifecycle_status' => 'pending']);
+        $this->assertDatabaseCount('order_tracking_events', 0);
     }
 
     public function test_customer_cannot_mark_non_to_receive_order_as_received(): void
@@ -87,8 +74,7 @@ class CustomerOrderReceiveTest extends TestCase
 
         $response = $this->postJson("/api/customer/orders/{$order->id}/received");
 
-        $response->assertStatus(422)
-            ->assertJsonPath('message', 'Only orders in "To Receive" status can be marked as received.');
+        $response->assertConflict()->assertJsonPath('code', 'order_completion_managed');
 
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,

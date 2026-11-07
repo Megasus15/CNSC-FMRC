@@ -363,6 +363,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeReturnId = null;
   let returnActionBusy = false;
   let trackingDiscardGuard = null;
+  let trackingNoteBusy = false;
+  const collectionRequests = new Set();
   let walkInDiscardGuard = null;
   let walkInFormInteracted = false;
 
@@ -939,6 +941,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const input = document.getElementById(id);
       if (!input) return;
       input.value = value || "-";
+      input.disabled = true;
     };
     if(body){
       let policy=body.querySelector('[data-accepted-policy]');
@@ -965,6 +968,13 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .join(", ");
     setInput("modalOrderItem", itemsSummary || order.product_name || "Custom Order");
+    const itemList=document.getElementById('modalOrderItemsList');
+    if(itemList)itemList.innerHTML=getOrderItemsList(order).map(item=>{
+      const quantity=Math.max(1,Number(item.quantity)||1),unit=Number(item.unit_price);
+      const amount=item.line_total??(Number.isFinite(unit)?quantity*unit:null);
+      return '<li><div><strong>'+escapeHtml(item.product_name||'Custom product')+'</strong><span>Quantity: '+quantity+(Number.isFinite(unit)?' · '+escapeHtml(formatMoney(unit))+' each':'')+'</span></div><strong>'+(amount===null?'':escapeHtml(formatMoney(amount)))+'</strong></li>';
+    }).join('');
+
 
     setInput("modalOrderCustomer", order.customer_name || "Customer");
     setInput("modalOrderContact", order.customer_contact || "N/A");
@@ -1029,9 +1039,36 @@ document.addEventListener("DOMContentLoaded", () => {
         "-";
     }
 
+    renderPickupCollection(order, body);
     window.FMRCAppointmentProducts?.mountOrder(body,order,true);
     window.AdminCourierShipments?.render(order,body);
+    body?.querySelectorAll('input[readonly],textarea[readonly],select[readonly]').forEach(input=>{input.disabled=true;});
     modalOrderDetails.classList.add("show");
+  };
+
+  const renderPickupCollection = (order, body) => {
+    let section = body?.querySelector('[data-pickup-collection]');
+    if (!order.is_pickup || order.custom_product) { section?.remove(); return; }
+    if (!section) { section=document.createElement('section');section.className='order-fulfillment-card';section.dataset.pickupCollection='';body.append(section); }
+    const same=section.dataset.orderId===String(order.id),draft=same?section.querySelector('input')?.value||'':'';
+    if (same && section.contains(document.activeElement)) return;
+    section.dataset.orderId=String(order.id);
+    section.innerHTML='<h4 class="order-section-title"><i class="fa-solid fa-store" aria-hidden="true"></i>Pickup at FMRC</h4><p>'+escapeHtml(order.collection_blocked_reason || 'Confirm the customer’s pickup code after handing over the order.')+'</p>'+
+      (order.can_confirm_collection?'<div class="field-stack"><label for="collectionPickupCode">Customer pickup code</label><input class="input-field" id="collectionPickupCode" autocomplete="off" maxlength="20" /></div><div class="order-modal-actions"><button type="button" class="btn-admin" data-confirm-collection>Confirm pickup collection</button></div>':'');
+    const input=section.querySelector('input');if(input)input.value=draft;
+    const button=section.querySelector('[data-confirm-collection]');
+    if(input)input.disabled=collectionRequests.has(String(order.id));
+    if(button)button.disabled=collectionRequests.has(String(order.id));
+    if(button)button.onclick=async()=>{
+      if(collectionRequests.has(String(order.id)))return;
+      const code=input.value.trim();if(!code){input.focus();showPopup('Enter the pickup code shown in the customer’s order.',{title:'Pickup code required'});return;}
+      if(!await askConfirm('Confirm that this paid order has been handed to the customer at FMRC?',{title:'Confirm pickup collection',confirmText:'Confirm collection'}))return;
+      collectionRequests.add(String(order.id));button.disabled=true;input.disabled=true;
+      try{const response=await request('/admin/orders/'+order.id+'/complete',{method:'POST',body:{pickup_code:code}});
+        upsertOrderSummaryInState(response.data);populateOrderDetailsModal(response.data);void syncOrders(false);
+      }catch(error){collectionRequests.delete(String(order.id));renderPickupCollection(order,body);showPopup(error.message||'Collection could not be confirmed. Refresh and try again.',{title:'Collection unavailable'});}
+      finally{collectionRequests.delete(String(order.id));}
+    };
   };
 
   // Payment actions come from the same server rules used to accept the update.
@@ -1894,10 +1931,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }),
       !row.payment_is_automated ? returnActionIcon({
         icon: "fa-solid fa-peso-sign",
-        label: "Release Refund",
+        label: row.payment_is_custom_cash ? "Record cash refund" : "Release Refund",
         enabled: Boolean(row.can_refund),
         attrs: `data-return-action="${id}" data-return-mode="refund"`,
-        lockedHint: row.resolution !== 'refund' ? "approve Refund as the resolution first" : "available once the return is approved",
+        lockedHint: row.refund_admin_only && !canIssueOnlineRefund() ? "Admin records cash already returned to the customer" : row.resolution !== 'refund' ? "approve Refund as the resolution first" : "available once the return is approved and has a refundable balance",
       }) : '',
       row.payment_is_automated ? returnActionIcon({icon:'fa-solid fa-credit-card',label:'Manage Online Refund',enabled:true,attrs:`data-gateway-manage="${row.order_id}"`}) : '',
       returnActionIcon({
@@ -2522,7 +2559,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (trackingCourierOtherWrap) trackingCourierOtherWrap.hidden = true;
       if (trackingCourierName) trackingCourierName.value = '';
       if (trackingCourierNo) {
-        trackingCourierNo.disabled = false;
+        trackingCourierNo.disabled = true;
         trackingCourierNo.value = order.courier_shipment?.tracking_number || order.courier_tracking_no || '';
         trackingCourierNo.placeholder = 'Record the J&T tracking number below';
       }
@@ -2766,9 +2803,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const wrap = trackingPresetSelect.closest(".field-stack");
     if (hasManagedJntTracking(order)) {
-      if (wrap) wrap.hidden = false;
-      trackingPresetSelect.innerHTML = '<option value="">Type it myself</option>' +
-        (order.customer_stage === 'to_ship' ? '<option value="fmrc_prepared">Prepared for J&T drop-off</option>' : '');
+      const selected = trackingPresetSelect.value;
+      if (wrap) wrap.hidden = order.customer_stage !== 'to_ship';
+      trackingPresetSelect.innerHTML = '<option value="">Write an FMRC note</option><option value="fmrc_preparing">Preparing the order</option><option value="fmrc_prepared">Prepared for J&T drop-off</option>';
+      if ([...trackingPresetSelect.options].some(option => option.value === selected)) trackingPresetSelect.value = selected;
       return;
     }
     if (!checkpointPresets.items.length) {
@@ -2786,8 +2824,8 @@ document.addEventListener("DOMContentLoaded", () => {
       '<option value="">Type it myself</option>',
       ...checkpointPresets.items
         .filter(
-          (preset) =>
-            preset.fulfillment === "both" || preset.fulfillment === wanted,
+          (preset) => preset.stage !== "completed" &&
+            (preset.fulfillment === "both" || preset.fulfillment === wanted),
         )
         .map(
           (preset) =>
@@ -2809,10 +2847,15 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const applyCheckpointPreset = (key) => {
     if (hasManagedJntTracking(trackingModalOrder)) {
+      if (key === 'fmrc_preparing' && trackingModalOrder.customer_stage === 'to_ship') {
+        trackingEventTitle.value = 'FMRC is preparing your order';
+        trackingEventDescription.value = 'Your order is being prepared at FMRC before J&T handover.';
+      }
       if (key === 'fmrc_prepared' && trackingModalOrder.customer_stage === 'to_ship') {
         trackingEventTitle.value = 'Order prepared for J&T drop-off';
         trackingEventDescription.value = 'FMRC has prepared and packed your order for handover to J&T.';
       }
+      syncTrackingNoteAction();
       return;
     }
     const preset = checkpointPresets.items.find((item) => item.key === key);
@@ -2928,6 +2971,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const syncTrackingNoteAction = () => {
+    if (!btnSaveTrackingUpdate) return;
+    const managed = hasManagedJntTracking(trackingModalOrder);
+    btnSaveTrackingUpdate.textContent = trackingNoteBusy ? 'Saving…' : managed ? 'Save FMRC note' : 'Save Update';
+    btnSaveTrackingUpdate.disabled = trackingNoteBusy || (managed && (!trackingEventTitle?.value.trim() && !trackingEventDescription?.value.trim()));
+    for (const input of [trackingEventTitle, trackingEventDescription, trackingPresetSelect]) if(input)input.disabled=trackingNoteBusy;
+  };
+  for (const input of [trackingEventTitle, trackingEventDescription]) input?.addEventListener('input', syncTrackingNoteAction);
+
   const syncManagedTrackingContext = (order) => {
     const managed = hasManagedJntTracking(order);
     modalTrackingUpdate.querySelector('.modal-title').textContent = 'Update Tracking Status';
@@ -2944,14 +2996,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const host = document.getElementById('trackingManagedShipment');
     if (hint) {
       hint.hidden = !managed;
-      hint.textContent = 'Record the J&T handover below. Courier updates appear automatically when tracking is active. Use the timeline fields to add an FMRC update.';
+      hint.textContent = 'J&T delivery progress is supplied by 17TRACK. Record the physical handover once. Optional FMRC notes do not change courier status or complete an order.';
     }
     if (host) {
       host.hidden = !managed;
       if (managed) window.AdminJntTracking?.render(order, host);
       else host.replaceChildren();
     }
-    if (!btnSaveTrackingUpdate.disabled) btnSaveTrackingUpdate.textContent = 'Save Update';
+    renderCheckpointPresetOptions(order);
+    syncTrackingNoteAction();
   };
 
   const openTrackingModal = (order) => {
@@ -3236,6 +3289,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ${shipped ? returnField("Return Courier", detail?.return_courier_name) : ""}
         ${shipped ? returnField("Return Tracking No.", detail?.return_tracking_no) : ""}
         ${detail?.item_received_at_label ? returnField("Item Received", detail.item_received_at_label) : ""}
+        ${detail?.payment_is_custom_cash ? returnField("Cash refund", "Admin records cash already returned to the customer. The remaining refundable balance is " + formatMoney(detail.refund_available_amount || 0) + ".", { full: true }) : ""}
 
         <div class="field-stack full">
           ${renderReturnItemsTable(detail?.items)}
@@ -3524,14 +3578,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (returnRefundReference) {
       returnRefundReference.value = row.refund_reference || "";
+      returnRefundReference.maxLength = 180;
+      returnRefundReference.placeholder = 'Refund receipt or transfer reference';
     }
     if (returnRefundNote) {
       returnRefundNote.value = "";
       returnRefundNote.maxLength = row.payment_is_automated ? 400 : 800;
     }
 
-    const receiveAndRefund = kind === 'refund' && row.payment_is_automated && row.requires_receipt;
+    const receiveAndRefund = kind === 'refund' && (row.payment_is_automated || row.payment_is_custom_cash) && row.requires_receipt;
     modalReturnAction.dataset.confirmReceipt = receiveAndRefund ? '1' : '0';
+    modalReturnAction.dataset.customCash = row.payment_is_custom_cash ? '1' : '0';
+    [returnRefundStage, returnRefundMethod, returnRefundReference].forEach(field => {
+      if (!field) return;
+      field.disabled = false;
+      const wrapper = field.closest('.field-stack');
+      if (wrapper) wrapper.style.display = '';
+    });
+    const releasedOption = returnRefundStage?.querySelector('[value="released"]');
+    const cashOption = returnRefundMethod?.querySelector('[value="cash"]');
+    if (releasedOption) releasedOption.textContent = 'Release refund now';
+    if (cashOption) cashOption.textContent = 'Cash';
     setReturnActionSections(kind);
     if (kind === 'resolution') {
       const decisionField = returnDecisionSelect?.closest('.field-stack');
@@ -3551,6 +3618,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (returnActionTitle) returnActionTitle.textContent = action;
       if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + (receiveAndRefund ? ' · Confirm receipt and inspection, then continue with the refund.' : '') + (canIssueOnlineRefund() ? ' QR Ph refunds need a customer claim form.' : ' Admin approval is required to send the refund.');
       if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = action;
+    } else if (kind === 'refund' && row.payment_is_custom_cash) {
+      if (returnRefundStage) { returnRefundStage.value = 'released'; returnRefundStage.disabled = true; }
+      if (returnRefundMethod) { returnRefundMethod.value = 'cash'; returnRefundMethod.disabled = true; }
+      if (releasedOption) releasedOption.textContent = 'Cash already returned';
+      if (cashOption) cashOption.textContent = 'Cash at FMRC';
+      if (returnRefundAmount) returnRefundAmount.min = '0.01';
+      if (returnRefundReference) { returnRefundReference.value = ''; returnRefundReference.maxLength = 100; returnRefundReference.placeholder = 'Cash refund receipt reference'; }
+      if (returnActionTitle) returnActionTitle.textContent = 'Record cash refund';
+      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + ' · Admin records cash already returned to the customer. Partial refunds keep this return open.';
+      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = 'Record cash refund';
     }
     returnActionDiscardGuard?.capture();
     modalReturnAction.classList.add("show");
@@ -3669,6 +3746,25 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmTitle: action, confirmText: action,
         confirmMessage: (confirmReceipt ? 'Confirm receipt and inspection, then ' : '') + (canIssueOnlineRefund() ? 'issue ' : 'request ') + formatMoney(amount) + '? ' + (canIssueOnlineRefund() ? 'QR Ph needs a customer claim form and available wallet funds. The refund is complete only after provider confirmation.' : 'Admin must approve this request before the refund is sent.'),
         success: 'Follow this request in Online refunds.',
+      };
+    }
+
+    if (modalReturnAction?.dataset.customCash === '1') {
+      const reference = String(returnRefundReference?.value || '').trim();
+      if (!reference) return { error: 'Enter the cash refund receipt reference.', focus: returnRefundReference };
+      const confirmReceipt = modalReturnAction.dataset.confirmReceipt === '1';
+      if (confirmReceipt && !returnConfirmReceived?.checked) return {
+        error: 'Confirm that the item was received and inspected.', focus: returnConfirmReceived,
+      };
+      return {
+        path: '/admin/returns/{id}/refund',
+        body: { stage: 'released', refund_method: 'cash', refund_released: true, amount,
+          refund_reference: reference, note: String(returnRefundNote?.value || '').trim() || null,
+          request_key: modalReturnAction.dataset.requestKey, confirm_received: confirmReceipt,
+          received_note: confirmReceipt ? String(returnReceivedNote?.value || '').trim() || null : null },
+        confirmTitle: 'Record cash refund', confirmText: 'Record refund',
+        confirmMessage: `Confirm that ${formatMoney(amount)} has already been returned in cash. This records the receipt; it does not transfer money.`,
+        success: 'Cash refund recorded. The remaining balance is updated.',
       };
     }
 
@@ -5212,6 +5308,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnSaveTrackingUpdate?.addEventListener("click", async () => {
+    if (trackingNoteBusy) return;
     if (hasManagedJntTracking(trackingModalOrder) && window.AdminJntTracking?.busy(trackingModalOrder.id)) return;
     const orderId = trackingOrderId?.value || "";
     if (!orderId) {
@@ -5219,15 +5316,6 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Update Failed",
       });
       return;
-    }
-
-    if (hasManagedJntTracking(trackingModalOrder)) {
-      const handover = document.querySelector('#trackingManagedShipment [data-jnt-form]');
-      const hasWaybillDraft = Boolean(handover?.elements.tracking_number?.value.trim());
-      if (handover && hasWaybillDraft && !handover.querySelector('fieldset').disabled) {
-        // Save the handover first and keep any timeline text in this open modal.
-        handover.requestSubmit(); return;
-      }
     }
 
     const stage = trackingStage?.value || "to_pay";
@@ -5286,8 +5374,6 @@ document.addEventListener("DOMContentLoaded", () => {
       for (const key of ['stage', 'courier_name', 'courier_tracking_no', 'location_name', 'latitude', 'longitude']) delete payload[key];
       payload.event_type = 'admin_update';
       if (!payload.title && !payload.description) {
-        const handover = document.querySelector('#trackingManagedShipment [data-jnt-form]');
-        if (handover && !handover.querySelector('fieldset').disabled) { handover.requestSubmit(); return; }
         showPopup('Enter a timeline title or description before saving an FMRC update.', {title:'Update Required'});
         trackingEventTitle?.focus(); return;
       }
@@ -5301,6 +5387,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!shouldSave) return;
 
     const originalSaveHtml = btnSaveTrackingUpdate.innerHTML;
+    trackingNoteBusy = true;
+    syncTrackingNoteAction();
     btnSaveTrackingUpdate.disabled = true;
     btnSaveTrackingUpdate.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
@@ -5330,8 +5418,10 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Update Failed",
       });
     } finally {
+      trackingNoteBusy = false;
       btnSaveTrackingUpdate.disabled = false;
       btnSaveTrackingUpdate.innerHTML = originalSaveHtml;
+      syncTrackingNoteAction();
       if (btnCancelTrackingUpdate) btnCancelTrackingUpdate.disabled = false;
     }
   });

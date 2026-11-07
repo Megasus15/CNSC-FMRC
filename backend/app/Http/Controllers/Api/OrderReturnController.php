@@ -66,7 +66,7 @@ class OrderReturnController extends Controller
             ->where('customer_id', $request->user()->id)
             ->where('is_archived', false)
             ->with([
-                'order:id,order_no,total,customer_stage,lifecycle_status,completed_at',
+                'order.payment',
                 'items',
                 'latestEvent',
             ])
@@ -471,7 +471,7 @@ class OrderReturnController extends Controller
 
         $query = OrderReturn::query()
             ->where('is_archived', false)
-            ->with(['order:id,order_no,customer_name,total', 'items', 'customer:id,name,email', 'latestEvent'])
+            ->with(['order.payment', 'items', 'customer:id,name,email', 'latestEvent'])
             ->orderByDesc('created_at');
 
         $this->applyAdminFilters($query, $request);
@@ -708,16 +708,8 @@ class OrderReturnController extends Controller
             return $this->onlineReturnRefund($request, $orderReturn, $gatewayPayment);
         }
 
-        if (\App\Services\AppointmentProducts::custom($orderReturn->order) && ($request->input('stage','released')==='released')) {
-            abort_unless($request->user()->role==='admin',403,'Only Admin can release a refund.');
-            if ($blocked=$this->guardTransition($orderReturn,'refunded')) return $blocked;
-            $request->merge(['action'=>'cash_refund','expected_revision'=>(int)$orderReturn->order->production_revision,
-                'request_key'=>hash('sha256','return:'.$orderReturn->id.':'.$request->input('refund_reference')),
-                'receipt_reference'=>$request->input('refund_reference'),'refund_released'=>true,'return_id'=>$orderReturn->id,
-                'amount'=>$request->input('amount',$orderReturn->approved_amount),'note'=>$request->input('note')?:'Released refund for '.$orderReturn->return_no]);
-            app(AppointmentProductOrderController::class)->action($request,$orderReturn->order);
-            $orderReturn->refresh()->load(['order.items','order.payment','items','events','customer:id,name,email','handler:id,name,role']);
-            return response()->json(['message'=>'Cash refund recorded in the order ledger.','data'=>$this->transformReturnDetail($orderReturn,true)]);
+        if (\App\Services\AppointmentProducts::custom($orderReturn->order)) {
+            return $this->customCashReturnRefund($request, $orderReturn);
         }
 
         $validated = $request->validate([
@@ -830,6 +822,42 @@ class OrderReturnController extends Controller
     }
 
     /** Receipt and reservation commit together; provider submission happens afterward. */
+    private function customCashReturnRefund(Request $request, OrderReturn $orderReturn): JsonResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403, 'Only Admin can record a cash refund.');
+        $v = $request->validate([
+            'stage' => ['nullable', Rule::in(['released'])],
+            'refund_method' => ['required', Rule::in(['cash'])],
+            'refund_released' => ['required', 'accepted'],
+            'refund_reference' => ['required', 'string', 'max:100'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01'],
+            'request_key' => ['nullable', 'uuid'],
+            'note' => ['nullable', 'string', 'max:800'],
+            'confirm_received' => ['nullable', 'boolean'],
+            'received_note' => ['nullable', 'string', 'max:800'],
+        ]);
+        $reference = trim($v['refund_reference']);
+        abort_if($reference === '', 422, 'Enter the cash refund receipt reference.');
+        $receivedNote = $this->cleanText($v['received_note'] ?? null);
+        DB::transaction(function () use ($request, $orderReturn, $v, $reference, $receivedNote) {
+            $order = Order::whereKey($orderReturn->order_id)->lockForUpdate()->firstOrFail();
+            $current = OrderReturn::whereKey($orderReturn->id)->lockForUpdate()->firstOrFail();
+            if (in_array($current->status, ['approved', 'item_in_transit', 'refund_processing'], true) && !$current->item_received_at) {
+                abort_unless($current->resolution === 'refund' && $request->boolean('confirm_received'), 422, 'Confirm that the item was received and inspected.');
+                $this->markItemReceived($current, $request->user()->id, $request->user()->role, $receivedNote);
+            }
+            // The cash action owns the locked balance, cumulative return total,
+            // receipt idempotency and audit. Never use the legacy manual path.
+            $request->merge(['action' => 'cash_refund', 'expected_revision' => (int) $order->production_revision,
+                'request_key' => $v['request_key'] ?? hash('sha256', 'return:'.$current->id.':'.$reference),
+                'receipt_reference' => $reference, 'return_id' => $current->id,
+                'note' => $this->cleanText($v['note'] ?? null) ?: 'Released cash refund for '.$current->return_no]);
+            app(AppointmentProductOrderController::class)->action($request, $order);
+        });
+        $orderReturn->refresh()->load(['order.items', 'order.payment', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
+        return response()->json(['message' => 'Cash refund recorded in the order ledger.', 'data' => $this->transformReturnDetail($orderReturn, true)]);
+    }
+
     private function onlineReturnRefund(Request $request, OrderReturn $orderReturn, Payment $payment): JsonResponse
     {
         $v = $request->validate([
@@ -1085,7 +1113,7 @@ class OrderReturnController extends Controller
         }
 
         if ($order->customer_stage !== 'completed') {
-            return $verdict(false, 'Only completed orders can be returned. Confirm you received the order first.');
+            return $verdict(false, 'Returns become available after confirmed courier delivery or FMRC pickup collection.');
         }
 
         $activeReturn = $order->relationLoaded('activeReturn')

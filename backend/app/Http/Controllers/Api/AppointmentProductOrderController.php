@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\AppointmentProductJob;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\OrderReturnEvent;
 use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
 use App\Services\AppointmentProducts as Products;
 use App\Services\GatewayPayments;
-use App\Services\PayMongoService;
 use App\Support\OrderNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,12 +75,15 @@ class AppointmentProductOrderController extends Controller
                     $return = null;
                     if (! empty($v['return_id'])) {
                         $return = OrderReturn::where('order_id', $o->id)->whereKey($v['return_id'])->lockForUpdate()->firstOrFail();
-                        abort_unless($return->resolution === 'refund' && in_array($return->status, ['approved', 'item_received', 'refund_processing'], true), 422, 'Approve and receive the return before recording its refund.');
+                        abort_unless($return->resolution === 'refund' && $return->item_received_at
+                            && in_array($return->status, ['item_received', 'refund_processing'], true), 422, 'Approve and receive the return before recording its refund.');
                     }
                     abort_unless(in_array($o->lifecycle_status, ['cancelled', 'rejected'], true) || $return, 422, 'Approve the cancellation or return before issuing a refund.');
                     abort_unless($amount > 0 && $amount <= $held, 422, 'The refund exceeds the remaining received cash.');
                     if ($return) {
-                        abort_unless($amount <= GatewayPayments::centavos($return->approved_amount), 422, 'The refund exceeds the approved return amount.');
+                        $returned = GatewayPayments::centavos($return->refunded_amount ?? 0);
+                        $approved = GatewayPayments::centavos($return->approved_amount ?? $return->requested_amount);
+                        abort_unless($amount + $returned <= $approved, 422, 'The refund exceeds the remaining approved return amount.');
                     }
                     $kind = 'refund';
                     $title = 'Cash refund released';
@@ -91,7 +94,14 @@ class AppointmentProductOrderController extends Controller
                         $o->cancel_refund_due = false;
                     }
                     if ($return) {
-                        $return->forceFill(['status' => 'refunded', 'refund_method' => 'cash', 'refund_reference' => $v['receipt_reference'], 'refunded_amount' => $amount / 100, 'refunded_at' => now()])->save();
+                        $returned += $amount;
+                        $return->forceFill(['status' => $returned >= $approved ? 'refunded' : 'refund_processing',
+                            'refund_method' => 'cash', 'refund_reference' => trim($v['receipt_reference']),
+                            'refunded_amount' => $returned / 100, 'refunded_at' => now(), 'handled_by_user_id' => $r->user()->id])->save();
+                        OrderReturnEvent::create(['order_return_id' => $return->id, 'created_by_user_id' => $r->user()->id,
+                            'status' => $return->status, 'actor_role' => $r->user()->role, 'title' => $title,
+                            'description' => 'PHP '.number_format($amount / 100, 2).' returned in cash. Ref. '.trim($v['receipt_reference'])."\n".$v['note'],
+                            'occurred_at' => now(), 'metadata' => ['amount' => $amount / 100, 'method' => 'cash', 'reference' => trim($v['receipt_reference']), 'refunded_total' => $returned / 100]]);
                     }
                 }
                 abort_if(DB::table('appointment_cash_entries')->where('kind', $kind)->where('receipt_reference', trim($v['receipt_reference']))->exists(), 422, 'This receipt reference is already recorded. Check the existing receipt before trying again.');
@@ -112,6 +122,7 @@ class AppointmentProductOrderController extends Controller
                         $o->pickup_ready_at = now();
                     }$title = 'Custom product ready';
                 } else {
+                    abort_if($reason = \App\Services\OrderCompletion::collectionBlocker($o), 422, $reason ?? 'Collection is unavailable.');
                     abort_unless($o->isPickup() && hash_equals((string) $o->pickup_code, strtoupper(trim($v['pickup_code']))), 422, 'Check the pickup code shown in the customer’s order.');
                     $o->forceFill(['picked_up_at' => now(), 'completed_at' => now(), 'customer_stage' => 'completed', 'lifecycle_status' => 'completed']);
                     $title = 'Custom product collected';
@@ -120,7 +131,7 @@ class AppointmentProductOrderController extends Controller
             $o->production_revision++;
             $o->save();
             OrderTrackingEvent::create(['order_id' => $o->id, 'created_by_user_id' => $r->user()->id, 'stage' => $o->customer_stage, 'event_type' => 'admin_update',
-                'title' => $title, 'description' => $v['note'] ?? $title, 'occurred_at' => now()]);
+                'title' => $title, 'description' => $v['note'] ?? $title, 'occurred_at' => now(), 'metadata' => ['source' => $action === 'collect' ? 'fmrc_collection' : 'fmrc']]);
             $job = AppointmentProductJob::findOrFail($o->appointment_product_job_id);
             Products::event($job, $action, $title, $r->user()->id, ['order_id' => $o->id]);
             OrderNotifier::notifyAdmins('order', $title, $o->order_no, ['order_id' => $o->id, 'appointment_id' => $job->appointment_id]);
@@ -135,6 +146,10 @@ class AppointmentProductOrderController extends Controller
         abort_unless($r->user() && ($r->user()->id === $order->customer_id || in_array($r->user()->role, ['admin', 'staff'], true)), 404);
         abort_unless(Products::custom($order), 404);
         $v = $r->validate(['payment_method' => 'required|in:online,cash', 'expected_revision' => 'required|integer|min:0']);
+        // Check before freezing cash collection when online checkout is disabled.
+        if ($v['payment_method'] === 'online') {
+            abort_unless(Products::onlinePaymentAvailable(), 422, 'Online payment is unavailable.');
+        }
         $hold = 'switch:'.$v['payment_method'];
         DB::transaction(function () use ($order, $v, $hold) {
             $o = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -164,7 +179,7 @@ class AppointmentProductOrderController extends Controller
             abort_unless((int) $o->production_revision === (int) $v['expected_revision'], 409, 'This order changed. Refresh it before changing payment methods.');
             $online = $v['payment_method'] === 'online';
             if ($online) {
-                abort_unless(app(PayMongoService::class)->acceptsNewPayments(), 422, 'Online payment is unavailable.');
+                abort_unless(Products::onlinePaymentAvailable(), 422, 'Online payment is unavailable.');
             }
             $o->payment_method = $online ? 'GCash' : 'Cash at FMRC';
             $o->production_revision++;

@@ -128,54 +128,15 @@ class OrderFulfillmentStageLabelsTest extends TestCase
         $this->assertNotNull($fresh->pickup_ready_at);
     }
 
-    public function test_a_customer_collecting_a_pickup_order_stamps_the_handover(): void
+    public function test_customers_cannot_confirm_pickup_or_delivery_themselves(): void
     {
         $customer = $this->actingAsCustomer();
-        $order = $this->makeOrder($customer, 'pickup', 'to_receive');
-
-        $this->postJson("/api/customer/orders/{$order->id}/received")
-            ->assertOk()
-            ->assertJsonPath('data.customer_stage', 'completed');
-
-        // The customer pressing the button *is* the handover for a pickup, so
-        // `picked_up_at` has to be stamped here too. Left to `updateTracking`
-        // alone it would only ever be filled on orders staff closed by hand.
-        $this->assertNotNull($order->fresh()->picked_up_at);
-
-        $this->assertDatabaseHas('order_tracking_events', [
-            'order_id' => $order->id,
-            'title' => 'Order collected',
-        ]);
-    }
-
-    public function test_a_delivery_order_keeps_the_received_wording_on_handover(): void
-    {
-        $customer = $this->actingAsCustomer();
-        $order = $this->makeOrder($customer, 'delivery', 'to_receive');
-
-        $this->postJson("/api/customer/orders/{$order->id}/received")->assertOk();
-
-        $this->assertNull($order->fresh()->picked_up_at);
-
-        $this->assertDatabaseHas('order_tracking_events', [
-            'order_id' => $order->id,
-            'title' => 'Order Received',
-        ]);
-    }
-
-    public function test_the_refusal_quotes_the_stage_name_the_customer_can_see(): void
-    {
-        $customer = $this->actingAsCustomer();
-        $order = $this->makeOrder($customer, 'pickup', 'to_ship');
-
-        // Naming a chip the customer cannot find is worse than saying nothing:
-        // a pickup order has no "To Receive" stage on screen.
-        $this->postJson("/api/customer/orders/{$order->id}/received")
-            ->assertStatus(422)
-            ->assertJsonPath(
-                'message',
-                'Only orders in "Ready for Pickup" status can be marked as received.',
-            );
+        foreach (['pickup','delivery'] as $type) {
+            $order=$this->makeOrder($customer,$type,'to_receive');
+            $this->postJson('/api/customer/orders/'.$order->id.'/received')->assertConflict()->assertJsonPath('code','order_completion_managed');
+            $this->assertSame('to_receive',$order->fresh()->customer_stage);
+            $this->assertNull($order->fresh()->picked_up_at);
+        }
     }
 
     private function actingAsCustomer(): User

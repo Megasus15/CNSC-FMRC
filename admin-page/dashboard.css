@@ -3500,3 +3500,10 @@ body.admin-session-warning-open {
 .appointment-custom-work strong { font-size:24px;color:var(--portal-accent,#800000); }
 @media(max-width:900px){.appointment-custom-work > div{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:480px){.appointment-custom-work{padding:16px;}.appointment-custom-work > div{gap:10px;}.appointment-custom-work header a{margin-left:0;}}
+
+/* Custom work uses the same 34px heading icon as operational portal cards. */
+.appointment-custom-work .portal-table-header { padding-bottom:12px;border-bottom:1px solid var(--border-color); }
+.appointment-custom-work .portal-table-title { display:flex;align-items:center;gap:10px; }
+.appointment-custom-work .portal-table-icon { display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 34px;border-radius:8px;background:var(--table-card-tint,#f8e8e8);color:var(--primary-color,#800000);font-size:.95rem; }
+
+.appointment-custom-work .portal-table-icon svg { width:19px;height:19px; }

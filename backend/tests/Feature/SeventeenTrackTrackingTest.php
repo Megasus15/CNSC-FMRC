@@ -302,6 +302,7 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => true, 'expected_revision' => $revision])->assertUnprocessable();
         $this->hook($message)->assertOk();
         $this->drain();
+        $this->artisan('shipments:process')->assertSuccessful();
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => true, 'expected_revision' => $revision])->assertOk()->assertJsonPath('data.enabled', true);
         Sanctum::actingAs(User::factory()->create(['role' => 'staff']));
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => false, 'expected_revision' => $revision + 1])->assertForbidden();
@@ -386,8 +387,8 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertTrue($sub->tracker->fresh()->needs_review);
         $this->assertSame(1, DB::table('shipment_notification_outbox')->where('milestone', 'delivered')->count());
         $this->assertSame(1, DB::table('customer_notifications')->where('event_key', 'shipment:'.$sub->tracker_id.':delivered')->count());
-        $this->assertSame('pending', $this->order->fresh()->lifecycle_status);
-        $this->assertSame('to_receive', $this->order->fresh()->customer_stage);
+        $this->assertSame('completed', $this->order->fresh()->lifecycle_status);
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
     }
 
     public function test_date_only_events_and_tracking_stop_preserve_last_confirmed_status(): void
@@ -485,7 +486,7 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->getJson('/api/customer/orders/'.$this->order->id, ['If-None-Match' => $etag])->assertOk()
             ->assertJsonPath('data.tracking_test.status_label', 'Delivered')->assertJsonPath('data.tracking_test.is_test', true)
             ->assertJsonPath('data.customer_stage', 'to_ship')->assertJsonPath('data.payment_status', 'paid');
-        $this->postJson('/api/customer/orders/'.$this->order->id.'/received')->assertUnprocessable();
+        $this->postJson('/api/customer/orders/'.$this->order->id.'/received')->assertConflict();
         $this->assertSame(0, DB::table('order_tracking_events')->where('event_type', 'courier_update')->count());
         $this->assertDatabaseCount('shipment_notification_outbox', 0);
         Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
@@ -622,5 +623,63 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->drain();
         $this->assertSame('stopped', $sub->fresh()->registration_state);
         $this->assertSame('out_for_delivery', $sub->tracker->fresh()->status);
+    }
+
+    public function test_delivery_completes_once_and_return_window_starts_when_fmrc_processes_the_update(): void
+    {
+        $sub = $this->registered();
+        $payment = $this->order->payment->getAttributes();
+        $delivered = now()->subHours(6)->toIso8601String();
+        $this->hook($this->message($sub, 'Delivered', $delivered))->assertOk();
+        $this->drain();
+        $order = $this->order->fresh();
+        $this->assertSame('completed', $order->customer_stage);
+        $this->assertTrue($order->completed_at->equalTo(now()));
+        $completedAt = $order->completed_at->toISOString();
+        $this->assertSame($payment, $order->payment->getAttributes());
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/orders/'.$order->id)->assertOk()
+            ->assertJsonPath('data.completion_source', '17track')->assertJsonPath('data.return_eligible', true);
+        Carbon::setTestNow(now()->addDay());
+        $this->hook($this->message($sub, 'Delivered', $delivered))->assertOk();
+        $this->drain();
+        $this->assertSame($completedAt, $order->fresh()->completed_at->toISOString());
+        $this->assertSame(1, DB::table('order_tracking_events')->where('order_id', $order->id)->where('metadata->completion_source', '17track')->count());
+    }
+
+    public function test_already_delivered_real_shipments_are_completed_by_the_worker_without_new_registration(): void
+    {
+        $sub = $this->registered();
+        $this->hook($this->message($sub, 'Delivered'))->assertOk();
+        $this->drain();
+        $this->order->fresh()->forceFill(['customer_stage' => 'to_receive', 'lifecycle_status' => 'pending', 'completed_at' => null])->save();
+        $calls = $this->registrationCalls;
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertSame($calls, $this->registrationCalls);
+    }
+
+    public function test_unpaid_refunded_cancelled_or_external_test_orders_never_complete_from_delivery(): void
+    {
+        $sub = $this->registered();
+        foreach (['pending', 'refunded'] as $status) {
+            $this->order->payment->update(['status' => $status]);
+            $this->hook($this->message($sub, 'Delivered'))->assertOk();
+            $this->drain();
+            $this->assertSame('to_receive', $this->order->fresh()->customer_stage);
+        }
+        $this->order->payment->update(['status' => 'paid']);
+        $this->order->update(['lifecycle_status' => 'cancelled']);
+        $this->hook($this->message($sub, 'Delivered'))->assertOk();
+        $this->drain();
+        $this->assertSame('cancelled', $this->order->fresh()->lifecycle_status);
+    }
+
+    public function test_readiness_distinguishes_signed_external_test_from_live_activation_and_stalled_worker(): void
+    {
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['enabled' => false, 'waybill_verified_at' => null, 'last_webhook_at' => null, 'last_test_webhook_at' => now(), 'last_processed_at' => now()->subHour()]);
+        $this->getJson('/api/admin/shipping-tracking')->assertOk()->assertJsonPath('data.readiness_state', 'test_verified')
+            ->assertJsonPath('data.ready', false)->assertJsonPath('data.diagnostic_webhook_verified', true)
+            ->assertJsonStructure(['data' => ['blocking_reasons' => ['parcel', 'webhook', 'worker']]]);
     }
 }

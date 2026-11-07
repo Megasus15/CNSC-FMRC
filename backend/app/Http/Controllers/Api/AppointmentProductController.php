@@ -16,7 +16,6 @@ use App\Services\AppointmentProducts as Products;
 use App\Services\AppointmentScheduling;
 use App\Services\CommercePolicy;
 use App\Services\GatewayPayments;
-use App\Services\PayMongoService;
 use App\Support\EmailTemplate;
 use App\Support\OrderNotifier;
 use Illuminate\Http\Request;
@@ -405,7 +404,7 @@ class AppointmentProductController extends Controller
             $pickup = $g['fulfillment_type'] === 'pickup';
             $online = $r->input('payment_method') === 'online';
             if ($online) {
-                abort_unless(app(PayMongoService::class)->acceptsNewPayments(), 422, 'Online checkout is unavailable. Choose cash at FMRC or try again later.');
+                abort_unless(Products::onlinePaymentAvailable(), 422, 'Online checkout is unavailable. Choose cash at FMRC or try again later.');
             }
             $o = Order::create(['appointment_product_job_id' => $j->id, 'appointment_product_quote_id' => $q->id, 'appointment_production_status' => 'awaiting_payment', 'production_revision' => 0,
                 'customer_id' => $user->id, 'customer_name' => $user->name, 'customer_contact' => $j->appointment?->contact_number ?? $user->email,

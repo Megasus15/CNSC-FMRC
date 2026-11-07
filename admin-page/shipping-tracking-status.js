@@ -8,7 +8,7 @@
     panel.className = 'payment-settings-card wm-section shipping-tracking-status';
     panel.setAttribute('aria-labelledby','shippingTrackingTitle');
     panel.innerHTML = '<div class="shipping-section-heading"><div><h3 id="shippingTrackingTitle">J&T tracking</h3><p>Record the physical J&T handover in Orders. 17TRACK supplies automatic courier updates when active. Standard carrier checks can take 6–12 hours.</p></div><span class="shipping-status" data-tracking-state>Loading…</span></div>'+
-      '<p data-tracking-message role="status" aria-live="polite">Loading tracking availability…</p><dl class="shipping-tracking-facts" data-tracking-facts></dl>'+
+      '<p data-tracking-message role="status" aria-live="polite">Loading tracking availability…</p><div class="shipping-readiness" data-tracking-readiness hidden></div><dl class="shipping-tracking-facts" data-tracking-facts></dl>'+
       '<p class="shipping-calendar-note">The local credit budget includes diagnostics and uncertain registration attempts. It does not reset monthly. The provider account dashboard shows the actual remaining allowance. Saved tracking numbers remain available if credits run out.</p>'+
       '<div class="shipping-save-actions"><button class="btn-admin" type="button" data-tracking-toggle hidden>Activate automatic tracking</button><a class="btn-admin btn-secondary" href="https://admin.17track.net/api/dashboard" target="_blank" rel="noopener noreferrer" data-tracking-dashboard hidden>Open 17TRACK account</a></div>';
     anchor.after(panel);
@@ -27,10 +27,14 @@
       const providerName = record.provider_name || '17TRACK';
       dashboard.textContent = 'Open '+providerName+' account';
       dashboard.href = 'https://admin.17track.net/api/dashboard';
-      panel.querySelector('[data-tracking-state]').textContent = record.enabled ? 'Active' : 'Not active';
+      panel.querySelector('[data-tracking-state]').textContent = ({active:'Active',needs_attention:'Needs attention',ready:'Ready to activate',test_verified:'Test connection verified',setup_required:'Setup required'})[record.readiness_state] || (record.enabled ? 'Active' : 'Not active');
       panel.querySelector('[data-tracking-message]').textContent = record.message;
+      const readiness=panel.querySelector('[data-tracking-readiness]'),reasons=Object.values(record.blocking_reasons||{});
+      readiness.hidden=!record.next_action&&!reasons.length;
+      readiness.innerHTML='<strong>'+(record.can_edit?'Next setup step':'Tracking readiness')+'</strong><p>'+escape(record.next_action||'')+'</p>'+(reasons.length?'<ul>'+reasons.map(reason=>'<li>'+escape(reason)+'</li>').join('')+'</ul>':'');
       const facts = [
         ['Connection', record.configured ? 'Configured' : 'Setup required'],
+        ['External parcel test', record.diagnostic_webhook_verified ? 'Signed test update verified' : 'Not verified'],
         ['J&T Philippines carrier', record.carrier_verified ? 'Verified' : 'Verification required'],
         ['FMRC parcel tracking', record.waybill_verified ? 'Verified' : 'Verification required'],
         ['Webhook delivery', record.webhook_verified ? 'Verified' : 'Verification required'],

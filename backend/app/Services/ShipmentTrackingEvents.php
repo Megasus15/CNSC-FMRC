@@ -69,6 +69,9 @@ final class ShipmentTrackingEvents
         }
         $tracker->update(['status' => $status, 'provider_status' => $text, 'location' => $location ?: null,
             'last_event_at' => $instant, 'last_event_order' => (int) ($event['order'] ?? 0), 'last_event_time' => $time]);
+        if ($status === 'delivered' && $source === '17track') {
+            OrderCompletion::delivered($tracker);
+        }
         if (in_array($status, ['out_for_delivery', 'delivered', 'failed_attempt', 'exception'], true)) {
             ShipmentTracking::notifyLater($tracker, $status);
         }

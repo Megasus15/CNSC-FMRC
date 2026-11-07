@@ -6,7 +6,7 @@
     if (!get('shippingForm')) return;
     const api = (window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port!=='8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
     const headers = () => ({Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()});
-    let record=null, busy=false, refreshing=false, loaded=false, baseline='', zones=[];
+    let record=null, busy=false, refreshing=false, loaded=false, baseline='', zones=[], publishedPage=1;
     let provinces=[], provincesReady=false, provincesBusy=false, provincesFailed=false, provinceRequest=null;
     const admin = () => loaded && !!record?.can_edit;
     window.AdminWebsiteDraft?.register({isDirty:()=>admin()&&normalized(read())!==baseline,busy:()=>busy&&!!record?.can_edit});
@@ -91,16 +91,20 @@
       })});
     const normalized = settings => JSON.stringify({enabled:settings.enabled,nonworking_weekdays:settings.nonworking_weekdays,nonworking_dates:settings.nonworking_dates,zones:settings.zones.map(zone=>({...zone,fee:Number(zone.fee)}))});
     const dirty = () => !!record && normalized(read())!==baseline;
-    const table = settings => {
+    const table = (settings, published=false) => {
       if (!settings) return '<div class="shipping-empty"><strong>Pickup only</strong><p>Publish approved delivery rates to offer shipping. Pickup at FMRC has no shipping fee.</p></div>';
       if (!settings.enabled) return '<div class="shipping-empty"><strong>Delivery is turned off</strong><p>Customers can choose free pickup at FMRC.</p></div>';
       if (!settings.zones.length) return '<div class="shipping-empty"><strong>No destinations added</strong><p>Add a destination and its rate before publishing delivery settings.</p></div>';
+      const pageSize=5,total=settings.zones.length,pages=Math.max(1,Math.ceil(total/pageSize));
+      if(published)publishedPage=Math.max(1,Math.min(publishedPage,pages));
+      const rows=published?settings.zones.slice((publishedPage-1)*pageSize,publishedPage*pageSize):settings.zones;
+      const pager=published?'<footer class="table-footer"><div class="table-footer-meta">'+window.AdminTablePagination.label(publishedPage,total,pageSize)+'</div><div class="table-pagination" aria-label="Published delivery area pages"><button type="button" class="page-btn" data-shipping-page="prev" aria-label="Previous delivery areas page" '+(publishedPage===1?'disabled':'')+'><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" max="'+pages+'" value="'+publishedPage+'" data-shipping-page-number aria-label="Delivery areas page number" /><button type="button" class="page-btn" data-shipping-page="next" aria-label="Next delivery areas page" '+(publishedPage===pages?'disabled':'')+'><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></footer>':'';
       return `<section class="portal-data-card">
         <header class="portal-table-header">
           <h3 class="portal-table-title"><i class="fa-solid fa-truck portal-table-icon" aria-hidden="true"></i> Delivery rates</h3>
 
-        </header><div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>${settings.zones.map(zone=>
-        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')}</tbody></table></div></section>`;
+        </header><div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>${rows.map(zone=>
+        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')}</tbody></table></div>${pager}</section>`;
     };
     const sync = () => {
       const values=read(),changed=!!record&&normalized(values)!==baseline;
@@ -135,6 +139,8 @@
     };
     const renderZones = values => {
       zones=values;
+      get('shippingZones').classList.toggle('shipping-zones-scroll',zones.length>=3);
+      get('shippingZones').setAttribute('tabindex',zones.length>=3?'0':'-1');
       const fields=[['name','Delivery area name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Days to prepare the order','number'],['transit_min_days','Fastest delivery (working days)','number'],['transit_max_days','Longest delivery (working days)','number']];
       const help={name:'A label for your reference, such as Daet delivery.',province:'Search all Philippine provinces, then select a result. Review city and postal-code entries when changing provinces.',cities:'Separate names with commas. Leave blank to include all cities in this province.',postal_codes:'Use four-digit codes, separated by commas. Leave blank for all postal codes in the selected area.',fee:'Charged once for the whole order, regardless of the number of items.',preparation_days:'Working days FMRC needs before the parcel is ready to send.',transit_min_days:'Fewest working days for delivery after preparation.',transit_max_days:'Most working days usually needed after preparation.'};
       if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';return;}
@@ -154,7 +160,7 @@
       get('shippingDates').value=values.nonworking_dates.join('\n');
       document.querySelectorAll('[data-shipping-weekday]').forEach(input=>{input.checked=values.nonworking_weekdays.includes(Number(input.value));});
       renderZones(values.zones); baseline=normalized(read()); get('shippingApproved').checked=false;
-      get('shippingPublished').innerHTML=table(data.published);
+      get('shippingPublished').innerHTML=table(data.published,true);
       get('shippingPublishedVersion').textContent=data.published_at?'Published '+new Date(data.published_at.replace(' ','T')+'Z').toLocaleString('en-PH',{timeZone:'Asia/Manila'}):'No published rates';
       const calendar=data.published;
       get('shippingPublishedCalendar').textContent=calendar ? 'Nonworking days: '+(calendar.nonworking_weekdays.map(day=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day-1]).join(', ')||'None')+'. Other closures: '+(calendar.nonworking_dates.join(', ')||'None')+'.' : '';
@@ -278,7 +284,7 @@
     });
     document.addEventListener('click',event=>{if(!event?.target)return;get('shippingZones').querySelectorAll('[data-province-picker].open').forEach(picker=>{if(!picker.contains(event.target))closeProvincePicker(picker);});});
     get('shippingApproved').addEventListener('change',sync);
-    get('shippingAddZone').addEventListener('click',()=>{const values=read().zones;if(values.length>=100)return;values.push({id:crypto.randomUUID(),name:'',province:'',cities:[],postal_codes:[],fee:'',preparation_days:1,transit_min_days:1,transit_max_days:3});renderZones(values);sync();});
+    get('shippingAddZone').addEventListener('click',()=>{const values=read().zones;if(values.length>=100)return;values.push({id:crypto.randomUUID(),name:'',province:'',cities:[],postal_codes:[],fee:'',preparation_days:1,transit_min_days:1,transit_max_days:3});renderZones(values);sync();const added=get('shippingZones').lastElementChild;added?.scrollIntoView({block:'nearest'});added?.querySelector('input')?.focus({preventScroll:true});});
     get('shippingZones').addEventListener('click',event=>{const button=event.target.closest('[data-remove-zone]');if(!button)return;
       const last=read().zones.length===1;
       window.showAdminConfirmPopup(last?'Remove the last delivery area from the draft? Delivery will be turned off when you save and publish this change.':'Remove this delivery area from the draft? Save and publish to remove it from customer checkout.',
@@ -287,6 +293,15 @@
     get('shippingForm').addEventListener('submit',event=>{event.preventDefault();if(!admin()||busy||!dirty()||!validateDraft())return;const values=read();window.showAdminConfirmPopup('Save these shipping settings as a draft?',{title:'Save Shipping Draft',confirmText:'Save draft',onConfirm:()=>mutate('/admin/shipping-settings/draft',{expected_revision:record.revision,settings:values})});});
     get('shippingPublish').addEventListener('click',()=>{if(get('shippingPublish').disabled)return;window.showAdminConfirmPopup('Publish these FMRC-approved rates and delivery estimates for new checkouts?',{title:'Publish Shipping Settings',confirmText:'Publish',onConfirm:()=>mutate('/admin/shipping-settings/publish',{expected_revision:record.revision,approved:true})});});
     get('shippingDiscard').addEventListener('click',()=>{if(!busy&&record)populate(record);});
+    const renderPublishedPage=()=>{get('shippingPublished').innerHTML=table(record?.published,true);};
+    get('shippingPublished').addEventListener('click',event=>{
+      const button=event.target.closest('[data-shipping-page]');if(!button||button.disabled)return;
+      publishedPage+=button.dataset.shippingPage==='next'?1:-1;renderPublishedPage();
+    });
+    get('shippingPublished').addEventListener('change',event=>{
+      if(!event.target.matches('[data-shipping-page-number]'))return;
+      publishedPage=Number.parseInt(event.target.value,10)||1;renderPublishedPage();
+    });
     const refreshLabel=get('shippingRefresh').innerHTML;
     const loadAll = async () => {
       if(refreshing)return;

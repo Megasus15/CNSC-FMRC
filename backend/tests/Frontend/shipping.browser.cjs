@@ -451,7 +451,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       await navigate('/'+portal+'-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);
       await until(`!!document.querySelector('#modalTrackingUpdate.show [data-jnt-form]')`);
       assert.equal(await run(`document.querySelector('#modalTrackingUpdate .modal-title').textContent`),'Update Tracking Status');
-      assert.equal(await run(`document.getElementById('btnSaveTrackingUpdate').textContent`),'Save Update');
+      assert.equal(await run(`document.getElementById('btnSaveTrackingUpdate').textContent`),'Save FMRC note');
       for(const id of ['trackingStage','trackingPresetSelect','trackingCourierField','trackingCourierNoField'])assert.equal(await run(`getComputedStyle(document.getElementById('${id}').closest('.field-stack')).display==='none'`),false,id+' remains visible for '+portal);
       assert.equal(await run(`document.getElementById('trackingStage').disabled`),true);
       assert.equal(await run(`document.getElementById('trackingCourierSelect').value`),'jnt');
@@ -467,11 +467,11 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`document.getElementById('tracking-jnt-71-number').value`),'0012345678901234567890123456789012345678901234567890');
       assert.equal(await run(`document.activeElement.id`),'tracking-jnt-71-number');
       assert.equal(await run(`document.getElementById('tracking-jnt-71-number').selectionStart`),3);
-      assert.match(await run(`getComputedStyle(document.getElementById('tracking-jnt-71-number')).fontFamily`),/Poppins/);
+      assert.match(await run(`getComputedStyle(document.getElementById('tracking-jnt-71-number')).fontFamily`),/Montserrat/);
       await run(`document.getElementById('tracking-jnt-71-confirmed').click()`);
       await input('trackingEventTitle','Prepared for J&T handover');
       const beforeShip=shipmentWrites.length;
-      await run(`document.getElementById('btnSaveTrackingUpdate').click()`);await confirm('Record J&T Handover');
+      await run(`document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Record J&T Handover');
       await until(`document.querySelector('[data-courier-controls]').getAttribute('aria-busy')==='true'`);
       assert(await run(`document.querySelector('[data-jnt-form] fieldset').disabled`));
       await run(`document.querySelector('[data-jnt-form]').requestSubmit()`);
@@ -530,10 +530,14 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`(()=>{const el=document.querySelector('.customer-order-detail-content');return el.scrollWidth>el.clientWidth+1})()`),false,'Customer detail fits '+width);
       await shot('customer-jnt-'+width);
     }
+    assert.equal(await run(`document.querySelectorAll('[data-order-received]').length`),0,'Customers cannot confirm receipt themselves');
+    Object.assign(order,{customer_stage:'completed',customer_stage_label:'Completed',lifecycle_status:'completed',lifecycle_status_label:'Completed',completion_source:'17track',return_eligible:true});
     Object.assign(order.courier_shipment,{status:'delivered',status_label:'Delivered',last_updated_at:'2026-11-07T08:00:00Z',last_updated_at_label:'Nov 7, 2026 4:00 PM'});
     order.timeline.push({id:102,title:'Delivered by J&T',occurred_at:'2026-11-07T08:00:00Z',occurred_at_label:'Nov 7, 2026 4:00 PM',source_label:'J&T via 17TRACK',metadata:{source:'17track',tracking_number:order.courier_tracking_no}});
     await until(`document.querySelector('#customerOrderDetailModal')?.textContent.includes('Delivered by J&T')`);
-    assert.equal(order.customer_stage,'to_receive','Courier delivery leaves customer receipt confirmation separate');
+    assert.equal(order.customer_stage,'completed','Verified courier delivery completes fulfillment');
+    await until(`document.getElementById('customerOrderDetailModal').textContent.includes('Completed')`);
+    assert.equal(await run(`document.querySelectorAll('[data-order-received]').length`),0);
     assert.equal(order.payment_status,'paid');
     assert.deepEqual(await run('fixtureErrors'),[]);
     await shot('customer-jnt-automatic-delivered');

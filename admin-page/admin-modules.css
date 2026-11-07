@@ -5926,3 +5926,39 @@ html.report-modal-open-root {
 #manualRefundsPanel {
   scroll-margin-block-start: 96px;
 }
+
+/* Shared order dialogs: disabled facts, operational actions and readable sections. */
+:is(#modalOrderDetails,#modalTrackingUpdate) :is(input,textarea,select,button) { font-family: inherit; }
+:is(#modalOrderDetails,#modalTrackingUpdate) :is(input,textarea,select):disabled {
+  background: var(--disabled-bg, #eceff3); color: var(--text-muted, #677381);
+  border-color: var(--border-color, #dfe5ed); opacity: 1; cursor: not-allowed;
+  box-shadow: none; -webkit-text-fill-color: var(--text-muted, #677381);
+}
+:is(#modalOrderDetails,#modalTrackingUpdate) .order-section-title {
+  display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:12px 0;
+  border-bottom:1px solid var(--border-color);font-size:.92rem;font-weight:700;color:var(--primary-color,#800000);
+}
+.order-section-title > i { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:0 0 32px;border-radius:8px;background:var(--surface-alt,#f5ecea);font-size:.9rem; }
+.order-fulfillment-card { margin-top:20px;padding:20px;border:1px solid var(--border-color);border-radius:12px;background:var(--surface,#fdfaf6); }
+.order-fulfillment-card > p { font-size:.85rem;line-height:1.6;color:var(--text-muted);margin:12px 0; }
+.order-fulfillment-card .field-stack { margin-top:12px;max-width:400px; }
+.order-modal-actions { display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px; }
+:is(#modalOrderDetails,#modalTrackingUpdate) .modal-footer-fixed { justify-content:flex-end; }
+:is(#modalOrderDetails,#modalTrackingUpdate) .field-stack > label { font-size:.82rem;font-weight:600; }
+:is(#modalOrderDetails,#modalTrackingUpdate) .form-grid { gap:16px; }
+@media(max-width:600px) {
+  :is(#modalOrderDetails,#modalTrackingUpdate) .form-grid { grid-template-columns:minmax(0,1fr); }
+  .order-fulfillment-card { padding:16px; }
+}
+
+:is(#modalOrderDetails,#modalTrackingUpdate) { font-family: "Montserrat", sans-serif; }
+:is(#modalOrderDetails,#modalTrackingUpdate) :where(:not(i)) { font-family: inherit; }
+
+:is(#modalOrderDetails,#modalTrackingUpdate) :is(input:not([type="hidden"]),select) { min-height:44px;padding:10px 12px; }
+:is(#modalOrderDetails,#modalTrackingUpdate) textarea { min-height:96px;padding:12px; }
+.order-item-list { list-style:none;margin:0;padding:0;border:1px solid var(--border-color);border-radius:8px;overflow:hidden; }
+.order-item-list li { display:flex;justify-content:space-between;gap:16px;padding:14px;background:var(--surface-alt,#f8f5f1);font-size:.85rem; }
+.order-item-list li + li { border-top:1px solid var(--border-color); }
+.order-item-list li div { display:flex;flex-direction:column;gap:6px;min-width:0; }
+.order-item-list li strong { overflow-wrap:anywhere; }
+.order-item-list li span { color:var(--text-muted);font-size:.78rem; }

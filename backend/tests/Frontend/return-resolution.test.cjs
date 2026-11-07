@@ -15,7 +15,9 @@ function setup(admin = true) {
     'returnRefundReference', 'returnRefundNote', 'returnActionTitle', 'returnActionSubtitle', 'btnSubmitReturnAction',
   ].map(name => {
     const wrapper = { style: {}, hint: { hidden: false }, querySelector() { return this.hint; } };
-    return [name, { value: '', checked: false, textContent: '', readOnly: false, wrapper, closest() { return wrapper; } }];
+    const options = new Map();
+    return [name, { value: '', checked: false, textContent: '', readOnly: false, wrapper, closest() { return wrapper; },
+      querySelector(selector) { if (!options.has(selector)) options.set(selector, {textContent: ''}); return options.get(selector); } }];
   }));
   const sections = Object.entries({
     returnDecisionSelect: 'decision', returnResolutionSelect: 'decision', returnApprovedAmount: 'decision', returnDecisionNote: 'decision',

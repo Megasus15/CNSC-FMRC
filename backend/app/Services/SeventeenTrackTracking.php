@@ -35,6 +35,12 @@ final class SeventeenTrackTracking
 
     public static function eligible(ShipmentTracker $tracker, bool $includeDelivered = false): bool
     {
+        // Completion closes dispatch eligibility, not the verified shipment's history.
+        if ($includeDelivered && $tracker->status === 'delivered' && $tracker->active_order_id && ! $tracker->demo
+            && $tracker->order->lifecycle_status === 'completed' && $tracker->order->customer_stage === 'completed') {
+            return true;
+        }
+
         return $tracker->active_order_id && ! $tracker->demo && ($includeDelivered || $tracker->status !== 'delivered')
             && ShipmentTracking::eligibility($tracker->order, true) === null;
     }
@@ -460,6 +466,13 @@ final class SeventeenTrackTracking
             }
         }
         $this->processInbox($deadline);
+        foreach (ShipmentTracker::whereNotNull('active_order_id')->where('demo', false)->where('status', 'delivered')
+            ->whereHas('order', fn ($query) => $query->where('lifecycle_status', 'pending')->where('customer_stage', 'to_receive'))->lazyById(50) as $tracker) {
+            if (microtime(true) >= $deadline) {
+                break;
+            }
+            OrderCompletion::delivered($tracker);
+        }
         DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['last_processed_at' => now()]);
     }
 }

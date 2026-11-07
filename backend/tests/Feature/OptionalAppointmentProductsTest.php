@@ -314,6 +314,152 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertDatabaseCount('walk_in_orders', 0);
     }
 
+    public function test_custom_online_acceptance_and_switch_honor_the_shared_payment_availability(): void
+    {
+        config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_test_fixture', 'payments.paymongo.webhook_secret' => 'fixture-hook']);
+        $job = $this->booked();
+        $quote = $this->quote($job);
+        \App\Models\SiteSetting::set('payment_gcash_enabled', '0');
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/appointment-products/'.$job->id)->assertOk()->assertJsonPath('data.online_payment_available', false);
+        $this->postJson('/api/customer/appointment-products/'.$job->id.'/quotations/'.$quote->id.'/accept', [
+            'expected_revision' => $job->fresh()->revision, 'specifications_accepted' => true, 'payment_method' => 'online',
+            'policy_accepted' => true, 'policy_version' => $this->policy['version'],
+        ])->assertUnprocessable();
+        $this->assertDatabaseCount('orders', 0);
+        $order = $this->accept($job, $quote);
+        $this->postJson('/api/customer/orders/'.$order->id.'/custom-payment-method', [
+            'payment_method' => 'online', 'expected_revision' => $order->production_revision,
+        ])->assertUnprocessable();
+        $this->assertNull($order->fresh()->collection_hold);
+        $this->assertSame('Cash at FMRC', $order->fresh()->payment->method);
+        $this->getJson('/api/customer/orders/'.$order->id)->assertOk()->assertJsonPath('data.custom_product.available_actions.record_cash', false)
+            ->assertJsonPath('data.custom_product.online_payment_available', false);
+        \App\Models\SiteSetting::set('payment_gcash_enabled', '1');
+        $this->postJson('/api/customer/orders/'.$order->id.'/custom-payment-method', [
+            'payment_method' => 'online', 'expected_revision' => $order->production_revision,
+        ])->assertOk();
+        $this->assertSame('GCash', $order->fresh()->payment->method);
+        $this->assertDatabaseCount('orders', 1);
+        Http::assertNothingSent();
+    }
+
+    private function approvedReturn(Order $order, ?int $approvedAmount = null): \App\Models\OrderReturn
+    {
+        $this->act($order, 'start')->assertOk();
+        $this->act($order, 'ready')->assertOk();
+        $this->act($order, 'collect', ['pickup_code' => $order->pickup_code])->assertOk();
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/orders/'.$order->id.'/return/eligibility')->assertOk()->assertJsonPath('eligible', true);
+        $response = $this->postJson('/api/customer/orders/'.$order->id.'/return', ['reason' => 'quality_issue', 'resolution' => 'refund',
+            'items' => [['order_item_id' => $order->items()->sole()->id, 'quantity' => $order->quantity]],
+            'customer_note' => 'The received custom product has a manufacturing defect.',
+        ])->assertCreated();
+        $return = \App\Models\OrderReturn::findOrFail($response->json('data.id'));
+        Sanctum::actingAs($this->staff);
+        $this->postJson('/api/admin/returns/'.$return->id.'/decision', ['decision' => 'approve', 'resolution' => 'refund', 'approved_amount' => $approvedAmount ?? $order->subtotal,
+            'note' => 'Approved after reviewing the reported defect.'])->assertOk();
+        return $return->fresh();
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith([1000])]
+    #[\PHPUnit\Framework\Attributes\TestWith([400])]
+    public function test_custom_cash_return_refunds_are_inspected_cumulative_audited_and_idempotent(int $approved): void
+    {
+        Http::preventStrayRequests();
+        $job = $this->booked();
+        $order = $this->accept($job, $this->quote($job));
+        $this->act($order, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'CASH-ORIGINAL', 'confirmed_received' => true])->assertOk();
+        $return = $this->approvedReturn($order, $approved);
+        $partial = (int) ($approved * 0.4);
+        $remaining = $approved - $partial;
+        $url = '/api/admin/returns/'.$return->id.'/refund';
+        $body = ['stage' => 'released', 'refund_method' => 'cash', 'refund_released' => true, 'amount' => $partial,
+            'refund_reference' => 'CASH-REFUND-1', 'request_key' => (string) Str::uuid(), 'confirm_received' => true];
+        $this->getJson('/api/admin/returns')->assertOk()->assertJsonPath('data.0.payment_is_custom_cash', true)->assertJsonPath('data.0.can_refund', false);
+        $this->getJson('/api/admin/orders')->assertOk()->assertJsonPath('returns.0.payment_is_custom_cash', true)->assertJsonPath('returns.0.can_refund', false);
+        $this->postJson($url, $body)->assertForbidden();
+        Sanctum::actingAs($this->admin);
+        $this->postJson($url, ['refund_released' => false] + $body)->assertUnprocessable();
+        $this->postJson($url, ['confirm_received' => false] + $body)->assertUnprocessable();
+        $this->postJson($url, ['refund_method' => 'gcash'] + $body)->assertUnprocessable();
+        $this->postJson($url, ['stage' => 'processing'] + $body)->assertUnprocessable();
+        $this->assertNull($return->fresh()->item_received_at);
+        $this->assertSame(100000, \App\Services\AppointmentProducts::cashHeld($order->payment));
+        foreach ([1, 2] as $replay) {
+            $this->postJson($url, $body)->assertOk()->assertJsonPath('data.status', 'refund_processing')->assertJsonPath('data.refunded_amount', $partial)
+                ->assertJsonPath('data.refund_available_amount', $remaining);
+        }
+        $this->assertSame('paid', $order->fresh()->payment->status);
+        $this->assertEquals(1000 - $partial, FinancialMetrics::collected(null, null)['collected']);
+        $this->assertSame(1, $return->events()->where('title', 'Item received & inspected')->count());
+        $this->assertSame(1, $return->events()->where('title', 'Cash refund released')->count());
+        $this->postJson($url, ['amount' => $partial + 1] + $body)->assertConflict();
+        $second = ['request_key' => (string) Str::uuid(), 'refund_reference' => 'CASH-REFUND-2', 'amount' => $remaining + 1] + $body;
+        $this->postJson($url, $second)->assertUnprocessable();
+        $second['amount'] = $remaining;
+        $this->postJson($url, $second)->assertOk()->assertJsonPath('data.status', 'refunded')->assertJsonPath('data.refunded_amount', $approved);
+        $this->postJson($url, $second)->assertOk();
+        $this->assertSame((1000 - $approved) * 100, \App\Services\AppointmentProducts::cashHeld($order->fresh()->payment));
+        $this->assertSame($approved === 1000 ? 'refunded' : 'paid', $order->fresh()->payment->status);
+        $this->assertSame(2, $return->events()->where('title', 'Cash refund released')->count());
+        $this->assertDatabaseCount('appointment_cash_entries', 3);
+        $this->assertDatabaseCount('payment_refunds', 0);
+        $this->assertEquals(1000 - $approved, FinancialMetrics::collected(null, null)['collected']);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/returns/'.$return->id)->assertOk()->assertJsonPath('data.status', 'refunded')->assertJsonPath('data.refunded_amount', $approved);
+        Http::assertNothingSent();
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith(['qrph'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['gcash'])]
+    public function test_custom_online_returns_use_shared_approval_and_provider_confirmation(string $method): void
+    {
+        config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_live_fixture', 'payments.paymongo.webhook_secret' => 'fixture-hook', 'payments.paymongo.checkout_method' => $method]);
+        Http::preventStrayRequests();
+        $job = $this->booked();
+        $order = $this->accept($job, $this->quote($job), 'online');
+        $attempt = $this->paymentAttempt($order, true, $method);
+        $gateway = app(GatewayPayments::class);
+        $gateway->applySession($attempt->id, $this->providerFixture($attempt, $order, true));
+        $return = $this->approvedReturn($order);
+        $url = '/api/admin/returns/'.$return->id.'/refund';
+        $body = ['amount' => 1000, 'note' => 'Approved custom product return.', 'request_key' => (string) Str::uuid(), 'confirm_received' => true];
+        $this->postJson($url, ['issue' => true] + $body)->assertForbidden();
+        $this->postJson($url, $body)->assertOk()->assertJsonPath('refund_request.status', 'requested');
+        $this->postJson($url, $body)->assertOk();
+        $this->assertDatabaseCount('payment_refunds', 1);
+        $refund = DB::table('payment_refunds')->sole();
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertForbidden();
+        $this->assertSame('paid', $order->fresh()->payment->status);
+        Http::assertNothingSent();
+        $attributes = ['payment_id' => $refund->provider_payment_id, 'amount' => 100000, 'currency' => 'PHP', 'livemode' => true,
+            'status' => 'processing', 'transfer_link' => 'https://transfer.paymongo.com/custom-claim'];
+        Http::fake(['api.paymongo.com/v2/wallets?fields=balance' => Http::response(['data' => [['is_default' => true, 'livemode' => true, 'status' => 'activated', 'balance' => ['available' => 100000]]]]),
+            'refunds-api.paymongo.com/v1/refunds' => Http::response(['data' => ['id' => 'ref_custom', 'attributes' => $attributes]]),
+            'api.paymongo.com/v1/refunds' => Http::response(['data' => ['id' => 'ref_custom', 'attributes' => $attributes]]),
+            'api.paymongo.com/v1/refunds/ref_custom' => function () use (&$attributes) { return Http::response(['data' => ['id' => 'ref_custom', 'attributes' => $attributes]]); },
+        ]);
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk()->assertJsonPath('data.status', 'pending');
+        $this->assertSame('paid', $order->fresh()->payment->status);
+        $this->assertSame('refund_processing', $return->fresh()->status);
+        Sanctum::actingAs($this->customer);
+        $status = $this->getJson('/api/customer/orders/'.$order->id.'/payment-status')->assertOk()->assertJsonPath('status', 'paid')->assertJsonPath('refunds.0.status', 'pending');
+        if ($method === 'qrph') $status->assertJsonPath('refunds.0.transfer_link', 'https://transfer.paymongo.com/custom-claim');
+        $attributes['status'] = 'succeeded';
+        $gateway->reconcileRefund(DB::table('payment_refunds')->find($refund->id));
+        $gateway->reconcileRefund(DB::table('payment_refunds')->find($refund->id));
+        $this->assertSame('refunded', $order->fresh()->payment->status);
+        $this->assertSame('refunded', $return->fresh()->status);
+        $this->assertSame('1000.00', $return->fresh()->refunded_amount);
+        $this->assertSame(1, $return->events()->where('title', 'Refund confirmed')->count());
+        $this->assertCount(1, Http::recorded(fn ($request) => $request->method() === 'POST'));
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('payment_receipts', 1);
+        $this->assertDatabaseCount('appointment_cash_entries', 0);
+    }
+
     public function test_expiry_and_feature_gate_do_not_change_ordinary_bookings(): void
     {
         config(['appointment_products.enabled' => false]);
@@ -338,13 +484,13 @@ class OptionalAppointmentProductsTest extends TestCase
         return ['delivery_recipient_name' => 'Maria Santos', 'delivery_contact_no' => '09171234567', 'delivery_street' => '1 Main St', 'delivery_barangay' => 'Barangay 1', 'delivery_city' => 'Daet', 'delivery_province' => 'Camarines Norte', 'delivery_postal_code' => '4600'];
     }
 
-    private function paymentAttempt(Order $o, bool $live = true): object
+    private function paymentAttempt(Order $o, bool $live = true, string $method = 'gcash'): object
     {
         config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.webhook_secret' => 'fixture-hook', 'payments.paymongo.secret_key' => $live ? 'sk_live_fixture' : 'sk_test_fixture']);
         $o->payment->forceFill(['gateway' => 'paymongo', 'method' => 'GCash'])->save();
         $o->forceFill(['payment_method' => 'GCash'])->save();
         $id = DB::table('payment_attempts')->insertGetId(['payment_id' => $o->payment->id, 'token' => (string) Str::uuid(), 'checkout_id' => 'cs_fixture'.$o->id,
-            'checkout_url' => 'https://checkout.paymongo.com/fixture', 'checkout_method' => 'gcash', 'api_version' => 'v2', 'livemode' => $live, 'amount_centavos' => (int) round($o->total * 100),
+            'checkout_url' => 'https://checkout.paymongo.com/fixture', 'checkout_method' => $method, 'api_version' => 'v2', 'livemode' => $live, 'amount_centavos' => (int) round($o->total * 100),
             'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
 
         return DB::table('payment_attempts')->find($id);
@@ -354,10 +500,10 @@ class OptionalAppointmentProductsTest extends TestCase
     {
         return ['id' => $a->checkout_id, 'attributes' => ['livemode' => (bool) $a->livemode, 'status' => $state,
             'metadata' => ['attempt_token' => $a->token, 'payment_id' => (string) $a->payment_id, 'order_id' => (string) $o->id],
-            'payments' => $paid ? [['id' => 'pay_fixture'.$o->id, 'attributes' => ['status' => 'paid', 'amount' => (int) $a->amount_centavos, 'currency' => 'PHP', 'livemode' => (bool) $a->livemode, 'source' => ['type' => 'gcash'], 'paid_at' => now()->timestamp]]] : []]];
+            'payments' => $paid ? [['id' => 'pay_fixture'.$o->id, 'attributes' => ['status' => 'paid', 'amount' => (int) $a->amount_centavos, 'currency' => 'PHP', 'livemode' => (bool) $a->livemode, 'source' => ['type' => $a->checkout_method], 'paid_at' => now()->timestamp]]] : []]];
     }
 
-    public function test_cash_delivery_uses_same_order_and_ready_guard_then_customer_receipt(): void
+    public function test_cash_delivery_uses_same_order_and_ready_guard_then_verified_courier_completion(): void
     {
         $j = $this->booked();
         $q = $this->quote($j, ['fulfillment_type' => 'delivery', 'shipping_fee' => 100, 'delivery_eligible' => true, 'delivery' => $this->destination() + ['customer_id' => 999, 'total' => 1]]);
@@ -375,7 +521,16 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertEquals(100, $o->fresh()->shipping_fee);
         $this->assertDatabaseCount('shipment_trackers', 1);
         Sanctum::actingAs($this->customer);
-        $this->postJson('/api/customer/orders/'.$o->id.'/received')->assertOk();
+        $this->postJson('/api/customer/orders/'.$o->id.'/received')->assertConflict();
+        config(['track17.api_key'=>'fixture-cash-delivery']);
+        $tracker=\App\Models\ShipmentTracker::where('active_order_id',$o->id)->firstOrFail();
+        \App\Models\ShipmentTrackingSubscription::create(['provider'=>'17track','tracker_id'=>$tracker->id,'active_tracker_id'=>$tracker->id,
+            'tracking_number'=>$tracker->tracking_number,'carrier_code'=>'100240','tag'=>(string) Str::uuid(),'diagnostic'=>false,
+            'account_fingerprint'=>\App\Services\SeventeenTrackClient::fingerprint(),'registration_requested_at'=>now(),'registered_at'=>now(),'registration_state'=>'active']);
+        \App\Models\OrderTrackingEvent::create(['order_id'=>$o->id,'shipment_tracker_id'=>$tracker->id,'provider_event_id'=>'cash-delivered','stage'=>'to_receive',
+            'event_type'=>'courier_update','title'=>'Delivered','occurred_at'=>now(),'metadata'=>['source'=>'17track']]);
+        $tracker->update(['status'=>'delivered']);
+        $this->assertTrue(\App\Services\OrderCompletion::delivered($tracker));
         $this->assertSame('completed', $o->fresh()->lifecycle_status);
         $this->assertEquals(1100, FinancialMetrics::collected(null, null)['collected']);
         $sales = AppointmentProductMetrics::sales();
@@ -630,7 +785,7 @@ return Http::response(['data' => $s]);
         $this->act($o, 'start')->assertOk();
         $o->forceFill(['customer_stage' => 'to_receive'])->save();
         Sanctum::actingAs($this->customer);
-        $this->postJson('/api/customer/orders/'.$o->id.'/received')->assertUnprocessable();
+        $this->postJson('/api/customer/orders/'.$o->id.'/received')->assertConflict();
         $this->assertSame('pending', $o->fresh()->lifecycle_status);
     }
 

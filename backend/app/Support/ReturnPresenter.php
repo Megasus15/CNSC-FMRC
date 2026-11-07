@@ -52,6 +52,8 @@ class ReturnPresenter
             'return_no_display' => '#' . $returnNo,
             'order_id'          => $orderReturn->order_id,
             'payment_is_automated' => \App\Services\GatewayPayments::managed($order?->payment),
+            'payment_is_custom_cash' => $order && \App\Services\AppointmentProducts::custom($order)
+                && $order->payment?->method === 'Cash at FMRC',
             ...\App\Services\GatewayPayments::displayFields($order?->payment, $order?->payment_method),
             'order_no'          => $orderNo,
             'order_no_display'  => $orderNo ? '#' . $orderNo : null,
@@ -133,6 +135,18 @@ class ReturnPresenter
                 $payload['can_refund'] = $orderReturn->resolution === 'refund'
                     && in_array($orderReturn->status, ['approved', 'item_in_transit', 'item_received', 'refund_processing'], true)
                     && !$payload['online_refund_pending'] && $remaining >= 100;
+            }
+            if ($payload['payment_is_custom_cash']) {
+                if ($orderReturn->refund_method === 'cash') $payload['refund_method_label'] = 'Cash at FMRC';
+                $remaining = max(0, \App\Services\GatewayPayments::centavos($orderReturn->approved_amount ?? $orderReturn->requested_amount)
+                    - \App\Services\GatewayPayments::centavos($orderReturn->refunded_amount ?? 0));
+                $remaining = min($remaining, \App\Services\AppointmentProducts::cashHeld($order->payment));
+                $payload['refund_available_amount'] = $remaining / 100;
+                $payload['refund_admin_only'] = true;
+                $payload['requires_receipt'] = !$orderReturn->item_received_at;
+                $payload['can_refund'] = auth()->user()?->role === 'admin' && $remaining > 0
+                    && $orderReturn->resolution === 'refund'
+                    && in_array($orderReturn->status, ['approved', 'item_in_transit', 'item_received', 'refund_processing'], true);
             }
             $payload['can_archive'] = in_array($orderReturn->status, OrderReturn::TERMINAL_STATUSES, true);
         }

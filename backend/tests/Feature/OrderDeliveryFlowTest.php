@@ -28,7 +28,7 @@ class OrderDeliveryFlowTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_checkout_payment_approval_handover_tracking_and_customer_receipt_share_one_order(): void
+    public function test_checkout_payment_approval_handover_tracking_and_automatic_completion_share_one_order(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-11-03T07:00:00Z'));
         Mail::fake();
@@ -173,12 +173,12 @@ class OrderDeliveryFlowTest extends TestCase
             }
             $this->artisan('shipments:process')->assertSuccessful();
             $this->getJson('/api/customer/orders/'.$order->id)->assertOk()->assertJsonPath('data.courier_shipment.status', $status)
-                ->assertJsonPath('data.customer_stage', 'to_receive')->assertJsonPath('data.payment_status', 'paid')->assertJsonPath('data.total_amount', 485);
+                ->assertJsonPath('data.customer_stage', $status === 'delivered' ? 'completed' : 'to_receive')->assertJsonPath('data.payment_status', 'paid')->assertJsonPath('data.total_amount', 485);
             $this->assertSame(1, DB::table('order_tracking_events')->where('shipment_tracker_id', $tracker->id)->where('event_type', 'courier_update')->where('title', ShipmentTracking::LABELS[$status])->count());
             $this->assertSame(1, DB::table('customer_notifications')->where('event_key', 'shipment:'.$tracker->id.':'.$status)->count());
         }
-        $this->assertSame('pending', $order->fresh()->lifecycle_status);
-        $this->postJson('/api/customer/orders/'.$order->id.'/received')->assertOk()->assertJsonPath('data.customer_stage', 'completed');
+        $this->assertSame('completed', $order->fresh()->lifecycle_status);
+        $this->postJson('/api/customer/orders/'.$order->id.'/received')->assertConflict();
         $this->assertSame('completed', $order->fresh()->lifecycle_status);
         $this->assertSame('85.00', $order->fresh()->shipping_fee);
         $this->assertSame('120.00', $tracker->fresh()->actual_shipping_cost);

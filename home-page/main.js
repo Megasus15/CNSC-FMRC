@@ -9724,152 +9724,6 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       };
 
-      const handleOrderReceived = async (orderId, orderName, triggerBtn) => {
-        if (!orderId) return;
-
-        const token =
-          state.token || localStorage.getItem("customer_token") || "";
-        if (!token) {
-          await showCustomerPopup("Your session has expired. Please login again.", {
-            title: "Login required", autoCloseMs: 10000,
-          });
-          return;
-        }
-
-        // The same button closes a pickup and a delivery, but it means two
-        // different things: "the courier handed it to me" versus "I walked into
-        // the FMRC office and took it". The card marks which one this is.
-        const isPickupOrder = triggerBtn?.dataset?.orderPickup === "1";
-        const doneLabel = isPickupOrder ? "Order Collected" : "Order Received";
-
-        const confirmed = await showCustomerPopup(
-          isPickupOrder
-            ? "Confirm that you have collected this order from the FMRC office? This action cannot be undone."
-            : "Confirm that you have received this order? This action cannot be undone.",
-          {
-            title: doneLabel,
-            isConfirm: true,
-            okText: isPickupOrder ? "Yes, Collected" : "Yes, Received",
-            cancelText: "Cancel",
-            allowBackdropClose: false,
-          },
-        );
-
-        if (!confirmed) return;
-
-        if (triggerBtn) {
-          triggerBtn.disabled = true;
-          triggerBtn.textContent = "Processing...";
-        }
-
-        try {
-          const { response: res, data } = await fetchJsonWithTimeout(
-            `${API_BASE_URL}/customer/orders/${orderId}/received`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-
-          if (!res.ok) {
-            throw new Error(data.message || "Unable to update order.");
-          }
-
-          state.lastDetailRefreshAt = 0;
-
-          // Apply the persisted response immediately. This keeps the card out
-          // of To Receive even when the follow-up order-list request is slow.
-          const completedOrder = data?.data;
-          if (completedOrder?.id !== undefined && completedOrder?.id !== null) {
-            const completedId = String(completedOrder.id);
-            const existingIndex = state.orders.findIndex(
-              (order) => String(order.id) === completedId,
-            );
-            if (existingIndex >= 0) {
-              state.orders[existingIndex] = {
-                ...state.orders[existingIndex],
-                ...completedOrder,
-                customer_stage: "completed",
-                lifecycle_status: "completed",
-                has_rating: false,
-              };
-            } else {
-              state.orders.unshift({
-                ...completedOrder,
-                customer_stage: "completed",
-                lifecycle_status: "completed",
-                has_rating: false,
-              });
-            }
-            state.detailsById.set(completedId, completedOrder);
-            state.etag = "";
-            writeCustomerOrdersCache(state.cacheKey, state.orders, state.etag);
-            renderOrders();
-          }
-
-          // Refresh in the background for server-calculated fields, rather
-          // than blocking the completion feedback on a second API request.
-          void refreshOrders(false, true);
-
-          setActivePanel(4);
-
-          const ratePromptPopup = document.createElement("div");
-          ratePromptPopup.className = "customer-rate-prompt-popup";
-          ratePromptPopup.setAttribute("data-order-id", orderId);
-          ratePromptPopup.innerHTML = `
-            <div class="customer-rate-prompt-inner">
-              <span class="customer-rate-prompt-icon">&#127881;</span>
-              <div class="customer-rate-prompt-text">
-                <strong>${isPickupOrder ? "Order collected!" : "Order received!"}</strong>
-                <p>How was your experience? <button type="button" class="customer-rate-prompt-link">Rate it now &rarr;</button></p>
-              </div>
-              <button type="button" class="customer-rate-prompt-close" aria-label="Close">&times;</button>
-            </div>
-          `;
-          document.body.appendChild(ratePromptPopup);
-          requestAnimationFrame(() => ratePromptPopup.classList.add("show"));
-
-          const closePrompt = () => {
-            ratePromptPopup.classList.remove("show");
-            setTimeout(() => ratePromptPopup.remove(), 300);
-          };
-
-          ratePromptPopup
-            .querySelector(".customer-rate-prompt-close")
-            ?.addEventListener("click", closePrompt);
-          ratePromptPopup
-            .querySelector(".customer-rate-prompt-link")
-            ?.addEventListener("click", () => {
-              closePrompt();
-              setActivePanel(5);
-              const selectedOrder = state.orders.find((order) => String(order.id) === String(orderId));
-              void openRatingModal(orderId, orderName, selectedOrder);
-            });
-
-          setTimeout(closePrompt, 8000);
-
-          emitCustomerOrdersUpdated({
-            type: "order-received",
-            orderId: String(orderId),
-            status: "completed",
-          });
-        } catch (err) {
-          await showCustomerPopup(
-            err?.message || "Unable to update order. Please try again.",
-            { title: "Error" },
-          );
-
-          if (triggerBtn) {
-            triggerBtn.disabled = false;
-            triggerBtn.textContent = doneLabel;
-          }
-        }
-      };
-
       // ── Buy Again ──────────────────────────────────────────────────────────
       // Completed orders can be reordered straight into the single-product
       // "Order summary" checkout on the products page. The handoff mirrors
@@ -10045,34 +9899,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       };
 
-      // Fallback click bridge: keeps actions working even if other page
-      // listeners interfere with the modal's delegated handlers.
-      window.__fmrcOrderReceived = (buttonEl) => {
-        const orderId = buttonEl?.getAttribute?.("data-order-received") || "";
-        const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
-        if (!orderId) return;
-        void handleOrderReceived(orderId, orderName, buttonEl);
-      };
-
-      // Order cards are re-rendered whenever the customer order list refreshes.
-      // Capture the click at document level so the receive action remains reliable
-      // even if another card/modal listener stops event bubbling.
-      document.addEventListener("click", (event) => {
-        const receivedBtn = event.target?.closest?.("[data-order-received]");
-        if (!receivedBtn || receivedBtn.dataset.receiveClickHandled === "true") return;
-
-        receivedBtn.dataset.receiveClickHandled = "true";
-        event.preventDefault();
-        event.stopPropagation();
-        window.__fmrcOrderReceived(receivedBtn);
-
-        // A newly rendered card is a new element, so this only prevents duplicate
-        // invocation from the same physical click.
-        queueMicrotask(() => {
-          delete receivedBtn.dataset.receiveClickHandled;
-        });
-      }, true);
-
       window.__fmrcOrderRate = (buttonEl) => {
         const orderId = buttonEl?.getAttribute?.("data-order-rate") || "";
         const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
@@ -10106,7 +9932,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, true);
 
       // ── Return actions ─────────────────────────────────────────────────────
-      // Each handler follows handleOrderReceived step for step: token guard →
+      // Each handler uses the same guarded request pattern: token guard →
       // confirm → disable trigger → request → optimistic patch → cache write →
       // re-render → background refresh → jump to the Returns tab → toast →
       // realtime fan-out.
@@ -11600,9 +11426,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   <div class="customer-order-actions">
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
                     ${payActionsHtml}
-                    ${String(order.customer_stage) === 'to_receive' && isLive
-                      ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}" data-order-pickup="${order.is_pickup ? '1' : '0'}">${order.is_pickup ? 'Order Collected' : 'Order Received'}</button>`
-                      : ''}
                     ${String(order.customer_stage) === 'completed' && isLive && !order.has_rating
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
                       : ''}
@@ -12525,17 +12348,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const orderId = detailBtn.getAttribute("data-order-detail") || "";
           if (!orderId) return;
           void openOrderDetail(orderId);
-          return;
-        }
-
-        const receivedBtn = event.target.closest("[data-order-received]");
-        if (receivedBtn) {
-          event.preventDefault();
-          event.stopPropagation();
-          const orderId = receivedBtn.getAttribute("data-order-received") || "";
-          const orderName = receivedBtn.getAttribute("data-order-name") || "Order";
-          if (!orderId) return;
-          void handleOrderReceived(orderId, orderName, receivedBtn);
           return;
         }
 

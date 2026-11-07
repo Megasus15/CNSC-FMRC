@@ -171,8 +171,8 @@ class ShipmentHandoverTest extends TestCase
         $this->assertSame('to_receive', $this->order->fresh()->customer_stage);
         $this->assertDatabaseHas('order_tracking_events', ['title' => 'FMRC assistance', 'event_type' => 'admin_update']);
         Sanctum::actingAs($this->customer);
-        $this->postJson('/api/customer/orders/'.$this->order->id.'/received')->assertOk();
-        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->postJson('/api/customer/orders/'.$this->order->id.'/received')->assertConflict();
+        $this->assertSame('to_receive', $this->order->fresh()->customer_stage);
     }
 
     public function test_duplicate_waybill_on_another_order_and_conflicting_request_keys_are_rejected(): void

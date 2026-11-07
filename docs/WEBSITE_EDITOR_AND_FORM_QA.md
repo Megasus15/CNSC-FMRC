@@ -93,7 +93,7 @@ The field audit verifies appearance and selection behavior. It does not claim a 
 
 Admin and Staff Refresh retrieves current published rates and tracking health without reusing cached settings. It waits for both requests and reports partial failures. Cancelling the unsaved-changes prompt preserves the editor.
 
-The top table shows published rates. Admin edits update the draft preview immediately; **Save draft → FMRC approval → Publish settings** applies the changes to new checkouts and the Staff view. A pending-change notice distinguishes saved drafts from live rates. Removing the final area switches delivery off in the draft so its removal can be published. Existing orders retain their accepted shipping prices.
+The top table shows published rates in pages of five, with the shared portal page counter and Previous/Next controls. The delivery-area editor remains fully mounted in its own card; three or more areas scroll inside a bounded list while the Add button stays in the header. Admin edits update the draft preview immediately; **Save draft → FMRC approval → Publish settings** applies the changes to new checkouts and the Staff view. A pending-change notice distinguishes saved drafts from live rates. Removing the final area switches delivery off in the draft so its removal can be published. Existing orders retain their accepted shipping prices.
 
 `ShippingQuotesTest` checks persistence, no-store response headers, removed destinations, pickup, and existing order snapshots. `shipping-refresh.browser.cjs` reproduces a cacheable settings response and checks both portals, rate editing/removal/publication, unsaved-change protection, and slow/failed refreshes. `shipping.browser.cjs` covers the connected checkout and tracking flows with an isolated provider fixture. These checks do not change or verify hosted production data.
 
@@ -103,6 +103,7 @@ The top table shows published rates. Admin edits update the draft preview immedi
 php artisan test --compact --filter="WebsitePageSaveTest|WebsiteContentValidationTest|SiteSettingsVideoUploadTest|PortalAppearanceSettingsTest|CommercePolicyTest"
 php artisan test --compact --filter=ShippingQuotesTest
 node --test backend/tests/Frontend/shipping-refresh.browser.cjs
+node --test backend/tests/Frontend/order-fulfillment-ui.browser.cjs
 node --test backend/tests/Frontend/website-drafts.test.cjs backend/tests/Frontend/website-about-save.test.cjs backend/tests/Frontend/website-editor-refresh.test.cjs backend/tests/Frontend/website-portals.test.cjs backend/tests/Frontend/website-payments.test.cjs backend/tests/Frontend/website-loading.test.cjs backend/tests/Frontend/admin-only-website-settings.test.cjs backend/tests/Frontend/page-content.test.cjs
 node --test --test-concurrency=1 backend/tests/Frontend/admin-form-controls.browser.cjs backend/tests/Frontend/website-page-drafts.browser.cjs backend/tests/Frontend/hero-scene-editor.browser.cjs backend/tests/Frontend/website-about-save.browser.cjs backend/tests/Frontend/shipping.browser.cjs
 ```

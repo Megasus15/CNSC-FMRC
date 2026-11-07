@@ -332,6 +332,12 @@ final class AppointmentProducts
         DB::table('payment_attempts')->where('id', $attempt->id)->update(['status' => 'expired', 'updated_at' => now()]);
     }
 
+    public static function onlinePaymentAvailable(): bool
+    {
+        return \App\Support\PaymentMethodAvailability::isEnabled('GCash')
+            && app(PayMongoService::class)->acceptsNewPayments();
+    }
+
     public static function orderData(Order $order): array
     {
         if (! self::custom($order)) {
@@ -354,6 +360,7 @@ final class AppointmentProducts
         return ['order_type' => 'custom', 'custom_product' => ['job_id' => $job?->id, 'appointment_id' => $job?->appointment_id,
             'appointment_reference' => $job?->appointment?->reference_no, 'service' => $job?->service_name, 'quotation_version' => $q?->version,
             'agreement' => $q?->agreement, 'stage' => $status, 'production_status' => $order->appointment_production_status, 'collection_pending' => (bool) $order->collection_hold, 'revision' => (int) $order->production_revision,
+            'online_payment_available' => self::onlinePaymentAvailable(),
             'available_actions' => ['record_cash' => $operator && ! $order->collection_hold && $order->payment_method === 'Cash at FMRC' && $order->payment?->status === 'pending' && $q?->state === 'accepted' && $q->expires_at->isFuture() && ! in_array($order->lifecycle_status, ['cancelled', 'rejected', 'completed']),
                 'start_production' => $operator && self::paid($order) && $order->lifecycle_status === 'incoming' && ! $order->hasPendingCancellation() && $q?->state === 'accepted',
                 'mark_ready' => $operator && self::paid($order) && $order->appointment_production_status === 'in_production' && ! $order->hasPendingCancellation(),
@@ -391,7 +398,7 @@ final class AppointmentProducts
             default => 'The FMRC team is finalizing your specifications and quotation.'
         };
 
-        return ['id' => $job->id, 'appointment_id' => $job->appointment_id, 'service_id' => $job->service_id, 'service_name' => $job->service_name,
+        return ['id' => $job->id, 'online_payment_available' => self::onlinePaymentAvailable(), 'appointment_id' => $job->appointment_id, 'service_id' => $job->service_id, 'service_name' => $job->service_name,
             'state' => $job->state, 'progress' => $progress, 'stage' => $stage, 'revision' => (int) $job->revision, 'request_key' => $job->request_key, 'requirements' => $job->requirements, 'booking' => $job->booking,
             'next_action' => $next, 'outcome_note' => $job->outcome_note, 'discussed_at' => $job->discussed_at?->toIso8601String(),
             'files' => DB::table('appointment_product_files')->where('job_id', $job->id)->get(['id', 'name', 'size', 'message_id'])->all(),

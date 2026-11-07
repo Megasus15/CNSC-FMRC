@@ -13,8 +13,8 @@
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Orders | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" />
-    <link rel="stylesheet" href="dashboard.css?v=2026.1106.1" />
-    <link rel="stylesheet" href="admin-modules.css?v=2026.1105.1" />
+    <link rel="stylesheet" href="dashboard.css?v=2026.1107.9" />
+    <link rel="stylesheet" href="admin-modules.css?v=2026.1107.9" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -606,72 +606,76 @@
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
+            <h4 class="order-section-title full"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Order information</h4>
             <div class="field-stack">
               <label>Order No.</label
-              ><input id="modalOrderNo" class="input-field" readonly />
+              ><input id="modalOrderNo" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Date</label
-              ><input id="modalOrderDate" class="input-field" readonly />
+              ><input id="modalOrderDate" class="input-field" disabled />
             </div>
             <div class="field-stack full">
               <label>Order Item</label
-              ><input id="modalOrderItem" class="input-field" readonly />
+              ><input id="modalOrderItem" class="input-field" disabled hidden /><ul id="modalOrderItemsList" class="order-item-list"></ul>
             </div>
+            <h4 class="order-section-title full"><i class="fa-solid fa-user" aria-hidden="true"></i>Customer details</h4>
             <div class="field-stack">
               <label>Customer</label
-              ><input id="modalOrderCustomer" class="input-field" readonly />
+              ><input id="modalOrderCustomer" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Contact</label
-              ><input id="modalOrderContact" class="input-field" readonly />
+              ><input id="modalOrderContact" class="input-field" disabled />
             </div>
             <div class="field-stack full">
               <label>Address</label
               ><textarea
                 id="modalOrderAddress"
                 class="textarea-field"
-                readonly
+                disabled
               ></textarea>
             </div>
+            <h4 class="order-section-title full"><i class="fa-solid fa-credit-card" aria-hidden="true"></i>Payment details</h4>
             <div class="field-stack">
               <label>Payment Method</label
-              ><input id="modalOrderPayment" class="input-field" readonly />
+              ><input id="modalOrderPayment" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Payment Reference</label
-              ><input id="modalOrderReference" class="input-field" readonly />
+              ><input id="modalOrderReference" class="input-field" disabled />
             </div>
+            <h4 class="order-section-title full"><i class="fa-solid fa-calculator" aria-hidden="true"></i>Order pricing</h4>
             <div class="field-stack">
               <label for="modalOrderSubtotal">Item subtotal</label>
-              <input id="modalOrderSubtotal" class="input-field" readonly />
+              <input id="modalOrderSubtotal" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label for="modalOrderShippingFee">Shipping fee</label>
-              <input id="modalOrderShippingFee" class="input-field" readonly />
+              <input id="modalOrderShippingFee" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label for="modalOrderDeliveryEstimate">Estimated delivery</label>
-              <input id="modalOrderDeliveryEstimate" class="input-field" readonly />
+              <input id="modalOrderDeliveryEstimate" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Quantity</label
-              ><input id="modalOrderQty" class="input-field" readonly />
+              ><input id="modalOrderQty" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Payable total</label
-              ><input id="modalOrderTotal" class="input-field" readonly />
+              ><input id="modalOrderTotal" class="input-field" disabled />
             </div>
             <div class="field-stack">
               <label>Status</label
-              ><input id="modalOrderStatus" class="input-field" readonly />
+              ><input id="modalOrderStatus" class="input-field" disabled />
             </div>
             <div class="field-stack full">
               <label>Notes</label
               ><textarea
                 id="modalOrderNotes"
                 class="textarea-field"
-                readonly
+                disabled
               ></textarea>
             </div>
             <section
@@ -832,60 +836,22 @@
         <div class="modal-body-scroll">
           <div class="form-grid">
             <input type="hidden" id="trackingOrderId" />
-            <p class="field-hint full" id="trackingManagedHint" hidden>Record the J&amp;T handover below. Courier updates appear automatically when tracking is active. Use the timeline fields to add an FMRC update.</p>
+            <p class="field-hint full" id="trackingManagedHint" hidden>Record the physical J&amp;T handover once. Courier updates come from 17TRACK; FMRC notes do not change delivery status.</p>
             <div class="field-stack">
               <label>Order No.</label
-              ><input id="trackingOrderNo" class="input-field" readonly />
+              ><input id="trackingOrderNo" class="input-field" disabled />
             </div>
             <div class="field-stack">
-              <label>Customer Stage</label>
+              <label for="trackingStage">Order stage</label>
               <select id="trackingStage" class="filter-select">
                 <option value="to_pay">To Pay</option>
                 <option value="to_ship">To Ship</option>
                 <option value="to_receive">To Receive</option>
-                <option value="completed">Completed</option>
+                <option value="completed" disabled>Completed — confirmed fulfillment only</option>
+
               </select>
             </div>
-            <!--
-              Ready-made checkpoints out of config/tracking_checkpoints.php.
-              FMRC relays what the courier said by hand, and it is the same
-              handful of checkpoints every day, so picking one here fills the
-              title, description, location and coordinates in one go. Every
-              field stays editable afterwards, and typing a checkpoint from
-              scratch still works - this select is a shortcut, not a gate.
-            -->
-            <div class="field-stack full">
-              <label>Quick Checkpoint</label>
-              <select id="trackingPresetSelect" class="filter-select">
-                <option value="">Type it myself</option>
-              </select>
-              <p class="field-hint">
-                Fills the fields below from the courier's usual checkpoints.
-              </p>
-            </div>
-            <div class="field-stack full">
-              <label>Timeline Title</label
-              ><input
-                id="trackingEventTitle"
-                class="input-field"
-                placeholder="ex. Order prepared for shipping"
-              />
-            </div>
-            <div class="field-stack full">
-              <label>Description</label
-              ><textarea
-                id="trackingEventDescription"
-                class="textarea-field"
-                placeholder="Add extra details for customer visibility."
-              ></textarea>
-            </div>
-            <!--
-              COD and GCash orders can use third-party courier details, so every
-              checkpoint here is what the courier told staff. COP orders are
-              collected at the FMRC counter and do not use courier details. The
-              courier list comes from config/couriers.php via the order payload,
-              so the customer's tracking link stays consistent.
-            -->
+
             <div class="field-stack" id="trackingCourierField">
               <label>Courier</label>
               <select id="trackingCourierSelect" class="filter-select"></select>
@@ -898,6 +864,35 @@
                 placeholder="ex. JT123456789PH"
               />
             </div>
+            <div class="full" id="trackingManagedShipment" hidden></div>
+            <h4 class="order-section-title full" id="trackingNotesHeading">Optional FMRC note</h4>
+            <div class="field-stack full">
+              <label for="trackingPresetSelect">FMRC note template</label>
+              <select id="trackingPresetSelect" class="filter-select">
+                <option value="">Type it myself</option>
+              </select>
+              <p class="field-hint">
+                Optional preparation notes are separate from automatic courier updates.
+              </p>
+            </div>
+            <div class="field-stack full">
+              <label for="trackingEventTitle">FMRC note title</label
+              ><input
+                id="trackingEventTitle"
+                class="input-field"
+                placeholder="ex. Order prepared for shipping"
+              />
+            </div>
+            <div class="field-stack full">
+              <label for="trackingEventDescription">FMRC note description</label
+              ><textarea
+                id="trackingEventDescription"
+                class="textarea-field"
+                placeholder="Optional FMRC note for the customer. Courier scans are added automatically."
+              ></textarea>
+            </div>
+
+
             <div class="field-stack full" id="trackingCourierOtherWrap" hidden>
               <label>Courier name</label
               ><input
@@ -914,7 +909,6 @@
                 placeholder="ex. Daet Distribution Hub"
               />
             </div>
-            <div class="full" id="trackingManagedShipment" hidden></div>
             <!--
               Latitude/longitude are what put this checkpoint on the customer's
               map. Optional: a courier who only says "in transit" gives no
@@ -1762,12 +1756,12 @@
     <script src="admin-common.js?v=2026.1107.3"></script>
     <script src="jnt-tracking.js?v=1.3-order-test"></script>
 <script src="courier-shipments.js?v=2.1-17track"></script>
-<script src="orders.js?v=2026.1107.2"></script>
+<script src="orders.js?v=2026.1107.10"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2026.1104.5">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script src="gateway-payments.js?v=2026.1104.5"></script>
 
-    <script src="../home-page/appointment-products.js?v=2026.1107.5"></script>
+    <script src="../home-page/appointment-products.js?v=2026.1107.10"></script>
 </body>
 </html>

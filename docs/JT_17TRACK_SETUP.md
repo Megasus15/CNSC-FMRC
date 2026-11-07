@@ -114,7 +114,7 @@ Only a registered diagnostic parcel with a matching account, signed diagnostic w
 5. Retry with the same order until matching API scan events arrive. Keep the webhook and minute worker running. **Real waybill** and **Webhook delivery** must become **Verified** for this 17TRACK account. An outside diagnostic parcel cannot unlock these checks.
 6. Set `TRACK17_ENABLED=true` in the backend `.env`, then clear/rebuild configuration as above.
 7. In Admin → Shipping & Delivery, choose **Activate automatic tracking**. Staff can view readiness but cannot activate the provider or correct waybills.
-8. Verify the next courier event appears automatically in an already-open Admin/Staff order and Customer Orders. Confirm the actual notification arrives. Follow the real parcel through delivery and the customer's separate **Order received** action.
+8. Verify the next courier event appears automatically in an already-open Admin/Staff order and Customer Orders. Confirm the actual notification arrives. Follow the real parcel through Delivered. FMRC automatically moves the order to Completed after processing that verified courier update. Customers have no manual receipt-confirmation action.
 
 After activation, eligible new and existing unfinished J&T handovers register automatically. Cancelled, completed, refund-pending/refunded, demonstration, pickup, and already courier-delivered shipments are excluded. Existing history and last confirmed status remain during registration and outages.
 
@@ -124,8 +124,26 @@ After activation, eligible new and existing unfinished J&T handovers register au
 - Once a signed update reaches FMRC, the next minute worker processes it. Visible Admin/Staff order views poll saved data about every five seconds; Customer Orders polls about every three seconds. Admin does not need to keep refreshing Shipping & Delivery.
 - Every six hours, FMRC also reads saved provider results to recover missed callbacks. Manual refresh requests the same saved results through the worker, with a 15-minute limit. It does not force a fresh carrier scan or purchase an immediate lookup.
 - Repeated snapshots and milestone notifications are deduplicated. Older scans cannot replace newer confirmed status. Expiration/stoppage retains the last confirmed information.
-- Courier events cannot change payments, refunds, stock, revenue, shipping charges, or complete an order. Courier **Delivered** and customer-confirmed **Completed** remain separate.
-- The full Update Tracking Status modal remains available. Courier stages cannot be fabricated manually; FMRC notes and actual handover controls remain usable. Background updates preserve unsaved form drafts.
+- A verified Delivered update for the current real FMRC shipment completes the order once. It does not mark a payment paid, issue a refund, change stock quantities, or change accepted shipping charges. Completion counts and return eligibility follow the new state. External parcel tests cannot complete an FMRC order.
+- The full Update Tracking Status modal remains available. Saved facts are disabled. Courier stages cannot be fabricated manually; preparation note templates appear before handover, and optional FMRC notes remain separate from courier updates. Record or correct physical handover details using their own controls. Background updates preserve unsaved form drafts.
+
+## Automatic completion and pickup collection
+
+- Genuine J&T delivery: approval/preparation → **To Ship**; confirmed physical handover → **To Receive**; verified 17TRACK Delivered event → **Completed**. The event retains J&T’s delivery time. `completed_at` records when FMRC processes completion, so the customer receives the full existing seven-day return window even after a delayed update.
+- Pickup: Admin/Staff marks the order ready, confirms the full payment, then opens Order Details and chooses **Confirm pickup collection** using the pickup code in the customer’s order. Custom products retain their existing production and collection action. Customers do not mark themselves collected or received.
+- Repeated callbacks cannot repeat completion or move it backwards. The existing worker also completes eligible real shipments that already have a saved, confirmed 17TRACK Delivered event. Review outstanding Delivered shipments before deployment because this may move genuine existing orders into Completed and begin their return window.
+- The old customer `/received` endpoint returns a managed-completion conflict for older cached pages. Generic tracking updates cannot complete fulfillment or move Completed back to an earlier stage.
+- A linked external TikTok parcel, diagnostic subscription, demonstration, old corrected waybill, unpaid/refunded/cancelled order, or another account/carrier cannot complete an FMRC order. Never record an external parcel as a real FMRC handover.
+- Readiness separates signed diagnostic tests from live shipment verification. **Test connection verified** is not **Active**. Admin sees each missing check and the next action; a stale worker is **Needs attention**.
+
+## Deploying this improvement
+
+1. Push/deploy the changed backend and canonical shared portal assets together. This change adds no database migration; retain the earlier 17TRACK and order-test migrations.
+2. Run `php artisan config:clear` and `php artisan route:clear` from `backend`. Retain the existing every-minute `shipments:process` cron. Run it manually once to process pending updates and reconcile eligible saved Delivered shipments.
+3. Reload the browser with Ctrl+F5. Verify the five-row rates table, draft publication, locked fields, FMRC notes, pickup-code action, and updated tracking readiness in both portals.
+4. For an actual FMRC parcel, complete the genuine handover verification above; receive its signed callback; enable the environment switch; confirm a recent worker heartbeat and allowance; then activate from Admin. Do not bypass those gates using a personal TikTok parcel.
+5. With an owned, clearly identified test transaction, confirm hosted checkout → QR Ph payment receipt → approval → genuine handover → automatic Delivered/Completed → correct return deadline and rating eligibility. Check receipt/refund reconciliation separately and confirm the real notification arrives. Keep unrelated customer orders unchanged.
+
 
 ## Troubleshooting
 
@@ -148,7 +166,19 @@ Do not drop tables to pause tracking. Corrected waybills stop the old 17TRACK su
 
 ## Official references
 
-Current local validation: the full backend suite passed 804 tests / 10,257 assertions, including the separate external-parcel order test. The focused tracking/handover/payment-flow run passed 37 tests / 391 assertions. All 210 frontend checks passed, including the isolated Apache check outside the restricted runner. Chrome checks passed for Admin test linking/removal, Staff read access, preserved drafts, automatic Customer test updates, normal J&T handover, real-order completion separation, and mobile/desktop layouts. Provider calls in local tests used fixtures. User-supplied Hostinger output separately confirms live diagnostic API events and a signed diagnostic webhook; the new paid FMRC order display test still requires deployment and execution on the hosted site. Live payment/refund and actual notification delivery remain separate checks.
+Validation must distinguish local fixtures from hosted evidence. The backend regression suite and browser commands below exercise order completion, pickup-code collection, payment/refund safeguards, external-test isolation, paginated delivery rates, and both portal layouts. Provider calls in these local tests use fixtures. User-supplied Hostinger output confirms diagnostic API events and a signed diagnostic webhook; it does not establish genuine FMRC shipment verification, hosted payment/refund completion, or notification delivery.
+
+Local validation on November 7, 2026: **810 backend tests passed (10,356 assertions)** and **210 frontend checks passed**, including the isolated Apache routes check. Chrome suites passed for shipping refresh/publication, five-row pagination, bounded delivery-area editing, Admin/Staff dialogs, disabled facts, pickup-code collection, automatic completion readback, external-test separation, and connected checkout/tracking behavior. The focused note-save check also verifies that an automatic refresh cannot re-enable or duplicate an in-flight save.
+
+```sh
+# From backend:
+php artisan test --compact
+# From the repository root, one browser suite at a time:
+node --test --test-concurrency=1 backend/tests/Frontend/*.test.cjs
+node --test backend/tests/Frontend/shipping-refresh.browser.cjs
+node --test backend/tests/Frontend/order-fulfillment-ui.browser.cjs
+node --test backend/tests/Frontend/shipping.browser.cjs
+```
 
 - [17TRACK API documentation](https://api.17track.net/en/doc)
 - [API account and webhook quick guide](https://help.17track.net/hc/en-us/articles/30944262120729--Tracking-API-Quick-Guide)

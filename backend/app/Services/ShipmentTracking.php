@@ -250,15 +250,47 @@ final class ShipmentTracking
             $q->where('needs_review', true)->orWhereIn('id', ShipmentTrackingSubscription::select('tracker_id')
                 ->where('provider', '17track')->whereIn('registration_state', ['failed', 'stopped']));
         })->count();
+        $workerHealthy = $settings->last_processed_at && Carbon::parse($settings->last_processed_at)->gt(now()->subMinutes(3));
+        $quotaLimited = $settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture();
+        $testVerified = $same && (bool) $settings->last_test_webhook_at;
+        $blockers = [];
+        if (! SeventeenTrackClient::configured() || ! $same) {
+            $blockers['connection'] = 'Check the backend API key and verify the current 17TRACK account.';
+        }
+        if (! config('track17.enabled')) {
+            $blockers['configuration'] = 'Enable TRACK17_ENABLED in the backend environment and clear the configuration cache after verification.';
+        }
+        if (! $same || ! $settings->carrier_verified_at) {
+            $blockers['carrier'] = 'Verify the J&T Philippines carrier for the current account.';
+        }
+        if (! $same || ! $settings->waybill_verified_at) {
+            $blockers['parcel'] = 'Verify an actual FMRC order and its recorded physical J&T handover. An external parcel test does not activate live shipments.';
+        }
+        if (! $same || ! $settings->last_webhook_at) {
+            $blockers['webhook'] = 'Receive and process a signed update for the verified FMRC shipment.';
+        }
+        if (! $workerHealthy) {
+            $blockers['worker'] = 'Check the every-minute shipments:process cron and its latest output. Refresh after the worker runs.';
+        }
+        if ($quotaLimited || $used >= $limit) {
+            $blockers['budget'] = 'Review the 17TRACK allowance and local registration budget before registering more shipments.';
+        }
+        if ($failed) {
+            $blockers['shipments'] = 'Review shipment registration failures or conflicting courier updates in Orders.';
+        }
+        $ready = self::verified($settings) && config('track17.enabled') && $workerHealthy && ! $quotaLimited && $used < $limit;
+        $state = self::enabled() ? ($workerHealthy && ! $quotaLimited && ! $failed ? 'active' : 'needs_attention')
+            : ($ready ? 'ready' : ($testVerified ? 'test_verified' : 'setup_required'));
 
         return ['installed' => true, 'revision' => (int) $settings->revision, 'enabled' => self::enabled(),
+            'readiness_state' => $state, 'blocking_reasons' => $blockers, 'next_action' => $blockers ? reset($blockers) : (self::enabled() ? 'Staff records each actual J&T handover once; courier updates and delivery completion are automatic.' : 'Admin can activate automatic tracking.'),
             'provider' => '17track', 'provider_name' => '17TRACK', 'dashboard_url' => 'https://admin.17track.net/api/dashboard',
-            'ready' => self::verified($settings) && (bool) config('track17.enabled'), 'configured' => SeventeenTrackClient::configured(),
+            'ready' => (bool) $ready, 'configured' => SeventeenTrackClient::configured(),
             'carrier_verified' => $same && (bool) $settings->carrier_verified_at,
             'waybill_verified' => $same && (bool) $settings->waybill_verified_at,
             'webhook_verified' => $same && (bool) $settings->last_webhook_at,
             'carrier_code' => $settings->carrier_code, 'last_processed_at' => $settings->last_processed_at,
-            'processor_healthy' => $settings->last_processed_at && Carbon::parse($settings->last_processed_at)->gt(now()->subMinutes(3)),
+            'processor_healthy' => (bool) $workerHealthy,
             'last_webhook_at' => $settings->last_webhook_at,
             'registrations' => (clone $subscriptions)->whereNotNull('registered_at')->count(),
             'registration_limit' => $limit, 'budget_used' => $used, 'budget_remaining' => max(0, $limit - $used),

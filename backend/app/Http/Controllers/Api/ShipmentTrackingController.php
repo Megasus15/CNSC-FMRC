@@ -85,8 +85,8 @@ final class ShipmentTrackingController extends Controller
         DB::transaction(function () use ($input) {
             $settings = DB::table('shipment_tracking_settings')->where('id', ShipmentTracking::settings()->id)->lockForUpdate()->first();
             abort_unless((int) $settings->revision === (int) $input['expected_revision'], 409, 'Tracking settings changed. Refresh before saving.');
-            if ($input['enabled'] && (! ShipmentTracking::verified($settings) || ! config('track17.enabled'))) {
-                ShipmentTracking::fail('Complete the account, J&T tracking number, and webhook checks before activating automatic tracking.');
+            if ($input['enabled'] && ! ShipmentTracking::health()['ready']) {
+                ShipmentTracking::fail('Complete the live account, FMRC shipment, signed webhook, worker, and credit-budget checks before activation.');
             }
             DB::table('shipment_tracking_settings')->where('id', $settings->id)->update(['enabled' => $input['enabled'], 'revision' => $settings->revision + 1, 'updated_at' => now()]);
         });

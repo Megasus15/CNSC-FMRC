@@ -19,6 +19,7 @@ use App\Services\ShippingService;
 use App\Services\CommercePolicy;
 use App\Services\NinjaVanShipping;
 use App\Services\ShipmentTracking;
+use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -914,83 +915,15 @@ class OrderController extends Controller
         return response($imageBytes, 200, $headers);
     }
 
-    /** Customer marks an order as received — moves it from to_receive → completed */
+    /** Compatibility route: customers no longer complete fulfillment themselves. */
     public function customerMarkReceived(Request $request, Order $order): JsonResponse
     {
-        $denied = $this->ensureCustomer($request);
-        if ($denied) {
+        if ($denied = $this->ensureCustomer($request)) {
             return $denied;
         }
+        abort_unless((int) $order->customer_id === (int) $request->user()->id, 403);
 
-        if ((int) $order->customer_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'You are not allowed to update this order.'], 403);
-        }
-
-        if ($order->customer_stage !== 'to_receive') {
-            // Quote the stage by the name this order actually shows, or a pickup
-            // customer is told to look for a "To Receive" chip that does not exist.
-            $stageName = $this->stageLabel($order, 'to_receive');
-
-            return response()->json([
-                'message' => "Only orders in \"{$stageName}\" status can be marked as received.",
-            ], 422);
-        }
-
-        if ($order->lifecycle_status === 'rejected') {
-            return response()->json(['message' => 'Rejected orders cannot be updated.'], 422);
-        }
-
-        $order=DB::transaction(function()use($order,$request){
-            $order=Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($order->customer_stage==='to_receive' && !in_array($order->lifecycle_status,['cancelled','rejected','completed'],true),422,'This order is no longer awaiting receipt. Review its latest status.');
-            if (AppointmentProducts::custom($order)) AppointmentProducts::assertProduction($order,true);
-        $order->customer_stage = 'completed';
-        $order->lifecycle_status = 'completed';
-        $order->completed_at = Carbon::now();
-
-        // A pickup order finishes at the FMRC counter, so the customer pressing
-        // this button *is* the handover. Without stamping it here, `picked_up_at`
-        // would stay empty on every order the customer closed themselves and only
-        // ever be filled on the ones staff closed for them.
-        $isPickup = $order->isPickup();
-        if ($isPickup) {
-            $order->picked_up_at = $order->picked_up_at ?? now();
-        }
-
-        $order->save();
-
-        $this->createTrackingEvent($order, [
-            'created_by_user_id' => $request->user()->id,
-            'stage'              => 'completed',
-            'event_type'         => 'system',
-            'title'              => $isPickup ? 'Order collected' : 'Order Received',
-            'description'        => $isPickup
-                ? 'Customer confirmed they collected the order at the FMRC office.'
-                : 'Customer confirmed receipt of the order.',
-            'occurred_at'        => now(),
-            'metadata'           => ['source' => 'customer_received'],
-        ]);
-
-            return $order;
-        });
-        $order->load([
-            'items' => fn ($query) => $query
-                ->select($this->customerOrderItemColumns()),
-            'payment',
-            'latestTrackingEvent',
-                ...ShipmentTracking::relations(),
-            'ratings',
-            'returns' => fn ($query) => $query
-                ->where('is_archived', false)
-                ->with(['items', 'latestEvent'])
-                ->orderByDesc('id'),
-            'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
-        ]);
-
-        return response()->json([
-            'message' => 'Order marked as received.',
-            'data'    => $this->transformOrderDetail($order, false, true),
-        ]);
+        return response()->json(['code' => 'order_completion_managed', 'message' => 'Delivery completes automatically after J&T confirms delivery through 17TRACK. FMRC staff confirms pickup collection. Refresh My Orders for the latest status.'], 409);
     }
 
     /**
@@ -1712,7 +1645,7 @@ class OrderController extends Controller
         // panel renders inside the same syncOrders() pass (and the same poll).
         $returns = OrderReturn::query()
             ->with([
-                'order:id,order_no,customer_name,customer_contact,total,payment_method,customer_stage,lifecycle_status,completed_at',
+                'order.payment',
                 'items',
                 'customer:id,name,email',
                 'handler:id,name,role',
@@ -2073,64 +2006,16 @@ class OrderController extends Controller
 
     public function complete(Request $request, Order $order): JsonResponse
     {
-        if (AppointmentProducts::custom($order)) return response()->json(['message'=>'Use the custom-product collection action or customer receipt confirmation.'],422);
-        $denied = $this->ensureAdmin($request);
-        if ($denied) {
-            return $denied;
+        if ($denied = $this->ensureAdmin($request)) return $denied;
+        abort_if(AppointmentProducts::custom($order), 422, 'Use the custom-product collection action.');
+        $input = $request->validate(['pickup_code' => ['required', 'string', 'max:20']]);
+        [$order, $completed] = OrderCompletion::collect($order, $input['pickup_code'], (int) $request->user()->id);
+        if ($completed) {
+            $this->createAdminNotification('success', 'Order collected', 'FMRC confirmed collection of '.$order->order_no.'.', ['order_id' => $order->id]);
+            $this->sendCustomerOrderEmail($order, 'Order collected - '.$order->order_no,
+                $this->buildOrderEmailHtml($order, 'Order collected at FMRC', 'FMRC confirmed your pickup collection. Thank you for your purchase!', '#800000', templateKey: 'order_completed'));
         }
-
-        if ($order->shipment_tracking_mode === 'jnt_dropoff' && $order->lifecycle_status !== 'completed') {
-            return response()->json(['message' => 'The customer confirms receipt through My Orders. Courier delivery and customer receipt are recorded separately.'], 422);
-        }
-
-        if (!in_array($order->lifecycle_status, ['pending', 'completed'], true)) {
-            return response()->json([
-                'message' => 'Only pending orders can be marked as completed.',
-            ], 422);
-        }
-
-        $order->lifecycle_status = 'completed';
-        $order->customer_stage = 'completed';
-        $order->completed_at = Carbon::now();
-        $order->save();
-
-        $this->createTrackingEvent($order, [
-            'created_by_user_id' => $request->user()?->id,
-            'stage' => 'completed',
-            'event_type' => 'admin_update',
-            'title' => 'Order completed',
-            'description' => 'Your order has been fulfilled and is now complete. Thank you for your purchase!',
-            'occurred_at' => now(),
-            'metadata' => [
-                'lifecycle_status' => 'completed',
-            ],
-        ]);
-
-        $order->load(['items', 'payment', 'latestTrackingEvent']);
-
-        // --- Admin/Staff Notification: Order Completed ---
-        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
-        $this->createAdminNotification(
-            'success',
-            "Order Completed: {$orderNoLabel}",
-            "Order {$orderNoLabel} for {$order->customer_name} has been marked as completed. Total collected: ₱" . number_format((float) $order->total, 2, '.', ','),
-            ['order_id' => $order->id, 'order_no' => $orderNoLabel]
-        );
-
-        // --- Customer Email: Order Completed ---
-        $emailHtml = $this->buildOrderEmailHtml(
-            $order,
-            'Your Order Is Complete!',
-            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has been marked as completed. Thank you for choosing UCN-FMRC!\n\nWe hope to serve you again. If you have any feedback, feel free to reach out to us.",
-            '#800000',
-            templateKey: 'order_completed'
-        );
-        $this->sendCustomerOrderEmail($order, "Order Completed – {$orderNoLabel}", $emailHtml);
-
-        return response()->json([
-            'message' => 'Order marked as completed.',
-            'data' => $this->transformOrderSummary($order),
-        ]);
+        return response()->json(['message' => 'Pickup collection confirmed.', 'data' => $this->transformOrderDetail($order->fresh(), true, true)]);
     }
 
     public function archiveBulk(Request $request): JsonResponse
@@ -2302,6 +2187,11 @@ class OrderController extends Controller
 
     public function updateTracking(Request $request, Order $order): JsonResponse
     {
+        return DB::transaction(fn () => $this->updateTrackingLocked($request, Order::whereKey($order->id)->lockForUpdate()->firstOrFail()), 3);
+    }
+
+    private function updateTrackingLocked(Request $request, Order $order): JsonResponse
+    {
         if (AppointmentProducts::custom($order) && ($request->input('stage',$order->customer_stage)!==$order->customer_stage || $request->input('event_type')==='courier_update')) return response()->json(['message'=>'Use Start Production, Mark Ready, pickup collection, or J&T handover for this custom order.'],422);
         $denied = $this->ensureAdmin($request);
         if ($denied) {
@@ -2345,6 +2235,12 @@ class OrderController extends Controller
         if (! $order->isPickup() && $order->payment_method === 'GCash' && $order->courier_name === 'J&T Express'
             && ! filled($order->courier_tracking_no) && in_array($validated['stage'] ?? '', ['to_receive', 'completed'], true)) {
             return response()->json(['message' => 'Record the J&T waybill and physical handover before advancing this delivery.'], 422);
+        }
+        if (($validated['stage'] ?? null) === 'completed' && $order->customer_stage !== 'completed') {
+            return response()->json(['message' => 'Use Confirm pickup collection for pickup orders. J&T deliveries complete automatically from 17TRACK.'], 422);
+        }
+        if ($order->customer_stage === 'completed' && ($validated['stage'] ?? 'completed') !== 'completed') {
+            return response()->json(['message' => 'Completed fulfillment cannot be moved back to an earlier stage.'], 422);
         }
         $nextStage = $validated['stage'] ?? $order->customer_stage;
         $title = trim((string) ($validated['title'] ?? ''));
@@ -2427,7 +2323,7 @@ class OrderController extends Controller
 
         if ($nextStage === 'completed') {
             $order->lifecycle_status = 'completed';
-            $order->completed_at = Carbon::now();
+            $order->completed_at = $order->completed_at ?? Carbon::now();
         } elseif ($order->lifecycle_status === 'incoming') {
             $order->lifecycle_status = 'pending';
             $order->approved_at = $order->approved_at ?? now();
@@ -3372,6 +3268,9 @@ class OrderController extends Controller
                 ? self::PICKUP_LONGITUDE
                 : ($order->delivery_lng !== null ? (float) $order->delivery_lng : null),
             'pickup_code' => $isPickup ? $order->pickup_code : null,
+            'can_confirm_collection' => in_array(auth()->user()?->role, ['admin', 'staff'], true) && OrderCompletion::collectionBlocker($order) === null,
+            'collection_blocked_reason' => $isPickup ? OrderCompletion::collectionBlocker($order) : null,
+            'completion_source' => OrderCompletion::source($order),
             'pickup_ready_at' => $this->formatPhilippineIso($order->pickup_ready_at),
             'pickup_ready_at_label' => $this->formatPhilippineLabel($order->pickup_ready_at),
             'picked_up_at' => $this->formatPhilippineIso($order->picked_up_at),
@@ -3627,7 +3526,7 @@ class OrderController extends Controller
         if ($order->lifecycle_status === 'rejected') {
             $blockedReason = 'This order was rejected, so there is nothing to return.';
         } elseif ($order->customer_stage !== 'completed') {
-            $blockedReason = 'Only completed orders can be returned. Confirm you received the order first.';
+            $blockedReason = 'Returns become available after confirmed courier delivery or FMRC pickup collection.';
         } elseif ($active) {
             $blockedReason = 'A return request for this order is already being processed.';
         } elseif ($returnsLoaded && !$this->hasReturnableItem($order, $returns)) {
