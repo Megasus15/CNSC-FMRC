@@ -73,7 +73,7 @@ class SiteSettingSeeder extends Seeder
         SiteSetting::set('footer_brand_desc', 'Fabrication and Manufacturing Research Center - Advancing innovation through technology and excellence in manufacturing.');
         SiteSetting::set('footer_campus_tag', 'Main Campus • Daet, Camarines Norte, Philippines, 4600');
         SiteSetting::set('footer_quick_links', json_encode([
-            ['label' => 'Home',     'url' => '/home-page/main.html'],
+            ['label' => 'Home',     'url' => '/home-page/'],
             ['label' => 'About Us', 'url' => '/about-page/about.html'],
             ['label' => 'Services', 'url' => '/services-page/service.html'],
             ['label' => 'Products', 'url' => '/products-page/product.html'],

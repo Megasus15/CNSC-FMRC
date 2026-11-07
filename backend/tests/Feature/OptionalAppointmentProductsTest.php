@@ -471,7 +471,7 @@ return Http::response(['data' => $s]);
             $response = $this->get($url)->assertOk();
             $this->assertStringContainsString('FMRCAppointmentProducts', file_get_contents($response->baseResponse->getFile()->getPathname()));
         }
-        foreach (['/apps/customer/home-page/main.html', '/apps/team/admin-page/appointments.html', '/apps/team/staff-page/orders.html'] as $url) {
+        foreach (['http://localhost/apps/customer/home-page/?fixture=1', '/apps/team/admin-page/appointments.html', '/apps/team/staff-page/orders.html'] as $url) {
             $response = $this->get($url)->assertOk();
             $this->assertStringContainsString('appointment-products.js', file_get_contents($response->baseResponse->getFile()->getPathname()));
         }

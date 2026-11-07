@@ -88,7 +88,7 @@ function harness(width) {
   console.log('PASS skeleton counts and empty states at all five target widths (runtime DOM stub)');
 
   const fixtures = [
-    {title: '3D Printing', category: 'Prototyping', description: 'Precision rapid prototypes', image_data: '/images/3Dprint.png', modal_features: ['FDM', 'SLA'], modal_materials: ['PLA'], modal_best_for: ['Models']},
+    {id: 2, appointment_products_available: true, title: '3D Printing', category: 'Prototyping', description: 'Precision rapid prototypes', image_data: '/images/3Dprint.png', modal_features: ['FDM', 'SLA'], modal_materials: ['PLA'], modal_best_for: ['Models']},
     {title: 'Laser Cutting', category: 'Manufacturing', description: 'Precision cuts', image_data: '/images/laser-cutting.png'},
     {title: 'Design Consultation', category: 'Design & Labelling', description: 'Design support', image_data: null},
     {title: 'Unknown Service', category: 'Special research', description: 'Research capability'},
@@ -115,6 +115,9 @@ function harness(width) {
   assert.equal((h.grid.innerHTML.match(/<article/g) || []).length, 5);
   assert(h.grid.innerHTML.indexOf('3D Printing') < h.grid.innerHTML.indexOf('Laser Cutting'));
   assert(h.grid.innerHTML.indexOf('Learn more') < h.grid.innerHTML.indexOf('class="service-image-trigger"'));
+  assert(h.grid.innerHTML.indexOf('Book a Consultation') < h.grid.innerHTML.indexOf('Learn more'));
+  assert(h.grid.innerHTML.includes('data-consultation-url="/home-page/?appointment=1&amp;custom_service=2"'));
+  assert.equal((h.grid.innerHTML.match(/class="service-action ap-consult-link"/g)||[]).length,1);
   assert(h.grid.innerHTML.includes('Unknown Service'));
   assert(h.grid.innerHTML.includes('Image coming soon'));
   assert(h.grid.innerHTML.includes('&lt;script&gt;'));

@@ -64,6 +64,25 @@ Deploy the changed canonical HTML, CSS and JavaScript together. This repair requ
 
 Local verification covered 320/390/768/1024/1440/1920 px receipt layouts, both operator themes, actual five-second refreshes with incoming updates, and real PNG exports through html2canvas at phone/desktop widths. Ordinary appointment browser regressions and 79 portal/PWA backend tests also passed. This is local verification, separate from the supervised Hostinger walkthrough.
 
+## Navigation, wording and service actions: assets 2026.1107.1
+
+Home navigation now uses `/home-page/`. Legacy `main` and `main.html` links redirect while retaining booking, order, notification and private claim parameters. The Customer PWA uses `/apps/customer/home-page/` so it stays in its installed scope. Returning from a finished or discarded booking clears its launch parameters.
+
+Eligible Home/Services cards place **Book a Consultation** on the left and the existing **Learn more →** text link on the right. They wrap on narrow cards. The same booking action appears in the fixed Service details footer; opening another, ineligible service removes it. Image previews and keyboard focus return are retained. The arrow and calendar use inline icons so they remain visible without the external icon font.
+
+Save Outcome uses the same outlined/default and maroon-hover treatment as Cancel Custom Request in both operator themes. Customer and operator guidance differs throughout consultation, quotation, payment, production and receipt. Operators receive instructions to manage the customer’s job; customers receive their own next step. Quotation history and payment-pending messages follow the same distinction.
+
+Deploy the complete revision, including the root `.htaccess`, Laravel route/controller changes, and versioned shared scripts. Shared app navigation is version `1.6`; changed page assets are `2026.1107.1`. No new SQL, migration, or feature-flag change is required for this repair. From Hostinger Terminal clear cached routes after deploying:
+
+```sh
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend
+php artisan optimize:clear
+```
+
+Reload open Customer/Admin/Staff pages and continue **AP-00053**. Verify both service actions, the Home address, the selected service, and operator wording before proceeding with the real consultation. Keep its appointment schedule, existing draft/job, eligibility settings and payment configuration.
+
+Local verification for this repair covers the actual Apache redirects and PWA aliases, Laravel routes and existing optional-workflow safeguards, ordinary appointment browser regression, service actions/details at 320/390/768/1440 px, role-specific guidance through receipt, both operator themes, reduced motion, keyboard/focus return, stale-link handling and unsaved forms during five-second refreshes. API/provider responses in browser tests are isolated fixtures; these results do not verify a production charge, refund, email or parcel. The final targeted Laravel run passed **101 tests / 1,241 assertions**; ordinary and optional appointment browser suites, the PWA browser/worker and customer regression group (**26 tests**), Services rendering checks, and the isolated Apache alias suite passed.
+
 ## Staging acceptance, before enabling production intake
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.
@@ -92,7 +111,7 @@ Keep **local automated results**, **staging smoke results**, **live payment/refu
 
 Provider constraints: [PayMongo checkout lifecycle](https://docs.paymongo.com/docs/payment-channels-key-concepts) requires explicit session expiry and reconciliation. [Ship24 webhook delivery](https://docs.ship24.com/webhooks/delivery) can group multiple events; provider timing and activation still apply.
 
-## Local verification record
+## Original release verification record
 
 Checked locally on Windows with PHP 8.3 and isolated MySQL 8.4.3 (not the Hostinger database):
 
@@ -107,4 +126,4 @@ Checked locally on Windows with PHP 8.3 and isolated MySQL 8.4.3 (not the Hostin
 
 Staging smoke checks: **not performed in this workspace**. Hostinger migration/flag activation, real SMTP ownership mail, real PayMongo payments/refunds and real courier verification remain rollout steps, not local test results.
 
-The optional local Apache alias regression could not start: Apache 2.4.66 rejected the temporary config/DocumentRoot paths in this execution environment (`AH00532` / `DocumentRoot must be a directory`). No production rewrite rules were changed. Laravel's normal/Customer/Team asset-route tests and Chrome fixtures passed; confirm Apache aliases again on staging/Hostinger.
+The earlier sandboxed Apache attempt rejected temporary paths. During the 2026.1107.1 repair, the authorized isolated local Apache run passed, including the new Home redirects, retained query strings, Customer/Team aliases and scope restrictions. Hostinger verification still follows deployment.

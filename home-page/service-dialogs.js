@@ -10,6 +10,34 @@ document.addEventListener("DOMContentLoaded", () => {
     .map((element) => ({ element, open: false, opener: null }));
   let coveredDetailState = null;
 
+  // Keep the action outside the scrollable body and refresh its eligibility.
+  const setConsultationAction = (trigger) => {
+    if (!detailDialog) return;
+    let footer = detailDialog.querySelector('.service-details-actions');
+    const raw = trigger.dataset.consultationUrl;
+    let destination;
+    try {
+      const candidate = new URL(raw || '', location.href);
+      if (raw && candidate.origin === location.origin && /^\/(?:apps\/customer\/)?home-page\/$/.test(candidate.pathname)
+        && candidate.searchParams.get('appointment') === '1' && /^\d+$/.test(candidate.searchParams.get('custom_service') || '')) destination = candidate.href;
+    } catch {}
+    if (!footer && destination) {
+      footer = document.createElement('footer');
+      footer.className = 'service-details-actions ux-dlg__foot';
+      const action = document.createElement('a');
+      action.className = 'service-action ap-consult-link';
+      action.innerHTML = 'Book a Consultation <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>';
+      footer.append(action);
+      detailDialog.querySelector('.modal-box').append(footer);
+    }
+    if (footer) {
+      footer.hidden = !destination;
+      const action = footer.querySelector('a');
+      if (destination) action.href = window.FMRCApp?.url(destination) || destination;
+      else action.removeAttribute('href');
+    }
+  };
+
   const isOpen = (element) => element?.classList.contains("show-modal");
   const topServiceDialog = () =>
     [...dialogLayers].reverse().find((layer) => isOpen(layer.element))?.element;
@@ -36,6 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!(event.target instanceof Element)) return;
     const imageTrigger = event.target.closest(".service-image-trigger, .service-modal-image-trigger, .about-editorial-page .editorial-gallery .vm-deck__card[data-current=\"true\"]:not(:disabled)");
     const detailTrigger = event.target.closest(".service-card .open-modal-btn");
+    if (detailTrigger) setConsultationAction(detailTrigger);
     const dialog = imageTrigger ? imageDialog : detailTrigger ? detailDialog : null;
     const layer = dialogLayers.find((candidate) => candidate.element === dialog);
     if (layer) layer.opener = imageTrigger || detailTrigger;

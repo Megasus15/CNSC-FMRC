@@ -50,7 +50,7 @@ class PwaNotifications
             if ($model->isLive()) {
                 $type = $model instanceof Announcement ? 'announcement' : 'promotion';
                 $this->publish(null, $type, $model->title, trim(strip_tags((string) ($model->message ?? 'A new update from FMRC.'))),
-                    $type === 'promotion' ? '/products-page/product.html' : '/home-page/main.html?announcement='.$model->id, $type.':'.$model->id.':first-live');
+                    $type === 'promotion' ? '/products-page/product.html' : '/home-page/?announcement='.$model->id, $type.':'.$model->id.':first-live');
             }
 
             return;
@@ -69,7 +69,7 @@ class PwaNotifications
         $kind = null;
         $owner = null;
         $message = '';
-        $target = '/home-page/main.html';
+        $target = '/home-page/';
         if ($model instanceof Order && ($created || $model->wasChanged(['lifecycle_status', 'customer_stage', 'cancel_state']))) {
             $owner = $model->customer_id;
             $kind = 'order';
@@ -128,7 +128,7 @@ class PwaNotifications
                 foreach ($records as $record) {
                     if ($record->isLive()) {
                         $this->publish(null, $type, $record->title, trim(strip_tags((string) ($record->message ?? 'A new update from FMRC.'))),
-                            $type === 'promotion' ? '/products-page/product.html' : '/home-page/main.html?announcement='.$record->id, $type.':'.$record->id.':first-live');
+                            $type === 'promotion' ? '/products-page/product.html' : '/home-page/?announcement='.$record->id, $type.':'.$record->id.':first-live');
                     }
                 }
             });

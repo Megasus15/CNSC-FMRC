@@ -26,7 +26,7 @@
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn"><div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Admin Control</div><i class="fa-solid fa-chevron-down arrow"></i></a>
             <div class="dropdown-menu">
-              <a href="../home-page/main.html" class="sub-link">Home</a>
+              <a href="../home-page/" class="sub-link">Home</a>
               <a href="../services-page/service.html" class="sub-link">Services</a>
               <a href="../contact-page/contact.html" class="sub-link">Contact</a>
               <a href="#" class="sub-link">Footer</a>

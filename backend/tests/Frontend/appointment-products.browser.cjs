@@ -13,7 +13,7 @@ async function connect(url){
   socket.onmessage=({data})=>{const reply=JSON.parse(data),job=pending.get(reply.id);if(!job)return;pending.delete(reply.id);reply.error?job.reject(Error(JSON.stringify(reply.error))):job.resolve(reply.result);};
   return {send(method,params={}){return new Promise((resolve,reject)=>{const key=++id,timer=setTimeout(()=>{pending.delete(key);reject(Error(method));},15000);pending.set(key,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});socket.send(JSON.stringify({id:key,method,params}));});},close(){socket.close();}};
 }
-test('optional appointment products preserve drafts and share the existing modal design',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
+test('optional appointment products preserve drafts and share the existing modal design',{skip:!fs.existsSync(chrome),timeout:240000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-appointment-products-'));
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const nextDay=(date,count)=>{const day=new Date(date+'T12:00:00+08:00');day.setUTCDate(day.getUTCDate()+count);while([0,6].includes(day.getUTCDay()))day.setUTCDate(day.getUTCDate()+1);return day.toISOString().slice(0,10);};
@@ -50,6 +50,7 @@ test('optional appointment products preserve drafts and share the existing modal
       if(route==='/api/admin/preferences')return json({user_id:11,preferences:{theme:'light',compact:false,reducedMotion:false}});
       if(route==='/api/admin/session')return json({server_time:new Date().toISOString(),idle_warning_at:new Date(Date.now()+3600000).toISOString(),idle_expires_at:new Date(Date.now()+3780000).toISOString(),absolute_expires_at:new Date(Date.now()+21600000).toISOString()});
       if(route==='/api/maintenance')return json({installed:true,data:{},site_page_installed:true,site_page:{}});
+      if(route==='/api/services')return json({data:[{id:2,title:'3D Printing',category:'Prototyping',description:'Custom prototypes and personalized products.',modal_description:'Discuss a personalized product and its final specifications with FMRC.',modal_features:['Personalized designs'],modal_materials:['PLA'],modal_best_for:['Models'],image_data:'/images/FMRC%20Brand%20Logo.png',appointment_products_available:true},{id:3,title:'3D Scanning',category:'Design',description:'Digital recreation of physical objects.',image_data:'/images/FMRC%20Brand%20Logo.png',appointment_products_available:false},{id:4,title:'Heatpress',category:'Manufacturing',description:'Heat transfer printing for custom materials.',image_data:'/images/FMRC%20Brand%20Logo.png',appointment_products_available:false}]});
       if(route==='/api/site-settings')return json({data:{}});
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/appointments/calendar'&&failCalendar){failCalendar=false;return json({message:'Fixture availability refresh unavailable.'},503);}
@@ -73,7 +74,8 @@ test('optional appointment products preserve drafts and share the existing modal
       if(route.startsWith('/api/customer/appointments/51/attachments/')){downloads++;res.writeHead(200,{'Content-Type':'application/octet-stream'});res.end('ISO-10303-21;');return;}
       return json({data:[]});
     }
-    const file=path.resolve(root,'.'+route);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
+    const sourceRoute=route.replace(/^\/apps\/customer(?=\/(?:home-page|services-page)\/)/,'').replace(/^\/home-page\/$/,'/home-page/main.html');
+    const file=path.resolve(root,'.'+sourceRoute);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
     const ext=path.extname(file);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'})[ext]||'application/octet-stream');let content=fs.readFileSync(file);
     if(ext==='.html')content=content.toString().replace('<head>',`<head><script>window.APP_API_BASE_URL=location.origin+'/api';window.fixtureErrors=[];addEventListener('error',event=>{if(event.message)fixtureErrors.push(event.message)});addEventListener('unhandledrejection',event=>fixtureErrors.push(String(event.reason)));for(const role of ['admin','staff']){localStorage.setItem(role+'_auth_token','fixture-'+role);localStorage.setItem(role+'_user_info',JSON.stringify({id:11,role,email:role+'@gmail.com'}));}localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',${JSON.stringify(JSON.stringify(profile))});</script>`);res.end(content);
   });
@@ -86,7 +88,7 @@ test('optional appointment products preserve drafts and share the existing modal
     await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
     const run=async expression=>{const result=await cdp.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
     const until=async expression=>{for(let i=0;i<180;i++){try{if(await run(expression))return;}catch(error){if(!/context|navigated/i.test(error.message))throw error;}await pause(45);}throw Error('Timeout: '+expression+'; '+JSON.stringify(await run('({url:location.href,errors:fixtureErrors,popup:document.getElementById("customerSystemPopupMessage")?.textContent,adminPopup:document.getElementById("adminSystemPopupMessage")?.textContent,shipping:document.getElementById("checkoutShippingMessage")?.textContent})')));};
-    const navigate=async route=>{await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+route});await until(`location.pathname===${JSON.stringify(route)}&&document.readyState==='complete'`);};
+    const navigate=async route=>{await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+route});await until(`location.pathname===${JSON.stringify(new URL(route,'http://fixture').pathname.replace(/^(\/(?:apps\/customer\/)?home-page)(?:\/main(?:\.html)?)?\/?$/,'$1/'))}&&document.readyState==='complete'`);};
     const input=async(id,value)=>run(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     const key=async(value,modifiers=0)=>{await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:value,modifiers,windowsVirtualKeyCode:({Tab:9,Escape:27})[value]});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:value});};
     const confirm=async title=>{await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent===${JSON.stringify(title)}`);await run(`document.getElementById('adminSystemPopupOk').click()`);};
@@ -133,8 +135,82 @@ test('optional appointment products preserve drafts and share the existing modal
       const move=async selector=>{const point=await run(`(()=>{const n=document.querySelector(${JSON.stringify(selector)});n.scrollIntoView({block:'center',behavior:'instant'});const r=n.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await pause(230);return point;};
       const save='[data-ap-form="requirements"] [type="submit"]';await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:1,y:1});await pause(230);
       const solid=await run(`getComputedStyle(document.querySelector('[data-ap-tab="0"]')).backgroundColor`);assert.notEqual(await run(`getComputedStyle(document.querySelector(${JSON.stringify(save)})).backgroundColor`),solid,'Save Details starts with the outlined surface');await move(save);assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(save)})).backgroundColor`),solid,'Save Details fills maroon on hover');
+      for(const name of ['outcome','cancel']){
+        await run(`document.querySelector('[data-ap-form="${name}"]').closest('details').open=true`);
+        const selector='[data-ap-form="'+name+'"] [type="submit"]';await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:1,y:1});await pause(230);
+        assert.notEqual(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),solid,name+' starts outlined');await move(selector);await until(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor===${JSON.stringify(solid)}`);assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),solid,name+' fills maroon on hover');
+      }
       for(const tab of [0,1,2]){const selector='[data-ap-tab="'+tab+'"]';await run(`document.querySelector(${JSON.stringify(selector)}).click()`);const point=await move(selector);assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),solid,'Selected tab stays maroon on hover');await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),solid,'Selected tab stays maroon while pressed');await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});await run(`document.querySelector(${JSON.stringify(selector)}).focus()`);assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),solid);}
     };
+
+    const serviceActions=async()=>{
+      for(const route of ['/services-page/service.html','/home-page/','/apps/customer/services-page/service.html']){
+        await navigate(route);await until(`!!document.querySelector('.service-card .ap-consult-link')`);
+        const eligible='.service-card:has(.ap-consult-link)';
+        assert.equal(await run(`document.querySelector('${eligible} .service-card-footer').firstElementChild.textContent.trim()`),'Book a Consultation');
+        const href=await run(`document.querySelector('${eligible} .ap-consult-link').href`),target=new URL(href);
+        assert.equal(target.pathname,route.startsWith('/apps/')?'/apps/customer/home-page/':'/home-page/');assert.equal(target.searchParams.get('custom_service'),'2');
+        for(const width of [320,390,768,1440]){
+          await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+          await run(`document.querySelector('${eligible}').scrollIntoView({block:'center',behavior:'instant'})`);
+          const layout=await run(`(()=>{const card=document.querySelector('${eligible}'),buttons=[...card.querySelectorAll('.service-card-footer > a,.service-card-footer > button')];const rects=buttons.map(b=>b.getBoundingClientRect());return {overflow:document.documentElement.scrollWidth>innerWidth+1,inside:rects.every(r=>r.left>=card.getBoundingClientRect().left&&r.right<=card.getBoundingClientRect().right),style:buttons.map(b=>{const s=getComputedStyle(b);return [s.fontSize,s.fontWeight,s.padding,s.borderWidth,s.borderRadius,s.height,s.textDecorationLine]})};})()`);
+          assert.equal(layout.overflow,false,route+' fits '+width);assert(layout.inside);assert.equal(layout.style[0][3],'1px');assert.equal(layout.style[1][3],'0px','Learn more retains its arrow-link style');
+          assert.equal(await run(`(()=>{const f=document.querySelector('${eligible} .service-card-footer'),b=f.querySelector('.ap-consult-link').getBoundingClientRect(),l=f.querySelector('.open-modal-btn').getBoundingClientRect(),r=f.getBoundingClientRect();return Math.abs(b.left-r.left)<2&&Math.abs(l.right-r.right)<2;})()`),true,'Booking aligns left and Learn more aligns right');
+          assert.match(await run(`getComputedStyle(document.querySelector('${eligible} .ap-consult-link')).fontFamily`),/Montserrat/);
+          if(width===1440)assert.equal(await run(`(()=>{const cards=[...document.querySelectorAll('.service-card')].slice(0,3);return Math.max(...cards.map(c=>c.querySelector('.service-image-trigger').getBoundingClientRect().top))-Math.min(...cards.map(c=>c.querySelector('.service-image-trigger').getBoundingClientRect().top))<2;})()`),true,'Eligible and ordinary images align');
+          await shot((route.startsWith('/apps/')?'pwa-':route.includes('services-page')?'services-':'home-')+'service-actions-'+width);
+        }
+        // Booking fills maroon; Learn more retains the familiar underlined hover.
+        for(const selector of [eligible+' .ap-consult-link',eligible+' .open-modal-btn']){
+          const point=await run(`(()=>{const b=document.querySelector(${JSON.stringify(selector)});b.scrollIntoView({block:'center',behavior:'instant'});const r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+          await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await pause(230);
+          if(selector.endsWith('.ap-consult-link'))assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).color`),'rgb(255, 255, 255)');else assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)}+' .details-btn-label')).textDecorationLine`),'underline');
+        }
+        await run(`document.querySelector('${eligible} .open-modal-btn').click()`);await until(`document.querySelector('#serviceModal.show-modal .service-details-actions a')?.getAttribute('href')`);
+        assert.equal(await run(`document.querySelector('#serviceModal .service-details-actions a').href`),href);
+        for(const width of [390,768,1440]){
+          await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+          const footer=await run(`(()=>{const card=document.querySelector('#serviceModal .modal-box').getBoundingClientRect(),body=document.querySelector('#serviceModal .modal-scroll-area'),foot=document.querySelector('#serviceModal .service-details-actions').getBoundingClientRect();body.scrollTop=body.scrollHeight;return {fits:card.left>=0&&card.right<=innerWidth&&card.top>=0&&card.bottom<=innerHeight,footerOutside:foot.top>=body.getBoundingClientRect().bottom-1,footerVisible:foot.bottom<=innerHeight,overflow:body.scrollWidth>body.clientWidth+1};})()`);
+          assert(footer.fits&&footer.footerOutside&&footer.footerVisible);assert.equal(footer.overflow,false);await pause(350);await shot('service-details-booking-'+width);
+        }
+        await run(`document.querySelector('#serviceModal .service-modal-image-trigger').click()`);await until(`document.getElementById('serviceImageLightboxModal').classList.contains('show-modal')`);await key('Escape');await until(`!document.getElementById('serviceImageLightboxModal').classList.contains('show-modal')`);assert.equal(await run(`document.getElementById('serviceModal').classList.contains('show-modal')`),true);
+        await run(`document.getElementById('closeModalBtn').click()`);await until(`!document.getElementById('serviceModal').classList.contains('show-modal')`);
+        assert.equal(await run(`document.activeElement===document.querySelector('${eligible} .open-modal-btn')`),true,'Closing returns focus to Learn more');
+        await run(`document.querySelector('.service-card:not(:has(.ap-consult-link)) .open-modal-btn').click()`);await until(`document.getElementById('serviceModal').classList.contains('show-modal')`);
+        assert.equal(await run(`document.querySelector('#serviceModal .service-details-actions').hidden`),true,'Ineligible details cannot inherit a booking action');
+        await run(`document.getElementById('closeModalBtn').click()`);
+        await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});assert.equal(await run(`getComputedStyle(document.querySelector('${eligible} .service-action')).transitionDuration`),'0s');await cdp.send('Emulation.setEmulatedMedia',{features:[]});
+        assert.deepEqual(await run('fixtureErrors'),[]);
+      }
+      // A legacy, service-prefilled booking still opens, then returns to clean Home.
+      await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/home-page/main.html?appointment=1&custom_service=2'});
+      await until(`location.pathname==='/home-page/'&&document.getElementById('aptCustomProduct')?.checked`);
+      assert.equal(await run(`document.querySelector('#aptCustomFields [name="service_id"]').value`),'2');
+      await run(`document.getElementById('closeAppointmentBtn').click()`);
+      if(await run(`document.getElementById('aptLeaveConfirmModal')?.classList.contains('show-modal')`))await run(`document.getElementById('acceptLeaveAptBtn').click()`);
+      await until(`!document.getElementById('appointmentFlow').classList.contains('show-modal')`);
+      assert.equal(await run('location.pathname+location.search'),'/home-page/');
+    };
+    const audienceCopy=async admin=>{
+      const cases=[
+        ['awaiting_consultation','Scheduled',admin?/customer.*brief.*consultation/i:/Attend your consultation/],
+        ['awaiting_consultation','Completed',admin?/Record the consultation outcome/:/agreed specifications/],
+        ['needs_information','Completed',admin?/customer.*reply/:/Send the requested details/],
+        ['follow_up','Completed',admin?/with the customer/:/Book a follow-up/],
+        ['ready_for_quote','Completed',admin?/prepare the customer/:/FMRC is preparing/],
+        ['quoted','Completed',admin?/Await customer approval/:/approve your quotation/],
+        ['expired','Completed',admin?/sending a new version/:/Ask FMRC/],
+        ['in_production','Completed',admin?/Manage production in Orders/:/FMRC is making/],
+        ['in_transit','Completed',admin?/customer.*receipt confirmation/:/confirm receipt/],
+        ['completed','Completed',admin?/This custom order is complete/:/Your custom order is complete/],
+      ];
+      for(const [state,status,expected]of cases){
+        const sample={...job,state:state==='expired'?'quoted':state,progress:state,quotations:['quoted','expired'].includes(state)?[{id:91,version:1,state:'sent',agreement:agreementFixture,sent_at:new Date().toISOString(),expires_at:new Date(Date.now()+(state==='expired'?-10000:600000)).toISOString()}]:[],orders:['in_production','in_transit','completed'].includes(state)?[{id:81,order_no:'ORD-000081',lifecycle_status:state==='completed'?'completed':'pending',payment_status:'paid',fulfillment_type:'delivery'}]:[]};
+        const text=await run(`(async()=>{const host=document.createElement('div');host.hidden=true;document.body.append(host);const appointment={...${JSON.stringify(appointment)},status:${JSON.stringify(status)},custom_product:${JSON.stringify(sample)}};${admin?'FMRCAppointmentProducts.mountAdmin(host,appointment);':'await FMRCAppointmentProducts.mountCustomer(host,appointment);'}const text=host.querySelector('.ap-head p').textContent;host.remove();return text;})()`);
+        assert.match(text,expected,(admin?'Operator':'Customer')+' guidance for '+state);
+      }
+    };
+    await serviceActions();
     await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:artifacts});
 
     await navigate('/home-page/main.html');await until(`!!document.getElementById('aptCustomProduct')`);
@@ -158,13 +234,13 @@ test('optional appointment products preserve drafts and share the existing modal
     await run(`document.querySelector('[aria-label="'+${JSON.stringify(spoken)}+', available"]').click();document.querySelector('.time-slot-btn:not(:disabled)').click();document.getElementById('btnGoToConfirm').click();document.getElementById('acceptConfirmBtn').click()`);
     assert.match(await run(`document.querySelector('[data-ap-booking-review]').textContent`),/Personal desk sign/);await stepPreview(4);await run(`document.getElementById('btnGoToStep5').click()`);await until(`document.getElementById('aptStep5').classList.contains('active')`);assert(booking);await stepPreview(5);
     await run(`document.getElementById('btnFinishStep5').click();document.getElementById('btnSuccessHome').click()`);
-    appointment.status='Completed';appointment.can_reschedule=false;
+    appointment.status='Completed';appointment.can_reschedule=false;await audienceCopy(false);
     await navigate('/about-page/about.html');await until(`!!window.FMRCAppointments`);await run(`window.FMRCAppointments.open(51)`);await until(`!!document.querySelector('[data-ap-job]')`);
     for(const width of [390,768,1440]){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});await centered();await customerFonts('#customerAppointmentsModal');await shot('customer-custom-details-'+width);}
     await run(`document.querySelector('[data-ap-tab="2"]').click();document.querySelector('[data-ap-form="messages"] textarea').value='Please review my changes';document.querySelector('[data-ap-form="messages"] textarea').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-appointments-close]').click()`);
     await until(`document.querySelector('#customerSystemPopup.show #customerSystemPopupTitle')?.textContent==='Unsaved changes'`);await run(`document.getElementById('customerSystemPopupCancel').click()`);assert.equal(await run(`document.getElementById('customerAppointmentsModal').classList.contains('show')`),true);
     await run(`document.querySelector('[data-ap-form="messages"]').dataset.dirty='false'`);
-    await navigate('/admin-page/appointments.html');await until(`!!document.querySelector('[data-view-id]')`);await run(`document.querySelector('[data-view-id]').click()`);await until(`!!document.querySelector('[data-ap-form="outcome"]')`);
+    await navigate('/admin-page/appointments.html');await until(`!!document.querySelector('[data-view-id]')`);await run(`document.querySelector('[data-view-id]').click()`);await until(`!!document.querySelector('[data-ap-form="outcome"]')`);await audienceCopy(true);
     await run(`(()=>{const f=document.querySelector('[data-ap-form="outcome"]');f.elements.note.value='Design discussed in the completed meeting';f.elements.discussion_confirmed.checked=true;f.requestSubmit();})()`);
     await until(`!!document.querySelector('[data-ap-form="quotation"]')`);await run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-tab="1"]').click();(()=>{const f=document.querySelector('[data-ap-form="quotation"]');f.closest('details').open=true;f.elements.design_notes.value='Final desk sign layout';f.elements.unit_price.value='200';f.elements.lead_time.value='Five working days';f.requestSubmit();})()`);await confirm('Confirm action');await until(`!!document.querySelector('.ap-message h4')`);assert.equal(quoteWrites,1);await run(`document.getElementById('adminSystemPopupOk')?.click()`);
     const agreement={specifications:brief,service:'3D Printing',design_notes:'Approved desk sign layout',proof_file_ids:[],unit_price:200,product_subtotal:1000,shipping_fee:0,total:1000,lead_time:'Five working days after full payment',fulfillment_type:'pickup',delivery:{}};

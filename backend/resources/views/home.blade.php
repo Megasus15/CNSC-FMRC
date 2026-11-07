@@ -18,7 +18,7 @@
   </head>
   <body>
     <header class="site-header">
-      <a href="main.html" class="logo-container">
+      <a href="/home-page/" class="logo-container">
         <span class="header-logo-pair" aria-hidden="true">
           <img src="/images/UCN Logo.png" alt="" class="header-emblem" />
           <img src="/images/FMRC Brand Logo.png" alt="" class="header-emblem" />
@@ -28,7 +28,7 @@
 
       <nav class="main-nav">
         <ul>
-          <li><a href="main.html#home" class="nav-link active">Home</a></li>
+          <li><a href="/home-page/" class="nav-link active">Home</a></li>
           <li><a href="#about" class="nav-link">About Us</a></li>
           <li>
             <a href="/services-page/service.html" class="nav-link">Services</a>

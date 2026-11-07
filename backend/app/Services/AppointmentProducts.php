@@ -115,14 +115,14 @@ final class AppointmentProducts
             if (Schema::hasTable('customer_notifications') && Schema::hasTable('pwa_delivery_outbox')) {
                 app(PwaNotifications::class)->publish($job->customer_id, 'appointment', 'Custom product update',
                     'Open your appointment to review the latest custom-product update.',
-                    '/home-page/main.html?my_appointments=1&appointment_id='.$job->appointment_id, 'appointment-product:'.$event);
+                    '/home-page/?my_appointments=1&appointment_id='.$job->appointment_id, 'appointment-product:'.$event);
             }
             if (in_array($action, ['quotation', 'outcome', 'expired', 'follow_up'], true)) {
                 $email = User::find($job->customer_id)?->email;
                 if ($email) {
                     OrderNotifier::afterResponse(function () use ($email, $job, $description) {
                         try {
-                            Mail::html(EmailTemplate::render('appointment_product_update', ['client_name' => $job->appointment?->first_name ?? 'Customer', 'reference_no' => $job->appointment?->reference_no, 'update' => $description], '<p><a href="'.e(url('/home-page/main.html?my_appointments=1&appointment_id='.$job->appointment_id)).'">View your appointment</a></p>'), fn ($m) => $m->to($email)->subject('FMRC appointment update'));
+                            Mail::html(EmailTemplate::render('appointment_product_update', ['client_name' => $job->appointment?->first_name ?? 'Customer', 'reference_no' => $job->appointment?->reference_no, 'update' => $description], '<p><a href="'.e(url('/home-page').'/?my_appointments=1&appointment_id='.$job->appointment_id).'">View your appointment</a></p>'), fn ($m) => $m->to($email)->subject('FMRC appointment update'));
                         } catch (\Throwable $e) {
                             Log::warning('Appointment product email unavailable', ['job_id' => $job->id]);
                         }

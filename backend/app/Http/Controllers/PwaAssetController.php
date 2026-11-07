@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class PwaAssetController extends Controller
 {
@@ -18,6 +19,11 @@ class PwaAssetController extends Controller
         ], ['customer', 'team']), 200, ['Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function home(Request $request)
+    {
+        return $this->show($request, 'customer', 'home-page/');
+    }
+
     public function original(Request $request, string $folder, string $path)
     {
         $app = in_array($folder, ['admin-page', 'staff-page', 'admin-auth']) ? 'team' : 'customer';
@@ -31,6 +37,13 @@ class PwaAssetController extends Controller
         abort_unless(in_array($app, ['customer', 'team', 'shared']), 404);
         $path = $path ?: 'index.html';
         abort_if(str_contains($path, '..') || str_contains($path, '\\') || str_contains($path, "\0"), 404);
+        if ($app === 'customer' && preg_match('~^home-page(?:/main(?:\.html)?)?/?$~', $path)) {
+            $home = str_starts_with($request->getPathInfo(), '/apps/customer/') ? '/apps/customer/home-page/' : '/home-page/';
+            if ($request->getPathInfo() !== $home) {
+                return new RedirectResponse($home.($request->getQueryString() ? '?'.$request->getQueryString() : ''), 301);
+            }
+            $path = 'home-page/main.html';
+        }
         $root = dirname(base_path());
         $physical = "$root/apps/$app/$path";
         $pages = $app === 'customer' ? ['home-page', 'about-page', 'services-page', 'products-page', 'contact-page', 'customer-auth'] : ['admin-page', 'staff-page', 'admin-auth'];

@@ -6,6 +6,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/.well-known/assetlinks.json', [\App\Http\Controllers\PwaAssetController::class, 'assetLinks']);
+Route::get('/home-page', [\App\Http\Controllers\PwaAssetController::class, 'home']);
 
 Route::get('/apps/{app}/{path?}', [\App\Http\Controllers\PwaAssetController::class, 'show'])
     ->where('app', 'customer|team|shared')->where('path', '.*');

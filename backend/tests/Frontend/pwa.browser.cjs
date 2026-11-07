@@ -52,6 +52,7 @@ test('two app shells retain navigation, installation state, device isolation, ex
       res.setHeader('Content-Type', 'text/html'); const app = u.pathname.includes('/team/') ? 'team' : 'customer';
       res.end(`<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>window.APP_API_BASE_URL=location.origin+'/api';</script><link rel="stylesheet" href="/apps/shared/pwa.css"><script src="/apps/shared/pwa.js"></script></head><body style="font-family:Arial"><header class="header-right-actions"></header><aside class="mobile-sidebar"><footer class="sidebar-footer-actions"></footer></aside><aside><footer class="sidebar-footer"></footer></aside><main><a id="internal" href="/${app === 'team' ? 'admin-page/dashboard' : 'about-page/about'}.html">Next page</a><a id="api" href="/api/customer/orders">API</a><a id="external" href="https://example.com">External</a></main></body></html>`); return;
     }
+    if (relative === 'home-page/') relative = 'home-page/main.html';
     let file = path.join(root, relative); if (relative.endsWith('/')) file = path.join(file,'index.html'); if (!path.extname(file)) file += '.html'; if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.statusCode = 404; res.end(); return; }
     const mime = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' }; res.setHeader('Content-Type', mime[path.extname(file)] || 'application/octet-stream');
     let content = fs.readFileSync(file); if (file.endsWith('.html')) content = content.toString().replace('<head>', `<head><script>window.APP_API_BASE_URL=location.origin+'/api';</script>`); res.end(content);
@@ -64,7 +65,7 @@ test('two app shells retain navigation, installation state, device isolation, ex
     await client.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     const evaluate=async expression=>{const r=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
     const wait=async expression=>{for(let i=0;i<150;i++){if(await evaluate(expression))return;await pause(40);}throw Error('Timeout: '+expression);};
-    const navigate=async route=>{const target=new URL(route,base);await client.send('Page.navigate',{url:target.href});await wait(`location.pathname===${JSON.stringify(target.pathname)}&&location.search===${JSON.stringify(target.search)}&&document.readyState==='complete'`);};
+    const navigate=async route=>{const target=new URL(route,base);await client.send('Page.navigate',{url:target.href});await wait(`location.pathname===${JSON.stringify(target.pathname.replace(/^(\/(?:apps\/customer\/)?home-page)(?:\/main(?:\.html)?)?\/?$/,'$1/'))}&&location.search===${JSON.stringify(target.search)}&&document.readyState==='complete'`);};
     const screenshot=async name=>{const r=await client.send('Page.captureScreenshot',{captureBeyondViewport:false});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(r.data,'base64'));};
     await navigate('/apps/customer/test.html');await wait('!!window.FMRCApp');
     assert.equal(await evaluate('FMRCApp.installDevice'),false);assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button,link[rel=manifest]")'),false);
@@ -282,7 +283,7 @@ test('two app shells retain navigation, installation state, device isolation, ex
     // Customer phone taps resolve the original update, never the permissions dialog.
     await client.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await client.send('Page.navigate',{url:base+'/apps/customer/home-page/main.html?notification=11'});
-    await wait('location.pathname==="/apps/customer/home-page/main.html" && location.search==="?announcement=11" && document.readyState==="complete"');
+    await wait('location.pathname==="/apps/customer/home-page/" && location.search==="?announcement=11" && document.readyState==="complete"');
     assert.equal(await evaluate('sessionStorage.getItem("fmrc_pwa_customer_notification")'),null);
     assert.equal(await evaluate('!!document.querySelector(".fmrc-permissions-dialog[open]")'),false);
     await navigate('/apps/team/test.html?notification=21');
@@ -311,7 +312,7 @@ test('two app shells retain navigation, installation state, device isolation, ex
     await wait('getComputedStyle(document.querySelector(".fmrc-load-veil")).opacity==="1"');
     await screenshot('signed-out-team-app-launch-390');
     await client.send('Page.navigate',{url:base+'/apps/customer/'});
-    await wait('location.pathname==="/apps/customer/home-page/main.html" && !!document.querySelector(".fmrc-load-boot")');
+    await wait('location.pathname==="/apps/customer/home-page/" && !!document.querySelector(".fmrc-load-boot")');
     assert.equal(await evaluate('document.querySelectorAll(".fmrc-load-boot,.fmrc-load-veil.is-on").length'),1);
     await screenshot('customer-app-launch-390');
     // A genuine browser close/reopen retains per-app install confirmation.

@@ -131,7 +131,7 @@ function renderQuickLinks() {
   const container = document.getElementById("quickLinksContainer");
   container.innerHTML = "";
   if (!quickLinks.length) {
-    addLinkRow({ label: "Home", url: "/home-page/main.html" });
+    addLinkRow({ label: "Home", url: "/home-page/" });
     return;
   }
   quickLinks.forEach((link, i) => addLinkRow(link, i));
@@ -143,7 +143,7 @@ function addLinkRow(link = { label: "", url: "" }, insertIdx = null) {
   row.className = "ql-row";
   row.innerHTML = `
     <input type="text" class="ql-label wm-input" placeholder="Label (e.g. Home)" value="${escHtml(link.label)}" />
-    <input type="text" class="ql-url wm-input" placeholder="URL (e.g. /home-page/main.html)" value="${escHtml(link.url)}" />
+    <input type="text" class="ql-url wm-input" placeholder="URL (e.g. /home-page/)" value="${escHtml(link.url)}" />
     <button class="ql-del" title="Remove link">×</button>
   `;
   row.querySelector(".ql-del").addEventListener("click", () => {

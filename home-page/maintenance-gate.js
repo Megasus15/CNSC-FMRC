@@ -991,7 +991,7 @@
       var url = new URL(raw, window.location.href);
       if (url.origin !== window.location.origin) return false;
       var path = url.pathname.toLowerCase().replace(/\/+$/, "").replace(/\.html$/, "");
-      return ["/home-page/main", "/about-page/about", "/services-page/service",
+      return ["/home-page", "/home-page/main", "/about-page/about", "/services-page/service",
         "/products-page/product", "/contact-page/contact"].indexOf(path) !== -1;
     } catch (e) {
       return false;

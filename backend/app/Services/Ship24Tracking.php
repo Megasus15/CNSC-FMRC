@@ -377,7 +377,7 @@ final class Ship24Tracking
                         $message = 'Order '.$order->order_no.': '.$title.'. Open My Orders for the latest details.';
                         if (! $row->in_app_sent_at && Pwa::installed()) {
                             app(PwaNotifications::class)->publish((int) $order->customer_id, 'order', $title, $message,
-                                '/home-page/main.html?orders=1&order_id='.$order->id, 'shipment:'.$tracker->id.':'.$row->milestone);
+                                '/home-page/?orders=1&order_id='.$order->id, 'shipment:'.$tracker->id.':'.$row->milestone);
                         }
                         if (! $row->in_app_sent_at && in_array($row->milestone, ['failed_attempt', 'exception'], true)) {
                             OrderNotifier::notifyAdmins('warning', $title, $message, ['order_id' => $order->id]);

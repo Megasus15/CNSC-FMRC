@@ -332,7 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sidebarBrand = document.createElement("a");
     sidebarBrand.className = "sidebar-logo-container";
     sidebarBrand.href =
-      logoContainer.getAttribute("href") || "/home-page/main.html";
+      logoContainer.getAttribute("href") || "/home-page/";
     sidebarBrand.innerHTML = logoContainer.innerHTML;
     // The drawer duplicates the artwork, not the header's document-unique IDs.
     // Both copies retain data-brand-logo so live Admin/Staff edits update both.
@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
     sidebarFooter.className = "sidebar-footer-actions";
     const sidebarAppointment = document.createElement("a");
     sidebarAppointment.className = "sidebar-appointment-link";
-    sidebarAppointment.href = "/home-page/main.html?appointment=1";
+    sidebarAppointment.href = "/home-page/?appointment=1";
     sidebarAppointment.setAttribute("data-maint-gate", "page_appointment");
     sidebarAppointment.innerHTML = '<i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>Appoint Now!</span>';
     sidebarFooter.appendChild(sidebarAppointment);
@@ -7411,6 +7411,11 @@ document.addEventListener("DOMContentLoaded", () => {
     resetAppointmentFlowState();
     switchAptStep(1);
     stopAptPolling();
+    // Returning Home must not relaunch a finished/discarded booking on reload.
+    const homeUrl = new URL(window.location.href);
+    homeUrl.searchParams.delete("appointment");
+    homeUrl.searchParams.delete("custom_service");
+    window.history.replaceState(window.history.state, "", homeUrl.href);
     focusAppointmentControl(appointmentBtn);
   };
 
@@ -14892,14 +14897,18 @@ const openReturnRequestModal = (() => {
            </button>`
         : homeServicePlaceholder();
       const modalItems = (value) => _attr(JSON.stringify(Array.isArray(value) ? value : []));
+      const consultationUrl = service.appointment_products_available
+        ? (window.FMRCApp?.url('/home-page/?appointment=1&custom_service='+service.id) || '/home-page/?appointment=1&custom_service='+service.id)
+        : '';
       return `<article class="service-card" data-service-id="${_attr(service.id)}" data-category="${_attr(category)}">
         <div class="card-content">
           <div class="service-card-heading"><span class="service-chip">${_esc(category)}</span></div>
           <h3 class="card-title">${_esc(title)}</h3>
           <p class="card-desc">${_esc(service.description || "")}</p>
           <div class="service-card-footer">
-            <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${_attr(title)}" data-title="${_attr(title)}" data-desc="${_attr(service.modal_description || service.description || "")}" data-features="${modalItems(service.modal_features)}" data-materials="${modalItems(service.modal_materials)}" data-best-for="${modalItems(service.modal_best_for)}" data-img="${_attr(image)}">
-              <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            ${consultationUrl?`<a class="service-action ap-consult-link" href="${_attr(consultationUrl)}">Book a Consultation <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></a>`:''}
+            <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${_attr(title)}" data-title="${_attr(title)}" data-desc="${_attr(service.modal_description || service.description || "")}" data-features="${modalItems(service.modal_features)}" data-materials="${modalItems(service.modal_materials)}" data-best-for="${modalItems(service.modal_best_for)}" data-img="${_attr(image)}" data-consultation-url="${_attr(consultationUrl)}">
+              <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
             </button>
           </div>
         </div>

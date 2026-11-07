@@ -112,13 +112,18 @@
   const url = (raw, force = false) => {
     try {
       const u = new URL(raw, location.href);
-      if (u.origin !== location.origin || (!inApp && !force)) return u.href;
+      if (u.origin !== location.origin) return u.href;
+      u.pathname = u.pathname.replace(/^(\/(?:apps\/customer\/)?home-page)(?:\/main(?:\.html)?)?\/?$/, '$1/');
+      if (!inApp && !force) return u.href;
       if (u.pathname.startsWith(prefix)) return u.href;
       const roots = app === "customer" ? ["home-page", "about-page", "services-page", "products-page", "contact-page", "customer-auth"] : ["admin-page", "staff-page", "admin-auth"];
       if (roots.some(root => u.pathname.startsWith(`/${root}/`)) && !/\.(?:js|css|png|svg|jpe?g|webp|woff2?|mp4|pdf)$/i.test(u.pathname)) u.pathname = prefix.slice(0, -1) + u.pathname;
       return u.href;
     } catch { return raw; }
   };
+  // Retain launch parameters until their booking/notification handlers read them.
+  const canonicalLocation = url(location.href);
+  if (canonicalLocation !== location.href) history.replaceState(history.state, '', canonicalLocation);
   async function request(path, { method = "GET", body, authenticated = false, device = true } = {}) {
     const headers = { Accept: "application/json" };
     if (body) headers["Content-Type"] = "application/json";
@@ -445,7 +450,7 @@
       const container = document.querySelector(".portal-settings, .settings-content, .settings-card, .settings-panel") || document.querySelector("main");
       if (container) controls(container);
     }
-    if (inApp) document.querySelectorAll("a[href],form[action]").forEach(element => {
+    document.querySelectorAll("a[href],form[action]").forEach(element => {
       const key = element.tagName === "FORM" ? "action" : "href", raw = element.getAttribute(key);
       if (!raw || raw.startsWith("#")) return;
       const mapped = url(raw); if (mapped !== element[key]) element.setAttribute(key, mapped);
@@ -454,7 +459,7 @@
   async function launch() {
     const query = location.search + location.hash;
     if (localAppOrigin()) return location.replace(`${localAppOrigin()}${prefix}${query}`);
-    if (app === "customer") return location.replace(`${prefix}home-page/main.html${query}`);
+    if (app === "customer") return location.replace(`${prefix}home-page/${query}`);
     try { sessionStorage.setItem("fmrc_pwa_team_launch", "1"); } catch {}
     // The destination already enforces the authenticated session. No extra
     // launcher screen or duplicate session request is needed before its loader.
@@ -515,7 +520,6 @@
   window.addEventListener("focus", () => { void checkInstallation(); });
   window.addEventListener("online", () => { configuration = null; removalSupport = null; refreshPhoneControls(); void refreshBadge(); void syncAccount(); void checkInstallation(); });
   document.addEventListener("click", event => {
-    if (!inApp) return;
     const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (anchor && !anchor.getAttribute("href").startsWith("#")) anchor.href = url(anchor.href);
   }, true);

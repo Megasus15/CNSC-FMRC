@@ -288,14 +288,33 @@ class PwaTest extends TestCase
         $this->mock(PwaPushTransport::class)->shouldNotReceive('send');
         $this->artisan('pwa:process')->assertSuccessful();
         $this->assertDatabaseCount('pwa_delivery_outbox', 0);
-        foreach (['/apps/customer/home-page/main', '/apps/customer/home-page/main.html', '/apps/team/staff-page/dashboard', '/apps/team/admin-auth/auth.html', '/apps/shared/pwa.js'] as $path) {
-            $this->get($path)->assertOk();
+        foreach (['/home-page/', '/apps/customer/home-page/', '/apps/team/staff-page/dashboard', '/apps/team/admin-auth/auth.html', '/apps/shared/pwa.js'] as $path) {
+            // An absolute URL with a query preserves the directory's trailing
+            // slash through Laravel's test URL builder.
+            $this->get('http://localhost'.$path.'?fixture=1')->assertOk();
         }
         foreach (['/apps/customer/admin-page/dashboard.html', '/apps/team/customer-auth/auth.html', '/apps/customer/backend/.env', '/apps/shared/../../backend/.env', '/apps/customer/home-page/../../../backend/composer.json'] as $path) {
             $this->get($path)->assertNotFound();
         }
         $this->get('/apps/customer/manifest.webmanifest')->assertHeader('Content-Type', 'application/manifest+json');
         $this->get('/images/FMRC%20Brand%20Logo.png')->assertOk();
+    }
+
+    public function test_home_uses_the_directory_address_and_preserves_booking_and_private_deep_links(): void
+    {
+        foreach (['', '/apps/customer'] as $prefix) {
+            foreach (['/home-page', '/home-page/main', '/home-page/main.html'] as $legacy) {
+                $query = ['appointment' => '1', 'custom_service' => '2', 'appointment_claim' => 'private-token', 'order_id' => '81'];
+                $response = $this->get($prefix.$legacy.'?'.http_build_query($query))->assertStatus(301);
+                $destination = parse_url($response->headers->get('Location'));
+                $this->assertSame($prefix.'/home-page/', $destination['path']);
+                parse_str($destination['query'], $actual);
+                $this->assertEquals($query, $actual);
+            }
+            $response = $this->get('http://localhost'.$prefix.'/home-page/?fixture=1')->assertOk();
+            $this->assertStringStartsWith('text/html', $response->headers->get('Content-Type'));
+        }
+        $this->get('/apps/team/home-page/')->assertNotFound();
     }
 
     public function test_installation_detection_links_use_the_current_site_origin_and_only_the_two_app_manifests(): void

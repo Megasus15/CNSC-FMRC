@@ -459,7 +459,7 @@ class AppointmentProductController extends Controller
         if ($a) {
             $token = Str::random(64);
             DB::table('appointment_product_claims')->insert(['appointment_id' => $a->id, 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addHour(), 'created_at' => now()]);
-            $url = url('/home-page/main.html').'?appointment_claim='.$token;
+            $url = url('/home-page').'/?appointment_claim='.$token;
             OrderNotifier::afterResponse(function () use ($v, $url) {
                 try {
                     Mail::html(EmailTemplate::render('appointment_connect', ['reference_no' => $v['reference']], '<p><a href="'.e($url).'">Connect appointment</a></p>'), fn ($m) => $m->to($v['email'])->subject('Connect your FMRC appointment'));

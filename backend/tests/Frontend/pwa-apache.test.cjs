@@ -22,6 +22,19 @@ test('Apache serves clean and .html app aliases with isolated scopes, safe paths
     // This isolated server deliberately disables PHP. A 403 confirms the exact
     // asset-links route reached the PHP gateway; its JSON is covered by PwaTest.
     assert.equal((await fetch(base+'/.well-known/assetlinks.json')).status,403);
+    for (const prefix of ['', '/apps/customer']) {
+      for (const old of ['/home-page', '/home-page/main', '/home-page/main.html', '/home-page/main/']) {
+        const route=prefix+old+'?appointment=1&custom_service=2';
+        const response=await fetch(base+route,{redirect:'manual'});
+        assert.equal(response.status,301,route);
+        const target=new URL(response.headers.get('location'),base);
+        assert.equal(target.pathname,prefix+'/home-page/');
+        assert.equal(target.search,'?appointment=1&custom_service=2');
+        const home=await fetch(target);assert.equal(home.status,200);
+        assert.deepEqual(Buffer.from(await home.arrayBuffer()),fs.readFileSync(path.join(root,'home-page/main.html')));
+      }
+      assert.equal((await fetch(base+prefix+'/home-page/')).status,200);
+    }
     for (const [route, source] of [['/apps/customer/home-page/main','home-page/main.html'],['/apps/customer/home-page/main.html','home-page/main.html'],['/apps/team/staff-page/settings','staff-page/settings.html'],['/apps/team/admin-auth/auth.html','admin-auth/auth.html'],['/apps/customer/home-page/main.js','home-page/main.js'],['/apps/team/admin-page/admin-common.js','admin-page/admin-common.js'],['/apps/customer/images/FMRC%20Brand%20Logo.png','images/FMRC Brand Logo.png']]) {
       const response = await fetch(base+route); assert.equal(response.status,200,route); assert.equal(new URL(response.url).pathname.startsWith('/apps/'),true,route); assert.deepEqual(Buffer.from(await response.arrayBuffer()),fs.readFileSync(path.join(root,source)),route);
     }

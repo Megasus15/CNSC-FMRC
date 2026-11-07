@@ -41,15 +41,25 @@
     RewriteRule ^storage/(.*)$ backend/storage/app/public/$1 [L]
 
     # --------------------------------------------------------------------------
-    # 4. Hide .html Extension: Redirect .html requests to clean URL
-    # Example: /home-page/main.html -> /home-page/main
+    # Home has one public address. Keep booking and notification query strings.
+    # THE_REQUEST prevents the internal main.html rewrite from redirecting again.
+    RewriteCond %{THE_REQUEST} \s/+home-page/main(?:\.html)?/?[?\s] [NC]
+    RewriteRule ^home-page/main(?:\.html)?/?$ /home-page/ [R=301,L]
+    RewriteRule ^home-page$ /home-page/ [R=301,L]
+    RewriteRule ^home-page/$ home-page/main.html [END]
+    RewriteCond %{THE_REQUEST} \s/+apps/customer/home-page/main(?:\.html)?/?[?\s] [NC]
+    RewriteRule ^apps/customer/home-page/main(?:\.html)?/?$ /apps/customer/home-page/ [R=301,L]
+    RewriteRule ^apps/customer/home-page$ /apps/customer/home-page/ [R=301,L]
+    RewriteRule ^apps/customer/home-page/$ home-page/main.html [END]
+
+    # 4. Hide .html Extension: Redirect other .html requests to clean URL
     # --------------------------------------------------------------------------
     RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+(.*?)\.html[\s?] [NC]
     RewriteRule ^ %1 [R=301,L]
 
     # --------------------------------------------------------------------------
     # 5. Serve .html Files Behind the Clean URL
-    # Example: /home-page/main loads /home-page/main.html internally
+    # Example: /services-page/service loads service.html internally
     # --------------------------------------------------------------------------
     # Two isolated apps, served directly from allowlisted source folders.
     # END prevents another rewrite pass from canonicalizing the internal source URL.

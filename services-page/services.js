@@ -163,6 +163,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const featuresAttr = escAttr(JSON.stringify(item.modal_features || []));
       const materialsAttr = escAttr(JSON.stringify(item.modal_materials || []));
       const bestForAttr = escAttr(JSON.stringify(item.modal_best_for || []));
+      const consultationUrl = item.appointment_products_available
+        ? (window.FMRCApp?.url('/home-page/?appointment=1&custom_service='+item.id) || '/home-page/?appointment=1&custom_service='+item.id)
+        : '';
       const imageMarkup = image
         ? `<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ${titleAttr}" title="Open image preview" data-image-src="${imageAttr}" data-image-title="${titleAttr}">
              <img src="${imageAttr}" alt="${titleAttr} preview" loading="lazy" decoding="async" />
@@ -179,10 +182,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3 class="card-title">${escHtml(title)}</h3>
             <p class="card-desc">${escHtml(description)}</p>
             <div class="service-card-footer">
-              <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
-                <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              ${consultationUrl?`<a class="service-action ap-consult-link" href="${escAttr(consultationUrl)}">Book a Consultation <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></a>`:''}
+              <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}" data-consultation-url="${escAttr(consultationUrl)}">
+                <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
               </button>
-              ${item.appointment_products_available?`<a class="ap-consult-link" href="${escAttr(window.FMRCApp?.url('/home-page/main.html?appointment=1&custom_service='+item.id)||'/home-page/main.html?appointment=1&custom_service='+item.id)}">Book a Consultation <i class="fa-regular fa-calendar" aria-hidden="true"></i></a>`:''}
             </div>
           </div>
           ${imageMarkup}
