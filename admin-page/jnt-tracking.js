@@ -38,12 +38,53 @@
     try {
       const order = await request('/admin/orders/'+state.order.id+'/shipment/tracking'+suffix, {method,body:JSON.stringify(payload)});
       state.editing = false; state.draft = null; state.requestKey = null; state.layout = null;
-      state.message = suffix ? 'Tracking update requested. Saved updates will refresh automatically.' : 'J&T waybill saved.';
+      state.message = suffix ? 'Tracking update requested. Saved updates will refresh automatically.' : 'J&T tracking number saved.';
       changed(state, order, true);
     } catch (error) {
       state.message = error.message;
       try { changed(state, await request('/admin/orders/'+state.order.id)); } catch { /* Preserve draft and request key after an uncertain response. */ }
     } finally { state.busy = false; render(state.order, state.host); }
+  };
+  const renderTest = (order, host, state) => {
+    const test = order.tracking_test;
+    let panel = host.querySelector('[data-tracking-test-controls]');
+    if (!test?.linked && !test?.can_attach) { panel?.remove(); return; }
+    if (!panel) { panel=document.createElement('section');panel.className='shipment-control-card';panel.dataset.trackingTestControls='';host.prepend(panel); }
+    const layout=String(order.id)+':'+Boolean(test.linked);
+    if(panel.dataset.layout!==layout){
+      panel.dataset.layout=layout;
+      panel.innerHTML='<details '+(test.linked?'open':'')+'><summary><strong>Tracking test — external parcel</strong></summary>'+
+        '<p class="shipment-note">Use your own existing parcel to test automatic updates on this order. This test keeps the FMRC order in its current fulfillment stage.</p>'+
+        (test.linked?'<div data-tracking-test-result></div><div class="shipment-actions">'+(test.can_remove?'<button type="button" class="btn-admin btn-secondary" data-tracking-test-remove>Remove tracking test</button>':'')+'</div>':
+        '<div class="field-stack"><label>Test parcel tracking number<input class="input-field" data-tracking-test-number autocomplete="off" maxlength="50" placeholder="JT tracking number" /></label></div>'+
+        '<label class="jnt-confirm"><input type="checkbox" data-tracking-test-consent /><span>I own this external parcel and am using it for a tracking test.</span></label>'+
+        '<p class="shipment-note">Any QR Ph payment for this order is a real payment. The parcel shown in this test belongs to a separate purchase.</p>'+
+        '<div class="shipment-actions"><button type="button" class="btn-admin" data-tracking-test-link>Link test tracking</button></div>')+
+        '<p class="shipment-message" role="status" data-tracking-test-message></p></details>';
+      const act=async(remove)=>{
+        if(state.busy)return;
+        const number=panel.querySelector('[data-tracking-test-number]')?.value.trim();
+        if(!remove&&(!/^[a-z0-9-]{5,50}$/i.test(number||'')||!panel.querySelector('[data-tracking-test-consent]').checked)){
+          panel.querySelector('[data-tracking-test-message]').textContent='Enter your verified diagnostic tracking number and confirm that it is your own parcel.';return;
+        }
+        window.showAdminConfirmPopup(remove?'Remove the external parcel tracking test from this order?':'Link this external parcel as a clearly labelled tracking test? The FMRC order stage and payment stay unchanged.',
+          {title:remove?'Remove Tracking Test':'Link Tracking Test',confirmText:remove?'Remove test':'Link test',onConfirm:async()=>{
+            state.busy=true;render(state.order,host);
+            try{const data=await request('/admin/orders/'+order.id+'/tracking-test',{method:remove?'DELETE':'POST',body:remove?undefined:JSON.stringify({tracking_number:number,test_confirmed:true})});changed(state,data,true);}
+            catch(error){panel.querySelector('[data-tracking-test-message]').textContent=error.message;}
+            finally{state.busy=false;render(state.order,host);}
+          }});
+      };
+      panel.querySelector('[data-tracking-test-link]')?.addEventListener('click',()=>void act(false));
+      panel.querySelector('[data-tracking-test-remove]')?.addEventListener('click',()=>void act(true));
+    }
+    panel.querySelectorAll('button,input').forEach(control=>control.disabled=state.busy);
+    const result=panel.querySelector('[data-tracking-test-result]');
+    if(result){
+      const html='<p><strong>Tracking number:</strong> <span class="jnt-waybill">'+escape(test.tracking_number)+'</span></p><p><strong data-tracking-test-status>'+escape(test.status_label)+'</strong></p><p>'+escape(test.message)+'</p>'+
+        '<ol class="shipment-events">'+(test.events||[]).map(event=>'<li><strong>'+escape(event.title)+'</strong><time>'+escape(event.time_label)+'</time><span>'+escape(event.location)+'</span><span>'+escape(event.description)+'</span></li>').join('')+'</ol>';
+      if(result.dataset.value!==html){result.innerHTML=html;result.dataset.value=html;}
+    }
   };
   const render = (order, host) => {
     if (!host || order.courier_shipment?.tracking_provider!=='17track') return;
@@ -51,6 +92,7 @@
     if (!state) { state = {draft:null,editing:false,busy:false,polling:false,message:'',layout:null}; states.set(String(order.id),state); }
     if (!Array.isArray(order.timeline) && Array.isArray(state.order?.timeline)) order = {...order, timeline:state.order.timeline};
     state.order = order; state.host = host;
+    renderTest(order,host,state);
     let card = host.querySelector('[data-courier-controls]');
     if (!card) { card = document.createElement('section'); card.dataset.courierControls = ''; card.className = 'shipment-control-card'; host.appendChild(card); }
     const shipment = order.courier_shipment;
@@ -64,16 +106,16 @@
       const prefix = (host.id === 'trackingManagedShipment' ? 'tracking-jnt-' : 'jnt-')+order.id+'-';
       card.innerHTML = '<div class="shipment-heading"><h4>J&T Express delivery</h4><span class="status-pill status-yellow" data-jnt-status></span></div>'+
         '<p class="shipment-note" data-jnt-availability></p><div data-jnt-summary></div><p class="shipment-message" role="status" aria-live="polite" data-jnt-message></p>'+
-        (formOpen ? '<form data-jnt-form><fieldset><legend class="jnt-form-title">'+(state.editing?'Correct the recorded waybill':'Record J&T waybill')+'</legend><div class="shipment-fields">'+
-          '<div class="field-stack"><label for="'+prefix+'number">J&T waybill number</label><input class="input-field" id="'+prefix+'number" name="tracking_number" required minlength="5" maxlength="50" autocomplete="off" spellcheck="false" value="'+escape(draft.tracking_number)+'" /></div>'+
+        (formOpen ? '<form data-jnt-form><fieldset><legend class="jnt-form-title">'+(state.editing?'Correct the recorded tracking number':'Record J&T tracking number')+'</legend><div class="shipment-fields">'+
+          '<div class="field-stack"><label for="'+prefix+'number">J&T tracking number</label><input class="input-field" id="'+prefix+'number" name="tracking_number" required minlength="5" maxlength="50" autocomplete="off" spellcheck="false" value="'+escape(draft.tracking_number)+'" /></div>'+
           '<div class="field-stack"><label for="'+prefix+'time">Actual handover time (Philippine time)</label><input class="input-field" id="'+prefix+'time" name="handed_over_at" type="datetime-local" required max="'+localTime()+'" value="'+escape(draft.handed_over_at)+'" /></div>'+
           '<div class="field-stack"><label for="'+prefix+'cost">J&T charge (PHP, optional)</label><input class="input-field" id="'+prefix+'cost" name="actual_shipping_cost" type="number" min="0" max="999999.99" step="0.01" value="'+escape(draft.actual_shipping_cost)+'" /></div>'+
           (state.editing?'<div class="field-stack"><label for="'+prefix+'reason">Reason for correction</label><textarea class="input-field" id="'+prefix+'reason" name="correction_reason" minlength="5" maxlength="500" required>'+escape(draft.correction_reason)+'</textarea></div>':'')+'</div>'+
-          '<label class="jnt-confirm" for="'+prefix+'confirmed"><input id="'+prefix+'confirmed" name="handover_confirmed" type="checkbox" required '+(draft.handover_confirmed?'checked':'')+' /><span>I confirm this parcel was physically handed to J&T and the number matches the waybill.</span></label>'+
+          '<label class="jnt-confirm" for="'+prefix+'confirmed"><input id="'+prefix+'confirmed" name="handover_confirmed" type="checkbox" required '+(draft.handover_confirmed?'checked':'')+' /><span>I confirm this parcel was physically handed to J&T and the number matches the J&T receipt.</span></label>'+
           '<p class="shipment-reference">The customer’s accepted shipping fee stays unchanged.</p><div class="shipment-actions"><button class="btn-admin" type="submit">'+(state.editing?'Save correction':'Record handover')+'</button>'+
           (state.editing?'<button class="btn-admin btn-secondary" type="button" data-jnt-discard>Discard correction</button>':'')+'</div></fieldset></form>':'')+
         '<div class="shipment-actions"><button class="btn-admin btn-secondary" type="button" data-jnt-load><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh saved updates</button>'+
-        (shipment.id?'<button class="btn-admin btn-secondary" type="button" data-jnt-refresh>Request tracking update</button><button class="btn-admin btn-secondary" type="button" data-jnt-correct>Correct waybill</button>':'')+'</div><div data-jnt-history></div>';
+        (shipment.id?'<button class="btn-admin btn-secondary" type="button" data-jnt-refresh>Request tracking update</button><button class="btn-admin btn-secondary" type="button" data-jnt-correct>Correct tracking number</button>':'')+'</div><div data-jnt-history></div>';
       const collect = () => {
         const form = card.querySelector('[data-jnt-form]'); if (!form) return;
         state.draft = Object.fromEntries(new FormData(form));
@@ -91,8 +133,8 @@
         const payload = {request_key:state.requestKey,tracking_number:values.tracking_number.trim(),handed_over_at:values.handed_over_at+':00+08:00',handover_confirmed:form.elements.handover_confirmed.checked,
           ...(values.actual_shipping_cost!==''?{actual_shipping_cost:Number(values.actual_shipping_cost)}:{}),
           ...(state.editing?{expected_version:state.editVersion,correction_reason:values.correction_reason.trim()}: {})};
-        window.showAdminConfirmPopup(state.editing?'Save this corrected waybill? Earlier tracking stays in the order history.':'Record this J&T handover and save the waybill?',
-          {title:state.editing?'Correct J&T Waybill':'Record J&T Handover',confirmText:'Save waybill',onConfirm:()=>mutate(state,state.editing?'PATCH':'POST','',payload)});
+        window.showAdminConfirmPopup(state.editing?'Save this corrected tracking number? Earlier tracking stays in the order history.':'Record this J&T handover and save the tracking number?',
+          {title:state.editing?'Correct J&T Tracking Number':'Record J&T Handover',confirmText:'Save tracking number',onConfirm:()=>mutate(state,state.editing?'PATCH':'POST','',payload)});
       };
       card.querySelector('[data-jnt-load]').onclick = () => {state.nextPoll=0;void load(state);};
       const refresh = card.querySelector('[data-jnt-refresh]'); if (refresh) refresh.onclick = () => mutate(state,'POST','/refresh',{});
@@ -103,11 +145,11 @@
     card.querySelector('[data-jnt-status]').textContent = shipment.status_label;
     card.querySelector('[data-jnt-status]').className = 'status-pill '+(shipment.status==='delivered'?'status-green':'status-yellow');
     card.querySelector('[data-jnt-availability]').textContent = shipment.availability_message;
-    card.querySelector('[data-jnt-message]').textContent = state.busy ? 'Saving shipment details…' : state.message || shipment.record_reason || (otherHandover?'A handover was saved by another operator. Your draft is preserved below; review the saved waybill above.':shipment.needs_review?'A courier update needs review. The last confirmed status is preserved.':'');
-    const summary = shipment.id ? '<dl class="jnt-summary"><div><dt>Waybill</dt><dd class="jnt-waybill">'+escape(shipment.tracking_number)+'</dd></div><div><dt>Handed to J&T</dt><dd>'+escape(shipment.handed_over_at_label)+'</dd></div><div><dt>Latest courier update</dt><dd>'+escape(shipment.last_updated_at_label || 'Waiting for the first update')+'</dd></div><div><dt>Reported location</dt><dd>'+escape(shipment.location || 'Not provided by J&T')+'</dd></div></dl><div class="shipment-actions"><button class="btn-admin btn-secondary" type="button" data-jnt-copy>Copy waybill</button><a class="btn-admin btn-secondary" href="https://www.jtexpress.ph" target="_blank" rel="noopener noreferrer">Open J&T tracking</a></div>' : '';
+    card.querySelector('[data-jnt-message]').textContent = state.busy ? 'Saving shipment details…' : state.message || shipment.record_reason || (otherHandover?'A handover was saved by another operator. Your draft is preserved below; review the saved tracking number above.':shipment.needs_review?'A courier update needs review. The last confirmed status is preserved.':'');
+    const summary = shipment.id ? '<dl class="jnt-summary"><div><dt>Tracking number</dt><dd class="jnt-waybill">'+escape(shipment.tracking_number)+'</dd></div><div><dt>Handed to J&T</dt><dd>'+escape(shipment.handed_over_at_label)+'</dd></div><div><dt>Latest courier update</dt><dd>'+escape(shipment.last_updated_at_label || 'Waiting for the first update')+'</dd></div><div><dt>Reported location</dt><dd>'+escape(shipment.location || 'Not provided by J&T')+'</dd></div></dl><div class="shipment-actions"><button class="btn-admin btn-secondary" type="button" data-jnt-copy>Copy tracking number</button><a class="btn-admin btn-secondary" href="https://www.jtexpress.ph" target="_blank" rel="noopener noreferrer">Open J&T tracking</a></div>' : '';
     if (card.querySelector('[data-jnt-summary]').dataset.value !== summary) {
       card.querySelector('[data-jnt-summary]').innerHTML = summary; card.querySelector('[data-jnt-summary]').dataset.value=summary;
-      const copy = card.querySelector('[data-jnt-copy]'); if (copy) copy.onclick = async () => {try {await navigator.clipboard.writeText(shipment.tracking_number);state.message='Waybill copied. Paste it into J&T tracking.';}catch {state.message='Select and copy the waybill shown above.';}render(state.order,host);};
+      const copy = card.querySelector('[data-jnt-copy]'); if (copy) copy.onclick = async () => {try {await navigator.clipboard.writeText(shipment.tracking_number);state.message='Tracking number copied. Paste it into J&T tracking.';}catch {state.message='Select and copy the tracking number shown above.';}render(state.order,host);};
     }
     const form = card.querySelector('[data-jnt-form]'); if (form) {
       form.querySelector('fieldset').disabled = state.busy || !(state.editing?shipment.can_correct:shipment.can_record);

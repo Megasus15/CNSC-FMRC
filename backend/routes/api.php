@@ -237,6 +237,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/orders/{order}/shipment/tracking', [ShipmentTrackingController::class, 'store']);
     Route::patch('/admin/orders/{order}/shipment/tracking', [ShipmentTrackingController::class, 'correct']);
     Route::post('/admin/orders/{order}/shipment/tracking/refresh', [ShipmentTrackingController::class, 'refresh']);
+    Route::match(['POST', 'DELETE'], '/admin/orders/{order}/tracking-test', [ShipmentTrackingController::class, 'trackingTest']);
     Route::get('/admin/shipping-tracking', [ShipmentTrackingController::class, 'settings']);
     Route::put('/admin/shipping-tracking', [ShipmentTrackingController::class, 'updateSettings']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);

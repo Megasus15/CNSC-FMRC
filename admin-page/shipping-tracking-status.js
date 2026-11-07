@@ -9,7 +9,7 @@
     panel.setAttribute('aria-labelledby','shippingTrackingTitle');
     panel.innerHTML = '<div class="shipping-section-heading"><div><h3 id="shippingTrackingTitle">J&T tracking</h3><p>Record the physical J&T handover in Orders. 17TRACK supplies automatic courier updates when active. Standard carrier checks can take 6–12 hours.</p></div><span class="shipping-status" data-tracking-state>Loading…</span></div>'+
       '<p data-tracking-message role="status" aria-live="polite">Loading tracking availability…</p><dl class="shipping-tracking-facts" data-tracking-facts></dl>'+
-      '<p class="shipping-calendar-note">The local credit budget includes diagnostics and uncertain registration attempts. It does not reset monthly. The provider account dashboard shows the actual remaining allowance. Saved waybills remain available if credits run out.</p>'+
+      '<p class="shipping-calendar-note">The local credit budget includes diagnostics and uncertain registration attempts. It does not reset monthly. The provider account dashboard shows the actual remaining allowance. Saved tracking numbers remain available if credits run out.</p>'+
       '<div class="shipping-save-actions"><button class="btn-admin" type="button" data-tracking-toggle hidden>Activate automatic tracking</button><a class="btn-admin btn-secondary" href="https://admin.17track.net/api/dashboard" target="_blank" rel="noopener noreferrer" data-tracking-dashboard hidden>Open 17TRACK account</a></div>';
     anchor.after(panel);
     const api = String(window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port!=='8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
@@ -32,7 +32,7 @@
       const facts = [
         ['Connection', record.configured ? 'Configured' : 'Setup required'],
         ['J&T Philippines carrier', record.carrier_verified ? 'Verified' : 'Verification required'],
-        ['Real waybill', record.waybill_verified ? 'Verified' : 'Verification required'],
+        ['FMRC parcel tracking', record.waybill_verified ? 'Verified' : 'Verification required'],
         ['Webhook delivery', record.webhook_verified ? 'Verified' : 'Verification required'],
         ['Background processing', record.processor_healthy ? 'Running' : 'Needs attention'],
         ['Tracking credits reserved', (record.budget_used ?? record.registrations ?? 0)+' / '+(record.registration_limit ?? 200)+' lifetime local limit'],
@@ -69,7 +69,7 @@
     window.FMRCShippingTracking = Object.freeze({refresh: load});
     toggle.onclick=()=>{
       if(toggle.disabled)return;
-      window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved waybills and history remain available.' : 'Activate automatic tracking for verified J&T shipments within the configured credit budget?',
+      window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for verified J&T shipments within the configured credit budget?',
         {title:record.enabled?'Pause Automatic Tracking':'Activate Automatic Tracking',confirmText:record.enabled?'Pause tracking':'Activate tracking',onConfirm:()=>load({enabled:!record.enabled,expected_revision:record.revision})});
     };
     void load();

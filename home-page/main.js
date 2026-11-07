@@ -11773,7 +11773,7 @@ document.addEventListener("DOMContentLoaded", () => {
           && entry?.longitude !== null && entry?.longitude !== undefined && entry?.longitude !== ''
           && Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude))
           && Math.abs(Number(entry.latitude)) <= 90 && Math.abs(Number(entry.longitude)) <= 180;
-        const automaticShipment = detail.courier_shipment?.tracking_provider === '17track';
+        const automaticShipment = detail.courier_shipment?.tracking_provider === '17track' || Boolean(detail.tracking_test?.linked);
         const withCoords =
           (automaticShipment ? null : timeline.find(hasCoordinates)) ||
           (!automaticShipment && hasCoordinates(detail) ? detail : isPickupOrder ? {
@@ -11903,11 +11903,18 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           ${fulfillmentHtml}
+          ${detail.tracking_test?.linked ? `<section class="customer-order-detail-logistics" data-customer-tracking-test>
+            <h4>Tracking test — external parcel</h4>
+            <p>${escapeHtml(detail.tracking_test.message)}</p>
+            <p><strong>Tracking number:</strong> <code class="customer-order-waybill-no">${escapeHtml(detail.tracking_test.tracking_number)}</code></p>
+            <p><strong data-customer-test-status>${escapeHtml(detail.tracking_test.status_label)}</strong></p>
+            <div class="customer-order-timeline-list">${(detail.tracking_test.events || []).map(event => `<article class="customer-order-timeline-item"><div class="customer-order-timeline-dot"></div><div class="customer-order-timeline-body"><div class="customer-order-timeline-top"><strong>${escapeHtml(event.title)}</strong><span>${escapeHtml(event.time_label)}</span></div><p>${escapeHtml(event.description)}</p><div class="customer-order-timeline-meta"><span>17TRACK test</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ''}</div></div></article>`).join('')}</div>
+          </section>` : ''}
           ${detail.courier_shipment && !automaticShipment ? `<div class="customer-order-detail-fulfillment"><h4>Courier shipment updates</h4><p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label || '')}</strong></p><dl class="customer-order-fulfillment-grid">${(detail.courier_shipment.events || []).map(event=>`<div class="customer-order-fulfillment-row"><dt>${escapeHtml(event.status)}</dt><dd>${escapeHtml(event.occurred_at_label || '')}${event.location?' · '+escapeHtml(event.location):''}</dd></div>`).join('')}</dl></div>` : ''}
 
 
           ${
-            isPickupOrder
+            (isPickupOrder || detail.tracking_test?.linked)
               ? ""
               : `<div class="customer-order-detail-logistics">
             <h4>Courier Tracking</h4>
@@ -11921,7 +11928,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${
               courierTrackingNo
                 ? `<div class="customer-order-waybill">
-                     <span class="customer-order-waybill-label">Waybill no.</span>
+                     <span class="customer-order-waybill-label">Tracking number</span>
                      <code class="customer-order-waybill-no">${escapeHtml(courierTrackingNo)}</code>
                      <button type="button" class="customer-order-waybill-copy" data-copy-text="${escapeHtml(courierTrackingNo)}">Copy</button>
                    </div>`
@@ -11941,9 +11948,9 @@ document.addEventListener("DOMContentLoaded", () => {
                    }
                    <p class="customer-order-logistics-note">${
                      trackingIsUniversal
-                       ? `The waybill number is already in that link — 17TRACK recognises ${courierName} from the number and lists their checkpoints, no typing needed. ${courierName}'s own site asks you to paste the number in yourself, which is why it is the second link.`
-                       : courierState.tracking_url_is_prefilled ? `Opens ${courierName}'s tracking page with this waybill already filled in.`
-                       : `Copy the waybill above and paste it into ${courierName}'s tracking page.`
+                       ? `The tracking number is already in that link — 17TRACK recognises ${courierName} from the number and lists their checkpoints, no typing needed. ${courierName}'s own site asks you to paste the number in yourself, which is why it is the second link.`
+                       : courierState.tracking_url_is_prefilled ? `Opens ${courierName}'s tracking page with this tracking number already filled in.`
+                       : `Copy the tracking number above and paste it into ${courierName}'s tracking page.`
                    }</p>`
                 : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
@@ -11983,7 +11990,7 @@ document.addEventListener("DOMContentLoaded", () => {
                               <div class="customer-order-timeline-meta">
                                 <span>${escapeHtml(entry.stage_label || ORDER_STAGE_LABELS[entry.stage] || "Stage update")}</span>
                                 <span>${escapeHtml(entry.source_label || 'FMRC')}</span>
-                                ${entry.metadata?.tracking_number ? `<span>Waybill ${escapeHtml(entry.metadata.tracking_number)}</span>` : ''}
+                                ${entry.metadata?.tracking_number ? `<span>Tracking number ${escapeHtml(entry.metadata.tracking_number)}</span>` : ''}
                                 ${entry.location_name ? `<span>${escapeHtml(entry.location_name)}</span>` : ""}
                               </div>
                             </div>

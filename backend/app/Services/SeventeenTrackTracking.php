@@ -242,7 +242,8 @@ final class SeventeenTrackTracking
         $payload = ['event' => $message['event'], 'number' => strtoupper((string) $data['number']), 'carrier' => (int) $data['carrier'],
             'tag' => $data['tag'] ?? '', 'latest_status' => $info['latest_status']['status'] ?? null,
             'destination_country' => $data['destination_country'] ?? null, 'events' => $events, 'webhook' => $webhook];
-        $key = hash('sha256', '17track:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
+        // Re-normalize the first saved snapshot after deploying diagnostic result storage.
+        $key = hash('sha256', '17track:v2:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
         DB::table('shipment_webhook_inbox')->insertOrIgnore(['provider' => '17track', 'message_key' => $key,
             'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'payload' => json_encode($payload),
             'state' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
@@ -326,6 +327,18 @@ final class SeventeenTrackTracking
                         $latest = end($events);
                         if ($latest) {
                             $instant = Carbon::parse(ShipmentTrackingEvents::eventTime($latest['occurrenceDatetime'])['instant']);
+                            if ($sub->diagnostic && OrderTrackingTest::installed() && (! $sub->last_event_at || $instant->gte($sub->last_event_at))) {
+                                $sub->latest_result = [
+                                    'status_label' => ShipmentTracking::LABELS[$latest['statusMilestone']] ?? 'Courier update',
+                                    'time' => ShipmentTrackingEvents::eventTime($latest['occurrenceDatetime']),
+                                    'location' => $latest['location'],
+                                    'events' => array_map(fn ($scan) => [
+                                        'title' => ShipmentTracking::LABELS[$scan['statusMilestone']] ?? 'Courier update',
+                                        'description' => $scan['status'], 'location' => $scan['location'],
+                                        'time_label' => ShipmentTrackingEvents::eventTime($scan['occurrenceDatetime'])['label'],
+                                    ], array_reverse(array_slice($events, -100))),
+                                ];
+                            }
                             if (! $sub->last_event_at || $instant->gt($sub->last_event_at)) {
                                 $sub->last_event_at = $instant;
                             }
@@ -424,6 +437,23 @@ final class SeventeenTrackTracking
                     if ($sub->registered_at && microtime(true) < $deadline) {
                         $this->synchronize($sub);
                     }
+                } catch (SeventeenTrackException $error) {
+                    $this->failed($sub, $error);
+                }
+            }
+        }
+        // An explicitly linked external-parcel test reads saved results without activating real shipments.
+        if (OrderTrackingTest::installed() && SeventeenTrackClient::configured()) {
+            $ids = DB::table('orders')->whereNotNull('tracking_test_subscription_id')->where('lifecycle_status', 'pending')
+                ->where('customer_stage', 'to_ship')->pluck('tracking_test_subscription_id');
+            foreach (Subscription::whereIn('id', $ids)->where('diagnostic', true)->whereNotNull('registered_at')
+                ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->where('registration_state', '!=', 'stopped')
+                ->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))->limit(5)->get() as $sub) {
+                if (microtime(true) >= $deadline) {
+                    break;
+                }
+                try {
+                    $this->synchronize($sub);
                 } catch (SeventeenTrackException $error) {
                     $this->failed($sub, $error);
                 }

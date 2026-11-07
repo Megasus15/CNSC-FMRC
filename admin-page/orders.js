@@ -2524,7 +2524,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (trackingCourierNo) {
         trackingCourierNo.disabled = false;
         trackingCourierNo.value = order.courier_shipment?.tracking_number || order.courier_tracking_no || '';
-        trackingCourierNo.placeholder = 'Record the J&T waybill below';
+        trackingCourierNo.placeholder = 'Record the J&T tracking number below';
       }
       return;
     }
@@ -2550,7 +2550,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!acceptsTrackingNo) trackingCourierNo.value = "";
       trackingCourierNo.placeholder = acceptsTrackingNo
         ? "ex. JT123456789PH"
-        : "No waybill for a counter pickup";
+        : "No tracking number for a counter pickup";
     }
   };
 

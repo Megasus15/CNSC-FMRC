@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\OrderTrackingTest;
 use App\Services\SeventeenTrackClient;
 use App\Services\SeventeenTrackTracking;
 use App\Services\ShipmentTracking;
@@ -28,7 +29,7 @@ final class ShipmentTrackingController extends Controller
             'actual_shipping_cost' => ['nullable', 'numeric', 'between:0,999999.99', 'decimal:0,2'],
             ...($correction ? ['expected_version' => ['required', 'integer', 'min:1'],
                 'correction_reason' => ['required', 'string', 'min:5', 'max:500']] : []),
-        ], ['tracking_number.regex' => 'Enter the complete J&T waybill number, using 5–50 letters, numbers, or waybill punctuation.',
+        ], ['tracking_number.regex' => 'Enter the complete J&T tracking number number, using 5–50 letters, numbers, or tracking number punctuation.',
             'handover_confirmed.accepted' => 'Confirm that this parcel was physically handed to J&T.']);
     }
 
@@ -64,6 +65,18 @@ final class ShipmentTrackingController extends Controller
         return response()->json(['data' => ShipmentTracking::health() + ['can_edit' => strtolower($request->user()->role) === 'admin']]);
     }
 
+    public function trackingTest(Request $request, Order $order, OrderTrackingTest $test): JsonResponse
+    {
+        $this->authorize($request, true);
+        $input = $request->isMethod('DELETE') ? [] : $request->validate([
+            'tracking_number' => ['required', 'string', 'regex:/^[A-Za-z0-9-]{5,50}$/'],
+            'test_confirmed' => ['required', 'accepted'],
+        ]);
+        $test->change($order, $input['tracking_number'] ?? null, (int) $request->user()->id);
+
+        return app(OrderController::class)->adminShow($request, $order->fresh());
+    }
+
     public function updateSettings(Request $request): JsonResponse
     {
         $this->authorize($request, true);
@@ -73,7 +86,7 @@ final class ShipmentTrackingController extends Controller
             $settings = DB::table('shipment_tracking_settings')->where('id', ShipmentTracking::settings()->id)->lockForUpdate()->first();
             abort_unless((int) $settings->revision === (int) $input['expected_revision'], 409, 'Tracking settings changed. Refresh before saving.');
             if ($input['enabled'] && (! ShipmentTracking::verified($settings) || ! config('track17.enabled'))) {
-                ShipmentTracking::fail('Complete the account, J&T waybill, and webhook checks before activating automatic tracking.');
+                ShipmentTracking::fail('Complete the account, J&T tracking number, and webhook checks before activating automatic tracking.');
             }
             DB::table('shipment_tracking_settings')->where('id', $settings->id)->update(['enabled' => $input['enabled'], 'revision' => $settings->revision + 1, 'updated_at' => now()]);
         });

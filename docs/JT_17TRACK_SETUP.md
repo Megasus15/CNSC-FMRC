@@ -82,7 +82,25 @@ Use the parcel's actual destination postcode. If known, append its actual shipme
 
 The first attempt may report saved registration but no events yet. Repeat the **same** command later: it reuses the persisted subscription and reads saved results. It reports API events and any signed diagnostic callback. If a pre-existing API registration has another subscription tag, FMRC rejects it instead of taking it over. Use a fresh owned diagnostic parcel or resolve that conflicting registration in the API console.
 
-## 7. Verify one genuine FMRC delivery and activate
+## 7. Test Customer Orders using your own external parcel
+
+This optional Admin-only test supports the requested real QR Ph payment on the official website. The test displays a verified external parcel, such as the user's own TikTok shipment, in a separate **Tracking test — external parcel** section. It preserves the FMRC order's actual preparation stage, payment, shipping fee, stock, and fulfillment history. Delivery of the external parcel does not complete the FMRC order or enable production shipment registration.
+
+1. Deploy the new code and run:
+
+   ```sh
+   php /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend/artisan migrate --path=database/migrations/2026_11_07_000002_add_order_tracking_tests.php --force
+   ```
+
+2. Keep `TRACK17_ENABLED=false` for this test. Retain the existing minute cron. Run the same owned-parcel diagnostic command from step 6 once more to populate the saved test display; the existing registration is reused.
+3. As Customer, open Products, choose a product, select **QR Ph → J&T Express delivery**, review the total and terms, place the order, and pay through the hosted checkout. **This charges real money.** Confirm FMRC shows the provider-confirmed paid status.
+4. As Admin, approve that order. Open **Orders → Update Tracking Status**, expand **Tracking test — external parcel**, enter the verified diagnostic tracking number, confirm ownership, and choose **Link test tracking**. Use this test section rather than confirming a physical FMRC handover.
+5. As Customer, open that same order's details. Confirm the labelled test section shows the external parcel's real courier status and history. Leave the view open: signed updates are processed by the minute worker and appear automatically. Previously completed scans can be shown immediately; future changes still depend on actual courier scans and 17TRACK's standard schedule. This is scan history, not a live driver location map.
+6. Staff can view the linked test, while Admin alone can attach or remove it. Use **Remove tracking test** before recording the genuine FMRC parcel later. Linking/removing the test never cancels an order or refunds a payment. If this purchase will not be fulfilled, finish through FMRC's existing cancellation/refund process and verify the actual payment/refund result.
+
+Only a registered diagnostic parcel with a matching account, signed diagnostic webhook, and saved tracking results can be linked. A paid and approved eligible delivery order is required. The test never sends another registration for the same diagnostic, writes courier updates into the genuine order timeline, or sends genuine shipment milestone notifications. Audit notes identify the link/removal as a system test.
+
+## 8. Verify one genuine FMRC delivery and activate
 
 1. Customer places an online-paid delivery order. FMRC approves and prepares it. An eligible appointment-linked custom order can use its existing confirmed Cash at FMRC rules.
 2. Staff physically hands the parcel, sender details, and customer/recipient details to J&T. J&T supplies the actual waybill. Keep its complete number, including the `JT` prefix when present.
@@ -130,7 +148,7 @@ Do not drop tables to pause tracking. Corrected waybills stop the old 17TRACK su
 
 ## Official references
 
-Local validation for this change: the full backend suite passed 799 tests / 10,204 assertions. After the final carrier-identity guard, all 33 focused tracking/handover/payment-flow tests passed / 344 assertions. All 210 frontend checks passed, including the isolated Apache check outside the restricted runner. Chrome checks passed for Admin/Staff full modals, operator drafts, legacy delivery/cash pickup behavior, Customer automatic tracking, and responsive layouts. Provider calls in these tests used fixtures; no real payment, live API registration, or live notification delivery is claimed.
+Current local validation: the full backend suite passed 804 tests / 10,257 assertions, including the separate external-parcel order test. The focused tracking/handover/payment-flow run passed 37 tests / 391 assertions. All 210 frontend checks passed, including the isolated Apache check outside the restricted runner. Chrome checks passed for Admin test linking/removal, Staff read access, preserved drafts, automatic Customer test updates, normal J&T handover, real-order completion separation, and mobile/desktop layouts. Provider calls in local tests used fixtures. User-supplied Hostinger output separately confirms live diagnostic API events and a signed diagnostic webhook; the new paid FMRC order display test still requires deployment and execution on the hosted site. Live payment/refund and actual notification delivery remain separate checks.
 
 - [17TRACK API documentation](https://api.17track.net/en/doc)
 - [API account and webhook quick guide](https://help.17track.net/hc/en-us/articles/30944262120729--Tracking-API-Quick-Guide)

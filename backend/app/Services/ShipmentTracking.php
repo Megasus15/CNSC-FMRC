@@ -74,13 +74,13 @@ final class ShipmentTracking
     public static function eligibility(Order $order, bool $correction = false): ?string
     {
         if ($order->isPickup()) {
-            return 'Pickup orders do not need a J&T waybill.';
+            return 'Pickup orders do not need a J&T tracking number.';
         }
         if ($order->hasPendingCancellation() || $order->isCancelled()) {
             return 'Resolve the cancellation before recording a handover.';
         }
         if (! $order->approved_at || $order->lifecycle_status !== 'pending' || ! in_array($order->customer_stage, $correction ? ['to_receive'] : ['to_ship'], true)) {
-            return $correction ? 'Only an active delivery can have its waybill corrected.' : 'Accept and prepare this order before handing it to J&T.';
+            return $correction ? 'Only an active delivery can have its tracking number corrected.' : 'Accept and prepare this order before handing it to J&T.';
         }
         $order->loadMissing('payment');
         if (AppointmentProducts::custom($order)) {
@@ -153,22 +153,25 @@ final class ShipmentTracking
                 if ($reason = self::eligibility($order, $correction)) {
                     self::fail($reason);
                 }
+                if ($order->tracking_test_subscription_id) {
+                    self::fail('Remove the external parcel tracking test before recording the actual FMRC parcel handover.');
+                }
                 if ($handover->gt(now()->addMinute()) || $handover->lt($order->created_at)) {
                     self::fail('Use the actual handover time, between the order date and now.');
                 }
                 if ($correction) {
-                    abort_unless($active && (int) $active->version === (int) $input['expected_version'], 409, 'The waybill changed. Refresh the order before correcting it.');
+                    abort_unless($active && (int) $active->version === (int) $input['expected_version'], 409, 'The tracking number changed. Refresh the order before correcting it.');
                     if ($active->tracking_number === $number) {
-                        self::fail('Enter the corrected waybill number. The existing number is unchanged.');
+                        self::fail('Enter the corrected tracking number number. The existing number is unchanged.');
                     }
                 } elseif ($active) {
-                    abort(409, 'This order already has a waybill. Refresh to review it.');
+                    abort(409, 'This order already has a tracking number. Refresh to review it.');
                 }
                 if (NinjaVanShipping::installed() && DB::table('courier_shipments')->where('active_order_id', $order->id)->exists()) {
-                    self::fail('Resolve the existing courier shipment before recording a J&T waybill.');
+                    self::fail('Resolve the existing courier shipment before recording a J&T tracking number.');
                 }
                 if (ShipmentTracker::where('active_waybill', 'jnt:'.$number)->exists()) {
-                    self::fail('This waybill is already linked to another active order. Check the J&T receipt.');
+                    self::fail('This tracking number is already linked to another active order. Check the J&T receipt.');
                 }
                 if ($active) {
                     if (self::subscriptionsInstalled()) {
@@ -193,8 +196,8 @@ final class ShipmentTracking
                 DB::table('orders')->where('id', $order->id)->update(['courier_name' => 'J&T Express', 'courier_tracking_no' => $number,
                     'customer_stage' => 'to_receive', 'shipment_tracking_mode' => 'jnt_dropoff', 'courier_history_version' => DB::raw('courier_history_version + 1'), 'updated_at' => now()]);
                 OrderTrackingEvent::create(['order_id' => $order->id, 'created_by_user_id' => $actor, 'stage' => 'to_receive',
-                    'event_type' => 'admin_update', 'title' => $correction ? 'J&T waybill corrected' : ($demo ? 'Demonstration handover recorded' : 'Handed to J&T'),
-                    'description' => $correction ? 'FMRC corrected the waybill. '.$input['correction_reason'] : 'FMRC recorded the parcel handover and waybill. Courier updates will appear when available.',
+                    'event_type' => 'admin_update', 'title' => $correction ? 'J&T tracking number corrected' : ($demo ? 'Demonstration handover recorded' : 'Handed to J&T'),
+                    'description' => $correction ? 'FMRC corrected the tracking number. '.$input['correction_reason'] : 'FMRC recorded the parcel handover and tracking number. Courier updates will appear when available.',
                     'occurred_at' => $correction ? now() : $handover, 'metadata' => ['source' => 'fmrc', 'tracking_number' => $number, 'demo' => $demo],
                     'shipment_tracker_id' => $tracker->id]);
                 if (! $correction && ! $demo) {
@@ -204,7 +207,7 @@ final class ShipmentTracking
                 return $tracker;
             }, 3);
         } catch (UniqueConstraintViolationException) {
-            abort(409, 'This waybill or request has already been recorded. Refresh the order and check the J&T receipt.');
+            abort(409, 'This tracking number or request has already been recorded. Refresh the order and check the J&T receipt.');
         }
     }
 
@@ -214,7 +217,7 @@ final class ShipmentTracking
             Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $tracker = ShipmentTracker::where('active_order_id', $order->id)->lockForUpdate()->firstOrFail();
             if (! self::enabled() || $tracker->demo) {
-                self::fail('Automatic tracking is not active. Your saved waybill and J&T tracking link remain available.');
+                self::fail('Automatic tracking is not active. Your saved tracking number and J&T tracking link remain available.');
             }
             if ($tracker->last_refresh_requested_at?->gt(now()->subMinutes(15))) {
                 abort(429, 'Tracking was recently requested. Please wait before requesting another update.');
@@ -267,7 +270,7 @@ final class ShipmentTracking
             'quarantined_updates' => DB::table('shipment_webhook_inbox')->where('provider', '17track')->where('state', 'quarantined')->count(),
             'pending_notifications' => DB::table('shipment_notification_outbox')->whereNull('sent_at')->count(),
             'message' => self::enabled() ? 'Automatic tracking is active. Updates follow J&T scans and 17TRACK availability.'
-                : 'Automatic tracking is not active. FMRC can still record waybills and use J&T tracking.',
+                : 'Automatic tracking is not active. FMRC can still record tracking numbers and use J&T tracking.',
         ];
     }
 
@@ -305,17 +308,17 @@ final class ShipmentTracking
         $state = $subscription?->registration_state ?? ($tracker ? 'pending' : 'not_recorded');
         $notice = match (true) {
             (bool) $tracker?->demo => 'Demonstration only. This shipment is not connected to a courier.',
-            ! $tracker => 'Record the waybill after handing the parcel to J&T. The accepted customer shipping fee stays unchanged.',
-            $state === 'limited' => 'Automatic tracking is currently unavailable. Use the saved waybill on J&T tracking.',
-            $state === 'failed' => 'Automatic tracking needs attention. Your saved waybill and last updates remain available.',
-            ! $automatic => 'Automatic tracking is not active. Use the saved waybill on J&T tracking.',
+            ! $tracker => 'Record the tracking number after handing the parcel to J&T. The accepted customer shipping fee stays unchanged.',
+            $state === 'limited' => 'Automatic tracking is currently unavailable. Use the saved tracking number on J&T tracking.',
+            $state === 'failed' => 'Automatic tracking needs attention. Your saved tracking number and last updates remain available.',
+            ! $automatic => 'Automatic tracking is not active. Use the saved tracking number on J&T tracking.',
             $state === 'retry' => 'Tracking updates are temporarily unavailable. Your last recorded updates are shown.',
-            $state === 'stopped' => 'Automatic tracking has stopped. Your saved waybill and latest confirmed updates remain available.',
-            $state === 'pending' => 'The waybill is saved. Automatic tracking registration is pending.',
+            $state === 'stopped' => 'Automatic tracking has stopped. Your saved tracking number and latest confirmed updates remain available.',
+            $state === 'pending' => 'The tracking number is saved. Automatic tracking registration is pending.',
             default => 'Updates appear after J&T records a scan and 17TRACK makes it available.',
         };
         $data = ['id' => $tracker?->id, 'provider' => '17TRACK', 'carrier' => 'J&T Express', 'tracking_provider' => '17track',
-            'status' => $tracker?->status ?? 'pending', 'status_label' => $tracker ? self::LABELS[$tracker->status] ?? self::LABELS['pending'] : 'Waybill not yet recorded',
+            'status' => $tracker?->status ?? 'pending', 'status_label' => $tracker ? self::LABELS[$tracker->status] ?? self::LABELS['pending'] : 'Tracking number not yet recorded',
             'provider_status' => $tracker?->provider_status, 'tracking_number' => $tracker?->tracking_number,
             'registration_state' => $state, 'tracking_available' => $automatic && $state === 'active', 'availability_message' => $notice,
             'tracking_url' => 'https://www.jtexpress.ph/track-and-trace?waybillNo=&flag=1', 'tracking_url_is_prefilled' => false, 'demo' => (bool) $tracker?->demo,
@@ -327,7 +330,7 @@ final class ShipmentTracking
             'history_revision' => (int) ($order->courier_history_version ?? 0)];
         if ($operator) {
             $role = strtolower((string) auth()->user()?->role);
-            $data += ['version' => $tracker?->version, 'can_record' => ! $tracker && self::eligibility($order) === null,
+            $data += ['version' => $tracker?->version, 'can_record' => ! $tracker && ! $order->tracking_test_subscription_id && self::eligibility($order) === null,
                 'record_reason' => ! $tracker ? self::eligibility($order) : null,
                 'can_correct' => $role === 'admin' && $tracker && self::eligibility($order, true) === null,
                 'can_refresh' => $tracker && ! $tracker->demo && $automatic && (! $tracker->last_refresh_requested_at || $tracker->last_refresh_requested_at->lte(now()->subMinutes(15))),

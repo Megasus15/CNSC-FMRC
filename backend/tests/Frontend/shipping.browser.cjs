@@ -67,6 +67,13 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
         Object.assign(order,{total_amount:input.total_amount,total_label:pricing.payable_total_label,payment_amount:input.total_amount,accepted_policy:{...policySettings.published,accepted_at_label:'Nov 2, 2026, 8:00 AM'}});
         return json({data:order},201);
       }
+      if(route==='/api/admin/orders/71/tracking-test'){
+        assert.equal(role,'admin');
+        if(req.method==='DELETE')order.tracking_test={linked:false,can_attach:true};
+        else {let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);assert.equal(input.test_confirmed,true);assert.equal(input.tracking_number,'JT0026952419687');
+          order.tracking_test={linked:true,is_test:true,can_remove:true,tracking_number:input.tracking_number,status_label:'In transit',message:'These are real courier updates for an external test parcel. They do not confirm shipment or delivery of this FMRC order.',events:[{title:'In transit',description:'Test parcel departed the hub',time_label:'Nov 7, 2026 10:59 AM',location:'IMUS'}]};}
+        return json({data:order});
+      }
       if(route.startsWith('/api/admin/orders/71/shipment/')){
         let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);shipmentWrites.push({route,input});
         await pause(250);
@@ -95,8 +102,8 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
         return json({data:order});
       }
       if(route==='/api/customer/orders')return json({data:[order]});
-      if(route==='/api/customer/orders/71'||route==='/api/admin/orders/71')return json({data:order});
-      if(route==='/api/admin/orders')return json({incoming:order.lifecycle_status==='incoming'?[order]:[],directory:order.lifecycle_status==='incoming'?[]:[order],payments:[],returns:[],returns_summary:{},cancellations_summary:{},generated_at:new Date().toISOString()});
+      if(route==='/api/customer/orders/71'||route==='/api/admin/orders/71')return json({data:{...order,tracking_test:order.tracking_test?{...order.tracking_test,can_remove:role==='admin'&&order.tracking_test.linked,can_attach:role==='admin'&&order.tracking_test.can_attach}:null}});
+      if(route==='/api/admin/orders'){const scoped={...order,tracking_test:order.tracking_test?{...order.tracking_test,can_remove:role==='admin'&&order.tracking_test.linked,can_attach:role==='admin'&&order.tracking_test.can_attach}:null};return json({incoming:order.lifecycle_status==='incoming'?[scoped]:[],directory:order.lifecycle_status==='incoming'?[]:[scoped],payments:[],returns:[],returns_summary:{},cancellations_summary:{},generated_at:new Date().toISOString()});}
       return json({data:[]});
     }
     const file=path.resolve(root,'.'+route);
@@ -406,6 +413,38 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     await shot('customer-order-pricing');
     console.log('Verified unavailable-delivery pickup recovery, zero-fee pickup and Customer saved order pricing.');
     order.lifecycle_status='pending';order.payment_method='GCash';order.payment_status='paid';order.shipment_tracking_mode='jnt_dropoff';
+    order.customer_stage='to_ship';order.customer_stage_label='To Ship';
+    order.courier_shipment={provider:'17TRACK',carrier:'J&T Express',tracking_provider:'17track',status:'pending',status_label:'Tracking number not yet recorded',can_record:false,availability_message:'Automatic tracking is not active.'};
+    order.tracking_test={can_attach:true,linked:false};
+    await navigate('/admin-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);
+    await until(`!!document.querySelector('[data-tracking-test-number]')`);
+    await run(`document.querySelector('[data-tracking-test-controls] details').open=true;document.querySelector('[data-tracking-test-number]').value='JT0026952419687'`);
+    await input('trackingEventTitle','Keep this note while linking a test');
+    await pause(5500);
+    assert.equal(await run(`document.querySelector('[data-tracking-test-number]').value`),'JT0026952419687');
+    await run(`document.querySelector('[data-tracking-test-consent]').click();document.querySelector('[data-tracking-test-link]').click()`);await confirm('Link Tracking Test');
+    await until(`document.querySelector('[data-tracking-test-status]')?.textContent==='In transit'`);
+    assert.equal(await run(`document.getElementById('trackingEventTitle').value`),'Keep this note while linking a test');
+    assert.equal(order.customer_stage,'to_ship');assert.equal(order.payment_status,'paid');
+    await shot('admin-external-tracking-test');
+    await navigate('/products-page/product.html');await until(`!!document.getElementById('viewOrdersBtn')`);await run(`document.getElementById('viewOrdersBtn').click()`);await until(`!!document.querySelector('[data-order-detail="71"]')`);await run(`document.querySelector('[data-order-detail="71"]').click()`);
+    await until(`document.querySelector('[data-customer-test-status]')?.textContent==='In transit'`);
+    assert.match(await run(`document.querySelector('[data-customer-tracking-test]').textContent`),/external test parcel/);
+    Object.assign(order.tracking_test,{status_label:'Out for delivery',events:[{title:'Out for delivery',description:'External parcel is with the courier',time_label:'Nov 7, 2026 2:00 PM',location:'LABO'}]});
+    await until(`document.querySelector('[data-customer-test-status]')?.textContent==='Out for delivery'`);
+    for(const width of [320,1440]){
+      await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+      await run(`document.querySelector('[data-customer-tracking-test]').scrollIntoView({block:'center'})`);
+      assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false);
+      await shot('customer-external-tracking-test-'+width);
+    }
+    await navigate('/staff-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);
+    await until(`document.querySelector('[data-tracking-test-status]')?.textContent==='Out for delivery'`);
+    assert.equal(await run(`!!document.querySelector('[data-tracking-test-remove],[data-tracking-test-link]')`),false);
+    await navigate('/admin-page/orders.html');await until(`!!document.querySelector('[data-order-track="71"]')`);await run(`document.querySelector('[data-order-track="71"]').click()`);await until(`!!document.querySelector('[data-tracking-test-remove]')`);
+    await run(`document.querySelector('[data-tracking-test-remove]').click()`);await confirm('Remove Tracking Test');await until(`!!document.querySelector('[data-tracking-test-link]')`);
+    order.tracking_test=null;
+    console.log('Verified paid-order tracking test linking, preserved drafts, automatic Customer updates, Staff read access, mobile layout and removal.');
     for(const portal of ['admin','staff']){
       order.customer_stage='to_ship';order.customer_stage_label='To Ship';order.timeline=[];order.courier_tracking_no=null;
       order.courier_shipment={provider:'17TRACK',carrier:'J&T Express',tracking_provider:'17track',status:'pending',status_label:'Waybill not yet recorded',availability_message:'Automatic tracking is not active. Use the saved waybill on J&T tracking.',can_record:true,can_correct:false,can_refresh:false};
@@ -446,7 +485,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`document.querySelector('[data-jnt-correct]').hidden`),portal==='staff');
       if(portal==='admin'){
         await run(`document.querySelector('[data-jnt-correct]').click()`);await input('tracking-jnt-71-number','009876543210');await input('tracking-jnt-71-reason','Verified against the branch receipt');
-        await run(`document.getElementById('tracking-jnt-71-confirmed').click();document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Correct J&T Waybill');
+        await run(`document.getElementById('tracking-jnt-71-confirmed').click();document.querySelector('[data-jnt-form] button[type=submit]').click()`);await confirm('Correct J&T Tracking Number');
         await until(`document.querySelector('.jnt-waybill')?.textContent==='009876543210'`);assert.equal(shipmentWrites.at(-1).input.expected_version,1);
         assert.match(await run(`document.querySelector('[data-jnt-history]').textContent`),/waybill corrected/);
       }
