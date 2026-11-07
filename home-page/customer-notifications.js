@@ -13,6 +13,7 @@
     payment:svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>'),
     return:svg('<path d="M9 10H3V4m0 6 4-4a8 8 0 1 1-1 11"/>'),
     previous:svg('<path d="m14 6-6 6 6 6"/>'),next:svg('<path d="m10 6 6 6-6 6"/>'),
+    delete:svg('<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>'),
   };
   let modal,body,footer,tabs,announcementIcon,personalUnread=0,announcementUnread=0,page=1,pages=1,rows=[],through=0,session=token(),loading=false,busy=false,error='',timer,failures=0,generation=0;
   const count=n=>Number(n)>99?'99+':Number(n)>0?String(Math.trunc(n)):'';
@@ -20,7 +21,7 @@
   const request=async(path,options={})=>{
     const response=await fetch(api()+'/customer/notifications'+path,{...options,cache:'no-store',headers:{Accept:'application/json',Authorization:'Bearer '+token(),'Content-Type':'application/json'},signal:AbortSignal.timeout(20000)});
     const result=await response.json().catch(()=>({}));
-    if(!response.ok){const problem=Error(response.status===401?'Sign in to view your personal updates.':'Notifications could not be loaded. Please try again.');problem.status=response.status;throw problem;}
+    if(!response.ok){const problem=Error(response.status===401?'Sign in to view your personal updates.':options.method==='DELETE'?'The notification could not be deleted. Please try again.':'Notifications could not be loaded. Please try again.');problem.status=response.status;throw problem;}
     return result;
   };
   const updateBadge=()=>{window.FMRCAnnouncements?.refreshBadge();};
@@ -33,15 +34,16 @@
   const date=value=>{const d=new Date(/^\d{4}-\d{2}-\d{2} \d{2}:/.test(value)?value.replace(' ','T')+'Z':value);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',dateStyle:'medium',timeStyle:'short'}).format(d);};
   function render(){
     if(!body)return;
-    const active=document.activeElement?.closest('[data-notification-id]')?.dataset.notificationId,scroll=body.parentElement.scrollTop;
+    const active=document.activeElement?.closest('[data-notification-id]')?.dataset.notificationId,activeDelete=document.activeElement?.closest('[data-notification-delete]')?.dataset.notificationDelete,scroll=body.parentElement.scrollTop;
     if(!token())body.innerHTML=`<div class="fmrc-notifications-empty">${icons.bell}<h3>Your updates, in one place</h3><p>Sign in to see appointment, quotation, payment and order updates.</p><a class="fmrc-announcement__button" href="${esc(window.FMRCApp?.url('/customer-auth/auth.html#login')||'/customer-auth/auth.html#login')}">Sign In</a></div>`;
     else if(error)body.innerHTML=`<div class="fmrc-notifications-empty">${icons.bell}<h3>Updates are unavailable</h3><p>${esc(error)}</p><button type="button" class="fmrc-announcement__button" data-notifications-retry>Try again</button></div>`;
     else if(loading&&!rows.length)body.innerHTML='<div class="fmrc-notifications-empty" role="status"><p>Loading your updates…</p></div>';
     else if(!rows.length)body.innerHTML=`<div class="fmrc-notifications-empty">${icons.bell}<h3>You’re all caught up</h3><p>Your appointment, quotation and order updates will appear here.</p></div>`;
-    else body.innerHTML=rows.map(row=>`<button type="button" class="fmrc-notification-item${row.read_at?'':' is-unread'}" data-notification-id="${row.id}" ${busy?'disabled':''}><span class="fmrc-notification-icon">${icons[row.type]||icons.bell}</span><span class="fmrc-notification-copy"><span class="fmrc-notification-meta">${esc(({appointment:'Appointment',order:'Order',payment:'Payment',return:'Return or refund'})[row.type]||'Account update')}<span class="fmrc-notification-dot" ${row.read_at?'hidden':''} aria-label="Unread"></span></span><strong>${esc(row.title)}</strong><span>${esc(row.message)}</span><time datetime="${esc(row.published_at)}">${esc(date(row.published_at))}</time></span><span class="fmrc-notification-arrow">${icons.next}</span></button>`).join('');
+    else body.innerHTML=rows.map(row=>`<article class="fmrc-notification-row${row.read_at?'':' is-unread'}"><button type="button" class="fmrc-notification-item" data-notification-id="${row.id}" ${busy?'disabled':''}><span class="fmrc-notification-icon">${icons[row.type]||icons.bell}</span><span class="fmrc-notification-copy"><span class="fmrc-notification-meta">${esc(({appointment:'Appointment',order:'Order',payment:'Payment',return:'Return or refund'})[row.type]||'Account update')}<span class="fmrc-notification-dot" ${row.read_at?'hidden':''} aria-label="Unread"></span></span><strong>${esc(row.title)}</strong><span>${esc(row.message)}</span><time datetime="${esc(row.published_at)}">${esc(date(row.published_at))}</time></span><span class="fmrc-notification-arrow">${icons.next}</span></button><button type="button" class="fmrc-notification-delete" data-notification-delete="${row.id}" aria-label="Delete notification: ${esc(row.title)}" title="Delete notification" ${busy||loading?'disabled':''}>${icons.delete}</button></article>`).join('');
     body.setAttribute('aria-busy',String(loading));
-    footer.innerHTML=`<span class="fmrc-notifications-page">${rows.length?`Page ${page} of ${pages}`:'Personal updates'}</span><div class="fmrc-announcement__actions"><button type="button" class="fmrc-announcement__button" data-notifications-read-all ${!token()||!personalUnread||!rows.length||busy||loading||error?'disabled':''}>Mark all as read</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page-1}" aria-label="Previous notifications" ${page<=1||busy||loading||error?'disabled':''}>${icons.previous}</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page+1}" aria-label="Next notifications" ${page>=pages||busy||loading||error?'disabled':''}>${icons.next}</button></div>`;
+    footer.innerHTML=`<span class="fmrc-notifications-page">${rows.length?`Page ${page} of ${pages}`:'Personal updates'}</span><div class="fmrc-announcement__actions"><button type="button" class="fmrc-announcement__button" data-notifications-read-all ${!token()||!personalUnread||!rows.length||busy||loading||error?'disabled':''}>Mark all as read</button><button type="button" class="fmrc-announcement__button" data-notifications-clear ${!token()||!rows.length||busy||loading||error?'disabled':''}>Clear all</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page-1}" aria-label="Previous notifications" ${page<=1||busy||loading||error?'disabled':''}>${icons.previous}</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page+1}" aria-label="Next notifications" ${page>=pages||busy||loading||error?'disabled':''}>${icons.next}</button></div>`;
     if(active)body.querySelector(`[data-notification-id="${active}"]`)?.focus({preventScroll:true});
+    if(activeDelete)body.querySelector(`[data-notification-delete="${activeDelete}"]`)?.focus({preventScroll:true});
     body.parentElement.scrollTop=scroll;
   }
   function resetSession(){
@@ -58,7 +60,7 @@
       const [badge,data]=await Promise.all([request('/unread-count?scope=personal'),list?request(`?scope=personal&page=${requestPage}`):Promise.resolve(null)]);
       if(auth!==token()||current!==generation)return;
       personalUnread=Number(badge.unread_count)||0;failures=0;error='';
-      if(data){rows=Array.isArray(data.data)?data.data:[];pages=Math.max(1,Number(data.last_page)||1);page=Math.min(pages,Math.max(1,Number(data.current_page)||1));if(page===1)through=Math.max(0,...rows.map(row=>Number(row.id)||0));}
+      if(data){rows=Array.isArray(data.data)?data.data:[];pages=Math.max(1,Number(data.last_page)||1);page=Math.min(pages,Math.max(1,Number(data.current_page)||1));if(page===1)through=Math.max(0,...rows.map(row=>Number(row.id)||0));if(!rows.length&&requestPage>pages){loading=false;await refresh(true);return;}}
       updateBadge();
     }catch(problem){if(auth!==token()||current!==generation)return;failures=Math.min(3,failures+1);if(list)error=problem.message;if(problem.status===401){personalUnread=0;rows=[];updateBadge();}}
     finally{if(auth===token()&&current===generation){loading=false;if(list)render();}}
@@ -91,6 +93,22 @@
     }catch(problem){await window.showCustomerPopup?.(problem.message||'This update could not be opened. Please try again.',{title:'Notification unavailable'});}
     finally{busy=false;render();}
   }
+  async function removeNotification(id){
+    if(busy||loading||!token())return;
+    const auth=token(),nextFocus=rows.findIndex(row=>Number(row.id)===Number(id));let confirmed=false,removed=false;
+    busy=true;render();
+    try{
+      confirmed=await window.showCustomerPopup?.(id?'Delete this notification? Your appointment and order records will remain available.':'Clear all personal notifications? FMRC Announcements, appointments and orders will remain available.',{title:id?'Delete notification':'Clear notifications',isConfirm:true,okText:id?'Delete':'Clear all',cancelText:'Keep notifications'});
+      if(!confirmed||auth!==token())return;
+      await request(id?`/${id}?scope=personal`:'/clear-all?scope=personal',{method:'DELETE',body:JSON.stringify(id?{}:{through})});
+      removed=true;
+      if(auth!==token())return;
+      localStorage.setItem('fmrc_customer_notifications_changed',String(Date.now()));
+      busy=false;await refresh(true);
+      const actions=[...body.querySelectorAll('[data-notification-id]')];(actions[Math.min(Math.max(0,nextFocus),actions.length-1)]||tabs.querySelector('[aria-selected=true]'))?.focus({preventScroll:true});
+    }catch(problem){await window.showCustomerPopup?.(problem.message||'The notification could not be deleted. Please try again.',{title:'Notification not deleted'});}
+    finally{if(auth===token()){busy=false;render();if(!removed)(id?body.querySelector(`[data-notification-delete="${id}"]`):footer.querySelector('[data-notifications-clear]'))?.focus({preventScroll:true});}}
+  }
   function mount(){
     modal=document.getElementById('announcementModal');if(!modal||!window.FMRCAnnouncements)return;
     if(modal.querySelector('.fmrc-notifications-tabs'))return;
@@ -108,6 +126,8 @@
     modal.addEventListener('click',async event=>{
       const tab=event.target.closest('[data-notifications-tab]');if(tab){select(tab.dataset.notificationsTab);return;}
       if(event.target.closest('[data-notifications-retry]')){await refresh(true);return;}
+      const remove=event.target.closest('[data-notification-delete]');if(remove){await removeNotification(Number(remove.dataset.notificationDelete));return;}
+      if(event.target.closest('[data-notifications-clear]')){await removeNotification();return;}
       const item=event.target.closest('[data-notification-id]');if(item){await activate(rows.find(row=>String(row.id)===item.dataset.notificationId));return;}
       const pager=event.target.closest('[data-notifications-page]');if(pager&&!busy&&!loading){page=Number(pager.dataset.notificationsPage);rows=[];await refresh(true);return;}
       if(event.target.closest('[data-notifications-read-all]')&&!busy&&!loading){const auth=token();busy=true;render();try{await request('/mark-all-read?scope=personal',{method:'POST',body:JSON.stringify(through?{through}:{})});if(auth===token()){rows.forEach(row=>row.read_at=new Date().toISOString());localStorage.setItem('fmrc_customer_notifications_changed',String(Date.now()));}}catch(problem){await window.showCustomerPopup?.(problem.message,{title:'Notifications not updated'});}finally{busy=false;if(auth===token())await refresh(true);}}

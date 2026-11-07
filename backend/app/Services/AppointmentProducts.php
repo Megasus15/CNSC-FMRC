@@ -384,11 +384,11 @@ final class AppointmentProducts
             (bool) $order && ! in_array($order->lifecycle_status, ['cancelled', 'rejected'], true) => $order->payment?->status === 'pending' ? 'Complete full payment in My Orders.' : 'Follow production and fulfillment in My Orders.',
             (bool) $current && $current->state === 'sent' && $current->expires_at->isFuture() => 'Review your quotation and approved design before paying.',
             $job->state === 'draft' => 'Finish your details and choose an available appointment.',
-            $job->state === 'awaiting_consultation' => 'Attend your consultation. FMRC will discuss your idea before quoting.',
+            $job->state === 'awaiting_consultation' => 'Attend your consultation. The FMRC team will discuss your idea before quoting.',
             $job->state === 'follow_up' => 'Choose an available follow-up appointment.',
             $job->state === 'needs_information' => 'Provide the requested details in the conversation.',
             in_array($job->state, ['cancelled', 'declined'], true) => 'This custom request is closed. Your appointment history remains available.',
-            default => 'FMRC is finalizing your specifications and quotation.'
+            default => 'The FMRC team is finalizing your specifications and quotation.'
         };
 
         return ['id' => $job->id, 'appointment_id' => $job->appointment_id, 'service_id' => $job->service_id, 'service_name' => $job->service_name,

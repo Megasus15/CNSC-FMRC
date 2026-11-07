@@ -118,12 +118,12 @@ test('payment confirmation stays awaiting approval, and approved orders advance 
   const { context: ui } = harness();
   assert.equal(ui.canSubmitOrderPayment(paid()), false);
   assert.equal(ui.resolveOrderStatusMeta(paid()).label, 'Awaiting approval');
-  assert.match(ui.resolveOrderPaymentNotice(paid()).note, /awaiting staff approval/);
+  assert.match(ui.resolveOrderPaymentNotice(paid()).note, /awaiting approval from the FMRC team/);
   const approved = paid({ lifecycle_status: 'pending', customer_stage: 'to_ship', customer_stage_label: 'Preparing for pickup' });
   assert.equal(ui.isOrderAwaitingApproval(approved), false);
   assert.equal(ui.canSubmitOrderPayment(approved), false);
   assert.equal(ui.resolveOrderStatusMeta(approved).label, 'Preparing for pickup');
-  assert.doesNotMatch(ui.resolveOrderPaymentNotice(approved).note, /awaiting staff approval/);
+  assert.doesNotMatch(ui.resolveOrderPaymentNotice(approved).note, /awaiting approval from the FMRC team/);
 });
 
 test('undo confirmation restores claim review without instructing a second payment', () => {
@@ -184,7 +184,7 @@ test('live order refresh closes an open pay panel immediately when staff confirm
   assert.equal(resolved.length, 1);
   assert.equal(resolved[0], null);
   assert.equal(popups[0].title, 'Payment confirmed');
-  assert.match(popups[0].message, /awaiting staff approval/);
+  assert.match(popups[0].message, /awaiting approval from the FMRC team/);
 });
 
 for (const outcome of ['rejected', 'older success']) {

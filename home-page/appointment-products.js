@@ -15,7 +15,7 @@
   const field = (name,label,value='',type='text',required=false,wide=false) => `<label class="ap-field${wide?' is-wide':''}"><span>${esc(label)}${required?' *':''}</span>${type==='textarea'?`<textarea name="${esc(name)}" maxlength="2000" ${required?'required':''}>${esc(value)}</textarea>`:`<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${type==='number'?'min="1" step="1"':''} ${required?'required':''} maxlength="${name.includes('name')?'160':'400'}">`}</label>`;
   const button = (text, attrs='', secondary=false) => `<button type="button" class="ap-btn${secondary?' is-secondary':''}" ${attrs}>${text}</button>`;
   const popup = async (message,title='Custom product') => {
-    if(team) { window.showAdminPopup?.(message,{title}); return; }
+    if(team) { window.showAdminPopup?.(message,{title,type:['Saved','Draft saved'].includes(title)?'success':'modal'}); return; }
     return window.showCustomerPopup?.(message,{title});
   };
   const confirm = (message,title='Confirm action') => team ? new Promise(resolve => {
@@ -50,7 +50,7 @@
     ${field(prefix+'colors','Colors',data.colors,'text',final)}${field(prefix+'finish','Finish',data.finish,'text',final)}
     ${field(prefix+'personalization','Text or personalization',data.personalization,'textarea',false,true)}
     ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'text')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date')}
-      <label class="ap-check"><input type="checkbox" name="${prefix}needs_advice" ${data.needs_advice?'checked':''}><span>${operator?'The customer needs advice on some specifications.':'I need FMRC’s advice on some specifications.'}</span></label>`:''}
+      <label class="ap-check"><input type="checkbox" name="${prefix}needs_advice" ${data.needs_advice?'checked':''}><span>${operator?'The customer needs advice on some specifications.':'I need advice from the FMRC team on some specifications.'}</span></label>`:''}
     ${field(prefix+'instructions','Additional instructions',data.instructions,'textarea',false,true)}
   </div>`;
   const specs = data => '<dl class="ap-summary">'+Object.entries({Product:data.name,Description:data.description,Quantity:data.quantity,Dimensions:data.dimensions,Material:data.material,Colors:data.colors,Finish:data.finish,Personalization:data.personalization,Instructions:data.instructions}).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||(['Personalization','Instructions'].includes(label)?'None':'To be discussed'))}</dd></div>`).join('')+'</dl>';
@@ -91,23 +91,23 @@
       })[progress] || 'Open Orders to verify full payment before starting production.';
       return ({
         completed:'Your custom order is complete. View your order for its payment and fulfillment history.',
-        payment_review:'FMRC is checking your payment. Please wait before making another payment.',
+        payment_review:'The FMRC team is checking your payment. Please wait before making another payment.',
         in_transit:'Track delivery in My Orders and confirm receipt when your product arrives.',
         ready:order.fulfillment_type==='pickup'?'Your product is ready for pickup. View My Orders for collection details.':'Your product is ready for shipping. Follow the delivery updates in My Orders.',
-        in_production:'FMRC is making your product. Follow its progress in My Orders.',
-        awaiting_production:'Your full payment is confirmed. FMRC will start production next.',
+        in_production:'The FMRC team is making your product. Follow its progress in My Orders.',
+        awaiting_production:'Your full payment is confirmed. The FMRC team will start production next.',
       })[progress] || 'Complete full payment in My Orders before production begins.';
     }
     const quote=job.quotations.find(q=>['sent','closing'].includes(q.state));
-    if(quote?.state==='closing') return admin?'Wait for payment reconciliation in Orders before revising the quotation or collecting payment.':'FMRC is verifying the previous checkout. Please wait before approving a replacement quotation.';
+    if(quote?.state==='closing') return admin?'Wait for payment reconciliation in Orders before revising the quotation or collecting payment.':'The FMRC team is verifying the previous checkout. Please wait before approving a replacement quotation.';
     if(quote?.state==='sent') {
-      if(Date.parse(quote.expires_at)<=Date.now()) return admin?'This quotation has expired. Review the specifications before sending a new version.':'Your quotation has expired. Ask FMRC for an updated quotation in Conversation.';
+      if(Date.parse(quote.expires_at)<=Date.now()) return admin?'This quotation has expired. Review the specifications before sending a new version.':'Your quotation has expired. Ask the FMRC team for an updated quotation in Conversation.';
       return admin?'The quotation has been sent. Await customer approval and full payment before production.':'Review the design, specifications and total, then approve your quotation and pay before it expires.';
     }
     if(['cancelled','declined'].includes(job.state)) return admin?'This custom request is closed. The appointment and product history remain available.':'This custom request is closed. Your appointment and product history remain available.';
     if(job.state==='awaiting_consultation') {
       const completed=String(appointment?.status).toLowerCase()==='completed';
-      return admin?(completed?'Record the consultation outcome and agreed specifications before preparing a quotation.':'Review the customer’s brief and complete the consultation before preparing a quotation.'):(completed?'FMRC will review the agreed specifications and prepare the next step.':'Attend your consultation to discuss the product with FMRC before receiving a quotation.');
+      return admin?(completed?'Record the consultation outcome and agreed specifications before preparing a quotation.':'Review the customer’s brief and complete the consultation before preparing a quotation.'):(completed?'The FMRC team will review the agreed specifications and prepare the next step.':'Attend your consultation to discuss the product with the FMRC team before receiving a quotation.');
     }
     return (admin?{
       draft:'The customer has saved a draft. No appointment time is reserved.',
@@ -116,15 +116,15 @@
       ready_for_quote:'Finalize the agreed specifications and prepare the customer’s quotation.',
     }:{
       draft:'Finish your product details and choose an available appointment time.',
-      follow_up:'Book a follow-up appointment to discuss the remaining details with FMRC.',
-      needs_information:'Send the requested details in Conversation so FMRC can continue reviewing your product.',
-      ready_for_quote:'FMRC is preparing your quotation from the agreed specifications.',
-    })[job.state] || (admin?'Review the product details and record the next step for the customer.':'FMRC is reviewing your product details. Updates will appear here.');
+      follow_up:'Book a follow-up appointment to discuss the remaining details with the FMRC team.',
+      needs_information:'Send the requested details in Conversation so the FMRC team can continue reviewing your product.',
+      ready_for_quote:'The FMRC team is preparing your quotation from the agreed specifications.',
+    })[job.state] || (admin?'Review the product details and record the next step for the customer.':'The FMRC team is reviewing your product details. Updates will appear here.');
   };
   const quotationHint = ctx => {
     if(ctx.admin&&ctx.job.discussed_at&&['ready_for_quote','quoted'].includes(ctx.job.state))return 'Prepare the quotation below using the agreed design, specifications and delivery details.';
     if(['needs_information','follow_up','cancelled','declined'].includes(ctx.job.state))return nextAction(ctx);
-    return ctx.admin?'Confirm the attended consultation and save its outcome as “Ready to prepare quotation” in Overview. Sent versions will appear here.':'Your quotation will appear here after FMRC reviews the consultation and final specifications.';
+    return ctx.admin?'Confirm the attended consultation and save its outcome as “Ready to prepare quotation” in Overview. Sent versions will appear here.':'Your quotation will appear here after the FMRC team reviews the consultation and final specifications.';
   };
 
   async function paint(ctx) {
@@ -161,7 +161,7 @@
           <fieldset data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${Object.entries({delivery_recipient_name:'Recipient name',delivery_contact_no:'Contact number',delivery_street:'Street / building',delivery_barangay:'Barangay',delivery_city:'City / municipality',delivery_province:'Province',delivery_postal_code:'Postal code'}).map(([n,l])=>field(n,l,current?.agreement.delivery?.[n])).join('')}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
           ${job.files.length?`<fieldset><legend>Design proofs included in the quotation</legend>${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
       </section>
-      <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">${admin?'Private conversation with the customer. Agree any changes before sending a revised quotation. Manage paid-order changes through the cancellation and refund process in Orders.':'Private conversation with FMRC. Ask questions and share design files here. Discuss changes before payment; for a paid order, request help in My Orders.'}</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
+      <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">${admin?'Private conversation with the customer. Agree any changes before sending a revised quotation. Manage paid-order changes through the cancellation and refund process in Orders.':'Private conversation with the FMRC team. Ask questions and share design files here. Discuss changes before payment; for a paid order, request help in My Orders.'}</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC team')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
     for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true'); }
     const serviceSelect=root.querySelector('[data-ap-form="requirements"] [name="service_id"]');
@@ -180,7 +180,7 @@
       if(event.target.name==='appointment_date')void followUpTimes(event.target.form);
     };
     for(const form of root.querySelectorAll('[data-ap-form="accept"]')) {
-      try {const policy=(await request('/commerce/policy')).data;if(!policy)throw Error('Transaction terms are not yet published. Contact FMRC before ordering.');
+      try {const policy=(await request('/commerce/policy')).data;if(!policy)throw Error('Transaction terms are not yet published. Contact the FMRC team before ordering.');
         form.dataset.policy=policy.version;form.querySelector('[data-ap-policy]').innerHTML=`<details><summary>Read Transaction Terms and Refund Policy</summary><div class="ap-terms">${esc(policy.terms_text)}\n\n${esc(policy.refund_text)}</div></details><label class="ap-check"><input type="checkbox" name="policy_accepted" required><span>I accept these Transaction Terms and Refund Policy.</span></label>`;
         form.querySelector('[type=submit]').disabled=false;
       }catch(e){form.querySelector('[data-ap-policy]').textContent=e.message;}
@@ -213,6 +213,7 @@
       const suffix=action==='accept'?`quotations/${form.dataset.quote}/accept`:action==='quotation'?'quotations':action;
       const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}/${suffix}`,{method,body:body instanceof FormData?body:JSON.stringify(body)});
       if(action==='outcome'&&(!result.data||result.data.state!==values.outcome||Number(result.data.revision)<=Number(body.expected_revision)||(values.outcome==='ready_for_quote'&&!result.data.discussed_at)))throw Error('The consultation outcome could not be confirmed. Your entries are still here. Use Refresh to check the saved status before trying again.');
+      if(action==='outcome'&&values.outcome==='ready_for_quote')ctx.tab=1;
       ctx.job=result.data;ctx.latest=null;await paint(ctx);rootFocus(ctx.root);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));
       await popup(result.message||'Changes saved.','Saved');
       if(result.order_id)location.href=link('/home-page/?orders=1&order_id='+result.order_id);
@@ -248,8 +249,8 @@
     let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const overview=host.querySelector('.appointment-overview');if(overview)overview.after(root);else host.append(root);}
     if(appointment.custom_product){root.closest('.appointment-modal')?.classList.add('has-custom-product');mount(root,appointment.custom_product,appointment,false);return;}
     root.closest('.appointment-modal')?.classList.remove('has-custom-product');if(!appointment.custom_products_available){root.remove();return;}
-    root.className='ap-panel';root.innerHTML=`<div class="ap-head"><div><h3>${icon}Have a custom-product idea?</h3><p>Add a request to discuss with FMRC. Your appointment schedule stays the same.</p></div></div>${button('Request a Custom Product','data-ap-opt-in',true)}`;
-    root.querySelector('[data-ap-opt-in]').onclick=async()=>{try{const available=await loadAvailability();if(!available.services.length)return popup('FMRC is not accepting new custom-product consultations at the moment. Your appointment is unchanged.');root.innerHTML=`<h3>Custom Product</h3><form>${briefFields({},available.services)}<div class="ap-actions"><button type="submit" class="ap-btn">Add to Appointment</button></div></form>`;
+    root.className='ap-panel';root.innerHTML=`<div class="ap-head"><div><h3>${icon}Have a custom-product idea?</h3><p>Add a request to discuss with the FMRC team. Your appointment schedule stays the same.</p></div></div>${button('Request a Custom Product','data-ap-opt-in',true)}`;
+    root.querySelector('[data-ap-opt-in]').onclick=async()=>{try{const available=await loadAvailability();if(!available.services.length)return popup('The FMRC team is not accepting new custom-product consultations at the moment. Your appointment is unchanged.');root.innerHTML=`<h3>Custom Product</h3><form>${briefFields({},available.services)}<div class="ap-actions"><button type="submit" class="ap-btn">Add to Appointment</button></div></form>`;
       const form=root.querySelector('form');form.oninput=()=>form.dataset.dirty='true';let busy=false;const key=uid();form.onsubmit=async e=>{e.preventDefault();if(busy||!form.reportValidity())return;busy=true;form.querySelector('button').disabled=true;try{const result=await request(`/customer/appointments/${appointment.id}/product`,{method:'POST',body:JSON.stringify({requirements:requirements(form),request_key:key})});form.dataset.dirty='false';mount(root,result.data,appointment,false);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));}catch(error){await popup(error.message);}finally{busy=false;if(form.isConnected)form.querySelector('button').disabled=false;}};
     }catch(e){await popup(e.message);}};
   }
@@ -305,7 +306,7 @@
   async function bookingInit() {
     const anchor=document.getElementById('aptDesc')?.closest('.apt-input-group');if(!anchor)return;
     try{const available=await loadAvailability();if(!available.enabled)return;
-      const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">FMRC is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services)}</form><p class="ap-help">Use the Design Files field above to attach private designs. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
+      const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">The FMRC team is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services)}</form><p class="ap-help">Use the Design Files field above to attach private designs. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
       anchor.before(section);section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=()=>{section.querySelector('[data-ap-brief]').hidden=!checkbox.checked;document.getElementById('aptSaveCustomDraft').hidden=!checkbox.checked;};
       section.querySelector('[data-ap-sign-in]')?.addEventListener('click',signIn);
       const save=document.createElement('button');save.type='button';save.className='apt-btn apt-btn-back';save.id='aptSaveCustomDraft';save.textContent='Save Draft';save.hidden=true;save.onclick=saveDraft;document.getElementById('btnGoToStep3')?.before(save);
@@ -334,7 +335,7 @@
     const c=order.custom_product;if(!c||c.unavailable){box.textContent='Custom-product details are temporarily unavailable. Please try again.';return;}
     const actions=c.available_actions||{},g=c.agreement;const path=admin?`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/appointments.html?appointment_id=${c.appointment_id}`:`/home-page/?my_appointments=1&appointment_id=${c.appointment_id}`;
     const role=window.AdminSession?.getUserInfo?.()?.role || (window.AdminSession?.isStaff||location.pathname.includes('staff-page')?'staff':'admin');
-    box.innerHTML=`<header class="ap-head"><div><h3>${icon}Custom Product</h3><p>${esc(c.appointment_reference)} · ${esc(c.service)} · Quotation ${c.quotation_version}</p></div><span class="ap-badge">${esc(c.stage)}</span></header><a class="ap-file" href="${esc(link(path))}">Open Appointment</a>${c.collection_pending?`<p class="ap-help">${admin?'The previous payment is being reconciled. Wait for confirmed checkout expiry before collecting another payment.':'FMRC is verifying the previous payment. Please wait before changing payment method or paying again.'}</p>`:''}<details><summary>Approved design and specifications</summary>${specs(g.specifications)}<p>${esc(g.design_notes)}</p><p><strong>Lead time:</strong> ${esc(g.lead_time)}</p><p><strong>Agreed total:</strong> ${money(g.total)} · shipping ${money(g.shipping_fee)}</p></details>
+    box.innerHTML=`<header class="ap-head"><div><h3>${icon}Custom Product</h3><p>${esc(c.appointment_reference)} · ${esc(c.service)} · Quotation ${c.quotation_version}</p></div><span class="ap-badge">${esc(c.stage)}</span></header><a class="ap-file" href="${esc(link(path))}">Open Appointment</a>${c.collection_pending?`<p class="ap-help">${admin?'The previous payment is being reconciled. Wait for confirmed checkout expiry before collecting another payment.':'The FMRC team is verifying the previous payment. Please wait before changing payment method or paying again.'}</p>`:''}<details><summary>Approved design and specifications</summary>${specs(g.specifications)}<p>${esc(g.design_notes)}</p><p><strong>Lead time:</strong> ${esc(g.lead_time)}</p><p><strong>Agreed total:</strong> ${money(g.total)} · shipping ${money(g.shipping_fee)}</p></details>
       ${admin?`<div class="ap-actions">${actions.start_production?button('Start Production','data-ap-production="start"'):''}${actions.mark_ready?button('Mark Ready','data-ap-production="ready"'):''}</div>
       ${actions.record_cash?`<form data-ap-order-form="cash_receipt"><h4>Full advance cash payment</h4><p class="ap-help">Record this only after receiving the full amount at FMRC. This is not cash on pickup or delivery.</p><div class="ap-grid">${field('amount','Amount received (₱)',g.total,'text',true)}${field('receipt_reference','Receipt reference','','text',true)}<label class="ap-check"><input type="checkbox" name="confirmed_received" required><span>I actually received the full quoted cash payment.</span></label></div><div class="ap-actions"><button class="ap-btn" type="submit">Record Cash Payment</button></div></form>`:''}
       ${actions.collect?`<form data-ap-order-form="collect"><div class="ap-grid">${field('pickup_code','Customer pickup code','','text',true)}</div><div class="ap-actions"><button class="ap-btn" type="submit">Confirm Collection</button></div></form>`:''}
@@ -352,7 +353,7 @@
   }
   window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,draftList,claimPanel,allowLeave,isDirty:dirty,append,newFiles,selected,isSigningIn:()=>signingIn,
     validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return form.reportValidity();},
-    review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">FMRC will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+specs(requirements(document.getElementById('aptCustomFields')));},
+    review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">The FMRC team will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+specs(requirements(document.getElementById('aptCustomFields')));},
     reset:()=>{bookingDraft=null;bookingKey=uid();uploaded.clear();document.getElementById('aptCustomFields')?.reset();document.querySelector('[data-ap-saved-files]')?.replaceChildren();document.querySelector('[data-ap-booking-review]')?.remove();const c=document.getElementById('aptCustomProduct');if(c){c.checked=false;c.dispatchEvent(new Event('change'));}},
     booked:()=>{sessionStorage.removeItem('fmrc-appointment-product-resume');void localFiles([]).catch(()=>{});},
   };

@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -535,16 +536,49 @@ class AppointmentController extends Controller
     public function customerIndex(Request $request): JsonResponse
     {
         abort_unless($request->user()?->role === 'customer', 403);
-        $items = Appointment::where('user_id', $request->user()->id)->orderByDesc('created_at')->orderByDesc('id')->get();
+        $deletionReady = Schema::hasColumn('appointments', 'customer_deleted_at');
+        $items = Appointment::where('user_id', $request->user()->id)
+            ->when($deletionReady, fn ($query) => $query->whereNull('customer_deleted_at'))
+            ->orderByDesc('created_at')->orderByDesc('id')->get();
 
-        return response()->json(['data' => $items->map(fn ($item) => $this->transformAppointment($item))]);
+        return response()->json(['data' => $items->map(fn ($item) => $this->customerPresentation($item, $deletionReady))])->header('Cache-Control', 'private, no-store');
     }
 
     public function customerShow(Request $request, Appointment $appointment): JsonResponse
     {
         $this->authorizeOwner($request, $appointment);
 
-        return response()->json(['data' => $this->transformAppointment($appointment)]);
+        return response()->json(['data' => $this->customerPresentation($appointment)])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function customerDestroy(Request $request, Appointment $appointment): JsonResponse
+    {
+        $this->authorizeOwner($request, $appointment);
+        abort_unless($request->user()->role === 'customer', 403);
+        abort_unless(Schema::hasColumn('appointments', 'customer_deleted_at'), 503, 'Appointment deletion is temporarily unavailable. Please try again shortly.');
+        DB::transaction(function () use ($request, $appointment) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->user_id === $request->user()->id, 404);
+            // Archived records originate only from completed meetings. Keep that
+            // internal lifecycle while removing this customer's list entry.
+            abort_unless(in_array($current->status, ['Completed', 'Cancelled', 'Archived'], true), 422, 'Only completed or cancelled appointments can be deleted.');
+            if (! $current->customer_deleted_at) {
+                DB::table('appointments')->where('id', $current->id)->update(['customer_deleted_at' => now()]);
+            }
+        });
+
+        return response()->json(['message' => 'Appointment deleted from My Appointments.'])->header('Cache-Control', 'private, no-store');
+    }
+
+    private function customerPresentation(Appointment $appointment, ?bool $deletionReady = null): array
+    {
+        $data = $this->transformAppointment($appointment);
+        $data['status'] = $appointment->status === 'Archived' ? 'Completed' : $appointment->status;
+        $data['can_delete'] = ($deletionReady ?? Schema::hasColumn('appointments', 'customer_deleted_at')) && in_array($data['status'], ['Completed', 'Cancelled'], true) && ! $appointment->getAttribute('customer_deleted_at');
+        $data['deleted_from_list'] = (bool) $appointment->getAttribute('customer_deleted_at');
+
+        return $data;
     }
 
     public function reschedule(Request $request, Appointment $appointment): JsonResponse

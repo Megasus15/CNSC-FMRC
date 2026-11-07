@@ -9,6 +9,31 @@ use Illuminate\Support\Facades\DB;
 
 class CustomerNotificationController extends Controller
 {
+    private function owned(Request $request)
+    {
+        abort_unless(Pwa::installed(), 503, 'Notifications are not available yet.');
+        $user = $request->user('sanctum');
+        abort_unless($user, 401);
+        abort_unless($user->role === 'customer', 403);
+
+        return DB::table('customer_notifications')->where('user_id', $user->id)->where('published_at', '<=', now());
+    }
+
+    public function destroy(Request $request, int $id)
+    {
+        abort_unless($this->owned($request)->where('id', $id)->delete(), 404, 'Notification not found.');
+
+        return response()->json(['message' => 'Notification deleted.'])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function clearAll(Request $request)
+    {
+        $data = $request->validate(['through' => 'required|integer|min:1']);
+        $count = $this->owned($request)->where('id', '<=', $data['through'])->delete();
+
+        return response()->json(['message' => 'Notifications deleted.', 'deleted_count' => $count])->header('Cache-Control', 'private, no-store');
+    }
+
     private function visible(Request $request)
     {
         abort_unless(Pwa::installed(), 503, 'Notifications are not available yet.');

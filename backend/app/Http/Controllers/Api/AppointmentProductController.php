@@ -240,7 +240,7 @@ class AppointmentProductController extends Controller
         Products::version($job, $r->input('expected_revision'));
         if ($v['outcome'] === 'ready_for_quote') {
             $meeting = Appointment::where('product_job_id', $job->id)->whereKey($v['discussed_appointment_id'] ?? $job->appointment_id)->firstOrFail();
-            abort_unless($meeting->status === 'Completed' && $meeting->appointment_starts_at && $meeting->appointment_starts_at->lte(now()), 422, 'Complete an attended consultation before confirming the product discussion.');
+            abort_unless($meeting->status === 'Completed', 422, 'Mark the attended consultation as Done before confirming the product discussion.');
         }
         if ($job->quotes()->whereIn('state', ['sent', 'accepted', 'closing'])->exists()) {
             $this->closeOffers($job, 'superseded');
@@ -250,7 +250,9 @@ class AppointmentProductController extends Controller
             Products::version($j, $r->input('expected_revision'));
             if ($v['outcome'] === 'ready_for_quote') {
                 $a = Appointment::where('product_job_id', $j->id)->whereKey($v['discussed_appointment_id'] ?? $j->appointment_id)->firstOrFail();
-                abort_unless($a->status === 'Completed' && $a->appointment_starts_at && $a->appointment_starts_at->lte(now()), 422, 'Complete an attended consultation before confirming the product discussion.');
+                // Mark as Done records the actual meeting outcome. An attended
+                // consultation can finish earlier than its reserved schedule.
+                abort_unless($a->status === 'Completed', 422, 'Mark the attended consultation as Done before confirming the product discussion.');
                 $j->fill(['discussed_appointment_id' => $a->id, 'discussed_at' => now(), 'discussed_by' => $r->user()->id]);
             }
             $j->fill(['state' => $v['outcome'], 'outcome_note' => $v['note']]);
@@ -277,7 +279,7 @@ class AppointmentProductController extends Controller
             abort_unless($j->state === 'follow_up', 422, 'FMRC has not requested a follow-up appointment.');
             $start = AppointmentScheduling::available($v['appointment_date'], $v['appointment_time']);
             $original = $j->appointment;
-            $copy = $original->replicate(['reference_no', 'qr_payload', 'meeting_platform', 'meeting_url', 'attachment_name', 'attachment_path']);
+            $copy = $original->replicate(['reference_no', 'qr_payload', 'meeting_platform', 'meeting_url', 'attachment_name', 'attachment_path', 'customer_deleted_at']);
             $copy->fill($v);
             $copy->forceFill(['status' => 'Scheduled', 'appointment_starts_at' => $start->utc(), 'product_job_id' => $j->id, 'schedule_version' => 0]);
             $copy->save();

@@ -48,6 +48,8 @@ Route::prefix('pwa')->middleware('throttle:60,1')->group(function () {
 Route::prefix('customer/notifications')->middleware('throttle:120,1')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
     Route::get('/unread-count', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'unread']);
+    Route::delete('/clear-all', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'clearAll']);
+    Route::delete('/{id}', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'destroy'])->whereNumber('id');
     Route::get('/{id}', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'show'])->whereNumber('id');
     Route::patch('/{id}/read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'read'])->whereNumber('id');
     Route::post('/mark-all-read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'readAll']);
@@ -213,6 +215,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
         Route::post('/customer/orders/{order}/custom-payment-method', [\App\Http\Controllers\Api\AppointmentProductOrderController::class, 'switchPayment']);
     });
     Route::get('/customer/appointments/{appointment}', [AppointmentController::class, 'customerShow']);
+    Route::delete('/customer/appointments/{appointment}', [AppointmentController::class, 'customerDestroy']);
     Route::post('/customer/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule']);
     Route::get('/customer/appointments/{appointment}/attachments/{file}', [AppointmentController::class, 'attachment'])->where('file','[0-9]+|legacy');
     Route::patch('/admin/appointments/{appointment}/meeting', [AppointmentController::class, 'updateMeeting']);

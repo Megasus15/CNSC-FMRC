@@ -104,7 +104,31 @@ Reload Customer, Admin and Staff pages. Continue the existing **AP-00054** rathe
 
 Local checks: 106 Laravel tests / 1,323 assertions (SQLite), the optional workflow browser suite including cached/stale response regression, the ordinary appointment and PWA browser suites, and Customer bell checks on all seven pages plus the Customer PWA at 320/390/768/1440 px. Customer bell checks cover hidden-zero/99+ counts, separate announcement read state, account-owned read receipts, exact appointment opening, retry, sign-out privacy, keyboard focus and reduced motion. Browser API/payment responses are fixtures. Production AP-00054 persistence, live charges/refunds, email delivery and courier events must be verified separately in the supervised Hostinger walkthrough.
 
-## Staging acceptance, before enabling production intake
+## Consultation readiness and customer deletion: assets 2026.1107.3
+
+AP-00054 revealed a conflicting check: **Mark as Done** accepted an attended consultation completed before its reserved date, but **Save Outcome** still rejected that same meeting until the reserved date. Both Admin and Staff now use the recorded **Completed** meeting and the explicit confirmation that product requirements were discussed. The original schedule stays unchanged; the discussion confirmation receives the server's current timestamp. Scheduled, cancelled and unconfirmed consultations still cannot qualify. A successful **Ready to prepare quotation** save opens Quotation automatically. Failed saves preserve the operator's entries and display **Action not completed**, never a green Success notification.
+
+Customers can delete an individual personal notification or use **Clear all**, with the existing confirmation popup. Deletion is account-owned, updates the unread count, preserves newer notifications received during confirmation, and leaves FMRC Announcements and appointment/order records intact. The bell stays hidden at zero and caps at 99+.
+
+**My Appointments** offers **Delete** only for completed or cancelled meetings. It removes the meeting from that customer's list. FMRC team records, private designs, discussions, accepted quotations, orders and payments remain available. Existing owned appointment deep links continue to open the retained history. Internal Archived status is presented to customers as Completed. New follow-up appointments do not inherit a deleted-list marker. Customer instructions and human role labels use **FMRC team**.
+
+Deploy this complete revision, including the new migration and all versioned canonical Customer/Admin/Staff HTML and shared assets. The quotation fix uses the existing schema. Customer appointment deletion adds one nullable timestamp; it needs this **specific new migration**. Ordinary appointment lists continue working if that migration is still pending, with Delete unavailable until it is applied.
+
+After deploying and taking a current database backup, run these in the official website's Hostinger Terminal:
+
+```sh
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend
+php artisan migrate --path=database/migrations/2026_11_07_000001_add_customer_appointment_deletion.php --force
+php artisan optimize:clear
+```
+
+Reload the operator page, open **AP-00054 → Overview → Record consultation outcome**, keep **Ready to prepare quotation**, select **AP-00054**, enter the agreed summary, confirm that the consultation took place, then click **Save Outcome**. If the consultation did take place and the appointment remains Completed, Quotation opens with **Preparing quotation** and its form. Reopen to verify persistence before sending the J&T delivery quotation. Do not recreate the appointment or manually edit database statuses.
+
+Local verification: 66 Laravel tests / 753 assertions cover ordinary/optional appointments, both operator roles, completed-early readiness, authenticated deletion, pending-schema behavior and retained linked orders. Three Chrome browser suites pass for ordinary appointments, optional quotations and the Customer bell; they cover rejected-save feedback, automatic Quotation selection, stale polling, delete confirmation/cancellation/failure, focus return, paginated deletion and newer notifications surviving Clear all. Both operator themes and Customer/PWA layouts are checked with isolated API fixtures. Live AP-00054 persistence, payments, email and courier delivery remain separate Hostinger walkthrough steps.
+
+Additional checks passed: 58 portal consistency tests / 746 assertions, 19 Customer/payment/worker tests, PHP/JavaScript syntax, CSS parsing and `git diff --check`. The separate Customer/Team PWA browser suite passed on an isolated rerun after a transient browser-target navigation error in its initial run. All 50 changed canonical HTML pages contain asset-version changes only.
+
+## Original staging acceptance checklist
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.
 
@@ -113,7 +137,7 @@ Use a staging origin and provider test mode. Confirm the ordinary guest and sign
 3. As a signed-in customer, book the existing appointment with the custom option. Save a draft, close it, and reopen it through My Appointments. Verify a draft reserves no slot and private designs remain available.
 4. Complete the ordinary booking. From the Services card, **Book a Consultation** should open this same flow with its service selected. Test later opt-in on an existing appointment. For a guest receipt, use the private email ownership link and the matching signed-in email.
 5. Admin and Staff both review the brief and exchange a private message/file. Request and book a follow-up; it must create a linked meeting for the same product job, respecting calendar conflicts.
-6. After an attended meeting, use the existing **Mark as Done** action. In Custom Product, record that requirements were discussed, resolve critical details, then send a quotation. A cancelled/no-show/future meeting cannot qualify.
+6. After an attended meeting, use the existing **Mark as Done** action. In Custom Product, record that requirements were discussed, resolve critical details, then send a quotation. A scheduled, cancelled or unattended meeting cannot qualify. A meeting actually held early can qualify once it is marked Done and its product discussion is explicitly confirmed; the reserved schedule remains unchanged.
 7. As the customer, review exact specifications, proofs, quantity, unit price, product subtotal, shipping, lead time and deadline. Approve the current transaction terms and quotation. Duplicate approval must reuse the linked Order.
 8. Test both collection paths on separate jobs: hosted online checkout and **full advance cash at FMRC**. Only record cash actually received, with its receipt reference. Online-to-cash switching must wait for explicit checkout expiry; unresolved/processing payments must block replacement collection.
 9. In Orders, verify **Start Production** is blocked before full payment. After confirmed payment, start production, then **Mark Ready**. Complete one pickup using the pickup code; complete a delivery using actual J&T handover and waybill, then customer receipt confirmation in My Orders. The agreed shipping fee must remain fixed even if the actual courier charge differs.

@@ -58,6 +58,48 @@ class AppointmentWorkflowTest extends TestCase
         return array_merge(['appointment_date' => '2026-11-04', 'appointment_time' => '10:00 - 11:00 AM', 'expected_date' => $item->appointment_date->format('Y-m-d'), 'expected_time' => $item->appointment_time, 'expected_version' => (int) $item->schedule_version], $extra);
     }
 
+    public function test_customers_delete_only_their_completed_or_cancelled_list_entries_and_team_history_remains(): void
+    {
+        $scheduled = $this->appointment();
+        $this->deleteJson('/api/customer/appointments/'.$scheduled->id)->assertUnprocessable();
+        foreach (['Completed', 'Cancelled', 'Archived'] as $status) {
+            $item = $this->appointment(['status' => $status, 'reference_no' => 'AP-DELETE-'.$status]);
+            $originalUpdated = $item->updated_at;
+            $this->getJson('/api/customer/appointments/'.$item->id)->assertJsonPath('data.can_delete', true)->assertJsonPath('data.status', $status === 'Archived' ? 'Completed' : $status);
+            $this->deleteJson('/api/customer/appointments/'.$item->id)->assertOk();
+            $this->deleteJson('/api/customer/appointments/'.$item->id)->assertOk();
+            $this->assertSame($status, $item->fresh()->status);
+            $this->assertTrue($originalUpdated->equalTo($item->fresh()->updated_at));
+            $this->assertNotNull($item->fresh()->customer_deleted_at);
+        }
+        $this->getJson('/api/customer/appointments')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $scheduled->id);
+        $this->assertDatabaseCount('appointments', 4);
+        $this->operator();
+        $this->getJson('/api/appointments')->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_customer_appointment_deletion_checks_current_status_and_ownership_on_the_server(): void
+    {
+        $item = $this->appointment(['status' => 'Completed']);
+        Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
+        $this->deleteJson('/api/customer/appointments/'.$item->id)->assertNotFound();
+        $this->operator();
+        $this->deleteJson('/api/customer/appointments/'.$item->id)->assertForbidden();
+        Sanctum::actingAs($this->owner);
+        $item->update(['status' => 'Scheduled']);
+        $this->deleteJson('/api/customer/appointments/'.$item->id)->assertUnprocessable();
+        $this->assertNull($item->fresh()->customer_deleted_at);
+    }
+
+    public function test_pending_customer_deletion_migration_keeps_ordinary_appointments_available(): void
+    {
+        $item = $this->appointment(['status' => 'Completed']);
+        \Illuminate\Support\Facades\Schema::table('appointments', fn ($table) => $table->dropColumn('customer_deleted_at'));
+        $this->getJson('/api/customer/appointments')->assertOk()->assertJsonPath('data.0.can_delete', false);
+        $this->deleteJson('/api/customer/appointments/'.$item->id)->assertStatus(503);
+        $this->assertDatabaseHas('appointments', ['id' => $item->id, 'status' => 'Completed']);
+    }
+
     private function operator(string $role = 'admin'): User
     {
         $user = User::factory()->create(['role' => 'admin']);

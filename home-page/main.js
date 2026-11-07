@@ -6734,7 +6734,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (daySettings.is_blocked) {
         cell.classList.add("disabled", "unavailable");
         cell.disabled = true;
-        cell.setAttribute("title", "Unavailable: Blocked by admin");
+        cell.setAttribute("title", "Unavailable: blocked by the FMRC team");
         cell.setAttribute(
           "aria-label",
           `${spokenDate}, unavailable: blocked by administrator`,
@@ -6824,7 +6824,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isBooked || isBlocked) {
         button.classList.add("disabled");
         button.title = isBlocked
-          ? "Unavailable: blocked by admin"
+          ? "Unavailable: blocked by the FMRC team"
           : "Unavailable: already booked";
         button.setAttribute("aria-disabled", "true");
         button.setAttribute(
@@ -8267,32 +8267,32 @@ document.addEventListener("DOMContentLoaded", () => {
       return {
         label: "Payment confirmed",
         note: order?.cancel_refund_due
-          ? "FMRC still needs to return your payment. Your refund will appear here once staff record it."
+          ? "FMRC still needs to return your payment. Your refund will appear here once the FMRC team records it."
           : order?.cancel_pending
-            ? "FMRC has received your payment. Staff are reviewing your cancellation request. No further payment is needed."
+            ? "FMRC has received your payment. The FMRC team is reviewing your cancellation request. No further payment is needed."
             : isOrderAwaitingApproval(order)
-              ? "FMRC has received your payment. Your order is awaiting staff approval before preparation begins. No further payment is needed."
+              ? "FMRC has received your payment. Your order is awaiting approval from the FMRC team before preparation begins. No further payment is needed."
               : "FMRC has received your payment. No further payment is needed.",
       };
     }
     if (order?.payment_under_review && canSubmitOrderPayment(order)) {
       return {
         label: "Payment under review",
-        note: "FMRC is checking the reference you submitted. Do not send another payment while it is being reviewed.",
+        note: "The FMRC team is checking the reference you submitted. Do not send another payment while it is being reviewed.",
       };
     }
     if (["cancelled", "rejected"].includes(String(order?.lifecycle_status || "").toLowerCase())) {
       return {
         label: "Payment not confirmed",
         note: order?.cancel_refund_due
-          ? "FMRC will check whether your payment arrived and return any money received."
+          ? "The FMRC team will check whether your payment arrived and return any money received."
           : "This order is closed. Do not send a payment.",
       };
     }
     if (String(order?.lifecycle_status || "").toLowerCase() === "completed" || order?.customer_stage === "completed") {
       return {
         label: "Payment not confirmed",
-        note: "This order is completed. Contact FMRC if its payment record needs to be checked.",
+        note: "This order is completed. Contact the FMRC team if its payment record needs to be checked.",
       };
     }
     if (order?.payment_is_automated) return {
@@ -8306,7 +8306,7 @@ document.addEventListener("DOMContentLoaded", () => {
       label: isGcash ? "Awaiting payment" : "Awaiting payment collection",
       note: isGcash
         ? "Submit your GCash reference after sending payment so FMRC can verify it."
-        : "Staff will confirm the payment after it has been collected.",
+        : "The FMRC team will confirm the payment after it has been collected.",
     };
   };
 
@@ -9557,8 +9557,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const RETURN_ACTOR_LABELS = {
         customer: "You",
-        admin: "Store admin",
-        staff: "Store staff",
+        admin: "FMRC team",
+        staff: "FMRC team",
         system: "System",
       };
 
@@ -10499,7 +10499,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (msLeft <= 0) {
           return {
             overdue: true,
-            text: `This payment was due ${label}. You can still send it — FMRC will confirm it once the money arrives.`,
+            text: `This payment was due ${label}. You can still send it — The FMRC team will confirm it once the money arrives.`,
           };
         }
 
@@ -10604,8 +10604,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${
                   underReview
                     ? `<div class="cgc-review">
-                        <p class="cgc-review-title"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> FMRC is checking your payment</p>
-                        <p class="cgc-review-body">Reference <strong>${escapeHtml(claimedRef || "submitted")}</strong>${order?.payment_submitted_at ? ` &bull; sent ${escapeHtml(formatOrderDate(order.payment_submitted_at))}` : ""}. Staff will confirm your payment and approve your order before preparing it for ${order?.is_pickup ? "pickup" : "delivery"}. Do not pay again while it is being checked. Wrong reference? Submit the correct one below.</p>
+                        <p class="cgc-review-title"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> The FMRC team is checking your payment</p>
+                        <p class="cgc-review-body">Reference <strong>${escapeHtml(claimedRef || "submitted")}</strong>${order?.payment_submitted_at ? ` &bull; sent ${escapeHtml(formatOrderDate(order.payment_submitted_at))}` : ""}. The FMRC team will confirm your payment and approve your order before preparing it for ${order?.is_pickup ? "pickup" : "delivery"}. Do not pay again while it is being checked. Wrong reference? Submit the correct one below.</p>
                         ${order?.payment_proof_url ? `<a class="cgc-review-proof" href="${escapeHtml(order.payment_proof_url)}" target="_blank" rel="noopener">View the screenshot you sent</a>` : ""}
                       </div>`
                     : deadline
@@ -10629,7 +10629,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   <input id="cgcProofInput" class="cgc-file-input" type="file" accept="image/png,image/jpeg,image/webp" />
                   <p class="cgc-file-name" data-gcash-file-name hidden></p>
                 </div>
-                <p class="cgc-honesty">Submitting this tells FMRC you have sent the money. It does not mark the order paid — staff confirm it against the FMRC GCash account first.</p>
+                <p class="cgc-honesty">Submitting this tells FMRC you have sent the money. It does not mark the order paid — the FMRC team confirms it against the FMRC GCash account first.</p>
               </div>
               <div class="customer-rating-actions ux-dlg__foot is-confirm">
                 <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-gcash-close>Close</button>
@@ -10966,7 +10966,7 @@ document.addEventListener("DOMContentLoaded", () => {
         void refreshOrders(false, true);
 
         await showCustomerPopup(
-          `Thank you! FMRC will verify your reference against their GCash account. Once payment is confirmed and staff approve your order, it can be prepared for ${updated.is_pickup ? "pickup" : "delivery"}. Do not send another payment while your reference is being checked.`,
+          `Thank you! The FMRC team will verify your reference against their GCash account. Once payment is confirmed and the FMRC team approves your order, it can be prepared for ${updated.is_pickup ? "pickup" : "delivery"}. Do not send another payment while your reference is being checked.`,
           { title: "Reference number received" },
         );
       };
@@ -11037,7 +11037,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   <p class="ccx-subtitle">${
                     immediate
                       ? "Select a reason to cancel your order instantly."
-                      : "Select a reason. FMRC staff review the request before the order is cancelled."
+                      : "Select a reason. The FMRC team reviews the request before the order is cancelled."
                   }</p>
                 </div>
               </div>
@@ -11048,14 +11048,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     : `<p class="ccx-notice"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> ${
                         paymentConfirmed
                           ? order.payment_is_automated
-                            ? `FMRC has confirmed your ${escapeHtml(amountText)} payment, so staff must review the cancellation. Any approved refund is processed through PayMongo. QR Ph refunds may require a secure claim form in Payment details.`
-                            : `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
-                          : `FMRC is holding a payment for this order, so this sends a request instead of cancelling straight away. Staff check the ${escapeHtml(amountText)} before closing the order.`
+                            ? `FMRC has confirmed your ${escapeHtml(amountText)} payment, so the FMRC team must review the cancellation. Any approved refund is processed through PayMongo. QR Ph refunds may require a secure claim form in Payment details.`
+                            : `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If the FMRC team approves it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
+                          : `The FMRC team is holding a payment for this order, so this sends a request instead of cancelling straight away. The FMRC team checks the ${escapeHtml(amountText)} before closing the order.`
                       }</p>`
                 }
                 ${
                   immediate && paymentClaimed
-                    ? `<p class="ccx-notice"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> You have told FMRC you sent ${escapeHtml(amountText)} but staff have not confirmed it yet. Cancelling now still closes the order — if the money did arrive, staff will send it back.</p>`
+                    ? `<p class="ccx-notice"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> You have told FMRC you sent ${escapeHtml(amountText)} but the FMRC team has not confirmed it yet. Cancelling now still closes the order — if the money did arrive, the FMRC team will send it back.</p>`
                     : ""
                 }
                 <div class="ccx-reasons" role="radiogroup" aria-labelledby="cancelReasonTitle">
@@ -11335,16 +11335,16 @@ document.addEventListener("DOMContentLoaded", () => {
             paymentConfirmed
               ? result.order?.payment_is_automated
                 ? "Your order is cancelled. Check Payment details for refund progress and any secure PayMongo claim form."
-                : "Your order is cancelled. FMRC will send your payment back by hand, so allow a few working days."
+                : "Your order is cancelled. The FMRC team will send your payment back by hand, so allow a few working days."
               : refundDue
-                ? "Your order is cancelled. If your GCash payment reached FMRC, staff will check the account and send it back — allow a few working days."
+                ? "Your order is cancelled. If your GCash payment reached FMRC, the FMRC team will check the account and send it back — allow a few working days."
                 : "Your order is cancelled and the stock has been returned. Nothing is owed on it.",
             { title: "Order cancelled" },
           );
         } else {
           await showCustomerPopup(
             result.message ||
-              "Cancellation request sent. FMRC staff will review it shortly.",
+              "Cancellation request sent. The FMRC team will review it shortly.",
             { title: "Request sent" },
           );
         }
@@ -11552,9 +11552,9 @@ document.addEventListener("DOMContentLoaded", () => {
                        order.cancel_refund_due && order.payment_is_confirmed
                          ? order.payment_is_automated
                            ? " Your refund is awaiting processing. Check Payment details for its status."
-                           : " FMRC still owes you a refund — staff send it back to the GCash number you paid from."
+                           : " FMRC still owes you a refund — the FMRC team sends it back to the GCash number you paid from."
                          : order.cancel_refund_due
-                           ? " If your GCash payment reached FMRC, staff will send it back to the number you paid from."
+                           ? " If your GCash payment reached FMRC, the FMRC team will send it back to the number you paid from."
                            : order.payment_is_refunded
                              ? ` Refunded${order.payment_refunded_label ? ` on ${escapeHtml(order.payment_refunded_label)}` : ""}${order.payment_refund_reference ? ` (ref. ${escapeHtml(order.payment_refund_reference)})` : ""}.`
                              : ""
@@ -11563,7 +11563,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 : order.cancel_pending
                   ? `<p class="customer-order-cancel-band is-pending">
                        <i class="fa-regular fa-hourglass-half" aria-hidden="true"></i>
-                       <span><strong>Cancellation requested${order.cancel_requested_label ? ` ${escapeHtml(order.cancel_requested_label)}` : ""}.</strong> FMRC staff are reviewing it${order.cancel_reason_label ? ` — ${escapeHtml(order.cancel_reason_label)}` : ""}.</span>
+                       <span><strong>Cancellation requested${order.cancel_requested_label ? ` ${escapeHtml(order.cancel_requested_label)}` : ""}.</strong> The FMRC team is reviewing it${order.cancel_reason_label ? ` — ${escapeHtml(order.cancel_reason_label)}` : ""}.</span>
                      </p>`
                   : String(order.cancel_state || "") === "declined"
                     ? `<p class="customer-order-cancel-band is-declined">
@@ -11719,19 +11719,19 @@ document.addEventListener("DOMContentLoaded", () => {
                  detail.cancel_refund_due && detail.payment_is_confirmed
                    ? detail.payment_is_automated
                      ? "Your refund is awaiting PayMongo processing. Check Payment details for its status and any secure claim form."
-                     : detail.payment_method === "Cash at FMRC" ? "FMRC will arrange the cash refund. Admin records it after the money has actually been returned to you." : "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
+                     : detail.payment_method === "Cash at FMRC" ? "The FMRC team will arrange the cash refund and update this record after returning the money to you." : "FMRC still has to send your payment back. The FMRC team transfers it by hand to the GCash number you paid from, so allow a few working days."
                    : detail.cancel_refund_due
-                     ? "You sent a GCash reference that nobody had verified yet. Staff will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."
+                     ? "You sent a GCash reference that nobody had verified yet. The FMRC team will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."
                      : detail.payment_is_refunded
                        ? `Refunded${detail.payment_refunded_label ? ` on ${escapeHtml(detail.payment_refunded_label)}` : ""}${detail.payment_refund_reference ? ` — ref. ${escapeHtml(detail.payment_refund_reference)}` : ""}.`
                        : "No payment was collected on this order, so there is nothing to refund."
                }</p>
-               ${detail.cancel_decision_note ? `<p class="customer-order-cancel-detail-note">Staff note: ${escapeHtml(detail.cancel_decision_note)}</p>` : ""}
+               ${detail.cancel_decision_note ? `<p class="customer-order-cancel-detail-note">FMRC team note: ${escapeHtml(detail.cancel_decision_note)}</p>` : ""}
              </div>`
           : detail.cancel_pending
             ? `<div class="customer-order-cancel-detail is-pending">
                  <h4><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Cancellation requested</h4>
-                 <p>${detail.cancel_requested_label ? `Sent ${escapeHtml(detail.cancel_requested_label)}.` : ""}${detail.cancel_reason_label ? ` Reason: ${escapeHtml(detail.cancel_reason_label)}.` : ""} FMRC staff review it before the order is cancelled — the order carries on as normal until they decide.</p>
+                 <p>${detail.cancel_requested_label ? `Sent ${escapeHtml(detail.cancel_requested_label)}.` : ""}${detail.cancel_reason_label ? ` Reason: ${escapeHtml(detail.cancel_reason_label)}.` : ""} The FMRC team reviews it before the order is cancelled — the order carries on as normal until they decide.</p>
                  ${detail.cancel_reason_detail ? `<p class="customer-order-cancel-detail-note">&ldquo;${escapeHtml(detail.cancel_reason_detail)}&rdquo;</p>` : ""}
                </div>`
             : String(detail.cancel_state || "") === "declined"

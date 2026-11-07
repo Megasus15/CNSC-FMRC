@@ -188,6 +188,30 @@ class PwaTest extends TestCase
         $this->patchJson('/api/customer/notifications/'.$private.'/read?scope=personal', [], $this->headers($other))->assertNotFound();
     }
 
+    public function test_customer_notification_deletion_is_owned_and_does_not_clear_public_news_or_newer_updates(): void
+    {
+        $owner = User::factory()->create(['role' => 'customer']);
+        $other = User::factory()->create(['role' => 'customer']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $service = app(PwaNotifications::class);
+        $public = $service->publish(null, 'announcement', 'News', 'Public', '/home-page/', 'delete:public');
+        $first = $service->publish($owner->id, 'appointment', 'Appointment', 'Private', '/home-page/', 'delete:first');
+        $second = $service->publish($owner->id, 'order', 'Order', 'Private', '/home-page/', 'delete:second');
+        $foreign = $service->publish($other->id, 'order', 'Other order', 'Private', '/home-page/', 'delete:foreign');
+        $this->deleteJson('/api/customer/notifications/'.$first, [], $this->headers())->assertUnauthorized();
+        $this->deleteJson('/api/customer/notifications/'.$first, [], $this->headers($other))->assertNotFound();
+        $this->deleteJson('/api/customer/notifications/'.$first, [], $this->headers($admin))->assertForbidden();
+        $this->deleteJson('/api/customer/notifications/'.$public, [], $this->headers($owner))->assertNotFound();
+        $this->patchJson('/api/customer/notifications/'.$first.'/read', [], $this->headers($owner))->assertOk();
+        $this->deleteJson('/api/customer/notifications/'.$first, [], $this->headers($owner))->assertOk();
+        $this->assertDatabaseMissing('customer_notification_reads', ['notification_id' => $first]);
+        $newer = $service->publish($owner->id, 'appointment', 'New update', 'Private', '/home-page/', 'delete:newer');
+        $this->deleteJson('/api/customer/notifications/clear-all', ['through' => $second], $this->headers($owner))->assertOk()->assertJsonPath('deleted_count', 1);
+        foreach ([$public, $foreign, $newer] as $id) $this->assertDatabaseHas('customer_notifications', ['id' => $id]);
+        $this->getJson('/api/customer/notifications/unread-count?scope=personal', $this->headers($owner))->assertJsonPath('unread_count', 1);
+        $this->getJson('/api/customer/notifications/'.$first, $this->headers($owner))->assertNotFound();
+    }
+
     public function test_real_business_changes_create_owned_alerts_and_rolled_back_changes_leave_no_alerts(): void
     {
         $user = User::factory()->create(['role' => 'customer']);

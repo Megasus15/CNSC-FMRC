@@ -4129,11 +4129,13 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const shouldUseAdminSuccessNotification = (message, options = {}) => {
+    if (options.type === 'error' || options.variant === 'error') return false;
     if (options.type === "success" || options.variant === "success") return true;
     if (options.type === "modal" || options.variant === "modal") return false;
 
     const title = String(options.title || "").trim();
     const text = String(message || "").trim();
+    if (/\b(?:not (?:completed|confirmed|saved|sent|deleted)|could not|before (?:confirming|sending)|complete an attended)\b/i.test(`${title} ${text}`)) return false;
     if (NON_SUCCESS_PATTERN.test(title) || NON_SUCCESS_PATTERN.test(text)) {
       return false;
     }

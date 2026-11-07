@@ -187,6 +187,44 @@ class OptionalAppointmentProductsTest extends TestCase
         }
     }
 
+    public function test_an_attended_meeting_completed_early_can_proceed_to_quotation_for_both_operator_roles(): void
+    {
+        foreach ([$this->admin, $this->staff] as $i => $operator) {
+            Sanctum::actingAs($this->customer);
+            $created = $this->postJson('/api/appointments', $this->booking(['appointment_time' => $i ? '10:00 - 11:00 AM' : '9:00 - 10:00 AM']))->assertCreated();
+            $j = AppointmentProductJob::findOrFail($created->json('data.custom_product.id'));
+            $originalSchedule = $j->appointment->appointment_starts_at;
+            $this->assertTrue($originalSchedule->isFuture());
+            Sanctum::actingAs($operator);
+            $outcome = ['outcome' => 'ready_for_quote', 'note' => 'Consultation held early; final specifications agreed.', 'discussion_confirmed' => true, 'expected_revision' => 0];
+            $path = '/api/admin/appointment-products/'.$j->id;
+            $this->postJson($path.'/outcome', $outcome)->assertUnprocessable();
+            $this->patchJson('/api/appointments/'.$j->appointment_id.'/complete')->assertOk();
+            $this->postJson($path.'/outcome', array_replace($outcome, ['discussion_confirmed' => false]))->assertUnprocessable();
+            $saved = $this->postJson($path.'/outcome', $outcome)->assertOk()->assertJsonPath('data.state', 'ready_for_quote')->assertJsonPath('data.stage', 'Preparing quotation')->json('data');
+            $this->assertNotNull($saved['discussed_at']);
+            $this->postJson($path.'/quotations', ['request_key' => (string) Str::uuid(), 'expected_revision' => $saved['revision'], 'specifications' => $this->brief(), 'unit_price' => 200, 'shipping_fee' => 0, 'fulfillment_type' => 'pickup', 'lead_time' => 'Five working days', 'design_notes' => 'Approved final design.'])
+                ->assertOk()->assertJsonPath('data.state', 'quoted');
+            $this->assertTrue($originalSchedule->equalTo($j->appointment->fresh()->appointment_starts_at));
+        }
+    }
+
+    public function test_customer_deleting_a_completed_meeting_preserves_the_linked_agreement_and_order(): void
+    {
+        $j = $this->booked();
+        $q = $this->quote($j);
+        $o = $this->accept($j, $q);
+        Sanctum::actingAs($this->customer);
+        $this->deleteJson('/api/customer/appointments/'.$j->appointment_id)->assertOk();
+        $this->getJson('/api/customer/appointments')->assertJsonCount(0, 'data');
+        $this->getJson('/api/customer/appointments/'.$j->appointment_id)->assertOk()->assertJsonPath('data.deleted_from_list', true)->assertJsonPath('data.custom_product.id', $j->id);
+        $this->assertSame('Completed', $j->appointment->fresh()->status);
+        $this->assertSame('accepted', $q->fresh()->state);
+        $this->assertSame($q->id, $o->fresh()->appointment_product_quote_id);
+        $this->assertDatabaseCount('appointment_product_jobs', 1);
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     public function test_eligible_service_changes_keep_the_meeting_and_require_a_new_product_review(): void
     {
         $j = $this->booked();

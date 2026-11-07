@@ -23,7 +23,7 @@ test('optional appointment products preserve drafts and share the existing modal
   let draftWrites=0,failDraft=true;
   const brief={service_id:2,name:'Personal desk sign',description:'Maroon personalized sign',quantity:5,dimensions:'20 x 8 cm',material:'PLA',colors:'Maroon',finish:'Matte',instructions:'',needs_advice:false};
   let job={id:71,appointment_id:51,service_id:2,service_name:'3D Printing',request_key:'fixture-key',state:'awaiting_consultation',stage:'Awaiting consultation',revision:0,requirements:brief,booking:{},files:[],messages:[],quotations:[],orders:[],follow_ups:[],activity:[],next_action:'Attend your consultation.'};
-  let quoteWrites=0,cashWrites=0,cacheProgress=false;
+  let quoteWrites=0,cashWrites=0,cacheProgress=false,rejectOutcome=false;
   const agreementFixture={specifications:brief,service:'3D Printing',design_notes:'Approved desk sign layout',proof_file_ids:[],unit_price:200,product_subtotal:1000,shipping_fee:0,total:1000,lead_time:'Five working days',fulfillment_type:'pickup',delivery:{}};
   const customOrder={id:81,order_no:'ORD-000081',customer_name:'Maria Santos',customer_contact:'09171234567',product_name:brief.name,quantity:5,total_amount:1000,total_label:'PHP 1,000.00',subtotal_amount:1000,shipping_fee:0,payment_method:'Cash at FMRC',payment_status:'pending',lifecycle_status:'incoming',customer_stage:'to_pay',fulfillment_type:'pickup',order_type:'custom',items:[{product_name:brief.name,quantity:5,unit_price:200,line_total:1000}],tracking_events:[],created_at:new Date().toISOString(),custom_product:{job_id:71,appointment_id:51,appointment_reference:'AP-00051',service:'3D Printing',quotation_version:1,stage:'Awaiting payment',revision:0,cash_entries:[],available_actions:{record_cash:true},agreement:agreementFixture}};
   const server=http.createServer(async(req,res)=>{
@@ -37,7 +37,7 @@ test('optional appointment products preserve drafts and share the existing modal
       const read=async()=>{let body='';for await(const chunk of req)body+=chunk;return JSON.parse(body||'{}');};
       const copy=()=>JSON.parse(JSON.stringify(job));
       if(route==='/api/commerce/policy')return json({data:{version:'fixture-policy',terms_text:'Production begins after full payment.',refund_text:'Contact FMRC for assistance.'}});
-      if(route==='/api/admin/appointment-products/71/outcome'){const input=await read();assert(input.discussion_confirmed);job.discussed_at=new Date().toISOString();job.state='ready_for_quote';job.stage='Preparing quotation';job.revision++;return json({message:'Consultation outcome saved.',data:copy()});}
+      if(route==='/api/admin/appointment-products/71/outcome'){const input=await read();if(rejectOutcome)return json({message:'Complete an attended consultation before confirming the product discussion.'},422);assert(input.discussion_confirmed);job.discussed_at=new Date().toISOString();job.state='ready_for_quote';job.stage='Preparing quotation';job.revision++;return json({message:'Consultation outcome saved.',data:copy()});}
       if(route==='/api/admin/appointment-products/71/quotations'){const input=await read();assert.equal(Number(input.expected_revision),job.revision);quoteWrites++;job.revision++;job.state='quoted';job.stage='Quotation ready';job.quotations=[{id:91,version:1,state:'sent',agreement:{...agreementFixture,specifications:input.specifications},sent_at:new Date().toISOString(),expires_at:new Date(Date.now()+604800000).toISOString()}];return json({message:'Quotation sent.',data:copy()});}
       if(route==='/api/customer/appointment-products/71/quotations/91/accept'){const input=await read();assert(input.policy_accepted&&input.specifications_accepted);job.revision++;job.quotations[0].state='accepted';job.orders=[{id:81,order_no:'ORD-000081',lifecycle_status:'incoming',payment_status:'pending',payment_method:'Cash at FMRC',total:1000}];return json({message:'Quotation approved.',order_id:81,data:copy()});}
       if(route==='/api/admin/orders/81/custom-product'){const input=await read(),c=customOrder.custom_product;assert.equal(Number(input.expected_revision),c.revision);c.revision++;
@@ -197,10 +197,10 @@ test('optional appointment products preserve drafts and share the existing modal
         ['awaiting_consultation','Completed',admin?/Record the consultation outcome/:/agreed specifications/],
         ['needs_information','Completed',admin?/customer.*reply/:/Send the requested details/],
         ['follow_up','Completed',admin?/with the customer/:/Book a follow-up/],
-        ['ready_for_quote','Completed',admin?/prepare the customer/:/FMRC is preparing/],
+        ['ready_for_quote','Completed',admin?/prepare the customer/:/FMRC team is preparing/],
         ['quoted','Completed',admin?/Await customer approval/:/approve your quotation/],
-        ['expired','Completed',admin?/sending a new version/:/Ask FMRC/],
-        ['in_production','Completed',admin?/Manage production in Orders/:/FMRC is making/],
+        ['expired','Completed',admin?/sending a new version/:/Ask the FMRC team/],
+        ['in_production','Completed',admin?/Manage production in Orders/:/FMRC team is making/],
         ['in_transit','Completed',admin?/customer.*receipt confirmation/:/confirm receipt/],
         ['completed','Completed',admin?/This custom order is complete/:/Your custom order is complete/],
       ];
@@ -243,8 +243,15 @@ test('optional appointment products preserve drafts and share the existing modal
     cacheProgress=true;
     await navigate('/admin-page/appointments.html');await until(`!!document.querySelector('[data-view-id]')`);await run(`document.querySelector('[data-view-id]').click()`);await until(`!!document.querySelector('[data-ap-form="outcome"]')`);await audienceCopy(true);
     await run(`fetch(location.origin+'/api/admin/appointment-products/71',{headers:{Authorization:'Bearer fixture-admin'}}).then(r=>r.json())`);
+    rejectOutcome=true;
+    await run(`(()=>{const f=document.querySelector('[data-ap-form="outcome"]');f.elements.note.value='Design discussed in the completed meeting';f.elements.discussion_confirmed.checked=true;f.requestSubmit();})()`);
+    await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Action not completed'`);
+    assert.equal(await run(`!!document.querySelector('.admin-success-notification')`),false,'an attended-consultation error must never show Success');
+    assert.equal(await run(`document.querySelector('[data-ap-form="outcome"]').elements.note.value`),'Design discussed in the completed meeting');
+    await run(`document.getElementById('adminSystemPopupOk').click()`);rejectOutcome=false;
     await run(`(()=>{const f=document.querySelector('[data-ap-form="outcome"]');f.elements.note.value='Design discussed in the completed meeting';f.elements.discussion_confirmed.checked=true;f.requestSubmit();})()`);
     await until(`!!document.querySelector('[data-ap-form="quotation"]')`);await run(`document.getElementById('adminSystemPopupOk')?.click()`);await pause(6500);
+    assert.equal(await run(`document.querySelector('[data-ap-tab="1"]').getAttribute('aria-selected')`),'true','successful readiness opens Quotation');
     assert.equal(await run(`!!document.querySelector('[data-ap-form="quotation"]')`),true,'a successful outcome must not be replaced by cached appointment progress');
     assert.equal(await run(`document.querySelector('.ap-head .ap-badge').textContent`),'Preparing quotation');
     assert.match(await run(`document.querySelector('[data-ap-pane="1"]').textContent`),/Prepare the quotation below/);
