@@ -8246,6 +8246,22 @@ document.addEventListener("DOMContentLoaded", () => {
     String(order?.customer_stage || "").toLowerCase() !== "completed" &&
     Boolean(order?.awaiting_customer_payment || order?.payment_under_review);
 
+  // Lists and opened details lead to the same payment dialog and server checks.
+  // This only opens the existing flow; provider confirmation still decides paid state.
+  const renderOrderPaymentAction = (order) => {
+    const orderId = Number(order?.id);
+    if (!Number.isSafeInteger(orderId) || orderId < 1) return '';
+    if (order?.payment_is_automated) {
+      const pending = !isOrderPaymentConfirmed(order) && !isOrderPaymentRefunded(order)
+        && !order.cancel_pending && !order.custom_product?.collection_pending
+        && !['cancelled', 'rejected', 'completed'].includes(String(order.lifecycle_status || '').toLowerCase());
+      return `<button type="button" class="customer-order-pay-btn" data-gateway-order="${orderId}">${pending ? 'Pay online' : 'Payment details'}</button>`;
+    }
+    if (!canSubmitOrderPayment(order)) return '';
+    if (order.awaiting_customer_payment) return `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? ' is-overdue' : ''}" data-order-pay="${orderId}">Pay Now</button>`;
+    return order.payment_under_review ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${orderId}">Payment under review</button>` : '';
+  };
+
   const resolveOrderPaymentNotice = (order) => {
     if (isOrderPaymentRefunded(order)) {
       return {
@@ -11519,18 +11535,11 @@ document.addEventListener("DOMContentLoaded", () => {
               // GCash placed before the money was sent. `awaiting_customer_payment`
               // and `payment_under_review` are the server's own read of the
               // payment row, so the button never contradicts what staff see.
-              const acceptsPayment = canSubmitOrderPayment(order);
               const paymentNotice = resolveOrderPaymentNotice(order);
               const paymentNoticeHtml = isOrderPaymentConfirmed(order) || isOrderPaymentRefunded(order) || order.payment_under_review
                 ? `<p class="customer-order-meta"><strong>${escapeHtml(paymentNotice.label)}.</strong>${isOrderAwaitingApproval(order) || order.payment_under_review || isOrderPaymentRefunded(order) ? ` ${escapeHtml(paymentNotice.note)}` : ""}</p>`
                 : "";
-              const payActionsHtml = order.payment_is_automated
-                ? `<button type="button" class="customer-order-pay-btn" data-gateway-order="${escapeHtml(order.id)}">${order.payment_is_confirmed || order.payment_is_refunded ? "Payment details" : "View payment"}</button>`
-                : acceptsPayment && order.awaiting_customer_payment
-                ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}">Pay Now</button>`
-                : acceptsPayment && order.payment_under_review
-                  ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}">Payment under review</button>`
-                  : "";
+              const payActionsHtml = renderOrderPaymentAction(order);
 
               // Cancellation. `can_request_cancel` and `cancel_is_immediate` are
               // the server's own read of the same rule the API enforces, so the
@@ -11688,8 +11697,8 @@ document.addEventListener("DOMContentLoaded", () => {
           ["Refund reference", detail.payment_refund_reference],
         ];
         const paymentDetailHtml = `
-          <div class="customer-order-detail-fulfillment">
-            <h4>Payment status</h4>
+          <div class="customer-order-detail-fulfillment customer-order-detail-payment">
+            <div class="customer-order-section-head"><h4>Payment status</h4>${renderOrderPaymentAction(detail)}</div>
             <dl class="customer-order-fulfillment-grid">${paymentRows
               .filter(([, value]) => String(value || "").trim())
               .map(([label, value]) => `<div class="customer-order-fulfillment-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd></div>`)
@@ -11697,6 +11706,21 @@ document.addEventListener("DOMContentLoaded", () => {
             <p class="customer-order-logistics-note">${escapeHtml(paymentNotice.note)}</p>
           </div>
         `;
+        const acceptedPolicy = detail.accepted_policy;
+        const acceptedPolicyHtml = acceptedPolicy ? `
+          <section class="customer-order-detail-fulfillment customer-order-policy" aria-label="Accepted transaction policy">
+            <div class="customer-order-policy-heading">
+              <span class="customer-order-policy-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+              <div><h4>Accepted transaction policy</h4><p>${acceptedPolicy.accepted_at_label ? 'Accepted '+escapeHtml(acceptedPolicy.accepted_at_label)+'.' : 'Review the policies accepted for this order.'}</p></div>
+            </div>
+            <div class="customer-order-policy-links">${[
+              ['transaction-terms', 'Transaction Terms'], ['refund-policy', 'Refund Policy'],
+            ].map(([page, label]) => {
+              const path = '/products-page/'+page+'.html?version='+encodeURIComponent(acceptedPolicy.version)+'#'+page;
+              return `<a class="customer-order-policy-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(window.FMRCApp?.url(path)||path)}">${label}<svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8M8 4H4v12h12v-4"/></svg></a>`;
+            }).join('')}</div>
+          </section>
+        ` : '';
 
         // The same three-way band the card shows, restated here because the
         // detail modal is where a customer goes to find out what happened to a
@@ -11869,7 +11893,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           ${cancelDetailHtml}
           ${paymentDetailHtml}
-          ${detail.accepted_policy ? `<div class="customer-order-detail-fulfillment"><h4>Accepted transaction policy</h4><p>Accepted ${escapeHtml(detail.accepted_policy.accepted_at_label || '')}.</p><a class="checkout-policy-link" target="_blank" rel="noopener noreferrer" href="/products-page/refund-policy.html?version=${encodeURIComponent(detail.accepted_policy.version)}#refund-policy">View the accepted Refund Policy and Transaction Terms</a></div>` : ''}
+          ${acceptedPolicyHtml}
 
           <div class="customer-order-detail-items">
             <h4>Items (${detailItems.length || 1})</h4>
@@ -12577,9 +12601,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 1600);
       });
 
+      document.addEventListener("close", (event) => {
+        if (event.target.matches?.("dialog.fmrc-gateway-dialog") &&
+            overlay.classList.contains("show") && detailModal?.classList.contains("show")) {
+          detailContent?.querySelector("[data-gateway-order]")?.focus({ preventScroll: true });
+        }
+      }, true);
+
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || !overlay.classList.contains("show"))
           return;
+        // The native payment dialog owns Escape while it is above this drawer.
+        if (document.querySelector("dialog.fmrc-gateway-dialog[open]")) return;
         // The Buy Again picker sits on top of the drawer and closes itself.
         if (document.querySelector(".customer-buy-again-overlay.show")) return;
         if (customerOrderImageLightbox?.classList.contains("show-modal")) {

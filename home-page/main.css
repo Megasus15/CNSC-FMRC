@@ -9130,6 +9130,22 @@ body.sidebar-open {
   font-weight: 800;
 }
 
+/* Order payment and accepted documents share the compact Customer card rhythm. */
+.customer-order-section-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.customer-order-section-head .customer-order-pay-btn { margin:0; min-height:40px; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:600; }
+.customer-order-policy { display:grid; gap:14px; }
+.customer-order-policy-heading { display:flex; align-items:center; gap:12px; min-width:0; }
+.customer-order-policy-heading > div { min-width:0; }
+.customer-order-policy-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex:0 0 36px; border-radius:8px; color:var(--customer-wine,#6b202b); background:rgba(107,32,43,.07); }
+.customer-order-policy-heading p { margin:5px 0 0; color:var(--customer-ink-muted,#716770); font-size:12px; font-weight:500; line-height:1.6; overflow-wrap:anywhere; }
+.customer-order-policy-links { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.customer-order-policy-links .customer-order-policy-link { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; max-width:100%; box-sizing:border-box; padding:9px 13px; border:1px solid var(--customer-wine,#6b202b); border-radius:8px; color:var(--customer-wine,#6b202b); background:var(--customer-paper,#fdfaf6); font:600 12px/1.5 "Montserrat",sans-serif; text-decoration:none; white-space:nowrap; transition:background-color 120ms ease,color 120ms ease,border-color 120ms ease; }
+.customer-order-policy-link svg { flex:0 0 14px; }
+.customer-order-policy-links .customer-order-policy-link:is(:hover,:active) { background:var(--customer-wine,#6b202b); color:#fff; }
+.customer-order-policy-link:focus-visible,.customer-order-section-head .customer-order-pay-btn:focus-visible { outline:2px solid var(--customer-wine,#6b202b); outline-offset:3px; }
+@media (max-width:480px) { .customer-order-policy-links .customer-order-policy-link { flex:1 1 170px; } }
+@media (prefers-reduced-motion:reduce) { .customer-order-policy-link { transition:none!important; } }
+
 .customer-order-fulfillment-mode {
   margin: 7px 0 0;
   color: var(--customer-wine);
@@ -20895,6 +20911,7 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
    Header close buttons, image previews and rating stars keep their own shapes. */
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
+  .customer-order-section-head .customer-order-pay-btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,
@@ -21030,6 +21047,7 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card :i
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
+  .customer-order-section-head .customer-order-pay-btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,
@@ -21054,6 +21072,7 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
+  .customer-order-section-head .customer-order-pay-btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,

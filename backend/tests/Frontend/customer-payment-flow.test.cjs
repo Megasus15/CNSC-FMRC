@@ -94,7 +94,7 @@ function harness(initial = order()) {
     tabs: [], panels: [],
   });
   vm.runInContext(`${helpers}\n${statuses}\n${payPanel}\n${refresh}\nObject.assign(globalThis, {
-    canSubmitOrderPayment, resolveOrderPaymentNotice, resolveOrderStatusMeta,
+    canSubmitOrderPayment, renderOrderPaymentAction, resolveOrderPaymentNotice, resolveOrderStatusMeta,
     isOrderAwaitingApproval, openGcashPayPanel, wireGcashPayPanel, refreshOrders,
   });`, context);
   const wire = () => context.wireGcashPayPanel(overlay, initial, (value) => resolved.push(value));
@@ -161,6 +161,22 @@ test('provider payments reject stale manual pay flags and prevent duplicate paym
   assert.equal(ui.resolveOrderPaymentNotice(automated).label, 'Payment with provider');
   assert.equal(ui.resolveOrderStatusMeta(automated).label, 'Payment with provider');
   assert.match(ui.resolveOrderPaymentNotice(automated).note, /Do not send a separate manual payment/);
+});
+
+test('regular and appointment custom orders share the same hosted payment entry point', () => {
+  const { context: ui } = harness();
+  for (const order_type of ['regular', 'custom']) {
+    const online = order({id:102,order_type,payment_is_automated:true,custom_product:order_type==='custom'?{collection_pending:false}:null});
+    const action = ui.renderOrderPaymentAction(online);
+    assert.match(action, /data-gateway-order="102"[^>]*>Pay online/);
+    assert.doesNotMatch(action, /data-order-pay=/, 'Hosted orders never enter the legacy reference submission flow');
+    for (const state of [{...online,payment_status:'paid',payment_is_confirmed:true}, {...online,payment_status:'refunded'}, {...online,lifecycle_status:'cancelled'}, {...online,cancel_pending:true}, {...online,custom_product:{collection_pending:true}}]) {
+      const result = ui.renderOrderPaymentAction(state);
+      assert.match(result, />Payment details</);
+      assert.doesNotMatch(result, />Pay online</);
+    }
+  }
+  assert.equal(ui.renderOrderPaymentAction(order({payment_method:'Cash at FMRC',awaiting_customer_payment:false})), '');
 });
 
 test('GCash panel displays and copies the payment amount, falling back for older payloads', () => {

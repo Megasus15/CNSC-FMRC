@@ -158,6 +158,26 @@ No new migration, SQL, feature flag or cron change is required for this update. 
 
 Local checks: 91 Laravel tests / 1,201 assertions cover optional appointments, server-side number validation for both roles, cached/retryable province and Metro Manila lookups, and portal consistency. Another 24 PWA tests / 236 assertions verify canonical and Customer/Team routes. Five frontend/style checks and both appointment Chrome suites passed with isolated API fixtures. Browser coverage includes number entry/paste, stale location responses, keyboard search, loading failure/retry, saved delivery hydration, failed-send preservation and idempotent retry, pickup/delivery fee switching, both operator themes and 320/390/768/1440 px layouts. Screenshot review verified the search icon, text, chevron and dropdown positions; Customer Refresh retains the selected appointment/tab/expanded terms. Live AP-00054, payment and courier verification still follows the user's deployment.
 
+## Order payment and accepted policy: assets 2026.1107.6
+
+The shared Customer My Orders list and opened Order details now expose the same **Pay online** action for unpaid hosted-payment orders, including appointment custom products. It opens the existing QR Ph / GCash payment dialog and authenticated payment-status/payment-checkout endpoints. Paid, refunded, closed and collection-review records use **Payment details** instead. Server checks still control checkout availability, accepted-quotation validity, price, payment-method switching and production eligibility.
+
+The accepted-policy card has a compact document icon, acceptance date and separate **Transaction Terms** and **Refund Policy** links. Both open the version accepted for that Order in a new tab and retain Customer PWA scope. Spacing, type, hover/focus and phone wrapping are scoped to this card. The payment action uses the existing maroon Orders button recipe.
+
+Deploy the changed canonical HTML, `home-page/main.js` and `home-page/main.css` together. All seven Customer page consumers use asset version **2026.1107.6**, including the shared policy pages; the Customer PWA serves these canonical files. This repair requires **no migration, SQL, cron or feature-flag change**. The existing gateway script and signed payment backend are reused.
+
+Resume the existing live **AP-00054 → ORD-000102** after deployment:
+
+1. Sign in as the owning customer. Open My Orders → **ORD-000102**, or its existing order notification. In **Payment status**, choose **Pay online**. **Pay at FMRC** changes collection to full advance cash and is a separate option.
+2. In the secure payment dialog, select **Continue to payment QR**. Check the provider's Order total against the approved quotation; the recorded walkthrough total is **₱160**, with **₱150 product + ₱10 delivery**. The server's current accepted Order remains authoritative.
+3. On PayMongo's hosted checkout, scan its QR Ph QR with a supported banking or e-wallet app and authorize the payment. Complete payment only once. If the provider has already received it, use **Check payment** while verification catches up.
+4. The provider return page opens the same payment dialog. A redirect alone leaves payment unconfirmed. Signed provider confirmation or reconciliation updates payment status and My Orders automatically; reopening the existing order retrieves its current state.
+5. Once the customer sees **Payment confirmed** and the operator sees **Paid — Awaiting Production**, continue in Admin/Staff Orders using **Start Production**. Quotation acceptance alone never unlocks production. Then continue the existing readiness → physical J&T handover/waybill → customer receipt walkthrough.
+
+Local verification is recorded separately from this live walkthrough. Browser/API fixtures do not prove live merchant access, payment or courier delivery. [PayMongo's checkout lifecycle](https://docs.paymongo.com/docs/payment-channels-key-concepts) documents hosted checkout and verified confirmation; this repair does not introduce a manual reference or receipt-upload payment path.
+
+Local checks: **181 Laravel tests / 2,177 assertions**, **32 frontend tests**, JavaScript syntax, CSS parsing and the new Chrome payment suite passed. The API sequence covers a ₱150 custom product plus ₱10 shipping, repeated acceptance/checkout, server-calculated price, ownership checks, one signed provider receipt despite duplicate webhooks, live-view payload updates and production blocked until payment. The browser uses isolated provider responses to check Home, Services, Products and Customer PWA entry/return routes, 320/390/768/1440 px policy layouts, accepted-version links, shared maroon actions, keyboard focus/Escape, reduced motion, failed checks/checkout, duplicate clicks, safe hosted navigation and automatic confirmed-payment refresh. Returning from checkout alone stays unpaid. No Hostinger payment or order was changed by these tests.
+
 ## Original staging acceptance checklist
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.

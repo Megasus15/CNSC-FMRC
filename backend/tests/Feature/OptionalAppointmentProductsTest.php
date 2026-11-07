@@ -562,16 +562,58 @@ return Http::response(['data' => $s]);
     {
         config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_test_fixture', 'payments.paymongo.webhook_secret' => 'fixture-hook', 'payments.paymongo.checkout_method' => 'qrph']);
         $j = $this->booked();
-        $q = $this->quote($j);
+        $q = $this->quote($j, ['specifications' => ['name' => 'Cup', 'quantity' => 3] + $this->brief(), 'unit_price' => 50, 'fulfillment_type' => 'delivery', 'shipping_fee' => 10, 'delivery_eligible' => true, 'delivery' => $this->destination()]);
         $o = $this->accept($j, $q, 'online');
+        // Lost acceptance responses reuse the same agreement/order before collection.
+        $this->assertSame($o->id, $this->accept($j, $q, 'online')->id);
+        $this->assertEquals(160, $o->total);
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('status', 'pending')->assertJsonPath('retry_allowed', true);
         Http::preventStrayRequests();
-        Http::fake(['api.paymongo.com/v2/checkout_sessions' => Http::response(['data' => ['id' => 'cs_optional', 'attributes' => ['checkout_url' => 'https://checkout.paymongo.com/fixture', 'livemode' => false]]]), 'api.paymongo.com/v1/checkout_sessions/*' => Http::response(['data' => ['id' => 'cs_optional', 'attributes' => ['status' => 'active', 'livemode' => false, 'payments' => []]]])]);
-        $this->postJson('/api/customer/orders/'.$o->id.'/payment-checkout')->assertOk();
-        $this->postJson('/api/customer/orders/'.$o->id.'/payment-checkout')->assertOk();
+        $session = ['id' => 'cs_optional', 'attributes' => ['status' => 'active', 'livemode' => false, 'payments' => []]];
+        Http::fake(['api.paymongo.com/v2/checkout_sessions' => Http::response(['data' => ['id' => 'cs_optional', 'attributes' => ['checkout_url' => 'https://checkout.paymongo.com/fixture', 'livemode' => false]]]), 'api.paymongo.com/v1/checkout_sessions/*' => function () use ($o, &$session) {
+            $session['attributes']['metadata'] = ['attempt_token' => DB::table('payment_attempts')->sole()->token, 'payment_id' => (string) $o->payment->id, 'order_id' => (string) $o->id];
+            return Http::response(['data' => $session]);
+        }]);
+        for ($i = 0; $i < 2; $i++) {
+            $response = $this->postJson('/api/customer/orders/'.$o->id.'/payment-checkout', ['app_context' => 'customer', 'amount' => 1])->assertOk();
+            $this->assertSame('https://checkout.paymongo.com/fixture', $response->json('checkout_url'), 'Checkout '.$i.': '.$response->getContent());
+        }
+        $creates = Http::recorded(fn ($request) => $request->method() === 'POST');
+        $this->assertCount(1, $creates);
+        $attributes = $creates->first()[0]['data']['attributes'];
+        $this->assertSame(16000, $attributes['line_items'][0]['amount']);
+        $this->assertSame(['qrph'], $attributes['payment_method_types']);
+        $this->assertSame((string) $o->id, $attributes['metadata']['order_id']);
+        $this->assertStringContainsString('/apps/customer/', $attributes['success_url']);
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('payment_attempts', 1);
         $this->assertSame('pending', $o->fresh()->payment->status);
         $this->act($o, 'start')->assertUnprocessable();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertForbidden();
+        $this->postJson('/api/customer/orders/'.$o->id.'/payment-checkout')->assertForbidden();
+
+        $attempt = DB::table('payment_attempts')->sole();
+        $session['attributes']['metadata'] = ['attempt_token' => $attempt->token, 'payment_id' => (string) $o->payment->id, 'order_id' => (string) $o->id];
+        $session['attributes']['payments'] = [['id' => 'pay_optional', 'attributes' => ['amount' => 16000, 'currency' => 'PHP', 'livemode' => false, 'status' => 'paid', 'source' => ['type' => 'qrph']]]];
+        $event = json_encode(['data' => ['id' => 'evt_optional_paid', 'attributes' => ['type' => 'checkout_session.payment.paid', 'livemode' => false, 'data' => $session]]]);
+        $timestamp = time();
+        $signature = hash_hmac('sha256', $timestamp.'.'.$event, 'fixture-hook');
+        for ($i = 0; $i < 2; $i++) {
+            $this->call('POST', '/api/webhooks/paymongo', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_PAYMONGO_SIGNATURE' => 't='.$timestamp.',te='.$signature], $event)->assertOk();
+        }
+        $this->assertDatabaseCount('payment_webhook_events', 1);
+        $this->assertDatabaseCount('payment_receipts', 1);
+        $this->assertDatabaseHas('payment_receipts', ['payment_id' => $o->payment->id, 'amount_centavos' => 16000, 'source_type' => 'qrph']);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('status', 'paid')->assertJsonPath('retry_allowed', false)->assertJsonPath('checkout_url', null);
+        $this->getJson('/api/customer/orders/'.$o->id)->assertOk()->assertJsonPath('data.payment_is_confirmed', true)->assertJsonPath('data.custom_product.stage', 'Paid — Awaiting Production');
+        $this->getJson('/api/customer/orders')->assertOk()->assertJsonPath('data.0.id', $o->id)->assertJsonPath('data.0.payment_is_confirmed', true);
+        $this->act($o, 'start')->assertOk();
+        $this->assertSame('in_production', $o->fresh()->appointment_production_status);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('payment_receipts', 1);
     }
 
     public function test_customer_and_operator_cannot_bypass_unpaid_or_unready_production_checks(): void

@@ -12,7 +12,7 @@ async function browserFixture(t, apiHandler = () => null) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     let route = decodeURIComponent(url.pathname);
-    const json = (data, status = 200) => { res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store'}); res.end(JSON.stringify(data)); };
+    const json = (data, status = 200, headers = {}) => { res.writeHead(status, {'Content-Type':'application/json','Cache-Control':'no-store',...headers}); res.end(JSON.stringify(data)); };
     try {
       if (route.startsWith('/api/')) {
         const role = String(req.headers.authorization || '').includes('staff') ? 'staff' : 'admin';
@@ -25,6 +25,7 @@ async function browserFixture(t, apiHandler = () => null) {
         return json({data:[],appointments:[],orders:[],promotions:[]});
       }
       route = route.replace(/^\/apps\/(?:team|customer)\//, '/');
+      if (route === '/home-page/') route = '/home-page/main.html';
       if (!path.extname(route)) route += '.html';
       const file = path.resolve(root, '.' + route);
       if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }
@@ -52,8 +53,9 @@ async function browserFixture(t, apiHandler = () => null) {
   const targets=await listTabs();
   const socket=new WebSocket(targets.find(target=>target.type==='page').webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
-  let seq=0;const pending=new Map();
-  socket.onmessage=({data})=>{const reply=JSON.parse(data),job=pending.get(reply.id);if(!job)return;pending.delete(reply.id);clearTimeout(job.timer);reply.error?job.reject(Error(JSON.stringify(reply.error))):job.resolve(reply.result);};
+  let seq=0;const pending=new Map(),listeners=new Map();
+  const on=(method,listener)=>{listeners.set(method,listener);};
+  socket.onmessage=({data})=>{const reply=JSON.parse(data);if(reply.method){listeners.get(reply.method)?.(reply.params);return;}const job=pending.get(reply.id);if(!job)return;pending.delete(reply.id);clearTimeout(job.timer);reply.error?job.reject(Error(JSON.stringify(reply.error))):job.resolve(reply.result);};
   const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},20000);pending.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}));});
   t.after(async()=>{socket.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
   for(const method of ['Page.enable','Runtime.enable','DOM.enable','CSS.enable','Network.enable'])await send(method);
@@ -63,6 +65,6 @@ async function browserFixture(t, apiHandler = () => null) {
   const until=async expression=>{for(let i=0;i<150;i++){try{if(await run(expression))return;}catch{}await pause(40);}throw Error('Timeout: '+expression+' '+JSON.stringify(await run('fixtureErrors')));};
   const go=async route=>{const previous=await run('performance.timeOrigin');await send('Page.navigate',{url:base+route});await until(`performance.timeOrigin!==${previous} && document.readyState==='complete'`);await pause(300);};
   const shot=async name=>{const data=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(data.data,'base64'));};
-  return {base,artifacts,send,run,until,go,shot,pause,listTabs};
+  return {base,artifacts,send,on,run,until,go,shot,pause,listTabs};
 }
 module.exports={browserFixture,chrome,root};
