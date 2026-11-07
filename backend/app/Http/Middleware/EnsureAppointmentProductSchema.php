@@ -11,6 +11,9 @@ class EnsureAppointmentProductSchema
     {
         abort_unless(AppointmentProducts::installed(), 503, 'Custom-product consultations are temporarily unavailable. Please try again shortly.');
 
-        return $next($request);
+        $response = $next($request);
+        $response->headers->set('Cache-Control', 'private, no-store');
+
+        return $response;
     }
 }

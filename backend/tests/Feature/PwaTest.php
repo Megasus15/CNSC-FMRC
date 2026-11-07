@@ -169,6 +169,25 @@ class PwaTest extends TestCase
         $this->getJson('/api/customer/notifications/'.$public, $this->headers())->assertNotFound();
     }
 
+    public function test_personal_bell_updates_and_read_counts_do_not_mix_with_public_announcements(): void
+    {
+        $owner = User::factory()->create(['role' => 'customer']);
+        $other = User::factory()->create(['role' => 'customer']);
+        $service = app(PwaNotifications::class);
+        $public = $service->publish(null, 'announcement', 'FMRC announcement', 'Public news', '/home-page/', 'bell:public');
+        $private = $service->publish($owner->id, 'appointment', 'Appointment updated', 'Meeting link ready', '/home-page/?my_appointments=1&appointment_id=54', 'bell:private');
+        $service->publish($other->id, 'appointment', 'Other account', 'Private', '/home-page/', 'bell:other');
+        $this->getJson('/api/customer/notifications?scope=personal', $this->headers())->assertUnauthorized();
+        $this->getJson('/api/customer/notifications?scope=personal', $this->headers($owner))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $private);
+        $this->getJson('/api/customer/notifications/unread-count?scope=personal', $this->headers($owner))->assertJsonPath('unread_count', 1);
+        $later = $service->publish($owner->id, 'order', 'New order update', 'Newer update', '/home-page/?orders=1&order_id=7', 'bell:later');
+        $this->postJson('/api/customer/notifications/mark-all-read?scope=personal', ['through' => $private], $this->headers($owner))->assertOk();
+        $this->getJson('/api/customer/notifications/unread-count?scope=personal', $this->headers($owner))->assertJsonPath('unread_count', 1);
+        $this->assertDatabaseMissing('customer_notification_reads', ['notification_id' => $public, 'user_id' => $owner->id]);
+        $this->assertDatabaseMissing('customer_notification_reads', ['notification_id' => $later, 'user_id' => $owner->id]);
+        $this->patchJson('/api/customer/notifications/'.$private.'/read?scope=personal', [], $this->headers($other))->assertNotFound();
+    }
+
     public function test_real_business_changes_create_owned_alerts_and_rolled_back_changes_leave_no_alerts(): void
     {
         $user = User::factory()->create(['role' => 'customer']);

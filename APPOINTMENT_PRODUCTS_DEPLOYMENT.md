@@ -83,6 +83,27 @@ Reload open Customer/Admin/Staff pages and continue **AP-00053**. Verify both se
 
 Local verification for this repair covers the actual Apache redirects and PWA aliases, Laravel routes and existing optional-workflow safeguards, ordinary appointment browser regression, service actions/details at 320/390/768/1440 px, role-specific guidance through receipt, both operator themes, reduced motion, keyboard/focus return, stale-link handling and unsaved forms during five-second refreshes. API/provider responses in browser tests are isolated fixtures; these results do not verify a production charge, refund, email or parcel. The final targeted Laravel run passed **101 tests / 1,241 assertions**; ordinary and optional appointment browser suites, the PWA browser/worker and customer regression group (**26 tests**), Services rendering checks, and the isolated Apache alias suite passed.
 
+## Customer bell and saved-outcome repair: assets 2026.1107.2
+
+The shared Customer bell now opens one dialog with separate **Notifications** and **FMRC Announcements** tabs on Home, About, Services, Products, Contact, Refund Policy and Transaction Terms, including Customer PWA routes. The badge is hidden at zero, displays 1–99, and caps at 99+. Personal updates use the existing authenticated notification records and server read receipts; public campaigns retain their separate announcement reader. Opening a personal update does not read an announcement. Appointment updates open the matching appointment; order/payment updates retain their existing Order destinations. A quiet ten-second refresh backs off after failures and stops reading while the page is hidden.
+
+Admin and Staff appointment reads now request fresh data and reject older custom-job revisions, preventing a background response from undoing a successfully saved outcome. The empty Quotation message follows the saved stage. Saving unchanged details no longer resets a recorded discussion or withdraws an existing quotation. A completed appointment still needs an attended consultation and a saved **Ready to prepare quotation** outcome before quoting; these checks remain on the server.
+
+The product-details service selector loads all currently eligible services, retaining the job's saved service if it is no longer enabled. A different enabled service requires confirmation and a new FMRC review, while keeping the same meeting, files and history. Unpaid offers are withdrawn through the existing checkout-reconciliation process; paid agreements remain protected. The final quotation uses the service from the reviewed brief.
+
+Deploy all changed files, including the new `home-page/customer-notifications.js` and `.css`, versioned Customer/portal HTML, and Laravel controller/service/middleware changes. Announcements use script version `7.0`; the new Customer bell and repaired appointment assets use `2026.1107.2`. This update needs no new migration, SQL, cron job or feature-flag change on the already migrated installation.
+
+After the GitHub Desktop push and Hostinger deployment, run in Hostinger Terminal:
+
+```sh
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend
+php artisan optimize:clear
+```
+
+Reload Customer, Admin and Staff pages. Continue the existing **AP-00054** rather than making a new booking. Check its saved outcome in Overview and verify **Preparing quotation** and the preparation form in Quotation. If the job still has no saved outcome, save the attended consultation outcome once and read it back after reopening; do not modify database fields or bypass the consultation check. Confirm a personal appointment notification opens AP-00054 and that opening the bell leaves FMRC Announcements separate. Continue with the agreed **J&T delivery** path once the quotation is ready.
+
+Local checks: 106 Laravel tests / 1,323 assertions (SQLite), the optional workflow browser suite including cached/stale response regression, the ordinary appointment and PWA browser suites, and Customer bell checks on all seven pages plus the Customer PWA at 320/390/768/1440 px. Customer bell checks cover hidden-zero/99+ counts, separate announcement read state, account-owned read receipts, exact appointment opening, retry, sign-out privacy, keyboard focus and reduced motion. Browser API/payment responses are fixtures. Production AP-00054 persistence, live charges/refunds, email delivery and courier events must be verified separately in the supervised Hostinger walkthrough.
+
 ## Staging acceptance, before enabling production intake
 
 Use a staging origin and provider test mode. Confirm the ordinary guest and signed-in appointment paths first, with the checkbox unselected.

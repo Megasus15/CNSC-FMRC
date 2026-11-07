@@ -90,13 +90,27 @@ final class AppointmentProducts
         ])->validate();
     }
 
-    public static function eligible(int $id): Service
+    public static function eligible(int $id, bool $lock = false): Service
     {
         self::requireIntake();
-        $service = Service::findOrFail($id);
+        $service = Service::whereKey($id)->when($lock, fn ($query) => $query->lockForUpdate())->firstOrFail();
         abort_unless($service->accepts_appointment_products, 422, 'Choose a service that accepts custom-product consultations.');
 
         return $service;
+    }
+
+    public static function sameBrief(array $first, array $second): bool
+    {
+        // Browser forms send empty optional fields that older saved briefs omit.
+        foreach (array_unique([...array_keys($first), ...array_keys($second)]) as $key) {
+            $a = $first[$key] ?? null;
+            $b = $second[$key] ?? null;
+            if ($key === 'needs_advice' ? (bool) $a !== (bool) $b : trim((string) $a) !== trim((string) $b)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static function version(AppointmentProductJob $job, mixed $revision): void

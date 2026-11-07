@@ -94,7 +94,7 @@ class PwaNotifications
             $owner = $model->user_id;
             $kind = 'appointment';
             $message = $created ? 'Your appointment request has been received.' : 'Your appointment details have been updated. Open My Appointments to review the current schedule and meeting information.';
-            $target .= '?my_appointments=1';
+            $target .= '?my_appointments=1&appointment_id='.$model->id;
         }
         if ($kind && $owner && User::whereKey($owner)->where('role', 'customer')->exists()) {
             $this->publish($owner, $kind, ucfirst($kind).' update', $message, $target,

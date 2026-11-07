@@ -1,0 +1,114 @@
+/* The customer bell retains the shared maroon header and cream dialog shell. */
+#announcementModal.fmrc-notification-center .fmrc-announcement-card {
+  width: min(100%, 860px);
+  max-width: 860px;
+  height: min(700px, calc(100dvh - 40px));
+  max-height: calc(100dvh - 40px);
+}
+#announcementModal.fmrc-notification-center [hidden] { display: none !important; }
+#announcementModal .fmrc-notifications-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f0e8c8;
+  background: #fdfaf6;
+}
+#announcementModal .fmrc-notifications-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #dfd2cc;
+  border-radius: 10px;
+  background: transparent;
+  color: #712330;
+  font: 700 13px/1.4 "Montserrat", sans-serif;
+  cursor: pointer;
+  transition: color 200ms, background-color 200ms, border-color 200ms;
+}
+#announcementModal .fmrc-notifications-tabs button:hover,
+#announcementModal .fmrc-notifications-tabs button[aria-selected="true"] {
+  border-color: #712330;
+  background: #712330;
+  color: #fffaf6;
+}
+#announcementModal .fmrc-notifications-tabs [data-count] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: #f1e3df;
+  color: #712330;
+  font-size: 10px;
+  line-height: 1;
+}
+#announcementModal .fmrc-notifications-tabs [aria-selected="true"] [data-count] {
+  background: rgba(255,255,255,.2);
+  color: #fffaf6;
+}
+#announcementModal #customerNotificationList { display: grid; gap: 10px; }
+#announcementModal .fmrc-notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e9dfd7;
+  border-radius: 12px;
+  background: #fdfaf6;
+  color: #4b5563;
+  font: 500 13px/1.6 "Montserrat", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 200ms, border-color 200ms;
+}
+#announcementModal .fmrc-notification-item.is-unread { background: #fbf2ed; border-color: #dfc6c6; }
+#announcementModal .fmrc-notification-item:hover { background: #f4e7e2; border-color: #a4656f; }
+#announcementModal .fmrc-notification-item:disabled { cursor: wait; opacity: .65; }
+#announcementModal .fmrc-notification-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #f2e3df;
+  color: #712330;
+}
+#announcementModal .fmrc-notification-icon svg { width: 22px; height: 22px; }
+#announcementModal .fmrc-notification-copy { display: grid; gap: 4px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#announcementModal .fmrc-notification-copy strong { color: #302d2c; font-size: 14px; font-weight: 700; }
+#announcementModal .fmrc-notification-meta { display: flex; align-items: center; gap: 8px; color: #712330; font-size: 11px; font-weight: 700; }
+#announcementModal .fmrc-notification-copy time { color: #787174; font-size: 11px; }
+#announcementModal .fmrc-notification-dot { width: 7px; height: 7px; border-radius: 50%; background: #800000; }
+#announcementModal .fmrc-notification-arrow { align-self: center; flex: 0 0 18px; color: #712330; }
+#announcementModal .fmrc-notification-arrow svg,
+#announcementModal .fmrc-notifications-footer svg { display: block; width: 18px; height: 18px; }
+#announcementModal .fmrc-notifications-empty { display: grid; justify-items: center; align-content: center; gap: 12px; min-height: 260px; padding: 24px; color: #6b6470; text-align: center; }
+#announcementModal .fmrc-notifications-empty > svg { width: 38px; height: 38px; color: #8d6870; }
+#announcementModal .fmrc-notifications-empty h3 { margin: 0; color: #712330; font: 700 19px/1.4 "Montserrat", sans-serif; }
+#announcementModal .fmrc-notifications-empty p { margin: 0; max-width: 430px; font: 500 13px/1.7 "Montserrat", sans-serif; }
+#announcementModal .fmrc-notifications-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%; }
+#announcementModal .fmrc-notifications-page { color: #787174; font: 600 11px/1.5 "Montserrat", sans-serif; }
+#announcementModal .fmrc-notifications-tabs button:focus-visible,
+#announcementModal .fmrc-notification-item:focus-visible { outline: none; border-color: #800000; box-shadow: 0 0 0 3px rgba(128,0,0,.1); }
+@media (max-width: 600px) {
+  #announcementModal.fmrc-notification-center .fmrc-announcement-card { height: calc(100dvh - 28px); max-height: calc(100dvh - 28px); }
+  #announcementModal .fmrc-notifications-tabs { padding: 14px 16px; gap: 6px; }
+  #announcementModal .fmrc-notifications-tabs button { flex: 1; min-width: 0; padding: 10px 8px; font-size: 11px; }
+  #announcementModal .fmrc-notification-item { padding: 14px 12px; gap: 10px; }
+  #announcementModal .fmrc-notification-icon { flex-basis: 34px; width: 34px; height: 34px; }
+  #announcementModal .fmrc-notification-copy strong { font-size: 13px; }
+  #announcementModal .fmrc-notifications-empty { min-height: 220px; padding: 16px 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #announcementModal .fmrc-notifications-tabs button,
+  #announcementModal .fmrc-notification-item { transition: none !important; }
+}

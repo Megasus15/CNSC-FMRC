@@ -27,7 +27,7 @@ function fixture(file) {
       String(url).includes('products') ? [{id:1,name:'Fixture product',code:'TEST'}] : []})});
   </script>
   <script src='/home-page/customer-announcements.js'></script>
-  ${admin ? "<script src='/admin-page/promotions.js'></script>" : ''}`;
+  ${admin ? "<script src='/admin-page/admin-common.js'></script><script src='/admin-page/promotions.js'></script>" : ''}`;
   return html.replace('</body>', setup + '</body>');
 }
 
@@ -63,7 +63,7 @@ test('announcement layout parity, footer fit, navigation and promotion scope in 
     } catch { res.statusCode = 404; res.end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = spawn(process.env.FMRC_CHROME, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${path.join(artifacts, 'profile')}`, 'about:blank'], { windowsHide:true, stdio:['ignore','ignore','pipe'] });
+  const browser = spawn(process.env.FMRC_CHROME, ['--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${path.join(artifacts, 'profile')}`, 'about:blank'], { windowsHide:true, stdio:['ignore','ignore','pipe'] });
   let cdp;
   try {
     const endpoint = await new Promise((resolve, reject) => {

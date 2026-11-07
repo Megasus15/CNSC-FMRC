@@ -505,11 +505,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fetchAppointments = async () => {
     const response = await fetch(`${API_BASE_URL}/appointments`, {
+      cache: 'no-store',
       headers: { Accept: "application/json",Authorization:"Bearer "+(window.AdminSession?.getToken()||"") },
     });
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
-    const appointments = Array.isArray(payload?.data) ? payload.data : [];
+    const appointments = (Array.isArray(payload?.data) ? payload.data : []).map(appointment => {
+      const saved = state.appointments.find(item => item.id === appointment.id)?.custom_product;
+      const incoming = appointment.custom_product;
+      // A list request may have started before an outcome or quotation was saved.
+      return saved && incoming?.id === saved.id && Number(incoming.revision) < Number(saved.revision)
+        ? { ...appointment, custom_product: saved } : appointment;
+    });
     // Sort: Completed appointments always at bottom, everything else newest-first
     state.appointments = [...appointments].sort((a, b) => {
       const aCompleted = String(a?.status || "").toLowerCase() === "completed" ? 1 : 0;

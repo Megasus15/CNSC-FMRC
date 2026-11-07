@@ -11,7 +11,7 @@
   const link = path => window.FMRCApp?.url(path) || path;
   const icon = '<span class="ap-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>';
   const contexts = new Map();
-  let availability, bookingDraft = null, bookingKey = uid(), uploaded = new Set(), draftBusy = false, signingIn = false;
+  let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), uploaded = new Set(), draftBusy = false, signingIn = false;
   const field = (name,label,value='',type='text',required=false,wide=false) => `<label class="ap-field${wide?' is-wide':''}"><span>${esc(label)}${required?' *':''}</span>${type==='textarea'?`<textarea name="${esc(name)}" maxlength="2000" ${required?'required':''}>${esc(value)}</textarea>`:`<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${type==='number'?'min="1" step="1"':''} ${required?'required':''} maxlength="${name.includes('name')?'160':'400'}">`}</label>`;
   const button = (text, attrs='', secondary=false) => `<button type="button" class="ap-btn${secondary?' is-secondary':''}" ${attrs}>${text}</button>`;
   const popup = async (message,title='Custom product') => {
@@ -23,12 +23,17 @@
   }) : window.showCustomerPopup(message,{title,isConfirm:true,okText:'Confirm',cancelText:'Keep editing'});
   const request = async (path, options={}) => {
     const form = options.body instanceof FormData;
-    let res;try {res = await fetch(api()+path,{...options,headers:{Accept:'application/json',...(token()?{Authorization:'Bearer '+token()}:{}),...(!form?{'Content-Type':'application/json'}:{}),...options.headers},signal:AbortSignal.timeout(60000)});}catch {throw Error('This action could not be confirmed. Your entries are still here. Check your connection and try again.');}
+    let res;try {res = await fetch(api()+path,{...options,cache:'no-store',headers:{Accept:'application/json',...(token()?{Authorization:'Bearer '+token()}:{}),...(!form?{'Content-Type':'application/json'}:{}),...options.headers},signal:AbortSignal.timeout(60000)});}catch {throw Error('This action could not be confirmed. Your entries are still here. Check your connection and try again.');}
     const json = await res.json().catch(()=>({}));
     if(!res.ok) { const error = new Error(Object.values(json.errors||{}).flat()[0] || json.message || 'This action could not be confirmed. Your entries are still here. Please try again.'); error.status=res.status; throw error; }
     return json;
   };
-  const loadAvailability = async () => availability ||= (await request('/appointment-products/availability')).data;
+  const loadAvailability = async () => {
+    if(availability&&Date.now()-availabilityLoadedAt<30000)return availability;
+    if(!availabilityPending)availabilityPending=request('/appointment-products/availability').then(result=>{availability=result.data;availabilityLoadedAt=Date.now();return availability;}).finally(()=>availabilityPending=null);
+    return availabilityPending;
+  };
+  const older = (incoming,current) => incoming?.id===current?.id&&Number(incoming.revision)<Number(current.revision);
   const requirements = (form,prefix='') => {
     const get = name => form.elements[prefix+name]?.value?.trim() || '';
     const out = Object.fromEntries(['name','description','dimensions','material','colors','finish','personalization','intended_use','instructions'].map(k=>[k,get(k)]));
@@ -38,7 +43,7 @@
     return out;
   };
   const briefFields = (data={},services=[],prefix='',final=false,operator=false) => `<div class="ap-grid">
-    <label class="ap-field is-wide"><span>FMRC service *</span><select name="${prefix}service_id" required>${services.map(s=>`<option value="${s.id}" ${Number(data.service_id)===Number(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select></label>
+    <label class="ap-field is-wide"><span>FMRC service *</span><select name="${prefix}service_id" required ${final?'disabled':''}>${services.map(s=>`<option value="${s.id}" ${Number(data.service_id)===Number(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select>${final?'<small>To change the service, save the product details and confirm the consultation outcome first.</small>':''}</label>
     ${field(prefix+'name','Product idea',data.name,'text',true)}${field(prefix+'quantity','Quantity',data.quantity||1,'number',true)}
     ${field(prefix+'description','Describe the product',data.description,'textarea',true,true)}
     ${field(prefix+'dimensions','Dimensions or size',data.dimensions,'text',final)}${field(prefix+'material','Material',data.material,'text',final)}
@@ -50,6 +55,20 @@
   </div>`;
   const specs = data => '<dl class="ap-summary">'+Object.entries({Product:data.name,Description:data.description,Quantity:data.quantity,Dimensions:data.dimensions,Material:data.material,Colors:data.colors,Finish:data.finish,Personalization:data.personalization,Instructions:data.instructions}).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||(['Personalization','Instructions'].includes(label)?'None':'To be discussed'))}</dd></div>`).join('')+'</dl>';
   const dirty = root => !!root?.querySelector('form[data-dirty="true"]');
+  // Update options in place so a service refresh never replaces entered fields or files.
+  async function refreshServices(ctx,select) {
+    if(!select||select.dataset.loading)return;
+    select.dataset.loading='true';select.setAttribute('aria-busy','true');
+    try {
+      const available=await loadAvailability();if(!select.isConnected)return;
+      const selected=select.value,current={id:ctx.job.service_id,title:ctx.job.service_name};
+      const services=[...(available.services||[])];if(!services.some(s=>Number(s.id)===Number(current.id)))services.push(current);
+      select.replaceChildren(...services.map(s=>new Option(s.title,String(s.id),false,String(s.id)===selected)));
+      if([...select.options].some(o=>o.value===selected))select.value=selected;
+      select.dataset.loaded='true';
+    }catch { /* Keep the saved service. Focusing the field retries the lookup. */ }
+    finally {delete select.dataset.loading;select.removeAttribute('aria-busy');}
+  }
   const allowLeave = async root => !dirty(root) || await confirm('Discard unsaved custom-product changes? Saved drafts, quotations and sent messages will remain available.','Unsaved changes');
   const download = async (job,file,admin=team) => {
     const response=await fetch(api()+`/${admin?'admin':'customer'}/appointment-products/${job}/files/${file.id}`,{headers:{Authorization:'Bearer '+token()},signal:AbortSignal.timeout(60000)});
@@ -102,6 +121,11 @@
       ready_for_quote:'FMRC is preparing your quotation from the agreed specifications.',
     })[job.state] || (admin?'Review the product details and record the next step for the customer.':'FMRC is reviewing your product details. Updates will appear here.');
   };
+  const quotationHint = ctx => {
+    if(ctx.admin&&ctx.job.discussed_at&&['ready_for_quote','quoted'].includes(ctx.job.state))return 'Prepare the quotation below using the agreed design, specifications and delivery details.';
+    if(['needs_information','follow_up','cancelled','declined'].includes(ctx.job.state))return nextAction(ctx);
+    return ctx.admin?'Confirm the attended consultation and save its outcome as “Ready to prepare quotation” in Overview. Sent versions will appear here.':'Your quotation will appear here after FMRC reviews the consultation and final specifications.';
+  };
 
   async function paint(ctx) {
     const {root,job,appointment,admin}=ctx;
@@ -132,7 +156,7 @@
           ${fileList(job.files.filter(f=>q.agreement.proof_file_ids.includes(f.id)),'No separate proof files. Refer to the design description above.')}
           <dl class="ap-summary"><div><dt>Unit price × quantity</dt><dd>${money(q.agreement.unit_price)} × ${q.agreement.specifications.quantity}</dd></div><div><dt>Product subtotal</dt><dd>${money(q.agreement.product_subtotal)}</dd></div><div><dt>Shipping</dt><dd>${money(q.agreement.shipping_fee)}</dd></div><div><dt>Total</dt><dd><strong>${money(q.agreement.total)}</strong></dd></div><div><dt>Production lead time</dt><dd>${esc(q.agreement.lead_time)}</dd></div><div><dt>Fulfillment</dt><dd>${q.agreement.fulfillment_type==='pickup'?'Pickup at FMRC':'J&T delivery'}${q.agreement.fulfillment_type==='delivery'?'<br>'+Object.values(q.agreement.delivery).map(esc).join(', '):''}</dd></div></dl>
           ${!admin&&q.state==='sent'&&Date.parse(q.expires_at)>Date.now()?`<form data-ap-form="accept" data-quote="${q.id}"><div data-ap-policy><p>Loading current transaction terms…</p></div><label class="ap-check"><input type="checkbox" name="specifications_accepted" required><span>I approve this design, quantity, specifications, price, lead time, and pickup/delivery arrangement.</span></label><div class="ap-grid"><label class="ap-field"><span>Payment method *</span><select name="payment_method"><option value="online">Pay online</option><option value="cash">Full advance cash payment at FMRC</option></select></label></div><div class="ap-actions"><button type="submit" class="ap-btn" disabled>Approve Quotation</button></div></form>`:''}
-        </article>`).join(''):`<p class="ap-help">${admin?'Complete the consultation and record its outcome before sending a quotation. Sent versions will appear here.':'Your quotation will appear here after FMRC reviews the consultation and final specifications.'}</p>`}
+        </article>`).join(''):`<p class="ap-help">${esc(quotationHint(ctx))}</p>`}
         ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Complete the final specifications. Use “Not applicable” where appropriate. Prices include design and fabrication costs.</p><form data-ap-form="quotation">${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<div class="ap-grid">${field('design_notes','Final design / proof description',current?.agreement.design_notes,'textarea',true,true)}${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'text',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'text',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true,true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup">Pickup at FMRC</option><option value="delivery">J&T delivery</option></select></label></div>
           <fieldset data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${Object.entries({delivery_recipient_name:'Recipient name',delivery_contact_no:'Contact number',delivery_street:'Street / building',delivery_barangay:'Barangay',delivery_city:'City / municipality',delivery_province:'Province',delivery_postal_code:'Postal code'}).map(([n,l])=>field(n,l,current?.agreement.delivery?.[n])).join('')}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
           ${job.files.length?`<fieldset><legend>Design proofs included in the quotation</legend>${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
@@ -140,6 +164,8 @@
       <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">${admin?'Private conversation with the customer. Agree any changes before sending a revised quotation. Manage paid-order changes through the cancellation and refund process in Orders.':'Private conversation with FMRC. Ask questions and share design files here. Discuss changes before payment; for a paid order, request help in My Orders.'}</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
     for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true'); }
+    const serviceSelect=root.querySelector('[data-ap-form="requirements"] [name="service_id"]');
+    if(serviceSelect){void refreshServices(ctx,serviceSelect);serviceSelect.onfocus=()=>void refreshServices(ctx,serviceSelect);}
     root.onclick=async event=>{
       if(event.target.closest('[data-ap-go-conversation]')){root.querySelector('[data-ap-tab="2"]').click();return;}
       if(event.target.closest('[data-ap-go-quote]')){root.querySelector('[data-ap-tab="1"]').click();return;}
@@ -173,6 +199,7 @@
     if(ctx.busy||!form.reportValidity())return;
     const action=form.dataset.apForm;
     ctx.busy=true;
+    if(action==='requirements'&&Number(form.elements.service_id.value)!==Number(ctx.job.service_id)&&!await confirm('Change the fabrication service? FMRC must review the new requirements before quoting. Any unpaid quotation will be withdrawn; the appointment schedule and history stay the same.','Change service')){ctx.busy=false;return;}
     if(['quotation','accept','cancel','follow-up'].includes(action)&&!await confirm(action==='accept'?'Approve this exact quotation and create its payment order?':action==='quotation'?'Send this quotation to the customer? It will remain valid for seven days.':action==='cancel'?(ctx.admin?'Cancel this custom-product request? The appointment will remain.':'Cancel your custom-product request? Your appointment will remain.'):'Book this follow-up appointment?')){ctx.busy=false;return;}
     ctx.busy=true;const submit=form.querySelector('[type=submit]');submit.disabled=true;
     try {
@@ -185,6 +212,7 @@
       if(action==='messages'){const fd=new FormData();fd.append('body',values.body);fd.append('request_key',form.dataset.key);for(const f of form.elements.attachments.files)fd.append('attachments[]',f);body=fd;}
       const suffix=action==='accept'?`quotations/${form.dataset.quote}/accept`:action==='quotation'?'quotations':action;
       const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}/${suffix}`,{method,body:body instanceof FormData?body:JSON.stringify(body)});
+      if(action==='outcome'&&(!result.data||result.data.state!==values.outcome||Number(result.data.revision)<=Number(body.expected_revision)||(values.outcome==='ready_for_quote'&&!result.data.discussed_at)))throw Error('The consultation outcome could not be confirmed. Your entries are still here. Use Refresh to check the saved status before trying again.');
       ctx.job=result.data;ctx.latest=null;await paint(ctx);rootFocus(ctx.root);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));
       await popup(result.message||'Changes saved.','Saved');
       if(result.order_id)location.href=link('/home-page/?orders=1&order_id='+result.order_id);
@@ -198,7 +226,7 @@
       const before=ctx.job;
       try{const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}`);ctx.failures=0;
         if(!ctx.root.isConnected||contexts.get(ctx.root)!==ctx)return;
-        if(ctx.busy||ctx.job!==before){poll(ctx);return;}
+        if(ctx.busy||ctx.job!==before||older(result.data,ctx.job)||older(result.data,ctx.latest)){poll(ctx);return;}
         if(JSON.stringify(result.data)!==JSON.stringify(ctx.job)){if(dirty(ctx.root)){ctx.latest=result.data;ctx.root.querySelector('[data-ap-update]').hidden=false;}else{ctx.job=result.data;await paint(ctx);}}
       }catch{ctx.failures=Math.min(3,(ctx.failures||0)+1);}poll(ctx);
     },Math.min(30000,5000*2**(ctx.failures||0)));
@@ -208,6 +236,7 @@
     const old=contexts.get(root);
     if(old&&old.job.id===job.id){
       old.appointment=appointment;
+      if(older(job,old.job)||older(job,old.latest))return;
       if(JSON.stringify(old.job)===JSON.stringify(job))return;
       if(old.busy||dirty(root)){old.latest=job;root.querySelector('[data-ap-update]').hidden=false;return;}
       old.job=job;void paint(old);return;

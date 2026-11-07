@@ -15,7 +15,11 @@ class CustomerNotificationController extends Controller
         $user = $request->user('sanctum');
         abort_if($user && $user->role !== 'customer', 403);
 
+        $scope = $request->validate(['scope' => 'sometimes|in:all,personal'])['scope'] ?? 'all';
+        abort_if($scope === 'personal' && ! $user, 401);
+
         return DB::table('customer_notifications as n')->where('n.published_at', '<=', now())
+            ->when($scope === 'personal', fn ($query) => $query->where('n.user_id', $user->id))
             ->where(fn ($q) => $q->whereNull('n.user_id')->when($user, fn ($q) => $q->orWhere('n.user_id', $user->id)));
     }
 
@@ -50,8 +54,7 @@ class CustomerNotificationController extends Controller
 
     public function show(Request $request, int $id)
     {
-        // A phone tap resolves its destination without rebuilding the removed
-        // inbox UI. The same visibility rules protect private account targets.
+        // Phone taps and the shared customer bell use the same ownership rules.
         $record = $this->visible($request)->where('n.id', $id)->first(['n.id', 'n.type', 'n.target']);
         abort_unless($record, 404);
 
@@ -73,7 +76,8 @@ class CustomerNotificationController extends Controller
     {
         $user = $request->user('sanctum');
         abort_unless($user, 401);
-        $this->visible($request)->select('n.id')->orderBy('n.id')->chunk(100, function ($records) use ($user) {
+        $data = $request->validate(['through' => 'sometimes|integer|min:1']);
+        $this->visible($request)->when(isset($data['through']), fn ($query) => $query->where('n.id', '<=', $data['through']))->select('n.id')->orderBy('n.id')->chunk(100, function ($records) use ($user) {
             DB::table('customer_notification_reads')->insertOrIgnore($records->map(fn ($record) => ['user_id' => $user->id, 'notification_id' => $record->id, 'read_at' => now()])->all());
         });
 

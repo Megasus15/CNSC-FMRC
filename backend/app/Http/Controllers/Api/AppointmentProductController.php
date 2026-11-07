@@ -163,8 +163,13 @@ class AppointmentProductController extends Controller
         $this->authorizeJob($r, $job);
         $brief = Products::brief($this->data($r, 'requirements'));
         Products::version($job, $r->input('expected_revision'));
-        abort_unless((int) $brief['service_id'] === (int) $job->service_id, 422, 'A different fabrication service requires a new consultation request.');
+        if ((int) $brief['service_id'] !== (int) $job->service_id) {
+            Products::eligible($brief['service_id']);
+        }
         abort_if(in_array($job->state, ['declined', 'cancelled'], true), 422, 'This custom request is closed.');
+        if (Products::sameBrief($brief, $job->requirements)) {
+            return $this->result($job, 'Product details are already up to date.');
+        }
         // Any published offer must be withdrawn before its requirements change.
         if ($job->quotes()->whereIn('state', ['sent', 'accepted', 'closing'])->exists()) {
             $this->closeOffers($job, 'superseded');
@@ -173,14 +178,23 @@ class AppointmentProductController extends Controller
             $j = AppointmentProductJob::whereKey($job->id)->lockForUpdate()->firstOrFail();
             Products::version($j, $r->input('expected_revision'));
             abort_if(in_array($j->state, ['declined', 'cancelled'], true), 422, 'This custom request is closed.');
-            abort_unless((int) $brief['service_id'] === (int) $j->service_id, 422, 'A different fabrication service requires a new consultation request.');
+            foreach ($j->orders()->lockForUpdate()->get() as $order) {
+                abort_if(Products::moneyHeld($order) > 0 || ! in_array($order->lifecycle_status, ['cancelled', 'rejected'], true), 422,
+                    'Resolve the linked order before changing the product requirements.');
+            }
+            $serviceChanged = (int) $brief['service_id'] !== (int) $j->service_id;
+            if ($serviceChanged) {
+                $service = Products::eligible($brief['service_id'], true);
+                $j->fill(['service_id' => $service->id, 'service_name' => $service->title,
+                    'discussed_at' => null, 'discussed_appointment_id' => null, 'discussed_by' => null, 'outcome_note' => null]);
+            }
             $j->requirements = $brief;
             $j->state = $j->discussed_at ? 'needs_information' : 'awaiting_consultation';
             Products::touch($j);
-            Products::event($j, 'requirements', 'Product requirements updated; FMRC must review the changes.', $r->user()->id);
+            Products::event($j, 'requirements', $serviceChanged ? 'Fabrication service changed; FMRC must confirm the new requirements were discussed or arrange a follow-up.' : 'Product requirements updated; FMRC must review the changes.', $r->user()->id);
         });
 
-        return $this->result($job);
+        return $this->result($job, 'Product details saved. FMRC must review the changes before quoting.');
     }
 
     public function message(Request $r, AppointmentProductJob $job)

@@ -165,6 +165,73 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertSame('sent', $j->quotes()->first()->state);
     }
 
+    public function test_both_operators_save_and_read_back_the_ready_outcome_in_the_appointment_feed(): void
+    {
+        foreach ([$this->admin, $this->staff] as $i => $operator) {
+            Sanctum::actingAs($this->customer);
+            $created = $this->postJson('/api/appointments', $this->booking(['appointment_time' => $i ? '10:00 - 11:00 AM' : '9:00 - 10:00 AM']))->assertCreated();
+            $j = AppointmentProductJob::findOrFail($created->json('data.custom_product.id'));
+            Carbon::setTestNow(Carbon::parse('2026-11-09 12:00:00', 'Asia/Manila')->utc());
+            Sanctum::actingAs($operator);
+            $this->patchJson('/api/appointments/'.$j->appointment_id.'/complete')->assertOk();
+            $saved = $this->postJson('/api/admin/appointment-products/'.$j->id.'/outcome', ['outcome' => 'ready_for_quote', 'note' => 'Final specifications discussed.', 'discussion_confirmed' => true, 'discussed_appointment_id' => $j->appointment_id, 'expected_revision' => 0])
+                ->assertOk()->assertJsonPath('data.state', 'ready_for_quote')->assertJsonPath('data.stage', 'Preparing quotation')->assertJsonPath('data.revision', 1)->json('data');
+            $this->assertNotNull($saved['discussed_at']);
+            $this->getJson('/api/admin/appointment-products/'.$j->id)->assertOk()->assertJsonPath('data.state', 'ready_for_quote')->assertJsonPath('data.revision', 1);
+            $feed = $this->getJson('/api/appointments')->assertOk();
+            $this->assertStringContainsString('no-store', $feed->headers->get('Cache-Control'));
+            $row = collect($feed->json('data'))->firstWhere('id', $j->appointment_id);
+            $this->assertSame('Completed', $row['status']);
+            $this->assertSame($saved, $row['custom_product']);
+            Carbon::setTestNow(Carbon::parse('2026-11-06 08:00:00', 'Asia/Manila')->utc());
+        }
+    }
+
+    public function test_eligible_service_changes_keep_the_meeting_and_require_a_new_product_review(): void
+    {
+        $j = $this->booked();
+        $q = $this->quote($j);
+        $original = $j->appointment->toArray();
+        $other = Service::create(['title' => 'Heatpress', 'category' => 'Manufacturing', 'accepts_appointment_products' => true]);
+        $updated = $this->putJson('/api/admin/appointment-products/'.$j->id.'/requirements', ['requirements' => array_replace($this->brief(), ['service_id' => $other->id]), 'expected_revision' => $j->fresh()->revision])
+            ->assertOk()->assertJsonPath('data.service_id', $other->id)->assertJsonPath('data.service_name', 'Heatpress')->assertJsonPath('data.discussed_at', null)->assertJsonPath('data.state', 'awaiting_consultation');
+        $this->assertSame($original, $j->appointment->fresh()->toArray());
+        $this->assertSame('superseded', $q->fresh()->state);
+        $this->assertSame('3D Printing', $q->agreement['service']);
+        $this->assertDatabaseCount('appointments', 1);
+        $this->assertDatabaseCount('appointment_product_jobs', 1);
+        $this->assertGreaterThan(0, $updated->json('data.revision'));
+    }
+
+    public function test_disabled_and_paid_service_changes_are_rejected_without_rewriting_history(): void
+    {
+        $j = $this->booked();
+        $q = $this->quote($j);
+        $other = Service::create(['title' => 'Heatpress', 'category' => 'Manufacturing', 'accepts_appointment_products' => false]);
+        $payload = ['requirements' => array_replace($this->brief(), ['service_id' => $other->id]), 'expected_revision' => $j->fresh()->revision];
+        $this->putJson('/api/admin/appointment-products/'.$j->id.'/requirements', $payload)->assertUnprocessable();
+        $this->assertSame('sent', $q->fresh()->state);
+        $o = $this->accept($j, $q);
+        $this->act($o, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'UNCHANGED-1', 'confirmed_received' => true])->assertOk();
+        $other->update(['accepts_appointment_products' => true]);
+        $payload['expected_revision'] = $j->fresh()->revision;
+        $this->putJson('/api/admin/appointment-products/'.$j->id.'/requirements', $payload)->assertUnprocessable();
+        $this->assertSame($this->service->id, $j->fresh()->service_id);
+        $this->assertSame('accepted', $q->fresh()->state);
+        $this->assertEquals(1000, $o->fresh()->total);
+    }
+
+    public function test_saving_unchanged_optional_fields_does_not_undo_the_outcome_or_sent_quotation(): void
+    {
+        $j = $this->booked();
+        $q = $this->quote($j);
+        $revision = $j->fresh()->revision;
+        $this->putJson('/api/admin/appointment-products/'.$j->id.'/requirements', ['requirements' => $this->brief() + ['needs_advice' => false, 'personalization' => '', 'instructions' => '', 'intended_use' => ''], 'expected_revision' => $revision])
+            ->assertOk()->assertJsonPath('data.state', 'quoted')->assertJsonPath('data.revision', $revision);
+        $this->assertSame('sent', $q->fresh()->state);
+        $this->assertNotNull($j->fresh()->discussed_at);
+    }
+
     public function test_cash_payment_production_pickup_and_revenue_are_one_order_without_catalog_stock_changes(): void
     {
         $product = Product::create(['name' => 'Catalog item', 'code' => 'NOCHANGE', 'category' => 'Regular', 'price' => 20, 'stock' => 25]);

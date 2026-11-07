@@ -61,6 +61,7 @@ test("changed customer styles parse without CSS warnings", () => {
     "home-page/customer-editorial.css",
     "home-page/customer-footer.css",
     "home-page/announcement-card.css",
+    "home-page/customer-notifications.css",
   ]) {
     const css = read(file);
     postcss.parse(css, { from: file });

@@ -401,8 +401,11 @@
     `;
   };
 
-  const showModal = (index = 0) => {
+  let returnFocus = null;
+  const showModal = (index = 0, section = 'announcements') => {
     if (!modal) return;
+    const opening=modal.hidden;
+    if(opening)returnFocus=document.activeElement;
     markTooltipDismissed();
 
     const activeCampaigns = filterActiveCampaigns(announcements);
@@ -460,7 +463,9 @@
     modal.setAttribute("aria-hidden", "false");
     modal.classList.add("is-visible");
     document.body.classList.add("fmrc-announcement-open");
-    if (item) {
+    window.FMRCCustomerNotifications?.select(section, { rendered: true });
+    if(opening)modal.querySelector('#announcementModalCloseX')?.focus({preventScroll:true});
+    if (item && section === 'announcements') {
       markSeen(item.id);
       // Viewing an announcement marks it read, which decrements the bell badge.
       if (markAnnouncementRead(item.id)) updateBadges(getUnreadCount());
@@ -474,6 +479,7 @@
       modal.classList.remove("is-visible");
     }
     document.body.classList.remove("fmrc-announcement-open");
+    if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
   };
 
   const mountModalAndButtons = () => {
@@ -743,6 +749,7 @@
           bell.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopImmediatePropagation();
+            if(window.FMRCCustomerNotifications){window.FMRCCustomerNotifications.open();return;}
             // Open on the first unread item so repeated bell clicks work
             // through the queue and the badge counts down to zero.
             const readIds = loadReadIds();
@@ -969,7 +976,8 @@
   };
 
   const updateBadges = (count) => {
-    const total = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+    const total = (Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0) + (window.FMRCCustomerNotifications?.unreadCount() || 0);
+    window.FMRCCustomerNotifications?.announcementCount(count);
     const displayCount = total > 99 ? "99+" : String(total);
     document
       .querySelectorAll("#announcementBellBadge, .announcement-bell__badge")
@@ -1125,7 +1133,7 @@
       pruneReadIds();
       updateBadges(getUnreadCount());
 
-      if (modal && !modal.hidden) {
+      if (modal && !modal.hidden && modal.dataset.section !== 'notifications') {
         if (!announcements.length) {
           /* Only close a dialog that was showing a real item which has since
              gone away — an announcement that expires mid-read should not be
@@ -1171,7 +1179,7 @@
           (item) => !hasSeen(item.id),
         );
         if (unseenIndex >= 0) {
-          window.setTimeout(() => showModal(unseenIndex), 450);
+          window.setTimeout(() => {if(modal?.hidden)showModal(unseenIndex);}, 450);
         }
       }
     } catch (error) {
@@ -1183,8 +1191,11 @@
     }
   };
 
+  window.FMRCAnnouncements = { open: showModal, close: closeModal, refreshBadge: () => updateBadges(getUnreadCount()) };
+
   document.addEventListener("DOMContentLoaded", () => {
     mountModalAndButtons();
+    window.dispatchEvent(new Event('fmrc:announcements-ready'));
     // Admin and Staff Promotions reuse the preview renderer from this file,
     // but their page module already owns the data request. Avoid a second
     // polling/foreground-refresh system on those management pages.

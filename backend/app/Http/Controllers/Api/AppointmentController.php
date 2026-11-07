@@ -46,7 +46,7 @@ class AppointmentController extends Controller
             ->get()
             ->map(fn (Appointment $appointment) => $this->transformAppointment($appointment));
 
-        return response()->json(['data' => $appointments]);
+        return response()->json(['data' => $appointments])->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request): JsonResponse
