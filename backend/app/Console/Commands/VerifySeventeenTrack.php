@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 final class VerifySeventeenTrack extends Command
 {
     protected $signature = '17track:verify {--status : Show saved readiness/order status without contacting 17TRACK or registering a parcel}
+        {--sync : Import saved provider results for the assigned order; never request a paid instant lookup}
+        {--quota : Read provider credit balance and daily tracking allowance without registering a number}
         {--carrier= : J&T Philippines carrier code}
         {--order= : FMRC order number or database ID with a recorded actual J&T handover}
         {--real-handover : Confirm the physical FMRC handover; registration uses the lifetime credit budget}
@@ -28,6 +30,11 @@ final class VerifySeventeenTrack extends Command
 
     public function handle(SeventeenTrackTracking $tracking, SeventeenTrackClient $client): int
     {
+        if (($this->option('status') && ($this->option('sync') || $this->option('quota')))
+            || ($this->option('sync') && (! $this->option('order') || $this->option('quota') || $this->option('tracking-number')))) {
+            $this->error('Use --status for a local read, --quota for the provider allowance, or --sync --order=ORDER for an assigned order.');
+            return self::FAILURE;
+        }
         if ($this->option('status')) {
             return $this->status();
         }
@@ -48,6 +55,15 @@ final class VerifySeventeenTrack extends Command
             return self::FAILURE;
         }
         try {
+            if ($this->option('quota')) {
+                $quota = $client->request('getquota', []);
+                $this->table(['17TRACK account allowance', 'Provider result'], [
+                    ['Remaining tracking credits', $quota['quota_remain'] ?? 'Not reported'],
+                    ['Tracking registrations today', $quota['today_used'] ?? 'Not reported'],
+                    ['Daily tracking limit', ($quota['max_track_daily'] ?? null) === 0 ? 'Unlimited (provider setting)' : ($quota['max_track_daily'] ?? 'Not reported')],
+                ]);
+                return self::SUCCESS;
+            }
             $carrier = $tracking->verifyCarrier((int) ($this->option('carrier') ?: config('track17.carrier_code')));
             $this->info('Carrier verified: '.$carrier['_name'].' ('.$carrier['key'].')');
             if ($this->option('tracking-number')) {
@@ -63,8 +79,8 @@ final class VerifySeventeenTrack extends Command
                 return $sub->last_event_at ? self::SUCCESS : self::FAILURE;
             }
             if ($this->option('order')) {
-                if (! $this->option('real-handover')) {
-                    $this->error('Check the actual FMRC waybill and supply --real-handover. This can consume one tracking credit.');
+                if (! $this->option('real-handover') && ! $this->option('sync')) {
+                    $this->error('Use --sync --order=ORDER to import saved results for its assigned tracking number. Registration can reserve one tracking credit.');
 
                     return self::FAILURE;
                 }
@@ -78,11 +94,17 @@ final class VerifySeventeenTrack extends Command
                 }
                 $tracker = ShipmentTracker::where('active_order_id', $order->id)->firstOrFail();
                 if (! $tracking->verifyWaybill($tracker)) {
+                    if ($this->option('sync')) {
+                        $this->status(false);
+                    }
                     $this->warn('No matching FMRC parcel events yet. Retry with the same order after a J&T scan.');
 
                     return self::FAILURE;
                 }
                 $this->info('Assigned parcel verified. Automatic registration does not require first-parcel or webhook approval. Keep TRACK17_ENABLED=true and the shipment worker running.');
+                if ($this->option('sync')) {
+                    return $this->status(false);
+                }
             }
             $health = ShipmentTracking::health();
             $this->line('Lifetime FMRC registration reservations: '.($health['budget_used'] ?? 0).' / '.config('track17.registration_limit'));
@@ -92,6 +114,10 @@ final class VerifySeventeenTrack extends Command
             $this->error(collect($error->errors())->flatten()->first());
         } catch (SeventeenTrackException $error) {
             $this->error('17TRACK verification incomplete: '.$error->reason.'. Saved shipment data is preserved.');
+            $this->line('HTTP status: '.($error->httpStatus ?? 'No response').'; API code: '.($error->providerCode ?? 'Not reported').'; retry after: '.$error->retryAfter.' seconds.');
+            if ($error->reason === 'daily_limit_reached') {
+                $this->warn('This is the provider daily tracking allowance, not HTTP request frequency. Run 17track:verify --quota and check 17TRACK Settings.');
+            }
         } catch (\Throwable) {
             $this->error('Verification could not finish. Check the configured account, recorded order, and application logs.');
         } finally {
@@ -101,7 +127,7 @@ final class VerifySeventeenTrack extends Command
         return self::FAILURE;
     }
 
-    private function status(): int
+    private function status(bool $readOnly = true): int
     {
         $health = ShipmentTracking::health();
         if (! ($health['installed'] ?? false)) {
@@ -110,6 +136,7 @@ final class VerifySeventeenTrack extends Command
         }
         $this->line('Automatic tracking: '.($health['enabled'] ? 'active' : 'inactive'));
         $this->line('Shipment worker: '.($health['processor_healthy'] ? 'running' : 'needs attention'));
+        $this->line('Last completed worker run: '.($health['last_processed_at'] ?? 'Not recorded'));
         $this->line('Saved-result recovery interval: '.$health['saved_results_interval_minutes'].' minutes');
         foreach ($health['blocking_reasons'] as $reason) {
             $this->warn($reason);
@@ -125,11 +152,16 @@ final class VerifySeventeenTrack extends Command
             $tracker = ShipmentTracker::where('active_order_id', $order->id)->first();
             $sub = $order->tracking_test_subscription_id ? ShipmentTrackingSubscription::find($order->tracking_test_subscription_id)
                 : ($tracker ? ShipmentTracking::subscription($tracker) : null);
+            $eligibility = $order->customer_stage === 'completed' ? 'Order already completed'
+                : ($tracker && ShipmentTracking::duplicateAssignment($tracker) ? 'Duplicate tracking number assignment' : (ShipmentTracking::eligibility($order, (bool) $tracker) ?? 'Eligible'));
             $this->table(['Order sync check', 'Saved result'], [
                 ['Order', $order->order_no], ['FMRC stage', $order->customer_stage],
                 ['Tracking mode', $order->tracking_test_subscription_id ? 'External parcel test; cannot complete this FMRC order' : ($tracker ? 'Recorded physical FMRC handover' : 'No recorded physical handover')],
                 ['Tracking number', $sub?->tracking_number ?? $tracker?->tracking_number ?? 'Not recorded'],
                 ['Registration', $sub?->registration_state ?? 'Not registered with FMRC'],
+                ['Order tracking eligibility', $eligibility],
+                ['Provider registration accepted', $sub?->registered_at?->toIso8601String() ?? 'Not yet accepted'],
+                ['Next automatic retry/check', $sub?->next_attempt_at?->toIso8601String() ?? 'Not scheduled'],
                 ['Last saved-result check', $sub?->last_checked_at?->toIso8601String() ?? 'Not yet checked'],
                 ['Signed update', $sub?->last_webhook_at?->toIso8601String() ?? 'Not yet received for this subscription'],
                 ['Courier status', $sub?->diagnostic ? ($sub->latest_result['status_label'] ?? 'No saved results') : ($tracker?->status ?? 'No saved results')],
@@ -137,7 +169,8 @@ final class VerifySeventeenTrack extends Command
             ]);
             $this->line('An assigned tracking number syncs automatically. An unassigned diagnostic/preview does not complete an order.');
         }
-        $this->info('Status only: no provider request, registration, payment, or refund was performed.');
+        $this->info($readOnly ? 'Status only: no provider request, registration, payment, or refund was performed.'
+            : 'Saved provider results processed. No payment or refund was performed.');
         return self::SUCCESS;
     }
 }

@@ -11,7 +11,16 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
-Schedule::command('shipments:process')->everyMinute()->withoutOverlapping(5);
+// Run inside the scheduler's bootstrapped app on shared hosting. A separate PHP
+// child can be skipped or fail before the worker heartbeat is written.
+// The command owns its 120-second lock; a second scheduler lock hides skips.
+Schedule::call(function () {
+    $status = Artisan::call('shipments:process', ['--verbose' => true]);
+    echo Artisan::output();
+    if ($status !== 0) {
+        throw new RuntimeException('Shipment processing failed; check the protected application log.');
+    }
+})->name('fmrc-shipments-'.substr(hash('sha256', base_path()), 0, 8))->everyMinute();
 Artisan::command('appointments:expire-quotes', function () {
     $count=app(\App\Http\Controllers\Api\AppointmentProductController::class)->expire();
     $this->info($count.' appointment quotation(s) closed.');

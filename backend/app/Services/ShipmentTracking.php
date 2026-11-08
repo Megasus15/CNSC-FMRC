@@ -291,6 +291,13 @@ final class ShipmentTracking
         $subscriptions = ShipmentTrackingSubscription::where('provider', '17track');
         $limit = max(0, (int) config('track17.registration_limit'));
         $used = (clone $subscriptions)->whereNotNull('registration_requested_at')->count();
+        $retries = (clone $subscriptions)->where('account_fingerprint', SeventeenTrackClient::fingerprint())
+            ->whereIn('registration_state', ['retry', 'limited'])
+            ->whereHas('tracker', fn ($query) => $query->whereNotNull('active_order_id'));
+        $retrying = (clone $retries)->count();
+        $dailyLimited = (clone $retries)->where('last_error_code', 'daily_limit_reached')->count();
+        $rateLimited = (clone $retries)->where('last_error_code', 'rate_limited')->count();
+        $retryAt = (clone $retries)->min('next_attempt_at');
         $failed = ShipmentTracker::whereNotNull('active_order_id')->where(function ($q) {
             $q->where('needs_review', true)->orWhereIn('id', ShipmentTrackingSubscription::select('tracker_id')
                 ->where('provider', '17track')->whereIn('registration_state', ['failed', 'stopped']));
@@ -320,8 +327,15 @@ final class ShipmentTracking
         if ($failed) {
             $blockers['shipments'] = 'Review shipment registration failures or conflicting courier updates in Orders.';
         }
+        if ($dailyLimited) {
+            $blockers['daily_limit'] = '17TRACK reports a daily tracking limit. Check the account daily limit in 17TRACK Settings; FMRC will retry automatically.';
+        } elseif ($rateLimited) {
+            $blockers['rate_limit'] = '17TRACK temporarily limited API requests. FMRC is waiting for the scheduled automatic retry.';
+        } elseif ($retrying) {
+            $blockers['retry'] = 'A tracking request could not finish. Review the order error and its next automatic retry time.';
+        }
         $ready = self::verified($settings) && config('track17.enabled') && $workerHealthy && ! $quotaLimited && $used < $limit;
-        $state = self::enabled() ? ($workerHealthy && ! $quotaLimited && ! $failed ? 'active' : 'needs_attention')
+        $state = self::enabled() ? ($workerHealthy && ! $quotaLimited && ! $failed && ! $retrying ? 'active' : 'needs_attention')
             : ($ready ? 'ready' : ($testVerified ? 'test_verified' : 'setup_required'));
 
         return ['installed' => true, 'revision' => (int) $settings->revision, 'enabled' => self::enabled(),
@@ -333,6 +347,8 @@ final class ShipmentTracking
             'webhook_verified' => $same && (bool) ($settings->last_webhook_at || $settings->last_test_webhook_at),
             'carrier_code' => $settings->carrier_code, 'last_processed_at' => $settings->last_processed_at,
             'processor_healthy' => (bool) $workerHealthy,
+            'retrying' => $retrying, 'rate_limited' => $rateLimited, 'daily_limited' => $dailyLimited, 'next_retry_at' => $retryAt,
+            'last_result_checked_at' => (clone $subscriptions)->where('account_fingerprint', SeventeenTrackClient::fingerprint())->max('last_checked_at'),
             'last_webhook_at' => $settings->last_webhook_at,
             'registrations' => (clone $subscriptions)->whereNotNull('registered_at')->count(),
             'registration_limit' => $limit, 'budget_used' => $used, 'budget_remaining' => max(0, $limit - $used),
@@ -358,7 +374,7 @@ final class ShipmentTracking
                 }
                 $sub = ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first();
 
-                return ! $sub || in_array($sub->registration_state, ['pending', 'retry', 'limited'], true);
+                return ! $sub || (! $sub->registered_at && in_array($sub->registration_state, ['pending', 'retry', 'limited'], true));
             })->count();
     }
 
@@ -381,6 +397,7 @@ final class ShipmentTracking
         $automatic = self::enabled();
         $subscription = $tracker && self::subscriptionsInstalled() ? ShipmentTrackingSubscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first() : null;
         $state = $subscription?->registration_state ?? ($tracker ? 'pending' : 'not_recorded');
+        $retryLabel = $subscription?->next_attempt_at?->copy()->tz('Asia/Manila')->format('M j, Y g:i:s A');
         $notice = match (true) {
             (bool) $tracker?->demo => 'Demonstration only. This shipment is not connected to a courier.',
             ! $tracker => 'Record the tracking number after handing the parcel to J&T. The accepted customer shipping fee stays unchanged.',
@@ -388,6 +405,8 @@ final class ShipmentTracking
             $state === 'failed' => 'Automatic tracking needs attention. Your saved tracking number and last updates remain available.',
             ! $automatic => $operator ? 'Automatic tracking is not active. '.self::setupAction()
                 : 'Automatic tracking is not active. FMRC must finish the tracking setup; you can still use the saved J&T tracking number.',
+            $state === 'retry' && $subscription?->last_error_code === 'daily_limit_reached' => '17TRACK reports a daily tracking limit. '.($retryLabel ? 'Automatic retry: '.$retryLabel.'.' : 'FMRC will retry automatically.'),
+            $state === 'retry' && $subscription?->last_error_code === 'rate_limited' => '17TRACK temporarily limited API requests. '.($retryLabel ? 'Automatic retry: '.$retryLabel.'.' : 'FMRC will retry automatically.'),
             $state === 'retry' => 'Tracking updates are temporarily unavailable. Your last recorded updates are shown.',
             $state === 'stopped' => 'Automatic tracking has stopped. Your saved tracking number and latest confirmed updates remain available.',
             $state === 'pending' => 'The tracking number is saved. Automatic tracking registration is pending.',
@@ -412,6 +431,8 @@ final class ShipmentTracking
                 'can_refresh' => $tracker && ! $tracker->demo && $automatic && (! $tracker->last_refresh_requested_at || $tracker->last_refresh_requested_at->lte(now()->subMinutes(15))),
                 'needs_review' => (bool) $tracker?->needs_review, 'actual_shipping_cost' => $tracker?->actual_shipping_cost,
                 'last_error_code' => $subscription?->last_error_code ?? $tracker?->last_error_code];
+            $data['next_retry_at'] = $subscription?->next_attempt_at?->toIso8601String();
+            $data['next_retry_at_label'] = $retryLabel;
         }
 
         return $data;

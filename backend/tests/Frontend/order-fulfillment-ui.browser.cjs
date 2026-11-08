@@ -132,3 +132,35 @@ test('Custom Product Work uses the shared heading icon in Admin and Staff dashbo
   }
   t.diagnostic('Dashboard screenshots: '+h.artifacts);
 });
+
+test('Tracking health refreshes a retry automatically without replacing a delivery-rate draft',{skip:!chrome,timeout:60000},async t=>{
+  let recovered=false,checks=0;
+  const published=settings();
+  const h=await browserFixture(t,async({route,json})=>{
+    if(route==='/api/admin/shipping-settings'){json({data:{revision:1,can_edit:true,published,draft:published,has_saved_draft:true}});return true;}
+    if(route==='/api/psgc/provinces'){json([{code:'0501600000',name:'Camarines Norte'}]);return true;}
+    if(route==='/api/admin/shipping-tracking'){
+      checks++;
+      json({data:{installed:true,enabled:true,ready:true,can_edit:true,readiness_state:recovered?'active':'needs_attention',configured:true,carrier_verified:true,processor_healthy:true,
+        retrying:recovered?0:1,next_retry_at:recovered?null:'2026-11-08T10:00:00Z',last_processed_at:'2026-11-08T09:59:00Z',
+        message:'Automatic tracking is active.',next_action:recovered?'Saved results imported.':'17TRACK requests are waiting for automatic retry.',blocking_reasons:recovered?{}:{rate_limit:'17TRACK temporarily limited API requests.'}}});return true;
+    }
+    return false;
+  });
+  await h.send('Network.setBlockedURLs',{urls:['https://*']});
+  await h.go('/admin-page/website-shipping.html');
+  await h.until(`document.querySelector('[data-tracking-state]').textContent==='Needs attention'&&!!document.getElementById('shipping-0-fee')`);
+  assert.match(await h.run(`document.querySelector('[data-tracking-facts]').textContent`),/Next automatic retry/);
+  await h.run(`const fee=document.getElementById('shipping-0-fee');fee.value='99';fee.dispatchEvent(new Event('input',{bubbles:true}));`);
+  const before=checks;
+  recovered=true;
+  await h.pause(31000);
+  await h.until(`document.querySelector('[data-tracking-state]').textContent==='Active'`);
+  assert.ok(checks>before);
+  assert.equal(await h.run(`document.getElementById('shipping-0-fee').value`),'99');
+  assert.match(await h.run(`document.querySelector('[data-tracking-facts]').textContent`),/None scheduled/);
+  await h.run(`document.querySelector('.shipping-tracking-status').scrollIntoView({block:'start'});scrollBy(0,-90);`);
+  await h.shot('tracking-recovered-with-draft-preserved');
+  assert.deepEqual(await h.run('fixtureErrors'),[]);
+  t.diagnostic('Automatic tracking-health screenshot: '+h.artifacts);
+});

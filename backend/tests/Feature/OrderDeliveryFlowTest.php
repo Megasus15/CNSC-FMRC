@@ -69,6 +69,11 @@ class OrderDeliveryFlowTest extends TestCase
                 if (str_ends_with($request->url(), '/register')) {
                     $external = $item;
                 } elseif (str_ends_with($request->url(), '/gettrackinfo')) {
+                    if (! $external) {
+                        return Http::response(['code' => 0, 'data' => ['accepted' => [], 'rejected' => [
+                            $item + ['error' => ['code' => -18019902]],
+                        ]]]);
+                    }
                     $item = $external + ['track_info' => $results[0]['data']['track_info'] ?? ['latest_status' => ['status' => 'NotFound']]];
                 }
 

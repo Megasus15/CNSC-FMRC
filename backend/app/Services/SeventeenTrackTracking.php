@@ -137,7 +137,7 @@ final class SeventeenTrackTracking
 
     public function verifyWaybill(ShipmentTracker $tracker): bool
     {
-        if (! self::eligible($tracker)) {
+        if (! self::eligible($tracker, true)) {
             ShipmentTracking::fail('Verify an active, paid FMRC order with its actual recorded J&T handover.');
         }
         $sub = $this->subscription($tracker);
@@ -149,8 +149,13 @@ final class SeventeenTrackTracking
             }
             $sub->update(['account_fingerprint' => SeventeenTrackClient::fingerprint(), 'last_webhook_at' => null]);
         }
-        $this->register($sub, true);
-        $this->synchronize($sub->fresh());
+        try {
+            $this->register($sub, true);
+            $this->synchronize($sub->fresh());
+        } catch (SeventeenTrackException $error) {
+            $this->failed($sub, $error);
+            throw $error;
+        }
         $this->processInbox(microtime(true) + 5);
         $sub->refresh();
         if (! $sub->last_event_at || $sub->last_error_code || $tracker->fresh()->needs_review) {
@@ -225,32 +230,34 @@ final class SeventeenTrackTracking
             return;
         }
         $external = null;
-        if ($sub->registration_requested_at) {
-            try {
-                $external = $this->bindManualRegistration($sub, $this->client->item('gettrackinfo', $this->identity($sub)));
-            } catch (SeventeenTrackException $error) {
-                if ($error->reason !== 'not_registered') {
-                    throw $error;
-                }
+        // The console may already contain this number. Read it first rather
+        // than submitting another registration (and its daily-limit checks).
+        try {
+            $external = $this->client->item('gettrackinfo', $this->identity($sub));
+        } catch (SeventeenTrackException $error) {
+            if ($error->reason !== 'not_registered') {
+                throw $error;
             }
         }
-        if (! $external) {
-            DB::transaction(function () use ($sub) {
-                $settings = DB::table('shipment_tracking_settings')->where('provider', '17track')->lockForUpdate()->first();
-                $reserved = Subscription::where('provider', '17track')->whereNotNull('registration_requested_at')->count();
-                if ((! $sub->registration_requested_at && $reserved >= max(0, (int) config('track17.registration_limit')))
-                    || ($settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture())) {
-                    throw new SeventeenTrackException('quota_limit_reached', 86400);
-                }
-                if (! $sub->registration_payload) {
-                    $tracker = $sub->tracker;
-                    $sub->registration_payload = $this->identity($sub) + ['tag' => $sub->tag, 'origin_country' => 'PH',
-                        'destination_country' => 'PH', 'destination_postal_code' => $tracker->order->delivery_postal_code,
-                        'ship_date' => $tracker->handed_over_at->copy()->tz('Asia/Manila')->format('Y/m/d')];
-                }
-                $sub->registration_requested_at ??= now();
-                $sub->save();
-            });
+        DB::transaction(function () use ($sub) {
+            $settings = DB::table('shipment_tracking_settings')->where('provider', '17track')->lockForUpdate()->first();
+            $reserved = Subscription::where('provider', '17track')->whereNotNull('registration_requested_at')->count();
+            if ((! $sub->registration_requested_at && $reserved >= max(0, (int) config('track17.registration_limit')))
+                || ($settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture())) {
+                throw new SeventeenTrackException('quota_limit_reached', 86400);
+            }
+            if (! $sub->registration_payload) {
+                $tracker = $sub->tracker;
+                $sub->registration_payload = $this->identity($sub) + ['tag' => $sub->tag, 'origin_country' => 'PH',
+                    'destination_country' => 'PH', 'destination_postal_code' => $tracker->order->delivery_postal_code,
+                    'ship_date' => $tracker->handed_over_at->copy()->tz('Asia/Manila')->format('Y/m/d')];
+            }
+            $sub->registration_requested_at ??= now();
+            $sub->save();
+        });
+        if ($external) {
+            $external = $this->bindManualRegistration($sub, $external);
+        } else {
             try {
                 $external = $this->client->item('register', $sub->registration_payload);
             } catch (SeventeenTrackException $error) {
@@ -473,8 +480,13 @@ final class SeventeenTrackTracking
             'quota_limit_reached' => 'limited', 'details_rejected', 'response_mismatch', 'account_changed', 'tracking_number_in_use' => 'failed',
             default => 'retry',
         };
+        $retry = in_array($error->reason, ['rate_limited', 'request_deferred'], true) ? $error->retryAfter
+            : max($error->retryAfter, min(21600, 60 * 2 ** min(8, $sub->attempts)));
         $sub->update(['registration_state' => $state, 'last_error_code' => $error->reason, 'attempts' => $sub->attempts + 1,
-            'next_attempt_at' => now()->addSeconds(max($error->retryAfter, min(21600, 60 * 2 ** min(8, $sub->attempts))))]);
+            'next_attempt_at' => now()->addSeconds($retry)]);
+        Log::notice('17TRACK operation deferred', ['subscription_id' => $sub->id, 'reason' => $error->reason,
+            'http_status' => $error->httpStatus, 'provider_code' => $error->providerCode, 'endpoint' => $error->endpoint,
+            'next_attempt_at' => $sub->next_attempt_at?->toIso8601String()]);
         if ($error->reason === 'quota_limit_reached') {
             DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['quota_retry_at' => now()->addDay()]);
         }

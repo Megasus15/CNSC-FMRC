@@ -39,13 +39,17 @@
         ['Assigned parcel updates', record.waybill_verified ? 'Received' : 'Waiting for the first parcel update'],
         ['Webhook delivery', record.webhook_verified ? 'Verified' : 'Waiting; saved-result recovery remains automatic'],
         ['Background processing', record.processor_healthy ? 'Running' : 'Needs attention'],
+        ['Last completed worker run', date(record.last_processed_at)],
+        ['Requests waiting for retry', record.retrying ?? 0],
+        ['Next automatic retry', record.next_retry_at ? date(record.next_retry_at) : 'None scheduled'],
         ['Tracking credits reserved', (record.budget_used ?? record.registrations ?? 0)+' / '+(record.registration_limit ?? 200)+' lifetime local limit'],
         ['Local budget remaining', record.budget_remaining ?? 'Not available'],
         ['Provider', providerName],
         ['Standard carrier check interval', record.standard_interval || 'Provider dependent'],
         ['Saved-result recovery check', 'Every '+(record.saved_results_interval_minutes || 5)+' minutes while tracking is active'],
         ['Waiting for registration', record.pending ?? 0], ['Needs review', record.failed ?? 0],
-        ['Latest update received', date(record.last_webhook_at)],
+        ['Latest saved-result check', date(record.last_result_checked_at)],
+        ['Latest assigned-parcel webhook', date(record.last_webhook_at)],
         ['Updates awaiting processing', record.pending_updates ?? 0],
         ['Unmatched updates', record.quarantined_updates ?? 0],
         ['Notifications awaiting delivery', record.pending_notifications ?? 0],
@@ -53,7 +57,7 @@
       panel.querySelector('[data-tracking-facts]').innerHTML = facts.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd>'+escape(value)+'</dd></div>').join('');
     };
     const load = (payload = null) => {
-      if (request) return request;
+      if (request) return payload ? request.then(()=>load(payload)) : request;
       busy = true; render();
       request = (async () => {
         const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),15000);
@@ -78,9 +82,12 @@
     window.FMRCShippingTracking = Object.freeze({refresh: () => load()});
     toggle.onclick=()=>{
       if(toggle.disabled)return;
-      window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for assigned J&T parcels within the configured credit budget? First-parcel and webhook approval are not required.',
-        {title:record.enabled?'Pause Automatic Tracking':'Activate Automatic Tracking',confirmText:record.enabled?'Pause tracking':'Activate tracking',onConfirm:()=>load({enabled:!record.enabled,expected_revision:record.revision})});
+      const enabled=!record.enabled, revision=record.revision;
+      window.showAdminConfirmPopup(!enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for assigned J&T parcels within the configured credit budget? First-parcel and webhook approval are not required.',
+        {title:enabled?'Activate Automatic Tracking':'Pause Automatic Tracking',confirmText:enabled?'Activate tracking':'Pause tracking',onConfirm:()=>load({enabled,expected_revision:revision})});
     };
     void load();
+    setInterval(()=>{if(!document.hidden&&panel.isConnected&&!busy)void load();},30000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&panel.isConnected)void load();});
   });
 })();

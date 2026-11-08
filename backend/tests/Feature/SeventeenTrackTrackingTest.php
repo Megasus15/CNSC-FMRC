@@ -9,6 +9,7 @@ use App\Models\ShipmentTrackingSubscription as Subscription;
 use App\Models\User;
 use App\Services\SeventeenTrackClient;
 use App\Services\SeventeenTrackException;
+use App\Services\SeventeenTrackRateLimit;
 use App\Services\SeventeenTrackTracking;
 use App\Services\ShipmentTracking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +45,11 @@ class SeventeenTrackTrackingTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-11-07T07:00:00Z'));
         Mail::fake();
         Http::preventStrayRequests();
+        $requestClock = microtime(true);
+        $this->app->instance(SeventeenTrackRateLimit::class, new SeventeenTrackRateLimit(
+            function () use (&$requestClock) { return $requestClock; },
+            function ($seconds) use (&$requestClock) { $requestClock += $seconds; },
+        ));
         config(['track17.api_key' => 'fixture17', 'track17.enabled' => true,
             'track17.registration_limit' => 200]);
         DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['enabled' => true,
@@ -74,6 +80,9 @@ class SeventeenTrackTrackingTest extends TestCase
             if ($this->mode === 'rate') {
                 return Http::response([], 429, ['Retry-After' => '900']);
             }
+            if (str_ends_with($request->url(), '/getquota')) {
+                return Http::response(['code' => 0, 'data' => ['quota_remain' => 198, 'today_used' => 2, 'max_track_daily' => 0]]);
+            }
             $item = $request->data()[0];
             $number = $item['number'];
             $error = fn ($code) => Http::response(['code' => 0, 'data' => ['accepted' => [],
@@ -82,6 +91,9 @@ class SeventeenTrackTrackingTest extends TestCase
                 $this->registrationCalls++;
                 if ($this->mode === 'quota') {
                     return $error(-18019908);
+                }
+                if ($this->mode === 'daily') {
+                    return $error(-18019907);
                 }
                 if ($this->mode === 'invalid') {
                     return $error(-18010012);
@@ -285,11 +297,11 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertNotNull($sub->fresh()->last_checked_at);
         $this->assertNull($sub->fresh()->last_webhook_at);
         $this->assertSame($payment, $this->order->fresh()->payment->getAttributes());
-        $this->assertSame(1, $this->registrationCalls);
+        $this->assertSame(0, $this->registrationCalls);
         Http::assertSent(fn ($r) => str_ends_with($r->url(), '/changeinfo') && $r->data()[0]['items'] === ['tag' => $sub->tag]);
         Http::assertNotSent(fn ($r) => str_contains($r->url(), 'getRealTime'));
         $this->artisan('shipments:process')->assertSuccessful();
-        $this->assertSame(1, $this->registrationCalls);
+        $this->assertSame(0, $this->registrationCalls);
         foreach (['admin', 'staff', 'customer'] as $role) {
             Sanctum::actingAs($role === 'customer' ? $this->customer : User::factory()->create(['role' => $role]));
             $this->getJson('/api/'.($role === 'customer' ? 'customer' : 'admin').'/orders/'.$this->order->id)
@@ -631,6 +643,81 @@ class SeventeenTrackTrackingTest extends TestCase
         Carbon::setTestNow(now()->addHours(7));
         $this->artisan('shipments:process')->assertSuccessful();
         $this->assertCount($before, Http::recorded());
+    }
+
+    public function test_saved_console_delivery_is_imported_without_submitting_a_registration(): void
+    {
+        $tracker = $this->record();
+        $sub = $this->service()->subscription($tracker);
+        $this->external[$tracker->tracking_number] = ['number' => $tracker->tracking_number, 'carrier' => 100240, 'tag' => ''];
+        $this->message($sub, 'Delivered');
+        $this->mode = 'daily';
+        $this->artisan('17track:verify', ['--sync' => true, '--order' => $this->order->order_no])
+            ->expectsOutputToContain('Saved provider results processed')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertSame(0, $this->registrationCalls);
+        $this->assertDatabaseCount('shipment_tracking_subscriptions', 1);
+        $this->assertDatabaseCount('payment_refunds', 0);
+    }
+
+    public function test_daily_tracking_limit_is_distinct_from_http_429_and_shows_an_automatic_retry(): void
+    {
+        $tracker = $this->record();
+        $this->mode = 'daily';
+        $this->artisan('shipments:process')->assertSuccessful();
+        $sub = Subscription::where('tracker_id', $tracker->id)->firstOrFail();
+        $this->assertSame('daily_limit_reached', $sub->last_error_code);
+        $this->assertTrue($sub->next_attempt_at->equalTo(now()->addHour()));
+        $this->getJson('/api/admin/shipping-tracking')->assertOk()->assertJsonPath('data.readiness_state', 'needs_attention')
+            ->assertJsonPath('data.daily_limited', 1)->assertJsonPath('data.rate_limited', 0)->assertJsonPath('data.retrying', 1)
+            ->assertJsonStructure(['data' => ['blocking_reasons' => ['daily_limit'], 'next_retry_at']]);
+        $this->getJson('/api/admin/orders/'.$this->order->id)->assertOk()
+            ->assertJsonPath('data.courier_shipment.last_error_code', 'daily_limit_reached');
+        $this->artisan('17track:verify', ['--quota' => true])->expectsOutputToContain('198')
+            ->expectsOutputToContain('Unlimited (provider setting)')->assertSuccessful();
+    }
+
+    public function test_http_rate_limits_do_not_grow_into_six_hour_delays_and_are_visible_in_status(): void
+    {
+        $sub = $this->registered();
+        $sub->update(['attempts' => 8]);
+        $this->mode = 'rate';
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertTrue($sub->fresh()->next_attempt_at->equalTo(now()->addSeconds(900)));
+        $this->getJson('/api/admin/shipping-tracking')->assertOk()->assertJsonPath('data.rate_limited', 1)
+            ->assertJsonPath('data.readiness_state', 'needs_attention');
+        $this->artisan('17track:verify', ['--status' => true, '--order' => $this->order->order_no])
+            ->expectsOutputToContain('Next automatic retry/check')->expectsOutputToContain('Eligible')->assertSuccessful();
+    }
+
+    public function test_verbose_worker_reports_completion_and_lock_skips_without_exposing_credentials(): void
+    {
+        $this->artisan('shipments:process', ['--verbose' => true])->expectsOutputToContain('Shipment worker completed at')->assertSuccessful();
+        $lock = \Illuminate\Support\Facades\Cache::lock('shipments:process', 120);
+        $this->assertTrue($lock->get());
+        try {
+            $this->artisan('shipments:process', ['--verbose' => true])->expectsOutputToContain('another worker holds the lock')->assertSuccessful();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_scheduler_executes_the_worker_in_process_and_updates_its_heartbeat(): void
+    {
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['last_processed_at' => null]);
+        $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+        $event = collect($schedule->events())->first(fn ($event) => str_starts_with($event->description ?? '', 'fmrc-shipments-'));
+        $this->assertInstanceOf(\Illuminate\Console\Scheduling\CallbackEvent::class, $event);
+        ob_start();
+        try {
+            $event->run($this->app);
+            $output = ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
+        $this->assertStringContainsString('Shipment worker completed at', $output);
+        $this->assertNotNull(ShipmentTracking::settings()->last_processed_at);
+        Http::assertNothingSent();
     }
 
     private function readyOrderTrackingTest(): Subscription

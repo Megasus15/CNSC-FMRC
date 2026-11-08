@@ -41,6 +41,39 @@ TRACK17_REGISTRATION_LIMIT=200
 TRACK17_ALLOW_DEMO_HANDOVER=false
 ```
 
+### Recovery when 17TRACK says Delivered but FMRC still says To Receive
+
+The provider dashboard is separate from FMRC's saved order data. A failed API import or a worker that never completes leaves the order unchanged. A scheduler line marked DONE can also represent an overlap skip; it is not proof that courier events were imported.
+
+This follow-up runs the shipment command inside the scheduler's bootstrapped application, using the command's own 120-second lock. It avoids a second PHP process and a second five-minute scheduler lock. Cron output now reports a completed worker run or an explicit lock/setup skip. Keep the existing production `artisan schedule:run` cron every minute; **do not add another shipment cron alongside it**.
+
+After deploying this follow-up, run:
+
+```sh
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend
+php artisan config:clear
+php artisan 17track:verify --sync --order=ORD-261107-00104
+php artisan shipments:process --verbose
+php artisan 17track:verify --status --order=ORD-261107-00104
+```
+
+No additional database migration is introduced by this follow-up. `--sync` imports saved API results for the already-assigned number. If registration is missing, it reuses the existing provider registration or registers that assigned parcel within the existing budget. It never purchases an instant carrier lookup. Successful Delivered import completes the eligible paid order; payment and refund ledgers are not changed.
+
+Requests are paced at 400 ms between starts, below 17TRACK's documented three requests per second. A console registration is looked up before submitting any registration, avoiding redundant daily-registration checks. HTTP 429 honors numeric or date-form Retry-After and shares its cooldown across workers with the same cache/key; repeated HTTP 429 responses do not become six-hour exponential delays. Other outages retain bounded backoff.
+
+The old `rate_limited` label could mean two different provider conditions. They are now distinct:
+
+- **HTTP 429 / `rate_limited`:** short-term request-frequency protection. Automatic retries respect the provider cooldown.
+- **API -18019907 / `daily_limit_reached`:** the account's daily tracking allowance, separate from remaining lifetime credits. Review the daily limit in 17TRACK Settings; FMRC cannot override that provider setting.
+
+Read the actual account allowance without registering anything:
+
+```sh
+php artisan 17track:verify --quota
+```
+
+Status output includes the order's tracking eligibility, provider registration acceptance, next retry/check, and last completed worker run. Shipping & Delivery displays retries separately from registrations and refreshes its health panel every 30 seconds without replacing delivery-rate drafts. The order card explains HTTP/daily limits and the next automatic retry. Use Ctrl+F5 after deployment to load the updated shared assets.
+
 Use FMRC's actual available allocation for the limit. It is a lifetime local budget, including diagnostics and uncertain attempts. Calendar changes and key rotation do not replenish it. Keep the existing key private; there is no need to create another account or obtain another number for this fix. Clear/rebuild configuration after changing environment values.
 
 For a new API account, create the API service at [17TRACK](https://www.17track.net/en/api), obtain its key privately in Settings, confirm the available allowance, and run:
@@ -115,7 +148,9 @@ FMRC does not overwrite an unrelated application's nonempty tag, change a carrie
 | `credentials_rejected` | Correct the private API key/account permissions. |
 | `quota_limit_reached` | Review provider balance and lifetime local allocation. |
 | `response_mismatch` | Review account, carrier, and tag ownership. |
-| `rate_limited` / `connection_unknown` | Allow backoff; reuse the saved subscription. |
+| HTTP 429 / `rate_limited` | Allow the paced automatic retry; the provider Retry-After is respected. |
+| `daily_limit_reached` | Read `17track:verify --quota` and review the provider daily setting. |
+| `connection_unknown` | Allow backoff; reuse the saved subscription. |
 | Stopped / expired | Investigate in the API console; retain the official J&T fallback. |
 
 ## Pause and verification

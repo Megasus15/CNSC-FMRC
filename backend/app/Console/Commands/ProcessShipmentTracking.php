@@ -17,10 +17,12 @@ final class ProcessShipmentTracking extends Command
     public function handle(ShipmentTrackingEvents $events, SeventeenTrackTracking $track17): int
     {
         if (! ShipmentTracking::installed()) {
+            $this->components->warn('Shipment processing skipped: database setup is not installed.');
             return self::SUCCESS;
         }
         $lock = Cache::lock('shipments:process', 120);
         if (! $lock->get()) {
+            $this->components->warn('Shipment processing skipped: another worker holds the lock (expires within 120 seconds).');
             return self::SUCCESS;
         }
         try {
@@ -28,6 +30,11 @@ final class ProcessShipmentTracking extends Command
                 $track17->process(microtime(true) + 15);
             }
             $events->notifications(microtime(true) + 10);
+            if ($this->output->isVerbose()) {
+                $health = ShipmentTracking::health();
+                $this->info('Shipment worker completed at '.now()->toIso8601String().'.');
+                $this->line('Automatic mode: '.(($health['enabled'] ?? false) ? 'on' : 'off').'; waiting for registration: '.($health['pending'] ?? 0).'; updates awaiting processing: '.($health['pending_updates'] ?? 0).'.');
+            }
         } finally {
             $lock->release();
         }
