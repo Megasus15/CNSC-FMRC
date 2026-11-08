@@ -114,6 +114,24 @@ test("multi-table exports include every stock movement and its full description"
   assert.equal(explicit.worksheets.length, 3, "explicit tables replace inferred tables without duplicates");
 });
 
+test('custom workflow exports keep quoted values separate from numeric receipts, reversals and refunds', async () => {
+  const data = sample();
+  Object.assign(data.report, {id:'CUP-TEST',category:'custom_products',title:'Custom Products Workflow Report',scope:'period_activity',snapshot_at:'2026-09-24T02:30:00Z',scope_note:'Stages are current at generation. Financial entries are confirmed within the selected period.'});
+  data.table.title = 'Custom Requests';
+  data.additional_tables = [
+    {title:'Linked Custom Orders',columns:[{key:'order',label:'Order',type:'text'},{key:'quantity',label:'Quantity',type:'integer'},{key:'shipping',label:'Shipping',type:'currency'}],rows:[{order:'ORD-001',quantity:2,shipping:50.25}]},
+    {title:'Confirmed Financial Activity',columns:[{key:'kind',label:'Entry Type',type:'text'},{key:'amount',label:'Amount',type:'currency'}],rows:[{kind:'Collection',amount:1000.50},{kind:'Receipt reversal',amount:-100},{kind:'Refund',amount:-50.25}]},
+  ];
+  const workbook = await reopen(data);
+  assert.equal(workbook.worksheets.length,4);
+  const orders=workbook.getWorksheet('Linked Custom Orders'),ledger=workbook.getWorksheet('Confirmed Financial Activity');
+  assert.equal(orders.getCell('C13').value,2);assert.equal(orders.getCell('D13').value,50.25);
+  assert.deepEqual([13,14,15].map(row=>ledger.getCell('C'+row).value),[1000.50,-100,-50.25]);
+  assert.match(ledger.getCell('C15').numFmt,/PHP/);
+  assert.match(JSON.stringify(workbook.getWorksheet('Summary').model),/confirmed within the selected period/);
+  assert.equal(labeledValue(workbook.getWorksheet('Summary'),'Records as of').toISOString(),'2026-09-24T10:30:00.000Z');
+});
+
 test("empty tables remain readable and formula-like values stay literal strings", async () => {
   const data = sample();
   data.table.rows = [];

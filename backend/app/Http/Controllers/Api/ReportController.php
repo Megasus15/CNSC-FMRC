@@ -33,6 +33,7 @@ class ReportController extends Controller
         'appointments',
         'inventory',
         'product_inventory',
+        'custom_products',
     ];
 
     private const CATEGORY_CODES = [
@@ -42,6 +43,7 @@ class ReportController extends Controller
         'appointments' => 'APT',
         'inventory' => 'INV',
         'product_inventory' => 'PIN',
+        'custom_products' => 'CUP',
     ];
 
     private const PERIODS = ['monthly', 'quarterly', 'yearly'];
@@ -192,6 +194,7 @@ class ReportController extends Controller
             'appointments' => $this->appointmentsReport($period),
             'inventory' => $this->inventoryReport($period),
             'product_inventory' => $this->productInventoryReport(),
+            'custom_products' => \App\Support\CustomProductReport::build($period),
         };
 
         if(in_array($category,['sales','completed_orders','processing_orders'],true) && collect($content['table']['rows'])->contains('order_type','Custom Products')) {
@@ -207,6 +210,7 @@ class ReportController extends Controller
             'chart' => $content['chart'],
             'breakdown' => $content['breakdown'],
             'table' => $content['table'],
+            'additional_tables' => $content['additional_tables'] ?? [],
         ];
     }
 
@@ -1078,6 +1082,7 @@ class ReportController extends Controller
             'appointments' => 'Appointments Report',
             'inventory' => 'Current Stock Snapshot & Selected-Period Movements',
             'product_inventory' => 'Overall Product Stock Report',
+            'custom_products' => 'Custom Products Workflow Report',
         ];
         $user = $request->user();
         $generatedBy = trim((string) ($user?->name ?? ''))
@@ -1106,6 +1111,15 @@ class ReportController extends Controller
             $descriptor['scope_note'] = 'Current stock from the Products page, including blocked products. '
                 .'This is a snapshot as of generation, independent of the selected reporting period. '
                 .'Stock values use listed selling prices, not sales or acquisition costs.';
+        }
+
+        if ($category === 'custom_products') {
+            $descriptor['scope'] = 'period_activity';
+            $descriptor['snapshot_at'] = $generatedAt->toIso8601String();
+            $descriptor['scope_note'] = 'Booked custom requests with recorded workflow or financial activity in the selected Philippine calendar period, including older requests. '
+                .'Stages, latest quotations and linked orders show current status at generation time. '
+                .'Quoted values are not collections. Financial entries and collections/refunds include only confirmed transactions in this period; cash reversals reduce cash collections. '
+                .'Archived orders and unbooked drafts are excluded.';
         }
 
         return $descriptor;

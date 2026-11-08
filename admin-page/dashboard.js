@@ -1536,9 +1536,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const work=summary?.custom_work;
     let customWork=document.getElementById('appointmentCustomWorkSummary');
     if(work?.available && (work.enabled || Object.entries(work).some(([k,v])=>!['available','enabled'].includes(k)&&Number(v)>0))) {
-      if(!customWork){customWork=document.createElement('section');customWork.id='appointmentCustomWorkSummary';customWork.className='appointment-custom-work portal-data-card';document.querySelector('.analytics-period-bar')?.before(customWork);}
       const values=[['Awaiting review','awaiting_review'],['Quotations awaiting payment','quotations_awaiting_payment'],['Paid · Awaiting production','awaiting_production'],['In production','in_production']];
-      customWork.innerHTML='<header class="portal-table-header"><h3 class="portal-table-title"><span class="portal-table-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>Custom Product Work</h3><a href="appointments.html?custom_products=1" class="btn-admin btn-secondary">Open Appointments</a></header><div>'+values.map(([label,key])=>'<a href="'+(['awaiting_production','in_production'].includes(key)?'orders.html':'appointments.html?custom_products=1')+'"><span>'+label+'</span><strong>'+Number(work[key]||0)+'</strong></a>').join('')+'</div>';
+      if(!customWork){
+        customWork=document.createElement('section');customWork.id='appointmentCustomWorkSummary';customWork.className='appointment-custom-work portal-data-card';customWork.setAttribute('aria-labelledby','customWorkTitle');
+        customWork.innerHTML='<header class="portal-table-header"><h3 class="portal-table-title" id="customWorkTitle"><span class="portal-table-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>Custom Product Work</h3><a href="appointments.html?custom_products=1" class="btn-admin btn-secondary">Open Appointments</a></header><div>'+values.map(([label,key])=>'<a href="'+(['awaiting_production','in_production'].includes(key)?'orders.html':'appointments.html?custom_products=1')+'"><span>'+label+'</span><strong data-work-count="'+key+'">0</strong></a>').join('')+'</div>';
+        document.querySelector('.summary-cards')?.after(customWork);
+      }
+      values.forEach(([,key])=>{customWork.querySelector('[data-work-count="'+key+'"]').textContent=formatCount(work[key]||0);});
     } else if(customWork)customWork.remove();
     const counts = summary?.counts || {};
     const appointments = Array.isArray(summary?.recent_appointments)

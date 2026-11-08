@@ -84,9 +84,15 @@ class AppointmentProductController extends Controller
         $brief = Products::brief($this->data($r, 'requirements'), true);
         $service = Products::eligible($brief['service_id']);
         $r->validate(['booking' => ['nullable'], 'draft_id' => 'nullable|integer', 'expected_revision' => 'required_with:draft_id|integer|min:0']);
+        $booking = $this->data($r, 'booking');
+        \Illuminate\Support\Facades\Validator::make($booking, ['aptDesc' => 'nullable|string|max:2000'])->validate();
+        $notes = Products::mergeBookingNotes($booking['aptDesc'] ?? null, $brief['instructions'] ?? null);
+        \Illuminate\Support\Facades\Validator::make(['additional_notes' => $notes], ['additional_notes' => 'nullable|string|max:2000'])->validate();
+        $brief['instructions'] = $notes;
+        $booking['aptDesc'] = $notes;
         $stored = [];
         try {
-            $job = DB::transaction(function () use ($r, $user, $key, $brief, $service, &$stored) {
+            $job = DB::transaction(function () use ($r, $user, $key, $brief, $service, $booking, &$stored) {
                 User::whereKey($user->id)->lockForUpdate()->firstOrFail();
                 $job = $r->filled('draft_id') ? AppointmentProductJob::where('customer_id', $user->id)->whereKey($r->integer('draft_id'))->lockForUpdate()->firstOrFail()
                     : AppointmentProductJob::where('customer_id', $user->id)->where('request_key', $key)->first();
@@ -102,7 +108,7 @@ class AppointmentProductController extends Controller
                 $bytes = $job ? (int) DB::table('appointment_product_files')->where('job_id', $job->id)->sum('size') : 0;
                 abort_if($count + count($files) > 5 || $bytes + array_sum(array_map(fn ($f) => $f->getSize(), $files)) > 50 * 1024 * 1024, 422, 'Your draft can hold up to five files, totaling 50 MB.');
                 $stored = AppointmentFiles::store($files);
-                $values = ['requirements' => $brief, 'booking' => $this->data($r, 'booking'), 'service_id' => $service->id, 'service_name' => $service->title];
+                $values = ['requirements' => $brief, 'booking' => $booking, 'service_id' => $service->id, 'service_name' => $service->title];
                 if ($job) {
                     $job->fill($values);
                     Products::touch($job);

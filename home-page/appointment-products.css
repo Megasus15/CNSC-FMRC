@@ -81,6 +81,7 @@ html[data-theme="dark"] #modalViewAppointment { --appointment-hover:#76263b; }
 .ap-panel summary { cursor:pointer; font-size:13px; font-weight:600; line-height:1.6; }
 .ap-terms { max-height:220px; overflow:auto; white-space:pre-wrap; padding:14px; border:1px solid var(--ap-line); border-radius:8px; font-size:12px; line-height:1.7; margin-block:12px; }
 .ap-booking { grid-column:1 / -1!important; margin:6px 0!important; }
+#appointmentFlow #aptPurposeField[hidden] { display:none!important; }
 .ap-booking > .ap-check { font-weight:700; }
 .ap-booking [data-ap-brief] { margin-top:20px; padding-top:18px; border-top:1px solid var(--ap-line); }
 /* The receipt has a details/QR row, followed by an optional full-width brief. */

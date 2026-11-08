@@ -115,9 +115,54 @@ class OptionalAppointmentProductsTest extends TestCase
         $data = $this->booking();
         $first = $this->postJson('/api/appointments', $data)->assertCreated()->assertJsonPath('data.status', 'Scheduled')->assertJsonPath('data.custom_product.revision', 0);
         $this->postJson('/api/appointments', $data)->assertCreated()->assertJsonPath('data.id', $first->json('data.id'));
+        $this->service->update(['accepts_appointment_products' => false]);
+        $this->postJson('/api/appointments', $data)->assertCreated()->assertJsonPath('data.id', $first->json('data.id'));
         $this->assertDatabaseCount('appointments', 1);
         $this->assertDatabaseCount('appointment_product_jobs', 1);
         $this->getJson('/api/appointments/'.$first->json('data.reference_no').'/verify')->assertOk()->assertJsonMissingPath('data.custom_product');
+    }
+
+    public function test_custom_booking_derives_purpose_and_keeps_one_set_of_notes(): void
+    {
+        $brief = $this->brief() + ['instructions' => 'Pack the design carefully.'];
+        $response = $this->postJson('/api/appointments', $this->booking([
+            'purpose' => 'Conflicting ordinary purpose', 'additional_notes' => 'Call before the visit.', 'product_data' => $brief,
+        ]))->assertCreated();
+        $appointment = Appointment::findOrFail($response->json('data.id'));
+        $this->assertSame($this->service->title, $appointment->purpose);
+        $this->assertSame("Call before the visit.\n\nPack the design carefully.", $appointment->additional_notes);
+        $job = AppointmentProductJob::findOrFail($response->json('data.custom_product.id'));
+        $this->assertSame($appointment->additional_notes, $job->requirements['instructions']);
+        $this->assertSame('Matte', $job->requirements['finish']);
+    }
+
+    public function test_custom_purpose_is_optional_but_ordinary_purpose_is_required_and_combined_notes_are_bounded(): void
+    {
+        $this->postJson('/api/appointments', $this->booking(['purpose' => '', 'additional_notes' => str_repeat('A', 1200),
+            'product_data' => $this->brief() + ['instructions' => str_repeat('B', 1200)],
+        ]))->assertUnprocessable()->assertJsonValidationErrors('additional_notes');
+        $this->postJson('/api/appointments', $this->booking(['product_requested' => false, 'purpose' => '']))
+            ->assertUnprocessable()->assertJsonValidationErrors('purpose');
+        $response = $this->postJson('/api/appointments', $this->booking(['purpose' => '', 'additional_notes' => 'Unified note.',
+            'product_data' => $this->brief() + ['instructions' => 'Unified note.'],
+        ]))->assertCreated();
+        $this->assertSame('Unified note.', Appointment::findOrFail($response->json('data.id'))->additional_notes);
+    }
+
+    public function test_draft_merges_legacy_notes_once_and_preserves_saved_finish(): void
+    {
+        $body = ['requirements' => $this->brief() + ['instructions' => 'Legacy fabrication instruction.'],
+            'booking' => ['aptDesc' => 'Legacy appointment note.'], 'request_key' => (string) Str::uuid()];
+        $draft = $this->postJson('/api/customer/appointment-products/drafts', $body)->assertOk()->json('data');
+        $notes = "Legacy appointment note.\n\nLegacy fabrication instruction.";
+        $this->assertSame($notes, $draft['requirements']['instructions']);
+        $this->assertSame($notes, $draft['booking']['aptDesc']);
+        $this->assertSame('Matte', $draft['requirements']['finish']);
+        $draft['requirements']['instructions'] = $notes;
+        $this->postJson('/api/customer/appointment-products/drafts', [
+            'requirements' => $draft['requirements'], 'booking' => $draft['booking'], 'request_key' => $body['request_key'],
+            'draft_id' => $draft['id'], 'expected_revision' => $draft['revision'],
+        ])->assertOk()->assertJsonPath('data.requirements.instructions', $notes);
     }
 
     public function test_draft_create_save_and_book_uses_returned_zero_revision_and_does_not_reserve_a_slot(): void

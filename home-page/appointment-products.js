@@ -11,7 +11,7 @@
   const link = path => window.FMRCApp?.url(path) || path;
   const icon = '<span class="ap-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>';
   const contexts = new Map();
-  let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), uploaded = new Set(), draftBusy = false, signingIn = false;
+  let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), bookingFinish = '', uploaded = new Set(), draftBusy = false, signingIn = false;
   const numberLimits = {quantity:[1,100000,1],unit_price:[0.01,100000,0.01],shipping_fee:[0,100000,0.01],budget:[0,10000000,0.01]};
   const field = (name,label,value='',type='text',required=false,wide=false) => {
     const limits=numberLimits[name.replace(/^spec_/,'')];
@@ -165,21 +165,25 @@
     const out = Object.fromEntries(['name','description','dimensions','material','colors','finish','personalization','intended_use','instructions'].map(k=>[k,get(k)]));
     out.service_id=Number(get('service_id'));out.quantity=Number(get('quantity'))||1;
     out.needs_advice=!!form.elements[prefix+'needs_advice']?.checked;
+    if(form.id==='aptCustomFields') {
+      out.finish=bookingFinish;
+      out.instructions=document.getElementById('aptDesc')?.value.trim()||'';
+    }
     if(get('budget'))out.budget=Number(get('budget')); if(get('preferred_date'))out.preferred_date=get('preferred_date');
     return out;
   };
-  const briefFields = (data={},services=[],prefix='',final=false,operator=false) => `<div class="ap-grid">
+  const briefFields = (data={},services=[],prefix='',final=false,operator=false,booking=false) => `<div class="ap-grid">
     <label class="ap-field is-wide"><span>FMRC service *</span><select name="${prefix}service_id" required ${final?'disabled':''}>${services.map(s=>`<option value="${s.id}" ${Number(data.service_id)===Number(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select>${final?'<small>To change the service, save the product details and confirm the consultation outcome first.</small>':''}</label>
     ${field(prefix+'name','Product idea',data.name,'text',true)}${field(prefix+'quantity','Quantity',data.quantity||1,'number',true)}
     ${field(prefix+'description','Describe the product',data.description,'textarea',true,true)}
     ${field(prefix+'dimensions','Dimensions or size',data.dimensions,'text',final)}${field(prefix+'material','Material',data.material,'text',final)}
-    ${field(prefix+'colors','Colors',data.colors,'text',final)}${field(prefix+'finish','Finish',data.finish,'text',final)}
+    ${field(prefix+'colors','Colors',data.colors,'text',final)}${booking?'':field(prefix+'finish','Finish',data.finish,'text',final)}
     ${field(prefix+'personalization','Text or personalization',data.personalization,'textarea',false,true)}
     ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'number')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date')}
       <label class="ap-check"><input type="checkbox" name="${prefix}needs_advice" ${data.needs_advice?'checked':''}><span>${operator?'The customer needs advice on some specifications.':'I need advice from the FMRC team on some specifications.'}</span></label>`:''}
-    ${field(prefix+'instructions','Additional instructions',data.instructions,'textarea',false,true)}
+    ${booking?'':field(prefix+'instructions','Additional instructions',data.instructions,'textarea',false,true)}
   </div>`;
-  const specs = data => '<dl class="ap-summary">'+Object.entries({Product:data.name,Description:data.description,Quantity:data.quantity,Dimensions:data.dimensions,Material:data.material,Colors:data.colors,Finish:data.finish,Personalization:data.personalization,Instructions:data.instructions}).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||(['Personalization','Instructions'].includes(label)?'None':'To be discussed'))}</dd></div>`).join('')+'</dl>';
+  const specs = (data,omit=[]) => '<dl class="ap-summary">'+Object.entries({Product:data.name,Description:data.description,Quantity:data.quantity,Dimensions:data.dimensions,Material:data.material,Colors:data.colors,Finish:data.finish,Personalization:data.personalization,Instructions:data.instructions}).filter(([label])=>!omit.includes(label)).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||(['Personalization','Instructions'].includes(label)?'None':'To be discussed'))}</dd></div>`).join('')+'</dl>';
   const dirty = root => !!root?.querySelector('form[data-dirty="true"]');
   // Update options in place so a service refresh never replaces entered fields or files.
   async function refreshServices(ctx,select) {
@@ -391,6 +395,25 @@
   const bookingIds=['aptLName','aptFName','aptMI','aptPhone','aptEmail','aptRole','aptRoleOther','aptCountry','aptRegion','aptProvince','aptMunicipality','aptAddress','aptIntlAddress','aptMethod','aptPurpose','aptDesc'];
   const bookingValues=()=>Object.fromEntries(bookingIds.map(id=>[id,document.getElementById(id)?.value||'']));
   const selected=()=>!!document.getElementById('aptCustomProduct')?.checked;
+  const bookingPurpose=()=>document.querySelector('#aptCustomFields [name="service_id"]')?.selectedOptions[0]?.textContent.trim()||'';
+  function syncBookingFields() {
+    const active=selected(),purpose=document.getElementById('aptPurpose');
+    if(purpose){purpose.disabled=active;purpose.closest('.apt-input-group').hidden=active;}
+    const client=document.getElementById('aptClientTypeField');if(client)client.style.gridColumn=active?'span 3':'';
+    const save=document.getElementById('aptSaveCustomDraft');if(save)save.hidden=!active;
+    const brief=document.querySelector('[data-ap-brief]');if(brief)brief.hidden=!active;
+  }
+  // Older drafts may hold different notes in each field. Keep every distinct block.
+  const mergeBookingNotes=(...values)=>values.map(v=>String(v||'').trim()).filter(Boolean).reduce((parts,note)=>{
+    if(parts.some(part=>('\n\n'+part+'\n\n').includes('\n\n'+note+'\n\n')))return parts;
+    return [...parts.filter(part=>!('\n\n'+note+'\n\n').includes('\n\n'+part+'\n\n')),note];
+  },[]).join('\n\n');
+  function validateBookingNotes() {
+    const notes=document.getElementById('aptDesc');if(!notes)return true;
+    const valid=notes.value.trim().length<=2000;
+    notes.setCustomValidity(valid?'':'Additional notes must not exceed 2,000 characters. Review the combined notes before continuing.');
+    if(!valid){notes.focus();notes.reportValidity();}return valid;
+  }
   const fileKey=f=>[f.name,f.size,f.lastModified].join('|');
   const newFiles=files=>files.filter(f=>!uploaded.has(fileKey(f)));
   function append(formData) {
@@ -402,6 +425,7 @@
   async function saveDraft() {
     if(draftBusy)return; if(!token())return signIn(); const form=document.getElementById('aptCustomFields');
     if(!Number(form.elements.service_id.value))return popup('Choose an eligible FMRC service first.');
+    if(!validateBookingNotes())return;
     draftBusy=true;const btn=document.getElementById('aptSaveCustomDraft');btn.disabled=true;
     try{const fd=new FormData();fd.append('requirements',JSON.stringify(requirements(form)));fd.append('booking',JSON.stringify(bookingValues()));fd.append('request_key',bookingKey);
       if(bookingDraft){fd.append('draft_id',bookingDraft.id);fd.append('expected_revision',bookingDraft.revision);}
@@ -432,14 +456,17 @@
       if(input.tagName==='SELECT'&&value)for(let i=0;i<45&&!Array.from(input.options).some(o=>o.value===value);i++)await new Promise(r=>setTimeout(r,70));
       input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));}
     bookingDraft=data.draft||null;bookingKey=data.key||bookingDraft?.request_key||uid();uploaded.clear();
-    const checkbox=document.getElementById('aptCustomProduct');if(checkbox){checkbox.checked=true;document.querySelector('[data-ap-brief]').hidden=false;document.getElementById('aptSaveCustomDraft').hidden=false;document.getElementById('aptCustomFields').innerHTML=briefFields(data.custom||bookingDraft?.requirements,availability.services);}
+    const custom=data.custom||bookingDraft?.requirements||{};bookingFinish=custom.finish||'';
+    const notes=document.getElementById('aptDesc');if(notes){notes.value=mergeBookingNotes(data.booking?.aptDesc,custom.instructions);notes.setCustomValidity('');}
+    const checkbox=document.getElementById('aptCustomProduct');if(checkbox){checkbox.checked=true;document.getElementById('aptCustomFields').innerHTML=briefFields(custom,availability.services,'',false,false,true);syncBookingFields();}
     showSavedFiles();
   }
   async function bookingInit() {
     const anchor=document.getElementById('aptDesc')?.closest('.apt-input-group');if(!anchor)return;
     try{const available=await loadAvailability();if(!available.enabled)return;
-      const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">The FMRC team is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services)}</form><p class="ap-help">Use the Design Files field above to attach private designs. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
-      anchor.before(section);section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=()=>{section.querySelector('[data-ap-brief]').hidden=!checkbox.checked;document.getElementById('aptSaveCustomDraft').hidden=!checkbox.checked;};
+      const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">The FMRC team is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services,'',false,false,true)}</form><p class="ap-help">Use Design Files to attach private designs and Additional notes for other instructions. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
+      anchor.before(section);section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=syncBookingFields;
+      document.getElementById('aptDesc')?.addEventListener('input',()=>{document.getElementById('aptDesc').setCustomValidity('');if(selected())section.querySelector('form').dataset.dirty='true';});
       section.querySelector('[data-ap-sign-in]')?.addEventListener('click',signIn);
       const save=document.createElement('button');save.type='button';save.className='apt-btn apt-btn-back';save.id='aptSaveCustomDraft';save.textContent='Save Draft';save.hidden=true;save.onclick=saveDraft;document.getElementById('btnGoToStep3')?.before(save);
       const pending=sessionStorage.getItem('fmrc-appointment-product-resume');
@@ -483,10 +510,10 @@
         try{await request(`/customer/orders/${order.id}/custom-payment-method`,{method:'POST',body:JSON.stringify({payment_method:order.payment_method==='Cash at FMRC'?'online':'cash',expected_revision:c.revision})});location.reload();}catch(error){await popup(error.message);}finally{busy=false;}}
     };
   }
-  window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,draftList,claimPanel,allowLeave,isDirty:dirty,append,newFiles,selected,isSigningIn:()=>signingIn,
-    validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return form.reportValidity();},
-    review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">The FMRC team will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+specs(requirements(document.getElementById('aptCustomFields')));},
-    reset:()=>{bookingDraft=null;bookingKey=uid();uploaded.clear();document.getElementById('aptCustomFields')?.reset();document.querySelector('[data-ap-saved-files]')?.replaceChildren();document.querySelector('[data-ap-booking-review]')?.remove();const c=document.getElementById('aptCustomProduct');if(c){c.checked=false;c.dispatchEvent(new Event('change'));}},
+  window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,draftList,claimPanel,allowLeave,isDirty:dirty,append,newFiles,selected,bookingPurpose,isSigningIn:()=>signingIn,
+    validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return form.reportValidity()&&validateBookingNotes();},
+    review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">The FMRC team will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+specs(requirements(document.getElementById('aptCustomFields')),['Finish','Instructions']);},
+    reset:()=>{bookingDraft=null;bookingKey=uid();bookingFinish='';uploaded.clear();document.getElementById('aptDesc')?.setCustomValidity('');document.getElementById('aptCustomFields')?.reset();document.querySelector('[data-ap-saved-files]')?.replaceChildren();document.querySelector('[data-ap-booking-review]')?.remove();const c=document.getElementById('aptCustomProduct');if(c){c.checked=false;c.dispatchEvent(new Event('change'));}},
     booked:()=>{sessionStorage.removeItem('fmrc-appointment-product-resume');void localFiles([]).catch(()=>{});},
   };
   if(team) {

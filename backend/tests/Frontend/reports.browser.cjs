@@ -38,6 +38,7 @@ test('Admin and Staff reports anchor certification once on the final preview and
     const endpoint=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(Error('Chrome startup')),15000);browser.stderr.on('data',chunk=>{output+=chunk;const match=output.match(/DevTools listening on (ws:\/\/\S+)/);if(match){clearTimeout(timer);resolve(match[1]);}});browser.once('error',reject);});
     const tabs=await(await fetch('http://127.0.0.1:'+new URL(endpoint).port+'/json/list')).json();cdp=await connect(tabs.find(tab=>tab.type==='page').webSocketDebuggerUrl);
     await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
+    await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:artifacts});
     const run=async expression=>{const result=await cdp.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
     const until=async expression=>{for(let i=0;i<180;i++){try{if(await run(expression))return;}catch(error){if(!/context|navigated/i.test(error.message))throw error;}await pause(45);}throw Error('Timeout: '+expression+'; '+JSON.stringify(await run('({url:location.href,errors:fixtureErrors,popup:document.getElementById("customerSystemPopupMessage")?.textContent,shipping:document.getElementById("checkoutShippingMessage")?.textContent})')));};
     const navigate=async route=>{await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+route});await until(`location.pathname===${JSON.stringify(route)}&&document.readyState==='complete'`);};
@@ -67,10 +68,12 @@ test('Admin and Staff reports anchor certification once on the final preview and
         if(!table.rows.length)continue;
         const records=await run(`Array.from(document.querySelectorAll('.official-report-detail-page')).filter(page=>page.querySelector('.official-detail-heading h1').textContent===${JSON.stringify(table.title)}).flatMap(page=>Array.from(page.querySelectorAll('tbody tr')).map(row=>({number:Number(row.dataset.reportRecord||row.dataset.reportContinuationFor),customer:row.children[2].textContent.trim()})))`);
         assert.deepEqual([...new Set(records.map(row=>row.number))],table.rows.map((_,i)=>i+1),'Every record survives pagination: '+table.title);
-        table.rows.forEach((row,i)=>assert.equal(records.filter(item=>item.number===i+1).map(item=>item.customer).join('').replace(/\s/g,''),row.customer.replace(/\s/g,''),'Long cells survive continuation pages'));
+        if(table.columns[1]?.key==='customer')table.rows.forEach((row,i)=>assert.equal(records.filter(item=>item.number===i+1).map(item=>item.customer).join('').replace(/\s/g,''),row.customer.replace(/\s/g,''),'Long cells survive continuation pages'));
       }
     };
     for(const portal of ['admin','staff']){
+      const downloadDirectory=path.join(artifacts,portal+'-exports');fs.mkdirSync(downloadDirectory,{recursive:true});
+      await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDirectory});
       fixtureReport=report;
       await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await navigate('/'+portal+'-page/reports.html');await until(`!document.getElementById('reportPreviewBtn').disabled`);
       await run(`document.getElementById('reportPreviewBtn').click()`);await until(`document.querySelectorAll('.official-report-page').length>1&&!document.getElementById('reportPrintBtn').disabled`);
@@ -88,13 +91,41 @@ test('Admin and Staff reports anchor certification once on the final preview and
       const pdf=await cdp.send('Page.printToPDF',{printBackground:true,displayHeaderFooter:false,preferCSSPageSize:true});fs.writeFileSync(path.join(artifacts,portal+'-report.pdf'),Buffer.from(pdf.data,'base64'));
       await run(`window.dispatchEvent(new Event('afterprint'))`);assert.equal(await run(`document.body.classList.contains('report-printing')`),false);assert.deepEqual(await run('fixtureErrors'),[]);
       let capacity=40;
-      for(const scenario of ['empty','short','many','boundary','long','multiple-tables']){
+      for(const scenario of ['empty','short','many','boundary','long','multiple-tables','custom-products']){
         fixtureReport=structuredClone(report);
         const count={empty:0,short:1,many:95,boundary:capacity,long:2,'multiple-tables':3}[scenario];
         fixtureReport.table.rows=Array.from({length:count},(_,i)=>({...report.table.rows[0],order_no:'ORD-'+String(i+1).padStart(5,'0'),customer:scenario==='long'&&i===0?'Prototype design and fabrication '.repeat(110):'Report Customer '+(i+1)}));
         if(scenario==='multiple-tables')fixtureReport.additional_tables=[{...structuredClone(report.table),title:'Supplementary transactions',rows:structuredClone(report.table.rows)},{...structuredClone(report.table),title:'Final records',rows:report.table.rows.slice(0,1)},{...structuredClone(report.table),title:'Empty appendix',rows:[]}];
+        if(scenario==='custom-products'){
+          const column=(key,label,type='text')=>({key,label,type});
+          fixtureReport.report={...report.report,id:'CUP-LOCAL',category:'custom_products',title:'Custom Products Workflow Report',scope:'period_activity',scope_note:'Recorded activity in the selected Philippine calendar period. Stages show current status at generation time. Quoted values are not collections.'};
+          fixtureReport.metrics=Array.from({length:8},(_,i)=>({key:'custom_'+i,label:['Requests with activity','Quotations sent','Production started','Orders completed','Online collections','Cash collections (net reversals)','Confirmed refunds','Net collections'][i],value:i<4?12:1250.50,format:i<4?'integer':'currency'}));
+          fixtureReport.table={title:'Custom Requests — Current Status at Generation',columns:[column('request','Request / Appointment'),column('customer','Customer'),column('product','Service / Product'),column('quotation','Latest Quotation'),column('quotation_total','Quoted Value','currency'),column('stage','Current Stage','status'),column('orders','Linked Orders'),column('last_activity','Latest Period Activity','datetime')],rows:Array.from({length:12},(_,i)=>({request:'CP-'+(i+1)+'\nAP-00051',customer:'Report Customer '+(i+1),product:'3D Printing\nPersonalized desk sign',quotation:'v2 · Accepted',quotation_total:1250.50,stage:'In production',orders:'ORD-00081',last_activity:'2026-11-10T10:30:00+08:00'}))};
+          fixtureReport.additional_tables=[{title:'Linked Custom Orders — Current Status at Generation',columns:[column('request','Request'),column('order_no','Order No.'),column('quantity','Quantity','integer'),column('product_value','Product Value','currency'),column('shipping','Shipping','currency'),column('total','Total','currency'),column('payment','Payment'),column('stage','Production / Stage','status'),column('fulfillment','Fulfillment')],rows:[{request:'CP-1',order_no:'ORD-00081',quantity:2,product_value:1200.50,shipping:50,total:1250.50,payment:'QR Ph · Paid',stage:'In production',fulfillment:'J&T delivery'}]},
+            {title:'Confirmed Financial Activity in Period',columns:[column('entry','Entry'),column('at','Confirmed','datetime'),column('order_no','Order No.'),column('method','Method'),column('kind','Entry Type'),column('reference','Reference'),column('amount','Amount','currency')],rows:[{entry:'REF-1',at:'2026-11-10T10:30:00+08:00',order_no:'ORD-00081',method:'QR Ph',kind:'Refund',reference:'refund_fixture',amount:-50.25}]}];
+        }
         await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
         await navigate('/'+portal+'-page/reports.html');await until(`!document.getElementById('reportPreviewBtn').disabled`);
+        if(scenario==='custom-products'){
+          await run(`document.querySelector('[data-report-category="custom_products"]').click();document.getElementById('reportGenerateBtn').click()`);
+          await until(`!document.getElementById('reportPreviewBtn').disabled&&document.getElementById('reportSectionSelect').options.length===3`);
+          await run(`document.getElementById('reportNextPage').click()`);assert.match(await run(`document.getElementById('reportTableMeta').textContent`),/Page 2 of 2/);
+          await run(`document.getElementById('reportSectionSelect').value='2';document.getElementById('reportSectionSelect').dispatchEvent(new Event('change',{bubbles:true}))`);assert.equal(await run(`document.getElementById('reportTableTitle').textContent`),fixtureReport.additional_tables[1].title);
+          assert.match(await run(`document.getElementById('reportTableBody').textContent`),/refund_fixture/);assert.match(await run(`document.getElementById('reportTableMeta').textContent`),/Page 1 of 1/);
+          for(const theme of ['light','dark']){
+            await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
+            for(const width of [390,1440]){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false);await shot(portal+'-custom-report-'+theme+'-'+width);}
+          }
+          const previousFiles=new Set(fs.readdirSync(downloadDirectory));
+          await run(`document.getElementById('reportExportExcelBtn').click()`);
+          let workbookPath;
+          for(let i=0;i<120;i++){const file=fs.readdirSync(downloadDirectory).find(name=>name.endsWith('.xlsx')&&!previousFiles.has(name));if(file){workbookPath=path.join(downloadDirectory,file);break;}await pause(50);}
+          assert(workbookPath,'The real Export Excel control downloads a workbook: '+JSON.stringify(await run(`({busy:document.getElementById('reportExportExcelBtn').getAttribute('aria-busy'),popup:document.getElementById('adminSystemPopupMessage')?.textContent,errors:fixtureErrors})`)));
+          const ExcelJS=require(path.join(root,'admin-page/assets/lib/exceljs-4.4.0.min.js')),workbook=new ExcelJS.Workbook();
+          await workbook.xlsx.load(fs.readFileSync(workbookPath));assert.equal(workbook.worksheets.length,4,'All report sections export regardless of the selected table');
+          assert.equal(workbook.worksheets[1].getCell('F13').value,1250.50);assert.equal(workbook.worksheets[3].getCell('H13').value,-50.25);
+          assert.equal(await run(`document.getElementById('reportSectionSelect').value`),'2','Export keeps the operator’s selected section');
+        }
         await run(`document.getElementById('reportPreviewBtn').click()`);await until(`document.querySelector('.has-final-certification')&&!document.getElementById('reportPrintBtn').disabled`);
         await checkCertification();
         if(scenario==='empty')assert.equal(await run(`document.querySelectorAll('.official-report-page').length`),1,'An empty report certifies the summary sheet');
@@ -107,6 +138,6 @@ test('Admin and Staff reports anchor certification once on the final preview and
         await run(`window.dispatchEvent(new Event('afterprint'))`);assert.deepEqual(await run('fixtureErrors'),[]);
       }
     }
-    assert.equal(generations,14,'Every print remains an audited generation in both portals');console.log('Verified final-sheet certification, complete records, empty/short/full/long/multiple-table reports, responsive previews and print lifecycle. PDF artifacts: '+artifacts);
+    assert.equal(generations,16,'Every print remains an audited generation in both portals');console.log('Verified final-sheet certification, complete records, empty/short/full/long/multiple-table/custom-product reports, responsive previews and print lifecycle. PDF artifacts: '+artifacts);
   }finally{cdp?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

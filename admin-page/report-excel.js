@@ -135,7 +135,7 @@
     const report = data.report || {};
     const timezone = report.timezone || "Asia/Manila";
     const isSnapshot = report.scope === "current_snapshot";
-    const asOf = isSnapshot ? report.snapshot_at || report.generated_at : report.generated_at;
+    const asOf = report.snapshot_at || report.generated_at;
     const coverage = isSnapshot ? "Current inventory snapshot" : report.period_label || "Selected period";
     const detailTables = (tables || [data.table, ...array(data.additional_tables)]).filter(Boolean).map(normalizeTable);
     const workbook = new root.ExcelJS.Workbook();

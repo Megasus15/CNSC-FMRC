@@ -3488,15 +3488,15 @@ body.admin-session-warning-open {
 }
 
 /* Optional workload uses existing portal surfaces and compact dashboard typography. */
-.appointment-custom-work { border:1px solid var(--border-color,#dfe5ed);border-radius:14px;padding:20px;margin-bottom:24px;background:var(--surface,#fdfaf6);color:var(--text-main,#312a30); }
+.appointment-custom-work { border:1px solid var(--border-color,#dfe5ed);border-radius:12px;padding:20px;margin-bottom:30px;background:var(--surface,#fdfaf6);color:var(--text-main,#312a30);min-width:0; }
 .appointment-custom-work header { display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap; }
 .appointment-custom-work h3 { font-size:16px;font-weight:700;line-height:1.5;color:var(--portal-accent,#800000);margin:0; }
 .appointment-custom-work header a { margin-left:auto; }
 .appointment-custom-work > div { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px; }
-.appointment-custom-work > div a { display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--border-color,#dfe5ed);border-radius:10px;text-decoration:none;color:inherit; }
+.appointment-custom-work > div a { display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-width:0;padding:14px;border:1px solid var(--border-color,#dfe5ed);border-radius:8px;text-decoration:none;color:inherit; }
 .appointment-custom-work > div a:hover { background:var(--hover-bg,#f5ecea); }
 .appointment-custom-work > div a:focus-visible { outline:2px solid var(--portal-accent,#800000);outline-offset:3px; }
-.appointment-custom-work span { font-size:12px;line-height:1.6; }
+.appointment-custom-work > div span { font-size:12px;line-height:1.6;overflow-wrap:anywhere; }
 .appointment-custom-work strong { font-size:24px;color:var(--portal-accent,#800000); }
 @media(max-width:900px){.appointment-custom-work > div{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:480px){.appointment-custom-work{padding:16px;}.appointment-custom-work > div{gap:10px;}.appointment-custom-work header a{margin-left:0;}}

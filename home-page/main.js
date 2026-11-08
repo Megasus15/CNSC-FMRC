@@ -6011,8 +6011,7 @@ document.addEventListener("DOMContentLoaded", () => {
     syncAptAlert();
   };
 
-  // The attachment lives inside the "Purpose of Visit" group, so it gets its
-  // own ring instead of reddening the select next to it.
+  // Design files stay independent of the ordinary/custom appointment purpose.
   const setAptFileError = (message) => {
     aptFileInput?.closest(".file-upload-wrapper")?.classList.add("has-error");
     pushAptAlertMessage("aptFile", message);
@@ -6133,7 +6132,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const middleInitial = document.getElementById("aptMI")?.value?.trim() || "";
     const mobile = document.getElementById("aptPhone")?.value?.trim() || "";
     const email = document.getElementById("aptEmail")?.value?.trim() || "";
-    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "";
+    const customProduct = !!window.FMRCAppointmentProducts?.selected();
+    const purpose = customProduct
+      ? window.FMRCAppointmentProducts.bookingPurpose()
+      : document.getElementById("aptPurpose")?.value?.trim() || "";
     const clientType = document.getElementById("aptRole")?.value?.trim() || "";
     const country =
       document.getElementById("aptCountry")?.value?.trim() || "Philippines";
@@ -6179,7 +6181,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    if (!purpose) {
+    if (!purpose && !customProduct) {
       markError("aptPurpose", "Purpose of Visit is required.");
     }
     if(!document.getElementById("aptMethod")?.value)markError("aptMethod","Choose an appointment method.");
@@ -6243,7 +6245,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (description.length > 2000) {
       markError(
         "aptDesc",
-        "Description must not exceed 2000 characters.",
+        "Additional notes must not exceed 2,000 characters. Review the combined notes before continuing.",
       );
     }
 
@@ -6285,8 +6287,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const phone = document.getElementById("aptPhone")?.value?.trim() || "N/A";
     const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
-    const purpose =
-      document.getElementById("aptPurpose")?.value?.trim() || "N/A";
+    const purpose = (window.FMRCAppointmentProducts?.selected()
+      ? window.FMRCAppointmentProducts.bookingPurpose()
+      : document.getElementById("aptPurpose")?.value?.trim()) || "N/A";
     const clientType = getAppointmentClientType() || "N/A";
     const country =
       document.getElementById("aptCountry")?.value?.trim() || "Philippines";
@@ -6456,7 +6459,9 @@ document.addEventListener("DOMContentLoaded", () => {
     formData.append("client_type", getAppointmentClientType());
     formData.append(
       "purpose",
-      document.getElementById("aptPurpose")?.value?.trim() || "",
+      window.FMRCAppointmentProducts?.selected()
+        ? window.FMRCAppointmentProducts.bookingPurpose()
+        : document.getElementById("aptPurpose")?.value?.trim() || "",
     );
     formData.append(
       "additional_notes",

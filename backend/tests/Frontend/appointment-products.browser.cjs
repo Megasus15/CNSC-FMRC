@@ -219,7 +219,7 @@ test('optional appointment products preserve drafts and share the existing modal
         for(const selector of [eligible+' .ap-consult-link',eligible+' .open-modal-btn']){
           const point=await run(`(()=>{const b=document.querySelector(${JSON.stringify(selector)});b.scrollIntoView({block:'center',behavior:'instant'});const r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
           await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await pause(230);
-          if(selector.endsWith('.ap-consult-link'))assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).color`),'rgb(255, 255, 255)');else assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)}+' .details-btn-label')).textDecorationLine`),'underline');
+          if(selector.endsWith('.ap-consult-link'))await until(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).color==='rgb(255, 255, 255)'`);else assert.equal(await run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)}+' .details-btn-label')).textDecorationLine`),'underline');
         }
         await run(`document.querySelector('${eligible} .open-modal-btn').click()`);await until(`document.querySelector('#serviceModal.show-modal .service-details-actions a')?.getAttribute('href')`);
         assert.equal(await run(`document.querySelector('#serviceModal .service-details-actions a').href`),href);
@@ -274,6 +274,14 @@ test('optional appointment products preserve drafts and share the existing modal
     for(const [id,value]of Object.entries({aptLName:'Santos',aptFName:'Maria',aptPhone:'09171234567',aptEmail:'maria@gmail.com',aptMethod:'online',aptPurpose:'3D Printing',aptRole:'Student',aptCountry:'Outside Philippines',aptIntlAddress:'123 Example Avenue, Singapore'})){await input(id,value);await run(`document.getElementById(${JSON.stringify(id)}).dispatchEvent(new Event('change',{bubbles:true}))`);}
 
     await run(`document.getElementById('aptCustomProduct').click();(()=>{const f=document.getElementById('aptCustomFields');for(const [k,v]of Object.entries(${JSON.stringify(brief)})){if(f.elements[k])f.elements[k].value=v;}})()`);
+    assert.equal(await run(`document.getElementById('aptPurpose').disabled&&getComputedStyle(document.getElementById('aptPurposeField')).display==='none'`),true,'Custom booking has one service selector');
+    assert.equal(await run(`document.querySelector('#aptCustomFields [name="finish"],#aptCustomFields [name="instructions"]')`),null,'Initial brief omits Finish and duplicate instructions');
+    assert.equal(await run(`getComputedStyle(document.getElementById('aptFile').closest('.apt-input-group')).display!=='none'`),true,'Design files stay available independently');
+    await run(`document.querySelector('#aptCustomFields [name="service_id"]').value='4';document.getElementById('aptCustomProduct').click()`);
+    assert.equal(await run(`!document.getElementById('aptPurpose').disabled&&document.getElementById('aptPurpose').value==='3D Printing'`),true,'Ordinary purpose is restored unchanged');
+    await run(`document.getElementById('aptCustomProduct').click()`);
+    assert.equal(await run(`window.FMRCAppointmentProducts.bookingPurpose()`),'Heatpress','A service absent from the ordinary purpose list is supported');
+    await run(`document.querySelector('#aptCustomFields [name="service_id"]').value='2';document.getElementById('aptDesc').value='Keep the lettering legible.';document.getElementById('aptDesc').dispatchEvent(new Event('input',{bubbles:true}))`);
     await run(`document.getElementById('aptSaveCustomDraft').click();document.getElementById('aptSaveCustomDraft').click()`);
     await until(`document.querySelector('#customerSystemPopup.show #customerSystemPopupTitle')?.textContent==='Draft not saved'`);assert.equal(draftWrites,1);
     assert.equal(await run(`document.getElementById('aptCustomFields').elements.name.value`),brief.name);
@@ -287,7 +295,8 @@ test('optional appointment products preserve drafts and share the existing modal
     for(let i=0;i<13&&await run(`document.getElementById('calMonthYear').textContent`)!==targetMonth;i++)await run(`document.getElementById('calNextBtn').click()`);
     const spoken=new Date(bookedDate+'T12:00:00+08:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'});
     await run(`document.querySelector('[aria-label="'+${JSON.stringify(spoken)}+', available"]').click();document.querySelector('.time-slot-btn:not(:disabled)').click();document.getElementById('btnGoToConfirm').click();document.getElementById('acceptConfirmBtn').click()`);
-    assert.match(await run(`document.querySelector('[data-ap-booking-review]').textContent`),/Personal desk sign/);await stepPreview(4);await run(`document.getElementById('btnGoToStep5').click()`);await until(`document.getElementById('aptStep5').classList.contains('active')`);assert(booking);await stepPreview(5);
+    assert.match(await run(`document.querySelector('[data-ap-booking-review]').textContent`),/Personal desk sign/);await stepPreview(4);await run(`document.getElementById('btnGoToStep5').click()`);await until(`document.getElementById('aptStep5').classList.contains('active')`);assert(booking);
+    assert.equal(JSON.parse(booking.product_data).instructions,booking.additional_notes);assert.equal(booking.additional_notes,'Keep the lettering legible.');assert.equal(booking.purpose,'3D Printing');await stepPreview(5);
     await run(`document.getElementById('btnFinishStep5').click();document.getElementById('btnSuccessHome').click()`);
     appointment.status='Completed';appointment.can_reschedule=false;await audienceCopy(false);
     await navigate('/about-page/about.html');await until(`!!window.FMRCAppointments`);await run(`window.FMRCAppointments.open(51)`);await until(`!!document.querySelector('[data-ap-job]')`);
@@ -320,7 +329,7 @@ test('optional appointment products preserve drafts and share the existing modal
     assert.equal(await run(`!!document.querySelector('[data-ap-form="quotation"]')`),true,'a lower-revision feed cannot undo an outcome');
     cacheProgress=false;
     await quotationControls({failure:true});
-    const sendQuotation=()=>run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-tab="1"]').click();(()=>{const f=document.querySelector('[data-ap-form="quotation"]');f.closest('details').open=true;f.elements.design_notes.value='Final desk sign layout';f.elements.unit_price.value='200';f.elements.lead_time.value='Five working days';f.requestSubmit();})()`);
+    const sendQuotation=()=>run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-tab="1"]').click();(()=>{const f=document.querySelector('[data-ap-form="quotation"]');f.closest('details').open=true;f.elements.spec_finish.value='Matte';f.elements.design_notes.value='Final desk sign layout';f.elements.unit_price.value='200';f.elements.lead_time.value='Five working days';f.requestSubmit();})()`);
     failQuotation=true;await sendQuotation();await confirm('Confirm action');await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Action not completed'`);
     assert.equal(quoteWrites,0);assert.equal(await run(`document.querySelector('[name="delivery_barangay"]').value`),'Alawihao');assert.equal(await run(`document.querySelector('[name="shipping_fee"]').value`),'100.25');
     await sendQuotation();await confirm('Confirm action');await until(`!!document.querySelector('.ap-message h4')`);assert.equal(quoteWrites,1);await run(`document.getElementById('adminSystemPopupOk')?.click()`);
@@ -367,6 +376,15 @@ test('optional appointment products preserve drafts and share the existing modal
     await navigate('/staff-page/orders.html');await until(`!!window.FMRCAppointmentProducts`);await run(`window.FMRCAppointmentProducts.mountOrder(document.getElementById('modalOrderDetails').querySelector('.modal-body-scroll'),${JSON.stringify(customOrder)},true);document.getElementById('modalOrderDetails').classList.add('show')`);
     await run(`(()=>{const f=document.querySelector('[data-ap-order-form="cash_receipt"]');f.elements.receipt_reference.value='CASH-001';f.elements.confirmed_received.checked=true;f.requestSubmit();})()`);await confirm('Confirm action');await until(`!!document.querySelector('[data-ap-production="start"]')`);assert.equal(cashWrites,1);await run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-production="start"]').click()`);await confirm('Confirm action');await until(`!!document.querySelector('[data-ap-production="ready"]')`);await run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-production="ready"]').click()`);await confirm('Confirm action');await until(`!!document.querySelector('[data-ap-order-form="collect"]')`);await run(`document.getElementById('adminSystemPopupOk')?.click()`);await shot('staff-order-ready');assert.equal(customOrder.custom_product.stage,'Ready for pickup');
     await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});assert.equal(await run(`getComputedStyle(document.querySelector('.ap-btn')).transitionDuration`),'0s');
+    await navigate('/home-page/main.html');await until(`!!document.getElementById('aptCustomFields')`);
+    await run(`sessionStorage.setItem('fmrc-appointment-product-resume',JSON.stringify({booking:{aptDesc:'Existing appointment note.',aptPurpose:'Inquiries'},custom:{...${JSON.stringify(brief)},instructions:'Existing fabrication instruction.'},key:'legacy-resume'}))`);
+    await navigate('/home-page/main.html');await until(`document.getElementById('aptCustomProduct')?.checked`);
+    assert.equal(await run(`document.getElementById('aptDesc').value`),'Existing appointment note.\n\nExisting fabrication instruction.');
+    assert.equal(await run(`(()=>{const fd=new FormData();window.FMRCAppointmentProducts.append(fd);return JSON.parse(fd.get('product_data')).finish})()`),'Matte','Resuming preserves the hidden legacy finish');
+    await run(`document.getElementById('aptDesc').value='A'.repeat(2001)`);
+    assert.equal(await run(`window.FMRCAppointmentProducts.validate()`),false,'Combined notes are never silently truncated');
+    await run(`window.FMRCAppointmentProducts.reset()`);
+    assert.equal(await run(`!document.getElementById('aptPurpose').disabled&&!document.getElementById('aptPurposeField').hidden`),true,'Reset restores ordinary booking');
     console.log('Optional appointment product UI checked with API fixtures; screenshots: '+artifacts);
   }finally{cdp?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

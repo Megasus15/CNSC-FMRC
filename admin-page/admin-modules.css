@@ -4167,6 +4167,10 @@ body.reports-page .module-content {
   gap: 8px;
 }
 
+.report-section-field { display:grid;gap:6px;margin-top:12px;max-width:min(100%,420px);min-width:0;font-size:12px;font-weight:600;color:var(--text-muted); }
+.report-section-field[hidden] { display:none!important; }
+.report-section-field .filter-select { width:100%;min-width:0;max-width:100%;font-family:inherit; }
+
 .report-table-wrapper {
   max-height: none;
   overflow-x: auto;

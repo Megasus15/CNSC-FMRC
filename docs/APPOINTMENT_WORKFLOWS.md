@@ -4,6 +4,8 @@ Apply `2026_11_02_000004_extend_appointment_workflows.php` before deploying the 
 
 ## Customer workflow
 
+In booking Step 2, ordinary appointments use **Purpose of Visit**. Selecting **Request a custom product** replaces that choice with **FMRC service**, which the API validates and saves as the appointment purpose. Design Files remain independent of either choice. The initial custom brief omits Finish; staff supplies the final finish during quotation. **Additional notes (optional)** is the sole booking instruction field, shared with the custom requirements. Resumed legacy drafts combine distinct notes without truncation and preserve any saved finish. Combined notes over 2,000 characters require editing before saving or booking.
+
 Customers choose Online or Face-to-face at FMRC during booking. Online appointments show **Meeting link pending** until Admin or Staff provides a platform and HTTPS link. The account menu exposes **My Appointments** on every Customer page, with current details, a receipt, private file downloads, meeting details, schedule history and a rescheduling form.
 
 The original appointment must still be upcoming and active. Cutoffs use Asia/Manila, including the exact start minute. New bookings retain an immutable UTC start-time snapshot so later calendar edits cannot shift that cutoff. Rescheduling is immediate, checks the original date/time/revision, clears the old platform/link, records history, refreshes the public receipt, publishes customer/operational notifications, and schedules an updated confirmation email. A concurrent meeting edit or schedule change requires refreshed details.

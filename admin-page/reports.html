@@ -12,8 +12,8 @@
     <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Reports | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=2026.1107.9" />
-    <link rel="stylesheet" href="admin-modules.css?v=2026.1107.9" />
+    <link rel="stylesheet" href="dashboard.css?v=2026.1108.1" />
+    <link rel="stylesheet" href="admin-modules.css?v=2026.1108.1" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -230,6 +230,10 @@
                 <span class="report-category-icon"><i class="fa-regular fa-calendar-check"></i></span>
                 <span><strong>Appointments</strong><small>Scheduled service activity</small></span>
               </button>
+              <button class="report-category-button" type="button" data-report-category="custom_products" aria-pressed="false">
+                <span class="report-category-icon"><i class="fa-solid fa-cube"></i></span>
+                <span><strong>Custom Products</strong><small>Requests, production, payments, and refunds</small></span>
+              </button>
               <button
                 class="report-category-button"
                 type="button"
@@ -364,8 +368,16 @@
               <div>
                 <h3 id="reportTableTitle">Report Details</h3>
                 <p id="reportTableSubtitle">Up to 10 records are shown per page.</p>
+                <label class="report-section-field" hidden>
+                  <span>Report section</span>
+                  <select id="reportSectionSelect" class="filter-select" aria-label="Report section"></select>
+                </label>
               </div>
               <div class="report-table-actions">
+                <button class="btn-admin btn-secondary" id="reportExportExcelBtn" type="button" disabled>
+                  <i class="fa-solid fa-file-excel"></i>
+                  <span>Export Excel</span>
+                </button>
                 <button
                   class="btn-admin btn-secondary"
                   id="reportPreviewBtn"
@@ -545,7 +557,9 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1107.3"></script>
-    <script src="reports.js?v=2026.1105.1"></script>
+    <script src="assets/lib/exceljs-4.4.0.min.js"></script>
+    <script src="report-excel.js?v=2026.1108.1"></script>
+    <script src="reports.js?v=2026.1108.1"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

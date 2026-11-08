@@ -90,6 +90,22 @@ final class AppointmentProducts
         ])->validate();
     }
 
+    /** Keep distinct legacy booking/instruction blocks without repeating a merged block. */
+    public static function mergeBookingNotes(?string ...$values): string
+    {
+        $parts = [];
+        foreach ($values as $value) {
+            $note = trim($value ?? '');
+            if ($note === '' || collect($parts)->contains(fn ($part) => str_contains("\n\n".$part."\n\n", "\n\n".$note."\n\n"))) {
+                continue;
+            }
+            $parts = array_values(array_filter($parts, fn ($part) => ! str_contains("\n\n".$note."\n\n", "\n\n".$part."\n\n")));
+            $parts[] = $note;
+        }
+
+        return implode("\n\n", $parts);
+    }
+
     public static function eligible(int $id, bool $lock = false): Service
     {
         self::requireIntake();
@@ -338,6 +354,16 @@ final class AppointmentProducts
             && app(PayMongoService::class)->acceptsNewPayments();
     }
 
+    public static function orderStage(Order $order): string
+    {
+        return match (true) {
+            $order->lifecycle_status === 'completed' => 'Completed', $order->lifecycle_status === 'cancelled' => 'Cancelled', $order->lifecycle_status === 'rejected' => 'Closed',
+            $order->appointment_production_status === 'payment_review' => 'Payment needs review', $order->customer_stage === 'to_receive' && ! $order->isPickup() => 'In transit',
+            $order->appointment_production_status === 'ready' => $order->isPickup() ? 'Ready for pickup' : 'Ready for shipping',
+            $order->appointment_production_status === 'in_production' => 'In production', self::paid($order) => 'Paid — Awaiting Production', default => 'Awaiting payment'
+        };
+    }
+
     public static function orderData(Order $order): array
     {
         if (! self::custom($order)) {
@@ -348,12 +374,7 @@ final class AppointmentProducts
         }
         $job = AppointmentProductJob::find($order->appointment_product_job_id);
         $q = AppointmentProductQuote::find($order->appointment_product_quote_id);
-        $status = match (true) {
-            $order->lifecycle_status === 'completed' => 'Completed', $order->lifecycle_status === 'cancelled' => 'Cancelled', $order->lifecycle_status === 'rejected' => 'Closed',
-            $order->appointment_production_status === 'payment_review' => 'Payment needs review', $order->customer_stage === 'to_receive' && ! $order->isPickup() => 'In transit',
-            $order->appointment_production_status === 'ready' => $order->isPickup() ? 'Ready for pickup' : 'Ready for shipping',
-            $order->appointment_production_status === 'in_production' => 'In production', self::paid($order) => 'Paid — Awaiting Production',default => 'Awaiting payment'
-        };
+        $status = self::orderStage($order);
         $operator = in_array(auth()->user()?->role, ['admin', 'staff'], true);
         $admin = auth()->user()?->role === 'admin';
 

@@ -59,9 +59,14 @@ class AppointmentController extends Controller
             if (is_string($request->input('product_data'))) $request->merge(['product_data'=>json_decode($request->input('product_data'),true)]);
             $request->validate(['product_data'=>'required|array','request_key'=>'required|string|max:80|regex:/^[A-Za-z0-9-]+$/',
                 'product_draft_id'=>'nullable|integer','product_revision'=>'required_with:product_draft_id|integer|min:0']);
-            AppointmentProducts::brief($request->input('product_data'));
+            $brief = AppointmentProducts::brief($request->input('product_data'));
             $prior=\App\Models\AppointmentProductJob::where('customer_id',$request->user('sanctum')->id)->where('request_key',$request->input('request_key'))->first();
             if ($prior?->appointment_id) return response()->json(['message'=>'Appointment already booked.','data'=>$this->transformAppointment($prior->appointment)],201);
+            $service = AppointmentProducts::eligible((int) $brief['service_id']);
+            $request->validate(['additional_notes' => 'nullable|string|max:2000']);
+            $notes = AppointmentProducts::mergeBookingNotes($request->input('additional_notes'), $brief['instructions'] ?? null);
+            $request->merge(['purpose' => $service->title, 'additional_notes' => $notes,
+                'product_data' => array_replace($brief, ['instructions' => $notes])]);
         }
         $validated = $request->validate([
             'last_name' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
