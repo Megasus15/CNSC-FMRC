@@ -52,8 +52,10 @@ final class ShipmentTracking
     {
         $settings ??= self::settings();
 
-        return SeventeenTrackClient::configured() && $settings && $settings->carrier_verified_at && $settings->waybill_verified_at
-            && $settings->last_webhook_at && hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint);
+        // Registration must start before the first parcel can produce a callback.
+        // Shipment/webhook evidence is reported separately, never an activation prerequisite.
+        return SeventeenTrackClient::configured() && $settings && $settings->carrier_verified_at
+            && hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint);
     }
 
     public static function enabled(): bool
@@ -69,8 +71,6 @@ final class ShipmentTracking
             ! config('track17.enabled') => 'The backend tracking switch is off. Admin must enable it and refresh the configuration before activation.',
             ! $settings || ! hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint)
                 || ! $settings->carrier_verified_at => 'Verify the current 17TRACK account and J&T Philippines carrier in Shipping & Delivery.',
-            ! $settings->waybill_verified_at => 'Verify a genuine FMRC parcel and its recorded J&T handover. External TikTok parcel tests cannot activate live FMRC tracking.',
-            ! $settings->last_webhook_at => 'A signed tracking update for the verified FMRC parcel is still required. Check the webhook and shipment worker.',
             ! $settings->enabled => 'The connection is verified but paused. Admin must activate automatic tracking in Shipping & Delivery.',
             default => 'Review tracking readiness and background processing in Shipping & Delivery.',
         };
@@ -143,6 +143,25 @@ final class ShipmentTracking
         throw ValidationException::withMessages(['shipment' => $message]);
     }
 
+    public static function reserveNumber(string $number, Order $order): void
+    {
+        abort_unless(Schema::hasTable('shipment_tracking_numbers'), 503, 'Run the latest tracking migration before assigning tracking numbers.');
+        DB::table('shipment_tracking_numbers')->insertOrIgnore([
+            'tracking_number' => strtoupper(trim($number)), 'order_id' => $order->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $assignment = DB::table('shipment_tracking_numbers')->where('tracking_number', strtoupper(trim($number)))->lockForUpdate()->first();
+        if (! $assignment || (int) $assignment->order_id !== $order->id) {
+            self::fail('This tracking number is already assigned to another order. Each tracking number can be used for only one order, including completed orders.');
+        }
+    }
+
+    public static function duplicateAssignment(ShipmentTracker $tracker): bool
+    {
+        return DB::table('shipment_tracking_numbers')->where('tracking_number', strtoupper(trim($tracker->tracking_number)))
+            ->where(fn ($query) => $query->where('order_id', '!=', $tracker->order_id)->orWhere('tracker_id', '!=', $tracker->id)->orWhereNull('order_id'))->exists();
+    }
+
     public function record(Order $order, array $input, int $actor, bool $correction = false): ShipmentTracker
     {
         abort_unless(self::installed(), 503, 'Shipment recording is not yet available. Please contact FMRC.');
@@ -169,12 +188,13 @@ final class ShipmentTracking
                     self::fail($reason);
                 }
                 if ($order->tracking_test_subscription_id) {
-                    self::fail('Remove the external parcel tracking test before recording the actual FMRC parcel handover.');
-                }
-                if (self::subscriptionsInstalled() && ShipmentTrackingSubscription::where('provider', '17track')
-                    ->where('diagnostic', true)->where('tracking_number', $number)
-                    ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->exists()) {
-                    self::fail('This tracking number is an external parcel test. Use Tracking test — external parcel; it cannot confirm a physical FMRC handover.');
+                    $preview = ShipmentTrackingSubscription::find($order->tracking_test_subscription_id);
+                    if ($preview?->tracking_number !== $number) {
+                        self::fail('Remove the other tracking preview before assigning this parcel.');
+                    }
+                    // Recording this exact number explicitly assigns the parcel to the order.
+                    // A standalone diagnostic remains a preview until this operator action.
+                    $order->forceFill(['tracking_test_subscription_id' => null])->save();
                 }
                 if ($handover->gt(now()->addMinute()) || $handover->lt($order->created_at)) {
                     self::fail('Use the actual handover time, between the order date and now.');
@@ -193,6 +213,10 @@ final class ShipmentTracking
                 if (ShipmentTracker::where('active_waybill', 'jnt:'.$number)->exists()) {
                     self::fail('This tracking number is already linked to another active order. Check the J&T receipt.');
                 }
+                if (ShipmentTracker::whereRaw('UPPER(TRIM(tracking_number)) = ?', [$number])->exists()) {
+                    self::fail('This tracking number has already been used. Use a unique J&T tracking number for this order.');
+                }
+                self::reserveNumber($number, $order);
                 if ($active) {
                     if (self::subscriptionsInstalled()) {
                         ShipmentTrackingSubscription::where('tracker_id', $active->id)->update([
@@ -212,6 +236,7 @@ final class ShipmentTracking
                     'correction_reason' => $input['correction_reason'] ?? null, 'demo' => $demo,
                     'version' => $active ? $active->version : 1, 'registration_state' => $demo ? 'demo' : 'pending', 'next_attempt_at' => now(),
                 ]);
+                DB::table('shipment_tracking_numbers')->where('tracking_number', $number)->update(['tracker_id' => $tracker->id, 'updated_at' => now()]);
                 // Avoid duplicate generic stage alerts; the shipment outbox owns handover notifications.
                 DB::table('orders')->where('id', $order->id)->update(['courier_name' => 'J&T Express', 'courier_tracking_no' => $number,
                     'customer_stage' => 'to_receive', 'shipment_tracking_mode' => 'jnt_dropoff', 'courier_history_version' => DB::raw('courier_history_version + 1'), 'updated_at' => now()]);
@@ -283,11 +308,8 @@ final class ShipmentTracking
         if (! $same || ! $settings->carrier_verified_at) {
             $blockers['carrier'] = 'Verify the J&T Philippines carrier for the current account.';
         }
-        if (! $same || ! $settings->waybill_verified_at) {
-            $blockers['parcel'] = 'Verify an actual FMRC order and its recorded physical J&T handover. An external parcel test does not activate live shipments.';
-        }
-        if (! $same || ! $settings->last_webhook_at) {
-            $blockers['webhook'] = 'Receive and process a signed update for the verified FMRC shipment.';
+        if (self::verified($settings) && config('track17.enabled') && ! $settings->enabled) {
+            $blockers['paused'] = 'Automatic tracking was paused in Shipping & Delivery. Admin can activate it again.';
         }
         if (! $workerHealthy) {
             $blockers['worker'] = 'Check the every-minute shipments:process cron and its latest output. Refresh after the worker runs.';
@@ -308,7 +330,7 @@ final class ShipmentTracking
             'ready' => (bool) $ready, 'configured' => SeventeenTrackClient::configured(),
             'carrier_verified' => $same && (bool) $settings->carrier_verified_at,
             'waybill_verified' => $same && (bool) $settings->waybill_verified_at,
-            'webhook_verified' => $same && (bool) $settings->last_webhook_at,
+            'webhook_verified' => $same && (bool) ($settings->last_webhook_at || $settings->last_test_webhook_at),
             'carrier_code' => $settings->carrier_code, 'last_processed_at' => $settings->last_processed_at,
             'processor_healthy' => (bool) $workerHealthy,
             'last_webhook_at' => $settings->last_webhook_at,
@@ -384,7 +406,7 @@ final class ShipmentTracking
             'history_revision' => (int) ($order->courier_history_version ?? 0)];
         if ($operator) {
             $role = strtolower((string) auth()->user()?->role);
-            $data += ['version' => $tracker?->version, 'can_record' => ! $tracker && ! $order->tracking_test_subscription_id && self::eligibility($order) === null,
+            $data += ['version' => $tracker?->version, 'can_record' => ! $tracker && self::eligibility($order) === null,
                 'record_reason' => ! $tracker ? self::eligibility($order) : null,
                 'can_correct' => $role === 'admin' && $tracker && self::eligibility($order, true) === null,
                 'can_refresh' => $tracker && ! $tracker->demo && $automatic && (! $tracker->last_refresh_requested_at || $tracker->last_refresh_requested_at->lte(now()->subMinutes(15))),

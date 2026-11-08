@@ -82,7 +82,7 @@ final class VerifySeventeenTrack extends Command
 
                     return self::FAILURE;
                 }
-                $this->info('FMRC waybill verified. A matching signed webhook, TRACK17_ENABLED=true, and Admin activation are still required.');
+                $this->info('Assigned parcel verified. Automatic registration does not require first-parcel or webhook approval. Keep TRACK17_ENABLED=true and the shipment worker running.');
             }
             $health = ShipmentTracking::health();
             $this->line('Lifetime FMRC registration reservations: '.($health['budget_used'] ?? 0).' / '.config('track17.registration_limit'));
@@ -135,7 +135,7 @@ final class VerifySeventeenTrack extends Command
                 ['Courier status', $sub?->diagnostic ? ($sub->latest_result['status_label'] ?? 'No saved results') : ($tracker?->status ?? 'No saved results')],
                 ['Registration issue', $sub?->last_error_code ?? 'None recorded'],
             ]);
-            $this->line('An external/TikTok parcel must use the labelled tracking test; it cannot confirm delivery of this FMRC order.');
+            $this->line('An assigned tracking number syncs automatically. An unassigned diagnostic/preview does not complete an order.');
         }
         $this->info('Status only: no provider request, registration, payment, or refund was performed.');
         return self::SUCCESS;

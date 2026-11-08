@@ -65,6 +65,7 @@ final class OrderTrackingTest
                 if ($order->tracking_test_subscription_id) {
                     ShipmentTracking::fail('Remove the current tracking test before linking another parcel.');
                 }
+                ShipmentTracking::reserveNumber($sub->tracking_number, $order);
             } elseif (! $order->tracking_test_subscription_id) {
                 return;
             }

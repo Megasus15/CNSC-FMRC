@@ -39,7 +39,7 @@ final class ShipmentTrackingEvents
             return;
         }
         $instant = Carbon::parse($time['instant']);
-        if ($instant->lt($tracker->handed_over_at->copy()->subDays(10))) {
+        if ($source !== '17track' && $instant->lt($tracker->handed_over_at->copy()->subDays(10))) {
             return;
         }
         $status = array_key_exists($event['statusMilestone'] ?? '', ShipmentTracking::LABELS) ? $event['statusMilestone'] : null;

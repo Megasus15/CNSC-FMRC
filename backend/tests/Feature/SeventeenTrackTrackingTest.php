@@ -98,6 +98,9 @@ class SeventeenTrackTrackingTest extends TestCase
                     return $error(-18019902);
                 }
                 $item = $this->external[$number] + ['track_info' => $this->snapshots[$number] ?? ['latest_status' => ['status' => 'NotFound']]];
+            } elseif (str_ends_with($request->url(), '/changeinfo')) {
+                $this->external[$number]['tag'] = $item['items']['tag'];
+                $item = $this->external[$number];
             }
 
             return Http::response(['code' => 0, 'data' => ['accepted' => [$item], 'rejected' => []]]);
@@ -132,6 +135,23 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->service()->register($sub);
 
         return $sub->fresh();
+    }
+
+    private function anotherPaidOrder(): Order
+    {
+        $order = $this->order->replicate();
+        $order->forceFill(['order_no' => 'JT17-'.Str::uuid(), 'customer_stage' => 'to_ship', 'lifecycle_status' => 'pending',
+            'completed_at' => null, 'courier_tracking_no' => null, 'tracking_test_subscription_id' => null])->save();
+        $order->forceFill(['created_at' => now()->subDay()])->save();
+        $payment = $this->order->payment->replicate();
+        $payment->forceFill(['order_id' => $order->id, 'payment_no' => 'PAY-'.Str::uuid(), 'paymongo_payment_id' => 'pay_'.Str::uuid()])->save();
+        $attempt = DB::table('payment_attempts')->insertGetId(['payment_id' => $payment->id, 'token' => (string) Str::uuid(),
+            'amount_centavos' => 48500, 'livemode' => true, 'status' => 'paid', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('payment_receipts')->insert(['payment_id' => $payment->id, 'attempt_id' => $attempt,
+            'provider_payment_id' => $payment->paymongo_payment_id, 'amount_centavos' => 48500, 'livemode' => true,
+            'confirmed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        return $order->fresh();
     }
 
     private function message(Subscription $sub, string $status = 'InTransit', ?string $time = null): array
@@ -250,6 +270,178 @@ class SeventeenTrackTrackingTest extends TestCase
         Http::assertNotSent(fn ($r) => str_contains($r->url(), 'changeinfo'));
     }
 
+    private function assertManualRegistrationBound(string $tag): void
+    {
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['waybill_verified_at' => null, 'last_webhook_at' => null]);
+        $tracker = $this->record();
+        $sub = $this->service()->subscription($tracker);
+        $this->external[$tracker->tracking_number] = ['number' => $tracker->tracking_number, 'carrier' => 100240, 'tag' => $tag];
+        $this->message($sub, 'Delivered');
+        $payment = $this->order->payment->getAttributes();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertSame($sub->tag, $this->external[$tracker->tracking_number]['tag']);
+        $this->assertNotNull($sub->fresh()->registered_at);
+        $this->assertNotNull($sub->fresh()->last_checked_at);
+        $this->assertNull($sub->fresh()->last_webhook_at);
+        $this->assertSame($payment, $this->order->fresh()->payment->getAttributes());
+        $this->assertSame(1, $this->registrationCalls);
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/changeinfo') && $r->data()[0]['items'] === ['tag' => $sub->tag]);
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'getRealTime'));
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame(1, $this->registrationCalls);
+        foreach (['admin', 'staff', 'customer'] as $role) {
+            Sanctum::actingAs($role === 'customer' ? $this->customer : User::factory()->create(['role' => $role]));
+            $this->getJson('/api/'.($role === 'customer' ? 'customer' : 'admin').'/orders/'.$this->order->id)
+                ->assertOk()->assertJsonPath('data.customer_stage', 'completed')->assertJsonPath('data.courier_shipment.status', 'delivered');
+        }
+    }
+
+    public function test_a_blank_tagged_console_registration_syncs_delivered_without_first_parcel_approval(): void
+    {
+        $this->assertManualRegistrationBound('');
+    }
+
+    public function test_a_console_registration_with_this_order_reference_is_reused(): void
+    {
+        $this->assertManualRegistrationBound($this->order->order_no);
+    }
+
+    public function test_previous_delivered_history_is_not_hidden_when_the_number_is_assigned_later(): void
+    {
+        $sub = $this->service()->diagnostic('JT-OWNED-OLD-PARCEL', '4604');
+        $this->hook($this->message($sub, 'Delivered', now()->subMonths(2)->toIso8601String()))->assertOk();
+        $this->drain();
+        $this->assertSame('to_ship', $this->order->fresh()->customer_stage);
+        $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
+            'request_key' => (string) Str::uuid(), 'tracking_number' => $sub->tracking_number,
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
+        ])->assertOk();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertTrue($this->order->fresh()->completed_at->equalTo(now()));
+        $this->assertTrue($sub->fresh()->tracker->last_event_at->equalTo(now()->subMonths(2)));
+    }
+
+    public function test_preview_can_be_explicitly_assigned_to_its_order_without_a_second_subscription(): void
+    {
+        $sub = $this->readyOrderTrackingTest();
+        $this->postJson('/api/admin/orders/'.$this->order->id.'/tracking-test', ['tracking_number' => $sub->tracking_number, 'test_confirmed' => true])->assertOk()
+            ->assertJsonPath('data.courier_shipment.can_record', true);
+        $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
+            'request_key' => (string) Str::uuid(), 'tracking_number' => $sub->tracking_number,
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
+        ])->assertOk();
+        $this->assertNull($this->order->fresh()->tracking_test_subscription_id);
+        $tracker = ShipmentTracker::latest('id')->firstOrFail();
+        $oldAttempt = $this->service()->subscription($tracker);
+        $this->assertSame($sub->id, $oldAttempt->id);
+        $this->hook($this->message($sub->fresh(), 'Delivered'))->assertOk();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertDatabaseCount('shipment_tracking_subscriptions', 1);
+        $this->assertDatabaseCount('shipment_tracking_numbers', 1);
+    }
+
+    public function test_one_preview_number_cannot_be_linked_to_two_orders_even_after_removal(): void
+    {
+        $sub = $this->readyOrderTrackingTest();
+        $input = ['tracking_number' => $sub->tracking_number, 'test_confirmed' => true];
+        $this->postJson('/api/admin/orders/'.$this->order->id.'/tracking-test', $input)->assertOk();
+        $other = $this->anotherPaidOrder();
+        $this->postJson('/api/admin/orders/'.$other->id.'/tracking-test', $input)->assertUnprocessable();
+        $this->deleteJson('/api/admin/orders/'.$this->order->id.'/tracking-test')->assertOk();
+        $this->postJson('/api/admin/orders/'.$other->id.'/tracking-test', $input)->assertUnprocessable();
+        $this->assertDatabaseCount('shipment_tracking_numbers', 1);
+    }
+
+    public function test_rollout_backfills_unique_numbers_preserves_legacy_rows_and_releases_the_old_gate(): void
+    {
+        $tracker = $this->record();
+        $tracker->update(['active_waybill' => null, 'active_order_id' => null]);
+        $other = $this->anotherPaidOrder();
+        $duplicate = $tracker->replicate();
+        $duplicate->forceFill(['order_id' => $other->id, 'active_order_id' => $other->id, 'request_key' => (string) Str::uuid(), 'client_tracker_id' => (string) Str::uuid()])->save();
+        $migration = require database_path('migrations/2026_11_08_000001_enable_17track_automatic_registration.php');
+        $migration->down();
+        $migration->up();
+        $this->assertDatabaseCount('shipment_trackers', 2);
+        $this->assertDatabaseCount('shipment_tracking_numbers', 1);
+        $this->assertDatabaseHas('shipment_tracking_numbers', ['tracking_number' => $tracker->tracking_number, 'order_id' => $this->order->id]);
+        $this->assertTrue($duplicate->fresh()->needs_review);
+        $this->assertSame('tracking_number_in_use', $duplicate->fresh()->last_error_code);
+        $this->assertFalse(SeventeenTrackTracking::eligible($duplicate->fresh()));
+        $this->assertTrue(ShipmentTracking::enabled());
+    }
+
+    public function test_explicit_admin_pause_and_environment_off_still_pause_new_registration(): void
+    {
+        $tracker = $this->record();
+        config(['track17.enabled' => false]);
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame(0, $this->registrationCalls);
+        config(['track17.enabled' => true]);
+        $this->putJson('/api/admin/shipping-tracking', ['enabled' => false, 'expected_revision' => ShipmentTracking::settings()->revision])->assertOk();
+        $this->service()->verifyCarrier(100240);
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame(0, $this->registrationCalls);
+        $this->assertFalse(ShipmentTracking::enabled());
+        $this->putJson('/api/admin/shipping-tracking', ['enabled' => true, 'expected_revision' => ShipmentTracking::settings()->revision])->assertOk();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame(1, $this->registrationCalls);
+    }
+
+    public function test_tracking_number_stays_unique_after_completion_and_case_normalization(): void
+    {
+        $sub = $this->registered();
+        $this->hook($this->message($sub, 'Delivered'))->assertOk();
+        $this->drain();
+        $other = $this->anotherPaidOrder();
+        $this->postJson('/api/admin/orders/'.$other->id.'/shipment/tracking', [
+            'request_key' => (string) Str::uuid(), 'tracking_number' => ' '.strtolower($sub->tracking_number).' ',
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('shipment');
+        $this->assertDatabaseCount('shipment_trackers', 1);
+        $this->assertSame('to_ship', $other->fresh()->customer_stage);
+        $this->assertDatabaseHas('shipment_tracking_numbers', ['tracking_number' => $sub->tracking_number, 'order_id' => $this->order->id]);
+        // The database reservation also closes concurrent saves across orders.
+        $inserted = DB::table('shipment_tracking_numbers')->insertOrIgnore(['tracking_number' => $sub->tracking_number, 'order_id' => $other->id]);
+        $this->assertSame(0, $inserted);
+    }
+
+    public function test_corrected_and_cancelled_tracking_numbers_cannot_be_reused(): void
+    {
+        $tracker = $this->record();
+        $this->patchJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
+            'request_key' => (string) Str::uuid(), 'tracking_number' => 'JT-UNIQUE-CORRECTION',
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true, 'expected_version' => 1, 'correction_reason' => 'Receipt number corrected',
+        ])->assertOk();
+        $this->order->update(['lifecycle_status' => 'cancelled']);
+        $other = $this->anotherPaidOrder();
+        foreach ([$tracker->tracking_number, 'JT-UNIQUE-CORRECTION'] as $number) {
+            $this->postJson('/api/admin/orders/'.$other->id.'/shipment/tracking', [
+                'request_key' => (string) Str::uuid(), 'tracking_number' => $number,
+                'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
+            ])->assertUnprocessable()->assertJsonValidationErrors('shipment');
+        }
+        $this->assertDatabaseCount('shipment_trackers', 2);
+        $this->assertDatabaseCount('shipment_tracking_numbers', 2);
+    }
+
+    public function test_resubmitting_the_same_assignment_is_idempotent(): void
+    {
+        $input = ['request_key' => (string) Str::uuid(), 'tracking_number' => 'jt-unique-retry',
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true];
+        $path = '/api/admin/orders/'.$this->order->id.'/shipment/tracking';
+        $this->postJson($path, $input)->assertOk();
+        $this->postJson($path, $input)->assertOk();
+        $input['request_key'] = (string) Str::uuid();
+        $this->postJson($path, $input)->assertOk();
+        $this->assertDatabaseCount('shipment_trackers', 1);
+        $this->assertDatabaseCount('shipment_tracking_numbers', 1);
+        $this->assertDatabaseCount('order_tracking_events', 1);
+    }
+
     public function test_lifetime_budget_includes_diagnostics_and_survives_month_and_key_changes(): void
     {
         config(['track17.registration_limit' => 1]);
@@ -286,24 +478,26 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertNull($settings->waybill_verified_at);
         $this->assertNull($settings->last_webhook_at);
         $this->assertNotNull($settings->last_test_webhook_at);
-        $this->assertFalse(ShipmentTracking::verified());
+        $this->assertTrue(ShipmentTracking::verified());
     }
 
-    public function test_real_order_api_and_signed_webhook_are_both_required_before_admin_activation(): void
+    public function test_activation_and_first_registration_do_not_wait_for_a_parcel_or_webhook(): void
     {
         DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['enabled' => false,
-            'waybill_verified_at' => null, 'last_webhook_at' => null]);
-        $tracker = $this->record();
-        $this->assertFalse($this->service()->verifyWaybill($tracker));
-        $sub = Subscription::where('provider', '17track')->firstOrFail();
-        $message = $this->message($sub);
-        $this->assertTrue($this->service()->verifyWaybill($tracker->fresh()));
+            'waybill_verified_at' => null, 'last_webhook_at' => null, 'last_processed_at' => now()]);
         $revision = ShipmentTracking::settings()->revision;
-        $this->putJson('/api/admin/shipping-tracking', ['enabled' => true, 'expected_revision' => $revision])->assertUnprocessable();
-        $this->hook($message)->assertOk();
-        $this->drain();
-        $this->artisan('shipments:process')->assertSuccessful();
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => true, 'expected_revision' => $revision])->assertOk()->assertJsonPath('data.enabled', true);
+        $tracker = $this->record();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $sub = Subscription::where('provider', '17track')->firstOrFail();
+        $this->assertNotNull($sub->registered_at);
+        $this->assertNull(ShipmentTracking::settings()->last_webhook_at);
+        $this->assertNull(ShipmentTracking::settings()->waybill_verified_at);
+        Carbon::setTestNow(now()->addMinutes(6));
+        $this->message($sub, 'Delivered');
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertNotNull(ShipmentTracking::settings()->waybill_verified_at);
         Sanctum::actingAs(User::factory()->create(['role' => 'staff']));
         $this->putJson('/api/admin/shipping-tracking', ['enabled' => false, 'expected_revision' => $revision + 1])->assertForbidden();
     }
@@ -448,7 +642,7 @@ class SeventeenTrackTrackingTest extends TestCase
         return $sub->fresh();
     }
 
-    public function test_paid_order_tracking_test_preserves_payment_fulfillment_and_real_activation_gates(): void
+    public function test_unassigned_tracking_preview_preserves_payment_and_fulfillment(): void
     {
         DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['waybill_verified_at' => null, 'last_webhook_at' => null]);
         $sub = $this->readyOrderTrackingTest();
@@ -465,11 +659,7 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertDatabaseCount('shipment_trackers', 0);
         $this->assertDatabaseCount('shipment_notification_outbox', 0);
         $this->assertDatabaseCount('order_tracking_events', 1);
-        $this->assertFalse(ShipmentTracking::verified());
-        $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
-            'request_key' => (string) Str::uuid(), 'tracking_number' => $sub->tracking_number,
-            'handed_over_at' => now()->toIso8601String(), 'handover_confirmed' => true,
-        ])->assertUnprocessable();
+        $this->assertTrue(ShipmentTracking::verified());
         $this->deleteJson($path)->assertOk()->assertJsonPath('data.tracking_test.linked', false);
         $this->assertDatabaseCount('order_tracking_events', 2);
     }
@@ -715,17 +905,26 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertCount($calls, Http::recorded());
     }
 
-    public function test_an_external_test_number_cannot_be_recorded_as_a_genuine_fmrc_handover(): void
+    public function test_an_owned_diagnostic_number_can_be_assigned_and_completes_the_paid_order(): void
     {
         $sub = $this->readyOrderTrackingTest();
         $payment = $this->order->fresh()->payment->getAttributes();
+        $this->hook($this->message($sub, 'Delivered'))->assertOk();
+        $this->drain();
+        $calls = $this->registrationCalls;
         $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
             'request_key' => (string) Str::uuid(), 'tracking_number' => $sub->tracking_number,
             'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
-        ])->assertUnprocessable()->assertJsonValidationErrors('shipment');
-        $this->assertDatabaseCount('shipment_trackers', 0);
-        $this->assertSame('to_ship', $this->order->fresh()->customer_stage);
+        ])->assertOk();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertDatabaseCount('shipment_trackers', 1);
+        $this->assertDatabaseCount('shipment_tracking_subscriptions', 1);
+        $this->assertSame($calls, $this->registrationCalls);
+        $this->assertFalse($sub->fresh()->diagnostic);
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
         $this->assertSame($payment, $this->order->fresh()->payment->getAttributes());
+        $this->assertDatabaseCount('payment_receipts', 1);
+        $this->assertDatabaseCount('payment_refunds', 0);
     }
 
     public function test_status_command_reports_inactive_setup_without_provider_requests_or_registration(): void
@@ -740,7 +939,7 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertDatabaseCount('shipment_tracking_subscriptions', 0);
         Http::assertNothingSent();
         $this->getJson('/api/admin/orders/'.$this->order->id)->assertOk()
-            ->assertJsonPath('data.courier_shipment.availability_message', 'Automatic tracking is not active. Verify a genuine FMRC parcel and its recorded J&T handover. External TikTok parcel tests cannot activate live FMRC tracking.');
+            ->assertJsonPath('data.courier_shipment.availability_message', 'Automatic tracking is not active. The connection is verified but paused. Admin must activate automatic tracking in Shipping & Delivery.');
     }
 
     public function test_missing_stages_use_only_the_latest_scan_and_expiry_preserves_confirmed_information(): void
@@ -816,6 +1015,7 @@ class SeventeenTrackTrackingTest extends TestCase
         DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['enabled' => false, 'waybill_verified_at' => null, 'last_webhook_at' => null, 'last_test_webhook_at' => now(), 'last_processed_at' => now()->subHour()]);
         $this->getJson('/api/admin/shipping-tracking')->assertOk()->assertJsonPath('data.readiness_state', 'test_verified')
             ->assertJsonPath('data.ready', false)->assertJsonPath('data.diagnostic_webhook_verified', true)
-            ->assertJsonStructure(['data' => ['blocking_reasons' => ['parcel', 'webhook', 'worker']]]);
+            ->assertJsonStructure(['data' => ['blocking_reasons' => ['worker']]])
+            ->assertJsonMissingPath('data.blocking_reasons.parcel')->assertJsonMissingPath('data.blocking_reasons.webhook');
     }
 }

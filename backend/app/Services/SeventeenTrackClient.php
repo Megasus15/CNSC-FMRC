@@ -33,7 +33,7 @@ final class SeventeenTrackClient
             throw new SeventeenTrackException('not_configured');
         }
         // The immediate carrier-lookup and translation endpoints are deliberately unavailable here.
-        if (! in_array($endpoint, ['register', 'gettrackinfo', 'stoptrack'], true)) {
+        if (! in_array($endpoint, ['register', 'gettrackinfo', 'changeinfo', 'stoptrack'], true)) {
             throw new \InvalidArgumentException('Unsupported tracking operation.');
         }
         try {

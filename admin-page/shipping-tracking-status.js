@@ -31,13 +31,13 @@
       panel.querySelector('[data-tracking-message]').textContent = record.message;
       const readiness=panel.querySelector('[data-tracking-readiness]'),reasons=Object.values(record.blocking_reasons||{});
       readiness.hidden=!record.next_action&&!reasons.length;
-      readiness.innerHTML='<strong>'+(record.can_edit?'Next setup step':'Tracking readiness')+'</strong><p>'+escape(record.next_action||'')+'</p>'+(reasons.length?'<ul>'+reasons.map(reason=>'<li>'+escape(reason)+'</li>').join('')+'</ul>':'');
+      readiness.innerHTML='<strong>'+(record.enabled?'Tracking status':record.can_edit?'Next setup step':'Tracking readiness')+'</strong><p>'+escape(record.next_action||'')+'</p>'+(reasons.length?'<ul>'+reasons.map(reason=>'<li>'+escape(reason)+'</li>').join('')+'</ul>':'');
       const facts = [
         ['Connection', record.configured ? 'Configured' : 'Setup required'],
-        ['External parcel test', record.diagnostic_webhook_verified ? 'Signed test update verified' : 'Not verified'],
+        ['Connection test (optional)', record.diagnostic_webhook_verified ? 'Signed test update received' : 'Not run'],
         ['J&T Philippines carrier', record.carrier_verified ? 'Verified' : 'Verification required'],
-        ['FMRC parcel tracking', record.waybill_verified ? 'Verified' : 'Verification required'],
-        ['Webhook delivery', record.webhook_verified ? 'Verified' : 'Verification required'],
+        ['Assigned parcel updates', record.waybill_verified ? 'Received' : 'Waiting for the first parcel update'],
+        ['Webhook delivery', record.webhook_verified ? 'Verified' : 'Waiting; saved-result recovery remains automatic'],
         ['Background processing', record.processor_healthy ? 'Running' : 'Needs attention'],
         ['Tracking credits reserved', (record.budget_used ?? record.registrations ?? 0)+' / '+(record.registration_limit ?? 200)+' lifetime local limit'],
         ['Local budget remaining', record.budget_remaining ?? 'Not available'],
@@ -78,7 +78,7 @@
     window.FMRCShippingTracking = Object.freeze({refresh: () => load()});
     toggle.onclick=()=>{
       if(toggle.disabled)return;
-      window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for verified J&T shipments within the configured credit budget?',
+      window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved tracking numbers and history remain available.' : 'Activate automatic tracking for assigned J&T parcels within the configured credit budget? First-parcel and webhook approval are not required.',
         {title:record.enabled?'Pause Automatic Tracking':'Activate Automatic Tracking',confirmText:record.enabled?'Pause tracking':'Activate tracking',onConfirm:()=>load({enabled:!record.enabled,expected_revision:record.revision})});
     };
     void load();

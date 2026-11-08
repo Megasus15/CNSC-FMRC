@@ -86,16 +86,13 @@ final class OrderCompletion
             $order = Order::whereKey($tracker->order_id)->lockForUpdate()->firstOrFail();
             $order->setRelation('payment', Payment::where('order_id', $order->id)->lockForUpdate()->first());
             $tracker = ShipmentTracker::whereKey($tracker->id)->lockForUpdate()->firstOrFail();
-            if ($tracker->status !== 'delivered' || $tracker->demo || $tracker->needs_review || ! $tracker->handed_over_at
+            if ($tracker->status !== 'delivered' || $tracker->demo || $tracker->needs_review || ! $tracker->handed_over_at || ShipmentTracking::duplicateAssignment($tracker)
                 || (int) $tracker->active_order_id !== $order->id || $order->tracking_test_subscription_id
                 || $order->shipment_tracking_mode !== 'jnt_dropoff' || $order->courier_tracking_no !== $tracker->tracking_number
                 || ShipmentTracking::eligibility($order, true) !== null) {
                 return false;
             }
             $sub = ShipmentTrackingSubscription::where('provider', '17track')->where('active_tracker_id', $tracker->id)->where('diagnostic', false)->whereNotNull('registered_at')->first();
-            if (ShipmentTrackingSubscription::where('diagnostic', true)->where('tracking_number', $tracker->tracking_number)->where('account_fingerprint', SeventeenTrackClient::fingerprint())->exists()) {
-                return false;
-            }
             if (! $sub || $sub->tracking_number !== $tracker->tracking_number || (int) $sub->carrier_code !== (int) config('track17.carrier_code')
                 || ! hash_equals(SeventeenTrackClient::fingerprint(), (string) $sub->account_fingerprint)) {
                 return false;

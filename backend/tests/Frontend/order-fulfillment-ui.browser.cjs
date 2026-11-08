@@ -7,7 +7,7 @@ test('Published shipping uses five-row pagination and a separate scrollable area
   const h=await browserFixture(t,async({route,role,json})=>{
     if(route==='/api/admin/shipping-settings'){json({data:{revision:1,can_edit:role==='admin',published,...(role==='admin'?{draft:published,has_saved_draft:true}:{})}});return true;}
     if(route==='/api/psgc/provinces'){json([{code:'0501600000',name:'Camarines Norte'}]);return true;}
-    if(route==='/api/admin/shipping-tracking'){json({data:{installed:true,enabled:false,ready:false,can_edit:role==='admin',readiness_state:'test_verified',diagnostic_webhook_verified:true,message:'Live tracking needs verification.',next_action:'Verify a genuine FMRC shipment.',blocking_reasons:{parcel:'An external parcel test does not activate live shipments.',worker:'Check shipments:process cron.'}}});return true;}
+    if(route==='/api/admin/shipping-tracking'){json({data:{installed:true,enabled:true,ready:true,can_edit:role==='admin',readiness_state:'active',configured:true,carrier_verified:true,processor_healthy:true,waybill_verified:false,webhook_verified:false,message:'Automatic tracking is active.',next_action:'Assign a tracking number once; updates are automatic.',blocking_reasons:{}}});return true;}
     return false;
   });
   await h.send('Network.setBlockedURLs',{urls:['https://*']});
@@ -30,10 +30,15 @@ test('Published shipping uses five-row pagination and a separate scrollable area
       assert.equal(await h.run(`document.activeElement.id`),'shipping-12-name');
       await h.run(`document.getElementById('shippingRefresh').scrollIntoView({block:'center'})`);
     }else assert.equal(await h.run(`document.getElementById('shippingEditor').hidden`),true);
-    await h.until(`document.querySelector('[data-tracking-state]').textContent==='Test connection verified'`);
-    assert.equal(await h.run(`document.querySelector('[data-tracking-toggle]').disabled`),true);
+    await h.until(`document.querySelector('[data-tracking-state]').textContent==='Active'`);
+    assert.equal(await h.run(`document.querySelector('[data-tracking-toggle]').disabled`),false);
+    assert.equal(await h.run(`document.querySelector('[data-tracking-toggle]').hidden`),portal!=='admin');
+    assert.match(await h.run(`document.querySelector('[data-tracking-facts]').textContent`),/Waiting for the first parcel update/);
+    assert.match(await h.run(`document.querySelector('[data-tracking-facts]').textContent`),/saved-result recovery remains automatic/);
     assert.equal(await h.run(`document.documentElement.scrollWidth>innerWidth+1`),false);
     await h.shot(portal+'-shipping-five-rows-'+width);
+    await h.run(`document.querySelector('.shipping-tracking-status').scrollIntoView({block:'start'})`);
+    await h.shot(portal+'-tracking-active-before-first-update-'+width);
     if(portal==='admin')await h.run(`document.getElementById('shippingDiscard').click()`);
     assert.deepEqual(await h.run('fixtureErrors'),[]);
   }

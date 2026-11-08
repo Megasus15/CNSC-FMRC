@@ -22,14 +22,17 @@ final class ShipmentTrackingController extends Controller
 
     private function input(Request $request, bool $correction = false): array
     {
+        if (is_string($request->input('tracking_number'))) {
+            $request->merge(['tracking_number' => strtoupper(trim($request->input('tracking_number')))]);
+        }
         return $request->validate([
             'request_key' => ['required', 'uuid'],
-            'tracking_number' => ['required', 'string', 'regex:~^[A-Za-z0-9_./-]{5,50}$~'],
+            'tracking_number' => ['required', 'string', 'regex:~^[A-Z0-9-]{5,50}$~'],
             'handed_over_at' => ['required', 'date'], 'handover_confirmed' => ['required', 'accepted'],
             'actual_shipping_cost' => ['nullable', 'numeric', 'between:0,999999.99', 'decimal:0,2'],
             ...($correction ? ['expected_version' => ['required', 'integer', 'min:1'],
                 'correction_reason' => ['required', 'string', 'min:5', 'max:500']] : []),
-        ], ['tracking_number.regex' => 'Enter the complete J&T tracking number number, using 5–50 letters, numbers, or tracking number punctuation.',
+        ], ['tracking_number.regex' => 'Enter the complete J&T tracking number using 5–50 letters, numbers, or hyphens.',
             'handover_confirmed.accepted' => 'Confirm that this parcel was physically handed to J&T.']);
     }
 
@@ -86,7 +89,7 @@ final class ShipmentTrackingController extends Controller
             $settings = DB::table('shipment_tracking_settings')->where('id', ShipmentTracking::settings()->id)->lockForUpdate()->first();
             abort_unless((int) $settings->revision === (int) $input['expected_revision'], 409, 'Tracking settings changed. Refresh before saving.');
             if ($input['enabled'] && ! ShipmentTracking::health()['ready']) {
-                ShipmentTracking::fail('Complete the live account, FMRC shipment, signed webhook, worker, and credit-budget checks before activation.');
+                ShipmentTracking::fail('Check the API connection, J&T carrier, backend switch, worker, and registration budget before activation. A first parcel or webhook is not required.');
             }
             DB::table('shipment_tracking_settings')->where('id', $settings->id)->update(['enabled' => $input['enabled'], 'revision' => $settings->revision + 1, 'updated_at' => now()]);
         });

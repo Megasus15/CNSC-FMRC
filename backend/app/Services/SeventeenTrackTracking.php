@@ -42,7 +42,7 @@ final class SeventeenTrackTracking
             'carrier_code' => (string) $code, 'carrier_requirements' => json_encode(['destination_country', 'destination_postal_code']),
             'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'carrier_verified_at' => now(),
             'revision' => DB::raw('revision + 1'), 'updated_at' => now(),
-            ...($changed ? ['enabled' => false, 'waybill_verified_at' => null, 'verified_tracker_id' => null,
+            ...($changed ? ['waybill_verified_at' => null, 'verified_tracker_id' => null,
                 'last_webhook_at' => null, 'last_test_webhook_at' => null, 'quota_retry_at' => null] : []),
         ]);
 
@@ -51,6 +51,9 @@ final class SeventeenTrackTracking
 
     public static function eligible(ShipmentTracker $tracker, bool $includeDelivered = false): bool
     {
+        if (ShipmentTracking::duplicateAssignment($tracker)) {
+            return false;
+        }
         // Completion closes dispatch eligibility, not the verified shipment's history.
         if ($includeDelivered && $tracker->status === 'delivered' && $tracker->active_order_id && ! $tracker->demo
             && $tracker->order->lifecycle_status === 'completed' && $tracker->order->customer_stage === 'completed') {
@@ -66,6 +69,33 @@ final class SeventeenTrackTracking
         return DB::transaction(function () use ($tracker) {
             ShipmentTracker::whereKey($tracker->id)->lockForUpdate()->firstOrFail();
             $saved = Subscription::where('tracker_id', $tracker->id)->where('provider', '17track')->first();
+            if ($saved?->registered_at) {
+                return $saved;
+            }
+
+            // Diagnostics and assigned parcels use the same carrier. Reuse an
+            // owned diagnostic registration when staff assigns that exact number,
+            // instead of spending another credit or excluding it from completion.
+            $diagnostic = Subscription::where('provider', '17track')->where('diagnostic', true)
+                ->where('tracking_number', $tracker->tracking_number)->where('carrier_code', (string) config('track17.carrier_code'))
+                ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->lockForUpdate()->first();
+            if ($diagnostic) {
+                if (DB::table('orders')->where('tracking_test_subscription_id', $diagnostic->id)->where('id', '!=', $tracker->order_id)->exists()) {
+                    throw new SeventeenTrackException('tracking_number_in_use');
+                }
+                if ($saved) {
+                    // Preserve any conservative credit reservation for an older
+                    // attempt, but use the already-owned provider identity.
+                    $saved->update(['tracker_id' => null, 'active_tracker_id' => null, 'registration_state' => 'superseded', 'stop_pending' => false]);
+                }
+                $diagnostic->fill(['diagnostic' => false, 'tracker_id' => $tracker->id,
+                    'active_tracker_id' => $diagnostic->registered_at ? $tracker->id : null,
+                    'registration_state' => $diagnostic->registered_at ? 'active' : 'pending', 'last_error_code' => null,
+                    'next_attempt_at' => now(), 'stop_pending' => false])->save();
+                ShipmentTrackingEvents::touchOrder($tracker);
+
+                return $diagnostic;
+            }
             if ($saved) {
                 return $saved;
             }
@@ -82,8 +112,11 @@ final class SeventeenTrackTracking
         if (! preg_match('/^[A-Z0-9-]{5,50}$/', $number) || ! preg_match('/^\d{4}$/', $postcode)) {
             ShipmentTracking::fail('Use the complete waybill and its four-digit Philippine destination postcode.');
         }
-        $sub = Subscription::where('provider', '17track')->where('diagnostic', true)->where('tracking_number', $number)
+        $sub = Subscription::where('provider', '17track')->where('tracking_number', $number)
             ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->first();
+        if ($sub && ! $sub->diagnostic) {
+            ShipmentTracking::fail('This tracking number is assigned to an order. Use the order tracking status instead of creating another diagnostic.');
+        }
         if (! $sub) {
             $tag = (string) Str::uuid();
             $payload = ['number' => $number, 'carrier' => (int) config('track17.carrier_code'), 'tag' => $tag,
@@ -145,6 +178,32 @@ final class SeventeenTrackTracking
             && hash_equals($sub->tag, (string) ($data['tag'] ?? ''));
     }
 
+    private function bindManualRegistration(Subscription $sub, array $data): array
+    {
+        if ($this->matches($sub, $data)) {
+            return $data;
+        }
+        $tag = (string) ($data['tag'] ?? '');
+        $orderNo = (string) $sub->tracker?->order?->order_no;
+        $manualTags = array_filter([$orderNo, ltrim($orderNo, '#'), preg_replace('/\D/', '', $orderNo)]);
+        // A number explicitly assigned by staff can already exist in this API
+        // account from the console. Bind a blank/order-reference tag once, then
+        // keep strict account/carrier/number/tag checks for all future updates.
+        if ($sub->account_fingerprint !== SeventeenTrackClient::fingerprint()
+            || strtoupper((string) ($data['number'] ?? '')) !== $sub->tracking_number
+            || (int) ($data['carrier'] ?? 0) !== (int) $sub->carrier_code
+            || ($tag !== '' && ! in_array($tag, $manualTags, true))) {
+            throw new SeventeenTrackException('response_mismatch');
+        }
+        $this->client->item('changeinfo', $this->identity($sub) + ['items' => ['tag' => $sub->tag]]);
+        $data = $this->client->item('gettrackinfo', $this->identity($sub));
+        if (! $this->matches($sub, $data)) {
+            throw new SeventeenTrackException('response_mismatch');
+        }
+
+        return $data;
+    }
+
     public function register(Subscription $sub, bool $verification = false): void
     {
         $settings = ShipmentTracking::settings();
@@ -168,10 +227,7 @@ final class SeventeenTrackTracking
         $external = null;
         if ($sub->registration_requested_at) {
             try {
-                $external = $this->client->item('gettrackinfo', $this->identity($sub));
-                if (! $this->matches($sub, $external)) {
-                    throw new SeventeenTrackException('response_mismatch');
-                }
+                $external = $this->bindManualRegistration($sub, $this->client->item('gettrackinfo', $this->identity($sub)));
             } catch (SeventeenTrackException $error) {
                 if ($error->reason !== 'not_registered') {
                     throw $error;
@@ -201,10 +257,7 @@ final class SeventeenTrackTracking
                 if ($error->reason !== 'already_registered') {
                     throw $error;
                 }
-                $external = $this->client->item('gettrackinfo', $this->identity($sub));
-                if (! $this->matches($sub, $external)) {
-                    throw new SeventeenTrackException('response_mismatch');
-                }
+                $external = $this->bindManualRegistration($sub, $this->client->item('gettrackinfo', $this->identity($sub)));
             }
             // Registration can omit tag in its acknowledgement, but may never contradict our persisted tag.
             if (isset($external['tag']) && ! hash_equals($sub->tag, (string) $external['tag'])) {
@@ -269,7 +322,9 @@ final class SeventeenTrackTracking
             'latest_status_trusted' => ! $providers || $singleJnt,
             'destination_country' => $data['destination_country'] ?? null, 'events' => $events, 'webhook' => $webhook];
         // Re-normalize the first saved snapshot after deploying diagnostic result storage.
-        $key = hash('sha256', '17track:v3:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
+        $binding = Subscription::where('provider', '17track')->where('tag', $payload['tag'])
+            ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->value('active_tracker_id');
+        $key = hash('sha256', '17track:v4:'.SeventeenTrackClient::fingerprint().':'.($binding ?? 'preview').':'.json_encode($payload));
         DB::table('shipment_webhook_inbox')->insertOrIgnore(['provider' => '17track', 'message_key' => $key,
             'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'payload' => json_encode($payload),
             'state' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
@@ -339,10 +394,9 @@ final class SeventeenTrackTracking
                         // hash decide whether an older nonterminal scan wins.
                         usort($events, fn ($a, $b) => [ShipmentTrackingEvents::eventTime($a['occurrenceDatetime'])['instant'], $a['statusMilestone'] === 'delivered', $a['eventId']]
                             <=> [ShipmentTrackingEvents::eventTime($b['occurrenceDatetime'])['instant'], $b['statusMilestone'] === 'delivered', $b['eventId']]);
-                        if (! $sub->diagnostic) {
-                            $earliest = $sub->tracker->handed_over_at->copy()->subDay();
-                            $events = array_values(array_filter($events, fn ($event) => Carbon::parse(ShipmentTrackingEvents::eventTime($event['occurrenceDatetime'])['instant'])->gte($earliest)));
-                        }
+                        // The complete, matched subscription history is valid
+                        // even when staff records a number after an earlier scan.
+                        // Event ordering below prevents older scans from regressing it.
                         // A carrier can classify the unchanged newest scan as
                         // Delivered later. Apply the snapshot status only when
                         // it unambiguously belongs to J&T, never another carrier.
@@ -392,6 +446,12 @@ final class SeventeenTrackTracking
                         }
                         $sub->save();
                         if (! $sub->diagnostic) {
+                            if ($events && ! $sub->tracker->fresh()->needs_review) {
+                                DB::table('shipment_tracking_settings')->where('provider', '17track')
+                                    ->where('account_fingerprint', $row->account_fingerprint)->update([
+                                        'waybill_verified_at' => now(), 'verified_tracker_id' => $sub->tracker_id, 'updated_at' => now(),
+                                    ]);
+                            }
                             ShipmentTrackingEvents::touchOrder($sub->tracker);
                         }
                     }
@@ -410,7 +470,7 @@ final class SeventeenTrackTracking
     public function failed(Subscription $sub, SeventeenTrackException $error): void
     {
         $state = match ($error->reason) {
-            'quota_limit_reached' => 'limited', 'details_rejected', 'response_mismatch', 'account_changed' => 'failed',
+            'quota_limit_reached' => 'limited', 'details_rejected', 'response_mismatch', 'account_changed', 'tracking_number_in_use' => 'failed',
             default => 'retry',
         };
         $sub->update(['registration_state' => $state, 'last_error_code' => $error->reason, 'attempts' => $sub->attempts + 1,
