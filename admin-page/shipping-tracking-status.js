@@ -43,6 +43,7 @@
         ['Local budget remaining', record.budget_remaining ?? 'Not available'],
         ['Provider', providerName],
         ['Standard carrier check interval', record.standard_interval || 'Provider dependent'],
+        ['Saved-result recovery check', 'Every '+(record.saved_results_interval_minutes || 5)+' minutes while tracking is active'],
         ['Waiting for registration', record.pending ?? 0], ['Needs review', record.failed ?? 0],
         ['Latest update received', date(record.last_webhook_at)],
         ['Updates awaiting processing', record.pending_updates ?? 0],

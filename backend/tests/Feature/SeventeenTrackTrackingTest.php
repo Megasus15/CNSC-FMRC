@@ -414,7 +414,7 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->service()->synchronize($sub);
         $this->drain();
         $before = count(Http::recorded());
-        Carbon::setTestNow(now()->addHours(5));
+        Carbon::setTestNow(now()->addMinutes(4));
         $this->artisan('shipments:process')->assertSuccessful();
         $this->assertCount($before, Http::recorded());
         $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking/refresh')->assertOk();
@@ -605,6 +605,142 @@ class SeventeenTrackTrackingTest extends TestCase
         $this->assertFalse($sub->fresh()->stop_pending);
         $this->assertSame('response_mismatch', $sub->fresh()->last_error_code);
         Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/stoptrack'));
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith([false])]
+    #[\PHPUnit\Framework\Attributes\TestWith([true])]
+    public function test_a_delivered_status_change_on_the_same_scan_completes_once(bool $classified): void
+    {
+        $sub = $this->registered();
+        $message = $this->message($sub);
+        $event = &$message['data']['track_info']['tracking']['providers'][0]['events'][0];
+        if (! $classified) unset($event['stage'], $event['sub_status']);
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $this->assertSame('in_transit', $sub->tracker->fresh()->status);
+        $payment = $this->order->fresh()->payment->getAttributes();
+        $message['data']['track_info']['latest_status']['status'] = 'Delivered';
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $this->assertSame('delivered', $sub->tracker->fresh()->status);
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $completedAt = $this->order->fresh()->completed_at->toISOString();
+        $this->hook($message)->assertOk();
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame($completedAt, $this->order->fresh()->completed_at->toISOString());
+        $this->assertSame($payment, $this->order->fresh()->payment->getAttributes());
+        $this->assertSame(1, DB::table('shipment_notification_outbox')->where('milestone', 'delivered')->count());
+    }
+
+    public function test_single_jnt_provider_uses_a_newer_latest_delivery_scan_when_history_lags(): void
+    {
+        $sub = $this->registered();
+        $message = $this->message($sub, 'InTransit', now()->subHour()->toISOString());
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $info = &$message['data']['track_info'];
+        $info['latest_status']['status'] = 'Delivered';
+        $info['latest_event'] = ['time_utc' => now()->toISOString(), 'stage' => 'Delivered',
+            'description' => 'Your package has been delivered', 'location' => 'Mercedes'];
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $this->assertSame('delivered', $sub->tracker->fresh()->status);
+        $this->assertSame('completed', $this->order->fresh()->lifecycle_status);
+        $this->assertDatabaseHas('order_tracking_events', ['order_id' => $this->order->id, 'title' => 'Delivered', 'location_name' => 'Mercedes']);
+    }
+
+    public function test_another_provider_delivered_status_cannot_complete_a_stage_less_jnt_scan(): void
+    {
+        $sub = $this->registered();
+        $message = $this->message($sub, 'Delivered');
+        unset($message['data']['track_info']['tracking']['providers'][0]['events'][0]['stage']);
+        $message['data']['track_info']['tracking']['providers'][] = ['provider' => ['key' => 999999],
+            'events' => [['time_utc' => now()->toISOString(), 'stage' => 'Delivered', 'description' => 'Different carrier scan']]];
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $this->assertSame('pending', $sub->tracker->fresh()->status);
+        $this->assertSame('to_receive', $this->order->fresh()->customer_stage);
+        $this->assertNull($this->order->fresh()->completed_at);
+    }
+
+    public function test_missed_delivery_webhook_recovers_from_saved_results_without_another_registration(): void
+    {
+        $sub = $this->registered();
+        $this->message($sub);
+        $this->service()->synchronize($sub);
+        $this->drain();
+        $calls = $this->registrationCalls;
+        Carbon::setTestNow(now()->addMinutes(6));
+        $this->message($sub, 'Delivered');
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->assertSame($calls, $this->registrationCalls);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'getRealTime') || str_contains($request->url(), '/push'));
+    }
+
+    public function test_scans_sharing_the_delivery_timestamp_do_not_create_a_false_terminal_conflict(): void
+    {
+        $sub = $this->registered();
+        $message = $this->message($sub, 'Delivered');
+        $history = &$message['data']['track_info']['tracking']['providers'][0]['events'];
+        $history[] = ['time_utc' => now()->toISOString(), 'stage' => 'InTransit', 'description' => 'Arrived at delivery hub', 'location' => 'Labo'];
+        $this->hook($message)->assertOk();
+        $this->drain();
+        $this->assertSame('delivered', $sub->tracker->fresh()->status);
+        $this->assertFalse($sub->tracker->fresh()->needs_review);
+        $this->assertSame('completed', $this->order->fresh()->customer_stage);
+        $this->hook($this->message($sub, 'InTransit'))->assertOk();
+        $this->drain();
+        $this->assertFalse($sub->tracker->fresh()->needs_review);
+        $this->assertSame('delivered', $sub->tracker->fresh()->status);
+    }
+
+    public function test_shorter_recovery_applies_to_old_schedules_but_does_not_override_error_backoff(): void
+    {
+        $sub = $this->registered();
+        $sub->update(['last_checked_at' => now(), 'next_attempt_at' => now()->addHours(6)]);
+        $calls = count(Http::recorded());
+        Carbon::setTestNow(now()->addMinutes(6));
+        $this->message($sub, 'OutForDelivery');
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertGreaterThan($calls, count(Http::recorded()));
+        $this->assertSame('out_for_delivery', $sub->tracker->fresh()->status);
+        $this->mode = 'rate';
+        Carbon::setTestNow(now()->addMinutes(6));
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertSame('rate_limited', $sub->fresh()->last_error_code);
+        $calls = count(Http::recorded());
+        Carbon::setTestNow(now()->addMinutes(6));
+        $this->artisan('shipments:process')->assertSuccessful();
+        $this->assertCount($calls, Http::recorded());
+    }
+
+    public function test_an_external_test_number_cannot_be_recorded_as_a_genuine_fmrc_handover(): void
+    {
+        $sub = $this->readyOrderTrackingTest();
+        $payment = $this->order->fresh()->payment->getAttributes();
+        $this->postJson('/api/admin/orders/'.$this->order->id.'/shipment/tracking', [
+            'request_key' => (string) Str::uuid(), 'tracking_number' => $sub->tracking_number,
+            'handed_over_at' => now()->toISOString(), 'handover_confirmed' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('shipment');
+        $this->assertDatabaseCount('shipment_trackers', 0);
+        $this->assertSame('to_ship', $this->order->fresh()->customer_stage);
+        $this->assertSame($payment, $this->order->fresh()->payment->getAttributes());
+    }
+
+    public function test_status_command_reports_inactive_setup_without_provider_requests_or_registration(): void
+    {
+        $this->record();
+        DB::table('shipment_tracking_settings')->where('provider', '17track')->update(['enabled' => false, 'waybill_verified_at' => null, 'last_webhook_at' => null]);
+        $this->artisan('17track:verify', ['--status' => true, '--order' => $this->order->order_no])
+            ->expectsOutputToContain('Automatic tracking: inactive')
+            ->expectsOutputToContain('Not registered with FMRC')
+            ->expectsOutputToContain('Status only: no provider request')
+            ->assertSuccessful();
+        $this->assertDatabaseCount('shipment_tracking_subscriptions', 0);
+        Http::assertNothingSent();
+        $this->getJson('/api/admin/orders/'.$this->order->id)->assertOk()
+            ->assertJsonPath('data.courier_shipment.availability_message', 'Automatic tracking is not active. Verify a genuine FMRC parcel and its recorded J&T handover. External TikTok parcel tests cannot activate live FMRC tracking.');
     }
 
     public function test_missing_stages_use_only_the_latest_scan_and_expiry_preserves_confirmed_information(): void

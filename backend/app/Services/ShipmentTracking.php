@@ -61,6 +61,21 @@ final class ShipmentTracking
         return config('track17.enabled') && self::settings()?->enabled && self::verified();
     }
 
+    public static function setupAction(): string
+    {
+        $settings = self::settings();
+        return match (true) {
+            ! SeventeenTrackClient::configured() => 'Configure the 17TRACK connection in Shipping & Delivery.',
+            ! config('track17.enabled') => 'The backend tracking switch is off. Admin must enable it and refresh the configuration before activation.',
+            ! $settings || ! hash_equals(SeventeenTrackClient::fingerprint(), (string) $settings->account_fingerprint)
+                || ! $settings->carrier_verified_at => 'Verify the current 17TRACK account and J&T Philippines carrier in Shipping & Delivery.',
+            ! $settings->waybill_verified_at => 'Verify a genuine FMRC parcel and its recorded J&T handover. External TikTok parcel tests cannot activate live FMRC tracking.',
+            ! $settings->last_webhook_at => 'A signed tracking update for the verified FMRC parcel is still required. Check the webhook and shipment worker.',
+            ! $settings->enabled => 'The connection is verified but paused. Admin must activate automatic tracking in Shipping & Delivery.',
+            default => 'Review tracking readiness and background processing in Shipping & Delivery.',
+        };
+    }
+
     public static function subscription(?ShipmentTracker $tracker): ?ShipmentTrackingSubscription
     {
         if (! $tracker || ! self::subscriptionsInstalled()) {
@@ -155,6 +170,11 @@ final class ShipmentTracking
                 }
                 if ($order->tracking_test_subscription_id) {
                     self::fail('Remove the external parcel tracking test before recording the actual FMRC parcel handover.');
+                }
+                if (self::subscriptionsInstalled() && ShipmentTrackingSubscription::where('provider', '17track')
+                    ->where('diagnostic', true)->where('tracking_number', $number)
+                    ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->exists()) {
+                    self::fail('This tracking number is an external parcel test. Use Tracking test — external parcel; it cannot confirm a physical FMRC handover.');
                 }
                 if ($handover->gt(now()->addMinute()) || $handover->lt($order->created_at)) {
                     self::fail('Use the actual handover time, between the order date and now.');
@@ -295,6 +315,7 @@ final class ShipmentTracking
             'registrations' => (clone $subscriptions)->whereNotNull('registered_at')->count(),
             'registration_limit' => $limit, 'budget_used' => $used, 'budget_remaining' => max(0, $limit - $used),
             'budget_basis' => 'lifetime', 'standard_interval' => '6–12 hours',
+            'saved_results_interval_minutes' => SeventeenTrackTracking::savedResultsMinutes(),
             'diagnostic_webhook_verified' => $same && (bool) $settings->last_test_webhook_at,
             'pending' => self::pending17(), 'failed' => $failed,
             'quota_limited' => $settings->quota_retry_at && Carbon::parse($settings->quota_retry_at)->isFuture(),
@@ -343,7 +364,8 @@ final class ShipmentTracking
             ! $tracker => 'Record the tracking number after handing the parcel to J&T. The accepted customer shipping fee stays unchanged.',
             $state === 'limited' => 'Automatic tracking is currently unavailable. Use the saved tracking number on J&T tracking.',
             $state === 'failed' => 'Automatic tracking needs attention. Your saved tracking number and last updates remain available.',
-            ! $automatic => 'Automatic tracking is not active. Use the saved tracking number on J&T tracking.',
+            ! $automatic => $operator ? 'Automatic tracking is not active. '.self::setupAction()
+                : 'Automatic tracking is not active. FMRC must finish the tracking setup; you can still use the saved J&T tracking number.',
             $state === 'retry' => 'Tracking updates are temporarily unavailable. Your last recorded updates are shown.',
             $state === 'stopped' => 'Automatic tracking has stopped. Your saved tracking number and latest confirmed updates remain available.',
             $state === 'pending' => 'The tracking number is saved. Automatic tracking registration is pending.',

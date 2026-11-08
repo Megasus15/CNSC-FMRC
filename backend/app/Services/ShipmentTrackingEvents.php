@@ -58,7 +58,9 @@ final class ShipmentTrackingEvents
         self::touchOrder($tracker);
         $previous = isset($tracker->last_event_time['instant']) ? Carbon::parse($tracker->last_event_time['instant']) : $tracker->last_event_at;
         $older = $previous && ($instant->lt($previous)
-            || ($instant->eq($previous) && (int) ($event['order'] ?? 0) <= $tracker->last_event_order));
+            || ($instant->eq($previous) && (($tracker->status === 'delivered' && $status !== 'delivered')
+                || ((int) ($event['order'] ?? 0) <= $tracker->last_event_order
+                    && ! ($source === '17track' && $status === 'delivered' && $tracker->status !== 'delivered')))));
         if ($older || ! $status) {
             return;
         }

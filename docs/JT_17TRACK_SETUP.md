@@ -122,6 +122,7 @@ After activation, eligible new and existing unfinished J&T handovers register au
 
 - Standard 17TRACK carrier checks normally occur every **6–12 hours**; its documentation specifies longer checks for some statuses, including delivered/exception parcels. This mode does not buy instant carrier lookups.
 - Once a signed update reaches FMRC, the next minute worker processes it. Visible Admin/Staff order views poll saved data about every five seconds; Customer Orders polls about every three seconds. Admin does not need to keep refreshing Shipping & Delivery.
+- If the webhook is missed, active registered shipments and explicitly linked external tests read 17TRACK's **saved results every five minutes** by default. This uses `gettrackinfo`, not the paid instant carrier lookup. The optional `TRACK17_SAVED_RESULTS_MINUTES` setting accepts 5–360 minutes. Existing six-hour schedules are brought forward once their last successful check is older than that interval; provider-error retry/backoff and paused live tracking remain respected.
 - Every six hours, FMRC also reads saved provider results to recover missed callbacks. Manual refresh requests the same saved results through the worker, with a 15-minute limit. It does not force a fresh carrier scan or purchase an immediate lookup.
 - Repeated snapshots and milestone notifications are deduplicated. Older scans cannot replace newer confirmed status. Expiration/stoppage retains the last confirmed information.
 - A verified Delivered update for the current real FMRC shipment completes the order once. It does not mark a payment paid, issue a refund, change stock quantities, or change accepted shipping charges. Completion counts and return eligibility follow the new state. External parcel tests cannot complete an FMRC order.
@@ -143,6 +144,25 @@ After activation, eligible new and existing unfinished J&T handovers register au
 3. Reload the browser with Ctrl+F5. Verify the five-row rates table, draft publication, locked fields, FMRC notes, pickup-code action, and updated tracking readiness in both portals.
 4. For an actual FMRC parcel, complete the genuine handover verification above; receive its signed callback; enable the environment switch; confirm a recent worker heartbeat and allowance; then activate from Admin. Do not bypass those gates using a personal TikTok parcel.
 5. With an owned, clearly identified test transaction, confirm hosted checkout → QR Ph payment receipt → approval → genuine handover → automatic Delivered/Completed → correct return deadline and rating eligibility. Check receipt/refund reconciliation separately and confirm the real notification arrives. Keep unrelated customer orders unchanged.
+
+### 17TRACK says Delivered but FMRC remains To Receive
+
+First distinguish the parcel from the FMRC order. An owned TikTok parcel is an **external tracking test** and cannot complete a genuine FMRC order, even when its real courier status is Delivered. Link it only through **Tracking test — external parcel** on an eligible order without a physical shipment. A known registered diagnostic tracking number is rejected by the real handover endpoint. Do not use `--real-handover` to activate live tracking with an external parcel.
+
+If the card says **Automatic tracking is not active**, its local subscription is not being automatically registered or reconciled. A tracking number entered manually in the 17TRACK dashboard is not necessarily the matching FMRC subscription: carrier, account and subscription tag must match. Finish the genuine FMRC verification and Admin activation steps above; do not weaken the identity checks or retag another application's registration.
+
+The delivery-sync fix preserves status-only transitions when a carrier repeats the same scan text/time. It also includes a newer `latest_event` when the snapshot contains one unambiguous J&T provider but its history array lags. Other-carrier events and out-of-order updates cannot replace the confirmed shipment status. Valid genuine Delivered updates complete both regular and paid custom delivery orders once; external tests, cancellations and refunds retain their existing protections.
+
+After deploying the application and versioned shared assets, clear configuration and process saved updates. No new database migration is required for this fix. Inspect setup and the order without any remote calls or registrations:
+
+```sh
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend
+php artisan config:clear
+php artisan shipments:process
+php artisan 17track:verify --status --order=ORD-261107-00104
+```
+
+Replace the example order if necessary. `--status` prints the active/inactive state, missing setup checks, worker health, recorded tracking mode, registration issue, last saved-result check, and signed-update time. It never sends a provider request or changes payments/refunds. The diagnostic output helps distinguish an inactive setup, an unlinked/manual registration, a missed callback, and a genuine completion blocker.
 
 
 ## Troubleshooting

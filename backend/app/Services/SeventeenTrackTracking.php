@@ -13,6 +13,22 @@ final class SeventeenTrackTracking
 {
     public function __construct(private SeventeenTrackClient $client) {}
 
+    public static function savedResultsMinutes(): int
+    {
+        return max(5, min(360, (int) config('track17.saved_results_minutes', 5)));
+    }
+
+    private function due(Subscription $sub): bool
+    {
+        if (! $sub->next_attempt_at || $sub->next_attempt_at->lte(now())) {
+            return true;
+        }
+        // Apply the shorter recovery interval to registrations created before
+        // this release, without overriding provider-error retry/backoff states.
+        return $sub->registration_state === 'active' && $sub->registered_at
+            && ($sub->last_checked_at ?? $sub->registered_at)->lte(now()->subMinutes(self::savedResultsMinutes()));
+    }
+
     public function verifyCarrier(int $code): array
     {
         $carrier = collect($this->client->couriers())->firstWhere('key', $code);
@@ -224,7 +240,7 @@ final class SeventeenTrackTracking
             throw new SeventeenTrackException('response_mismatch');
         }
         $this->receive(['event' => 'TRACKING_UPDATED', 'data' => $data], false);
-        $sub->update(['last_checked_at' => now(), 'next_attempt_at' => now()->addHours(6), 'attempts' => 0]);
+        $sub->update(['last_checked_at' => now(), 'next_attempt_at' => now()->addMinutes(self::savedResultsMinutes()), 'attempts' => 0]);
     }
 
     public function receive(array $message, bool $webhook = true): void
@@ -242,14 +258,18 @@ final class SeventeenTrackTracking
                 }
             }
         }
-        if (! $providers && ! $events && is_array($info['latest_event'] ?? null)) {
+        // The provider's newest scan can arrive before its history array is
+        // refreshed. Only trust this unscoped scan when its carrier is unambiguous.
+        $singleJnt = count($providers) === 1 && (int) ($providers[0]['provider']['key'] ?? 0) === (int) config('track17.carrier_code');
+        if ((! $providers || $singleJnt) && is_array($info['latest_event'] ?? null)) {
             $events[] = array_intersect_key($info['latest_event'], array_flip(['time_iso', 'time_utc', 'time_raw', 'description', 'location', 'stage', 'sub_status']));
         }
         $payload = ['event' => $message['event'], 'number' => strtoupper((string) $data['number']), 'carrier' => (int) $data['carrier'],
             'tag' => $data['tag'] ?? '', 'latest_status' => $info['latest_status']['status'] ?? null,
+            'latest_status_trusted' => ! $providers || $singleJnt,
             'destination_country' => $data['destination_country'] ?? null, 'events' => $events, 'webhook' => $webhook];
         // Re-normalize the first saved snapshot after deploying diagnostic result storage.
-        $key = hash('sha256', '17track:v2:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
+        $key = hash('sha256', '17track:v3:'.SeventeenTrackClient::fingerprint().':'.json_encode($payload));
         DB::table('shipment_webhook_inbox')->insertOrIgnore(['provider' => '17track', 'message_key' => $key,
             'account_fingerprint' => SeventeenTrackClient::fingerprint(), 'payload' => json_encode($payload),
             'state' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
@@ -314,15 +334,27 @@ final class SeventeenTrackTracking
                     } else {
                         $events = array_values(array_filter(array_map(fn ($event, $i) => $this->event($event, $i),
                             $data['events'], array_keys($data['events']))));
-                        usort($events, fn ($a, $b) => [ShipmentTrackingEvents::eventTime($a['occurrenceDatetime'])['instant'], $a['eventId']]
-                            <=> [ShipmentTrackingEvents::eventTime($b['occurrenceDatetime'])['instant'], $b['eventId']]);
+                        // Several carrier scans can share a minute/date. Apply
+                        // Delivered last at that instant instead of letting a
+                        // hash decide whether an older nonterminal scan wins.
+                        usort($events, fn ($a, $b) => [ShipmentTrackingEvents::eventTime($a['occurrenceDatetime'])['instant'], $a['statusMilestone'] === 'delivered', $a['eventId']]
+                            <=> [ShipmentTrackingEvents::eventTime($b['occurrenceDatetime'])['instant'], $b['statusMilestone'] === 'delivered', $b['eventId']]);
                         if (! $sub->diagnostic) {
                             $earliest = $sub->tracker->handed_over_at->copy()->subDay();
                             $events = array_values(array_filter($events, fn ($event) => Carbon::parse(ShipmentTrackingEvents::eventTime($event['occurrenceDatetime'])['instant'])->gte($earliest)));
                         }
-                        // Some couriers omit stages on individual scans. The snapshot's current status belongs only to its newest valid scan.
-                        if ($events && ! end($events)['statusMilestone'] && self::status($data['latest_status'])) {
-                            $events[array_key_last($events)]['statusMilestone'] = self::status($data['latest_status']);
+                        // A carrier can classify the unchanged newest scan as
+                        // Delivered later. Apply the snapshot status only when
+                        // it unambiguously belongs to J&T, never another carrier.
+                        $snapshotStatus = self::status($data['latest_status']);
+                        if ($events && ($data['latest_status_trusted'] ?? false) && $snapshotStatus
+                            && (! end($events)['statusMilestone'] || ($snapshotStatus === 'delivered' && end($events)['statusMilestone'] !== 'delivered'))) {
+                            $index = array_key_last($events);
+                            $milestone = $snapshotStatus;
+                            $events[$index]['statusMilestone'] = $milestone;
+                            // A status-only change is meaningful even when the
+                            // carrier reuses the scan's text and timestamp.
+                            $events[$index]['eventId'] = '17:'.hash('sha256', $events[$index]['eventId'].':'.$milestone);
                         }
                         foreach ($events as $position => $event) {
                             $event['order'] = $position;
@@ -434,7 +466,7 @@ final class SeventeenTrackTracking
                 if (in_array($sub->registration_state, ['failed', 'stopped', 'superseded'], true)) {
                     continue;
                 }
-                if ($sub->next_attempt_at?->isFuture()) {
+                if (! $this->due($sub)) {
                     continue;
                 }
                 try {
@@ -452,12 +484,17 @@ final class SeventeenTrackTracking
         if (OrderTrackingTest::installed() && SeventeenTrackClient::configured()) {
             $ids = DB::table('orders')->whereNotNull('tracking_test_subscription_id')->where('lifecycle_status', 'pending')
                 ->where('customer_stage', 'to_ship')->pluck('tracking_test_subscription_id');
+            $checked = 0;
             foreach (Subscription::whereIn('id', $ids)->where('diagnostic', true)->whereNotNull('registered_at')
                 ->where('account_fingerprint', SeventeenTrackClient::fingerprint())->where('registration_state', '!=', 'stopped')
-                ->where(fn ($q) => $q->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now()))->limit(5)->get() as $sub) {
-                if (microtime(true) >= $deadline) {
+                ->get() as $sub) {
+                if (microtime(true) >= $deadline || $checked >= 5) {
                     break;
                 }
+                if (! $this->due($sub)) {
+                    continue;
+                }
+                $checked++;
                 try {
                     $this->synchronize($sub);
                 } catch (SeventeenTrackException $error) {

@@ -503,14 +503,24 @@ class OptionalAppointmentProductsTest extends TestCase
             'payments' => $paid ? [['id' => 'pay_fixture'.$o->id, 'attributes' => ['status' => 'paid', 'amount' => (int) $a->amount_centavos, 'currency' => 'PHP', 'livemode' => (bool) $a->livemode, 'source' => ['type' => $a->checkout_method], 'paid_at' => now()->timestamp]]] : []]];
     }
 
-    public function test_cash_delivery_uses_same_order_and_ready_guard_then_verified_courier_completion(): void
+    #[\PHPUnit\Framework\Attributes\TestWith(['cash'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['online'])]
+    public function test_custom_delivery_uses_same_order_and_ready_guard_then_verified_courier_completion(string $method): void
     {
+        config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_live_fixture',
+            'payments.paymongo.webhook_secret' => 'fixture-hook', 'payments.paymongo.checkout_method' => 'qrph']);
+        Http::preventStrayRequests();
         $j = $this->booked();
         $q = $this->quote($j, ['fulfillment_type' => 'delivery', 'shipping_fee' => 100, 'delivery_eligible' => true, 'delivery' => $this->destination() + ['customer_id' => 999, 'total' => 1]]);
-        $o = $this->accept($j, $q);
+        $o = $this->accept($j, $q, $method);
         $this->assertEquals(1100, $o->total);
         $this->assertSame($this->customer->id, $o->customer_id);
-        $this->act($o, 'cash_receipt', ['amount' => 1100, 'receipt_reference' => 'ADVANCE-JT', 'confirmed_received' => true])->assertOk();
+        if ($method === 'cash') {
+            $this->act($o, 'cash_receipt', ['amount' => 1100, 'receipt_reference' => 'ADVANCE-JT', 'confirmed_received' => true])->assertOk();
+        } else {
+            $attempt = $this->paymentAttempt($o, true, 'qrph');
+            app(GatewayPayments::class)->applySession($attempt->id, $this->providerFixture($attempt, $o, true));
+        }
         $this->act($o, 'start')->assertOk();
         $endpoint = '/api/admin/orders/'.$o->id.'/shipment/tracking';
         $handover = ['request_key' => (string) Str::uuid(), 'tracking_number' => '001234567890', 'handed_over_at' => now()->toIso8601String(), 'handover_confirmed' => true, 'actual_shipping_cost' => 150];
@@ -524,14 +534,27 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->postJson('/api/customer/orders/'.$o->id.'/received')->assertConflict();
         config(['track17.api_key'=>'fixture-cash-delivery']);
         $tracker=\App\Models\ShipmentTracker::where('active_order_id',$o->id)->firstOrFail();
-        \App\Models\ShipmentTrackingSubscription::create(['provider'=>'17track','tracker_id'=>$tracker->id,'active_tracker_id'=>$tracker->id,
+        $sub = \App\Models\ShipmentTrackingSubscription::create(['provider'=>'17track','tracker_id'=>$tracker->id,'active_tracker_id'=>$tracker->id,
             'tracking_number'=>$tracker->tracking_number,'carrier_code'=>'100240','tag'=>(string) Str::uuid(),'diagnostic'=>false,
             'account_fingerprint'=>\App\Services\SeventeenTrackClient::fingerprint(),'registration_requested_at'=>now(),'registered_at'=>now(),'registration_state'=>'active']);
-        \App\Models\OrderTrackingEvent::create(['order_id'=>$o->id,'shipment_tracker_id'=>$tracker->id,'provider_event_id'=>'cash-delivered','stage'=>'to_receive',
-            'event_type'=>'courier_update','title'=>'Delivered','occurred_at'=>now(),'metadata'=>['source'=>'17track']]);
-        $tracker->update(['status'=>'delivered']);
-        $this->assertTrue(\App\Services\OrderCompletion::delivered($tracker));
+        $paymentBefore = $o->fresh()->payment->getAttributes();
+        Carbon::setTestNow(now()->addHour());
+        $payload = json_encode(['event' => 'TRACKING_UPDATED', 'data' => ['number' => $tracker->tracking_number, 'carrier' => 100240,
+            'tag' => $sub->tag, 'destination_country' => 'PH', 'track_info' => ['latest_status' => ['status' => 'Delivered'],
+                'latest_event' => ['time_utc' => now()->toISOString(), 'stage' => 'Delivered', 'description' => 'J&T delivered the custom product', 'location' => 'Daet'],
+                'tracking' => ['providers' => [['provider' => ['key' => 100240], 'events' => [[
+                    'time_utc' => now()->subHour()->toISOString(), 'stage' => 'InTransit', 'description' => 'Parcel picked up',
+                ]]]]],
+            ]]]);
+        for ($i = 0; $i < 2; $i++) {
+            $this->call('POST', '/api/webhooks/17track', [], [], [], ['CONTENT_TYPE' => 'application/json',
+                'HTTP_SIGN' => hash('sha256', $payload.'/fixture-cash-delivery')], $payload)->assertOk();
+            $this->artisan('shipments:process')->assertSuccessful();
+        }
         $this->assertSame('completed', $o->fresh()->lifecycle_status);
+        $this->assertSame($paymentBefore, $o->fresh()->payment->getAttributes());
+        $this->assertSame(1, DB::table('shipment_notification_outbox')->where('tracker_id', $tracker->id)->where('milestone', 'delivered')->count());
+        $this->getJson('/api/customer/orders/'.$o->id)->assertOk()->assertJsonPath('data.customer_stage', 'completed')->assertJsonPath('data.completion_source', '17track');
         $this->assertEquals(1100, FinancialMetrics::collected(null, null)['collected']);
         $sales = AppointmentProductMetrics::sales();
         $this->assertEquals(1000, $sales[0]['total_revenue']);

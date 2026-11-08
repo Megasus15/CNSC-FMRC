@@ -7,4 +7,6 @@ return [
     'registration_limit' => (int) env('TRACK17_REGISTRATION_LIMIT', 200),
     'carrier_code' => 100240,
     'allow_demo_handover' => (bool) env('TRACK17_ALLOW_DEMO_HANDOVER', false),
+    // Read 17TRACK's saved results if a webhook is missed; never force a carrier lookup.
+    'saved_results_minutes' => (int) env('TRACK17_SAVED_RESULTS_MINUTES', 5),
 ];

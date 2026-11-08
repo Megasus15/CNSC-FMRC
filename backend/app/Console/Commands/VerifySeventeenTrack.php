@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Order;
 use App\Models\ShipmentTracker;
+use App\Models\ShipmentTrackingSubscription;
 use App\Services\SeventeenTrackClient;
 use App\Services\SeventeenTrackException;
 use App\Services\SeventeenTrackTracking;
@@ -14,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 
 final class VerifySeventeenTrack extends Command
 {
-    protected $signature = '17track:verify {--carrier= : J&T Philippines carrier code}
+    protected $signature = '17track:verify {--status : Show saved readiness/order status without contacting 17TRACK or registering a parcel}
+        {--carrier= : J&T Philippines carrier code}
         {--order= : FMRC order number or database ID with a recorded actual J&T handover}
         {--real-handover : Confirm the physical FMRC handover; registration uses the lifetime credit budget}
         {--tracking-number= : Owned parcel for isolated provider diagnostics, never attached to an order}
@@ -26,6 +28,9 @@ final class VerifySeventeenTrack extends Command
 
     public function handle(SeventeenTrackTracking $tracking, SeventeenTrackClient $client): int
     {
+        if ($this->option('status')) {
+            return $this->status();
+        }
         if (! ShipmentTracking::subscriptionsInstalled() || ! $client::configured()) {
             $this->error('Deploy the 17TRACK migration and configure TRACK17_API_KEY first. Tracking remains inactive.');
 
@@ -94,5 +99,45 @@ final class VerifySeventeenTrack extends Command
         }
 
         return self::FAILURE;
+    }
+
+    private function status(): int
+    {
+        $health = ShipmentTracking::health();
+        if (! ($health['installed'] ?? false)) {
+            $this->error('Tracking setup is not installed. Deploy the shipment migrations first.');
+            return self::FAILURE;
+        }
+        $this->line('Automatic tracking: '.($health['enabled'] ? 'active' : 'inactive'));
+        $this->line('Shipment worker: '.($health['processor_healthy'] ? 'running' : 'needs attention'));
+        $this->line('Saved-result recovery interval: '.$health['saved_results_interval_minutes'].' minutes');
+        foreach ($health['blocking_reasons'] as $reason) {
+            $this->warn($reason);
+        }
+        if ($this->option('order')) {
+            $reference = ltrim(trim((string) $this->option('order')), '#');
+            $order = Order::where('order_no', $reference)->first()
+                ?? (ctype_digit($reference) ? Order::find($reference) : null);
+            if (! $order) {
+                $this->error('Order not found. Use the FMRC order number shown in Orders.');
+                return self::FAILURE;
+            }
+            $tracker = ShipmentTracker::where('active_order_id', $order->id)->first();
+            $sub = $order->tracking_test_subscription_id ? ShipmentTrackingSubscription::find($order->tracking_test_subscription_id)
+                : ($tracker ? ShipmentTracking::subscription($tracker) : null);
+            $this->table(['Order sync check', 'Saved result'], [
+                ['Order', $order->order_no], ['FMRC stage', $order->customer_stage],
+                ['Tracking mode', $order->tracking_test_subscription_id ? 'External parcel test; cannot complete this FMRC order' : ($tracker ? 'Recorded physical FMRC handover' : 'No recorded physical handover')],
+                ['Tracking number', $sub?->tracking_number ?? $tracker?->tracking_number ?? 'Not recorded'],
+                ['Registration', $sub?->registration_state ?? 'Not registered with FMRC'],
+                ['Last saved-result check', $sub?->last_checked_at?->toIso8601String() ?? 'Not yet checked'],
+                ['Signed update', $sub?->last_webhook_at?->toIso8601String() ?? 'Not yet received for this subscription'],
+                ['Courier status', $sub?->diagnostic ? ($sub->latest_result['status_label'] ?? 'No saved results') : ($tracker?->status ?? 'No saved results')],
+                ['Registration issue', $sub?->last_error_code ?? 'None recorded'],
+            ]);
+            $this->line('An external/TikTok parcel must use the labelled tracking test; it cannot confirm delivery of this FMRC order.');
+        }
+        $this->info('Status only: no provider request, registration, payment, or refund was performed.');
+        return self::SUCCESS;
     }
 }
