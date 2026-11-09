@@ -21395,7 +21395,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 #customerOrderDetailModal .customer-record-event-copy p { margin: 5px 0 0; font-size: 14px; line-height: 1.75; color: var(--record-muted); overflow-wrap: anywhere; word-break: normal; }
 #customerOrderDetailModal .customer-record-event-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 7px; color: var(--record-muted); font-size: 12px; line-height: 1.6; }
 #customerOrderDetailModal .customer-record-event-meta i { margin-right: 3px; }
-#customerOrderDetailModal .customer-return-progress p { font-size: .83rem; line-height: 1.75; color: var(--record-ink); margin: 12px 0 0; }
+#customerOrderDetailModal .customer-return-progress { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+#customerOrderDetailModal .customer-return-progress p { font-size: .83rem; line-height: 1.75; color: var(--record-ink); margin: 0; }
 #customerOrderDetailModal .customer-return-progress[data-status="refunded"] { border-color: var(--record-success); background: var(--record-success-tint); }
 #customerOrderDetailModal .customer-return-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 #customerOrderDetailModal .customer-return-receipt { border-left: 3px solid var(--record-success); }
