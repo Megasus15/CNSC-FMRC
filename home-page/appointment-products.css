@@ -48,6 +48,23 @@
 .ap-place-feedback small[data-ap-count] { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .ap-panel .ap-place-retry { padding:0; border:0; background:transparent; color:var(--ap-wine); font:inherit; font-size:12px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 .ap-actions { display:flex; justify-content:flex-end; align-items:center; gap:10px; flex-wrap:wrap; padding-top:18px; margin-top:18px; border-top:1px solid var(--ap-line); }
+.ap-record-links { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.ap-linked-orders { margin:20px 0; }
+.ap-linked-orders h4,.ap-linked-meeting h4 { margin:0 0 12px; }
+.ap-linked-orders ul { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:10px; }
+.ap-linked-orders li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; border:1px solid var(--ap-line); border-radius:8px; }
+.ap-linked-orders li>div { display:grid; gap:5px; min-width:0; }
+.ap-linked-orders small { color:var(--ap-muted); }
+.ap-linked-meeting { border:1px solid var(--ap-line); border-radius:8px; padding:18px; margin:20px 0; }
+.ap-linked-meeting .appointment-meeting-summary { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+.ap-linked-meeting p { margin:6px 0 0; }
+.ap-meeting-removal { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-left:auto; max-width:100%; }
+.ap-meeting-removal .ap-btn svg { width:17px; height:17px; flex-shrink:0; }
+.appointment-custom-work { display:grid; justify-items:start; gap:6px; margin-top:8px; white-space:normal; }
+.appointment-custom-work strong { overflow-wrap:anywhere; font-size:12px; }
+.admin-main .ap-reference-link,.ap-reference-link { display:inline-flex; align-items:center; padding:5px 8px; border:1px solid var(--ap-line,#eadede); border-radius:6px; color:var(--portal-action,var(--ap-wine,#800000)); background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); font-size:12px; font-weight:600; line-height:1.5; text-decoration:none; }
+.ap-reference-link:hover { text-decoration:underline; text-underline-offset:3px; }
+.ap-reference-link:focus-visible { outline:2px solid var(--portal-action,#800000); outline-offset:3px; }
 .ap-panel .ap-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--ap-wine); border-radius:8px; min-height:43px; padding:10px 16px; background:var(--ap-solid); color:#fff; font:inherit; font-size:13px; font-weight:600; text-decoration:none; cursor:pointer; line-height:1.5; transition:background-color .2s,color .2s,box-shadow .2s; }
 .ap-panel .ap-btn.is-secondary { color:var(--ap-wine); background:transparent; }
 .ap-panel .ap-btn:hover:not(:disabled) { background:var(--ap-paper); color:var(--ap-wine); box-shadow:0 3px 10px rgba(70,10,20,.09); }

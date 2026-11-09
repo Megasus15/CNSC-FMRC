@@ -81,14 +81,16 @@ class AppointmentProductController extends Controller
         $user = $this->customer($r);
         Products::requireIntake();
         $key = $this->key($r);
-        $brief = Products::brief($this->data($r, 'requirements'), true);
+        $input = $this->data($r, 'requirements');
+        $brief = Products::brief($input, true);
         $service = Products::eligible($brief['service_id']);
         $r->validate(['booking' => ['nullable'], 'draft_id' => 'nullable|integer', 'expected_revision' => 'required_with:draft_id|integer|min:0']);
         $booking = $this->data($r, 'booking');
         \Illuminate\Support\Facades\Validator::make($booking, ['aptDesc' => 'nullable|string|max:2000'])->validate();
-        $notes = Products::mergeBookingNotes($booking['aptDesc'] ?? null, $brief['instructions'] ?? null);
+        $notes = Products::customerNotes($input, $booking['aptDesc'] ?? null);
         \Illuminate\Support\Facades\Validator::make(['additional_notes' => $notes], ['additional_notes' => 'nullable|string|max:2000'])->validate();
         $brief['instructions'] = $notes;
+        $brief['customer_notes_version'] = 1;
         $booking['aptDesc'] = $notes;
         $stored = [];
         try {
@@ -96,6 +98,7 @@ class AppointmentProductController extends Controller
                 User::whereKey($user->id)->lockForUpdate()->firstOrFail();
                 $job = $r->filled('draft_id') ? AppointmentProductJob::where('customer_id', $user->id)->whereKey($r->integer('draft_id'))->lockForUpdate()->firstOrFail()
                     : AppointmentProductJob::where('customer_id', $user->id)->where('request_key', $key)->first();
+                $brief = Products::customerBrief($brief, true, $job?->requirements ?? []);
                 if ($job && ! $r->filled('draft_id')) {
                     return $job;
                 }
@@ -140,7 +143,7 @@ class AppointmentProductController extends Controller
         Products::requireIntake();
         abort_unless($appointment->user_id === $user->id, 404);
         abort_if(in_array($appointment->status, ['Cancelled', 'Archived'], true), 422, 'Restore or reschedule this appointment before adding custom work.');
-        $brief = Products::brief($this->data($r, 'requirements'));
+        $brief = Products::customerBrief($this->data($r, 'requirements'), false, [], $appointment->additional_notes);
         $service = Products::eligible($brief['service_id']);
         $key = $this->key($r);
         $job = DB::transaction(function () use ($appointment, $brief, $service, $user, $key) {
@@ -151,6 +154,7 @@ class AppointmentProductController extends Controller
             $job = AppointmentProductJob::create(['appointment_id' => $a->id, 'customer_id' => $user->id, 'service_id' => $service->id, 'service_name' => $service->title,
                 'requirements' => $brief, 'request_key' => $key, 'state' => 'awaiting_consultation', 'revision' => 0]);
             $a->forceFill(['product_job_id' => $job->id])->save();
+            $a->update(['additional_notes' => $brief['instructions'] ?? null]);
             if (Schema::hasTable('appointment_attachments')) {
                 $files = DB::table('appointment_attachments')->where('appointment_id', $a->id)->get(['name', 'path', 'mime', 'size', 'created_at'])->map(fn ($f) => (array) $f)->all();
                 Products::files($job, $files);
@@ -166,13 +170,13 @@ class AppointmentProductController extends Controller
     public function updateBrief(Request $r, AppointmentProductJob $job)
     {
         $this->authorizeJob($r, $job);
-        $brief = Products::brief($this->data($r, 'requirements'));
+        $brief = Products::customerBrief($this->data($r, 'requirements'), false, $job->requirements ?? [], $job->booking['aptDesc'] ?? null, $job->appointment?->additional_notes);
         Products::version($job, $r->input('expected_revision'));
         if ((int) $brief['service_id'] !== (int) $job->service_id) {
             Products::eligible($brief['service_id']);
         }
         abort_if(in_array($job->state, ['declined', 'cancelled'], true), 422, 'This custom request is closed.');
-        if (Products::sameBrief($brief, $job->requirements)) {
+        if (Products::sameBrief($brief, Products::customerBriefView($job->requirements ?? [], $job->booking['aptDesc'] ?? null, $job->appointment?->additional_notes))) {
             return $this->result($job, 'Product details are already up to date.');
         }
         // Any published offer must be withdrawn before its requirements change.
@@ -194,6 +198,8 @@ class AppointmentProductController extends Controller
                     'discussed_at' => null, 'discussed_appointment_id' => null, 'discussed_by' => null, 'outcome_note' => null]);
             }
             $j->requirements = $brief;
+            $j->booking = array_replace($j->booking ?? [], ['aptDesc' => $brief['instructions'] ?? '']);
+            $j->appointment?->update(['additional_notes' => $brief['instructions'] ?? null]);
             $j->state = $j->discussed_at ? 'needs_information' : 'awaiting_consultation';
             Products::touch($j);
             Products::event($j, 'requirements', $serviceChanged ? 'Fabrication service changed; FMRC must confirm the new requirements were discussed or arrange a follow-up.' : 'Product requirements updated; FMRC must review the changes.', $r->user()->id);

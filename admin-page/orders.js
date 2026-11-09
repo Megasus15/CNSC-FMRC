@@ -424,6 +424,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Renders each product item individually as an inline, comma-free stacked
   // label (e.g. "CSS Box ×2", "Acrylic Sheet ×1") for use inside table cells
   // and cards, instead of the collapsed "First Item (+N more)" text.
+  const renderAppointmentLink = (order) => {
+    const custom=order.custom_product;
+    if(order.order_type!=='custom'||!custom?.appointment_id)return '';
+    const path=`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/appointments.html?appointment_id=${encodeURIComponent(custom.appointment_id)}`;
+    return `<a class="ap-reference-link" href="${escapeHtml(window.FMRCApp?.url?window.FMRCApp.url(path):path)}" aria-label="Open appointment ${escapeHtml(custom.appointment_reference)}">Custom product · ${escapeHtml(custom.appointment_reference)}</a>`;
+  };
+
   const renderOrderItemsInline = (order) => {
     const items = getOrderItemsList(order);
     return items
@@ -1428,6 +1435,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const haystack = [
         order.order_no_display,
         order.order_no,
+        order.custom_product?.appointment_reference,
+        order.custom_product?.service,
+        order.custom_product?.stage,
         order.customer_name,
         order.product_name,
         order.payment_method,
@@ -1531,7 +1541,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="incoming-orders" value="${order.id}" aria-label="Select ${escapeHtml(order.order_no_display || `order ${order.order_no || order.id}`)}" /></td>
             <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
-            <td class="order-items-cell">${renderOrderItemsInline(order)}${order.order_type==="custom"?`<span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
+            <td class="order-items-cell">${renderOrderItemsInline(order)}${renderAppointmentLink(order)}</td>
             <td>${escapeHtml(formatQuantity(order.quantity))}</td>
             <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
@@ -1574,7 +1584,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return `
           <tr>
             <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
+            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
             <td>${renderPaymentMethodCell(order)}</td>
@@ -1745,7 +1755,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="rejected-orders" value="${order.id}" aria-label="Select ${orderNo}" /></td>
             <td>${orderNo}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td>
+            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
             <td>${renderPaymentMethodCell(order)}</td>
@@ -1773,7 +1783,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const refunded = order.payment_status === "refunded";
         const paid = order.payment_status === "paid";
         const label = refunded ? "Refund recorded" : paid ? "Refund due" : "Verify payment";
-        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br><span class="ap-badge">Custom Product · ${escapeHtml(order.custom_product?.appointment_reference||"")}</span>`:""}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
+        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
       },
     });
   };
@@ -2371,7 +2381,12 @@ document.addEventListener("DOMContentLoaded", () => {
       mapOrderById();
       renderAll();
       const productOrderId=new URLSearchParams(location.search).get('order_id');
-      if(productOrderId&&!state.productDeepLinkOpened){const linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);if(linked){state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);}}
+      if(productOrderId&&!state.productDeepLinkOpened){
+        let linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
+        // Archived linked orders are deliberately absent from the active tables.
+        if(!linked){const detail=await request('/admin/orders/'+encodeURIComponent(productOrderId));linked=detail.data;}
+        if(linked){state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);}
+      }
       window.AdminPageNotice.clear("orders");
       state.lastSyncAt = Date.now();
     } catch (error) {
@@ -5670,6 +5685,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   gatewayOrderTimer = setTimeout(pollGatewayOrders, 5000);
   window.addEventListener('fmrc:custom-order-updated', () => { void syncOrders(false, {force:true,source:'action'}); });
+  window.addEventListener('fmrc:appointment-updated', () => { void syncOrders(false, {force:true,source:'action'}); });
   window.addEventListener('online', pollGatewayOrders);
   window.addEventListener('focus', pollGatewayOrders);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pollGatewayOrders(); });

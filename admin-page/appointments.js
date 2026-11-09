@@ -161,9 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const formatApNo = (referenceNo) => {
-    const digits = String(referenceNo || "").replace(/\D/g, "");
-    if (!digits) return safe(referenceNo);
-    return `AP-${digits.slice(-3).padStart(3, "0")}`;
+    return safe(referenceNo || "Not recorded");
   };
 
   const toTimestamp = (value) => {
@@ -511,11 +509,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
     const appointments = (Array.isArray(payload?.data) ? payload.data : []).map(appointment => {
-      const saved = state.appointments.find(item => item.id === appointment.id)?.custom_product;
+      const savedAppointment = state.appointments.find(item => item.id === appointment.id);
+      const saved = savedAppointment?.custom_product;
       const incoming = appointment.custom_product;
       // A list request may have started before an outcome or quotation was saved.
-      return saved && incoming?.id === saved.id && Number(incoming.revision) < Number(saved.revision)
+      const next = saved && incoming?.id === saved.id && Number(incoming.revision) < Number(saved.revision)
         ? { ...appointment, custom_product: saved } : appointment;
+      // A delayed list read must not restore a removed link or an older schedule.
+      if (savedAppointment && Number(appointment.schedule_version) < Number(savedAppointment.schedule_version)) {
+        for (const key of ['appointment_method', 'appointment_date', 'appointment_time', 'meeting_platform', 'meeting_url', 'meeting_status', 'schedule_version', 'can_edit_meeting_link', 'can_remove_meeting_link', 'can_reschedule', 'schedule_history']) next[key] = savedAppointment[key];
+      }
+      return next;
     });
     // Sort: Completed appointments always at bottom, everything else newest-first
     state.appointments = [...appointments].sort((a, b) => {
@@ -593,6 +597,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (!query) return source;
     return source.filter((item) => {
+      const referenceQuery=query.match(/^#?ap[-\s]*0*(\d+)$/i);
+      if(referenceQuery&&Number(referenceQuery[1])===Number(String(item.reference_no||'').replace(/^AP-0*/i,'')))return true;
       const haystack = [
         item.reference_no,
         item.client_name,
@@ -603,6 +609,7 @@ document.addEventListener("DOMContentLoaded", () => {
         item.purpose,
         item.additional_notes,
         item.custom_product?.requirements?.name,item.custom_product?.service_name,item.custom_product?.stage,
+        ...(item.custom_product?.orders||[]).map(order=>order.order_no),
       ]
         .join(" ")
         .toLowerCase();
@@ -692,12 +699,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${safe(item.email)}</td>
           <td title="${safe(item.full_address)}">${safe(item.full_address)}</td>
           <td>${safe(item.client_type)}</td>
-          <td>${safe(item.purpose)}${item.custom_product?`<br><span class="ap-badge">Custom · ${safe(item.custom_product.stage)}</span>`:""}</td>
+          <td>${safe(item.purpose)}${item.custom_product?`<div class="appointment-custom-work"><strong>${safe(item.custom_product.requirements?.name||'Custom product')}</strong><span class="ap-badge">${safe(item.custom_product.stage)}</span>${(item.custom_product.orders||[]).slice(0,1).map(order=>`<a class="ap-reference-link" href="orders.html?order_id=${encodeURIComponent(order.id)}" aria-label="Open order ${safe(order.order_no)}">${safe(order.order_no)}</a>`).join('')}</div>`:""}</td>
           <td>${fileCell}</td>
           <td title="${safe(item.additional_notes)}">${safe(item.additional_notes)}</td>
           <td>${prettyDate(item.appointment_date)}</td>
           <td>${safe(item.appointment_time)}</td>
-          <td><span class="status-pill ${statusClass(item.status)}">${safe(item.status)}</span></td>
+          <td><span class="status-pill ${statusClass(item.status)}">${item.custom_product?'Consultation: ':''}${safe(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
             ${["completed", "cancelled", "archived"].includes(String(item.status || "").toLowerCase()) ? "" : `<button type="button" class="appointment-complete-action" data-tooltip="Mark as Done" data-complete-id="${item.id}"><i class="fa-solid fa-circle-check"></i></button>`}
@@ -1324,7 +1331,11 @@ document.addEventListener("DOMContentLoaded", () => {
       await Promise.all(tasks);
       renderTable();
       const linkedId=new URLSearchParams(location.search).get('appointment_id');
-      if(linkedId&&!state.productDeepLinkOpened){const linked=state.appointments.find(a=>String(a.id)===linkedId);if(linked){state.productDeepLinkOpened=true;openAppointmentViewModal(linked);}}
+      if(linkedId&&!state.productDeepLinkOpened){
+        let linked=state.appointments.find(a=>String(a.id)===linkedId);
+        if(!linked){const result=await fetch(`${API_BASE_URL}/admin/appointments/${encodeURIComponent(linkedId)}`,{cache:'no-store',headers:{Accept:'application/json',Authorization:'Bearer '+(window.AdminSession?.getToken()||'')}});if(!result.ok)throw Error('The linked appointment could not be opened.');linked=(await result.json()).data;}
+        if(linked){state.productDeepLinkOpened=true;openAppointmentViewModal(linked);}
+      }
 
       if (!isCalendarOpen) {
         renderCalendar();

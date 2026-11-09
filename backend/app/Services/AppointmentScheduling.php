@@ -63,6 +63,22 @@ final class AppointmentScheduling
         return $start && $start->gt(Carbon::now(self::ZONE));
     }
 
+    public static function meetingData(Appointment $appointment, bool $operator = false): array
+    {
+        $online = $appointment->appointment_method === 'online';
+        $upcoming = self::canReschedule($appointment);
+
+        return [
+            'appointment_method' => $appointment->appointment_method,
+            'meeting_platform' => $appointment->meeting_platform,
+            'meeting_url' => $appointment->meeting_url,
+            'meeting_status' => $online ? ($appointment->meeting_url ? 'Meeting link available' : ($upcoming ? 'Meeting link pending' : 'No active meeting link')) : null,
+            'schedule_version' => (int) $appointment->schedule_version,
+            'can_edit_meeting_link' => $operator && $online && $upcoming,
+            'can_remove_meeting_link' => $operator && $online && filled($appointment->meeting_url),
+        ];
+    }
+
     public static function range(string $date, string $label, ?string $period = null): ?array
     {
         $start = self::start($date, $label, $period);

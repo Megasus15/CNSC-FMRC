@@ -41,13 +41,26 @@ class AppointmentController extends Controller
         if ($denied = $this->ensureAdminOrStaff($request)) {
             return $denied;
         }
+        $hasJobs = Schema::hasTable('appointment_product_jobs');
+        $hasJobColumn = Schema::hasColumn('appointments', 'product_job_id');
         $appointments = Appointment::query()
-            ->whereNotIn('status', ['Cancelled', 'Archived'])
+            ->where(function ($query) use ($hasJobs, $hasJobColumn) {
+                $query->whereNotIn('status', ['Cancelled', 'Archived']);
+                if ($hasJobColumn) $query->orWhereNotNull('product_job_id');
+                if ($hasJobs) $query->orWhereExists(fn ($jobs) => $jobs->selectRaw('1')->from('appointment_product_jobs')->whereColumn('appointment_product_jobs.appointment_id', 'appointments.id'));
+            })
             ->orderBy('created_at', 'asc')
             ->get()
             ->map(fn (Appointment $appointment) => $this->transformAppointment($appointment));
 
         return response()->json(['data' => $appointments])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function teamShow(Request $request, Appointment $appointment): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) return $denied;
+
+        return response()->json(['data' => $this->transformAppointment($appointment)])->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request): JsonResponse
@@ -59,14 +72,15 @@ class AppointmentController extends Controller
             if (is_string($request->input('product_data'))) $request->merge(['product_data'=>json_decode($request->input('product_data'),true)]);
             $request->validate(['product_data'=>'required|array','request_key'=>'required|string|max:80|regex:/^[A-Za-z0-9-]+$/',
                 'product_draft_id'=>'nullable|integer','product_revision'=>'required_with:product_draft_id|integer|min:0']);
-            $brief = AppointmentProducts::brief($request->input('product_data'));
+            $input = $request->input('product_data');
+            $brief = AppointmentProducts::brief($input);
             $prior=\App\Models\AppointmentProductJob::where('customer_id',$request->user('sanctum')->id)->where('request_key',$request->input('request_key'))->first();
             if ($prior?->appointment_id) return response()->json(['message'=>'Appointment already booked.','data'=>$this->transformAppointment($prior->appointment)],201);
             $service = AppointmentProducts::eligible((int) $brief['service_id']);
             $request->validate(['additional_notes' => 'nullable|string|max:2000']);
-            $notes = AppointmentProducts::mergeBookingNotes($request->input('additional_notes'), $brief['instructions'] ?? null);
+            $notes = AppointmentProducts::customerNotes($input, $request->input('additional_notes'));
             $request->merge(['purpose' => $service->title, 'additional_notes' => $notes,
-                'product_data' => array_replace($brief, ['instructions' => $notes])]);
+                'product_data' => array_replace($brief, ['instructions' => $notes, 'customer_notes_version' => 1])]);
         }
         $validated = $request->validate([
             'last_name' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
@@ -629,19 +643,27 @@ class AppointmentController extends Controller
                 throw ValidationException::withMessages(['meeting_url' => 'Enter a platform name and an HTTPS meeting link without embedded credentials.']);
             }
         }
-        $appointment = DB::transaction(function () use ($appointment, $data) {
+        $clearing = array_key_exists('meeting_url', $data) && blank($data['meeting_url']) && blank($data['platform'] ?? null);
+        $changed = false;
+        $appointment = DB::transaction(function () use ($appointment, $data, $request, $clearing, &$changed) {
             AppointmentScheduling::lock();
             $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
-            abort_unless($current->appointment_method === 'online' && AppointmentScheduling::canReschedule($current), 422, 'Meeting details can be updated for an upcoming online appointment.');
+            abort_unless($current->appointment_method === 'online', 422, 'This appointment does not use an online meeting.');
+            if ($clearing && blank($current->meeting_url) && blank($current->meeting_platform)) return $current;
+            abort_unless($clearing || AppointmentScheduling::canReschedule($current), 422, 'Meeting details can be updated for an upcoming online appointment.');
             abort_unless($current->schedule_version === (int) $data['expected_version'], 409, 'This appointment has changed. Refresh its details before saving a meeting link.');
             $current->fill(['meeting_platform' => filled($data['meeting_url'] ?? null) ? trim($data['platform']) : null,
                 'meeting_url' => $data['meeting_url'] ?? null, 'schedule_version' => $current->schedule_version + 1])->save();
+            $changed = true;
+            if ($clearing && ($job = AppointmentProducts::jobFor($current))) {
+                AppointmentProducts::event($job, 'meeting_link_removed', 'Online meeting link removed for '.$current->reference_no.'.', $request->user()->id, ['appointment_id' => $current->id]);
+            }
 
             return $current;
         });
-        $this->sendUpdatedConfirmation($appointment);
+        if ($changed && AppointmentScheduling::canReschedule($appointment)) $this->sendUpdatedConfirmation($appointment);
 
-        return response()->json(['message' => 'Meeting information saved.', 'data' => $this->transformAppointment($appointment)]);
+        return response()->json(['message' => $clearing ? 'Meeting link removed.' : 'Meeting information saved.', 'data' => $this->transformAppointment($appointment)]);
     }
 
     public function attachment(Request $request, Appointment $appointment, string $file)
@@ -720,9 +742,8 @@ class AppointmentController extends Controller
             if ($appointment->attachment_path) {
                 $files[] = ['id' => 'legacy', 'name' => $appointment->attachment_name, 'size' => null, 'download_url' => $attachmentUrl];
             }
-            $extra += ['attachments' => $files, 'meeting_platform' => $appointment->meeting_platform, 'meeting_url' => $appointment->meeting_url,
-                'meeting_status' => $appointment->appointment_method === 'online' ? ($appointment->meeting_url ? 'Meeting link available' : 'Meeting link pending') : null,
-                'schedule_version' => (int) $appointment->schedule_version, 'can_reschedule' => AppointmentScheduling::canReschedule($appointment),
+            $extra += AppointmentScheduling::meetingData($appointment, in_array(auth()->user()?->role, self::ALLOWED_ADMIN_ROLES, true));
+            $extra += ['attachments' => $files, 'can_reschedule' => AppointmentScheduling::canReschedule($appointment),
                 'schedule_history' => DB::table('appointment_schedule_history')->where('appointment_id', $appointment->id)->orderBy('id')->get(['previous_date', 'previous_time', 'appointment_date', 'appointment_time', 'created_at'])->all()];
         }
 

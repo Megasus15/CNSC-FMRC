@@ -110,6 +110,101 @@ class OptionalAppointmentProductsTest extends TestCase
         return $this->postJson('/api/admin/orders/'.$order->id.'/custom-product', $extra + ['action' => $action, 'expected_revision' => $order->fresh()->production_revision, 'request_key' => (string) Str::uuid()]);
     }
 
+    public function test_customer_notes_merge_legacy_personalization_once_and_remain_authoritative_when_edited(): void
+    {
+        $job = $this->booked();
+        $job->update(['requirements' => $this->brief() + ['personalization' => 'Print FMRC.', 'instructions' => 'Pack securely.'], 'booking' => ['aptDesc' => 'Call before the visit.']]);
+        $job->appointment->update(['additional_notes' => 'Call before the visit.']);
+        $url = '/api/customer/appointment-products/'.$job->id;
+        $read = $this->getJson($url)->assertOk()->json('data');
+        $this->assertSame("Call before the visit.\n\nPack securely.\n\nPrint FMRC.", $read['requirements']['instructions']);
+        $this->assertSame(1, $read['requirements']['customer_notes_version']);
+        $this->assertArrayNotHasKey('customer_notes_version', $job->fresh()->requirements);
+        $body = $read['requirements'];
+        unset($body['finish'], $body['personalization']);
+        $body['instructions'] = 'Use only the revised design.';
+        $updated = $this->putJson($url.'/requirements', ['requirements' => $body, 'expected_revision' => $job->revision])->assertOk()->json('data');
+        $this->assertSame('Use only the revised design.', $updated['requirements']['instructions']);
+        $this->assertSame('Matte', $job->fresh()->requirements['finish']);
+        $this->assertSame('Print FMRC.', $job->fresh()->requirements['personalization']);
+        $this->assertSame('Use only the revised design.', $job->appointment->fresh()->additional_notes);
+        $this->getJson($url)->assertJsonPath('data.requirements.instructions', 'Use only the revised design.');
+        $this->putJson($url.'/requirements', ['requirements' => $body, 'expected_revision' => $updated['revision']])->assertOk()->assertJsonPath('data.revision', $updated['revision']);
+    }
+
+    public function test_legacy_notes_are_read_without_truncation_but_new_combined_notes_obey_the_limit(): void
+    {
+        $job = $this->booked();
+        $job->update(['requirements' => $this->brief() + ['instructions' => str_repeat('A', 1800), 'personalization' => str_repeat('B', 900)]]);
+        $read = $this->getJson('/api/customer/appointment-products/'.$job->id)->assertOk()->json('data');
+        $this->assertSame(2702, strlen($read['requirements']['instructions']));
+        $this->putJson('/api/customer/appointment-products/'.$job->id.'/requirements', ['requirements' => $read['requirements'], 'expected_revision' => $job->revision])
+            ->assertUnprocessable()->assertJsonValidationErrors('instructions');
+        $this->assertSame(1800, strlen($job->fresh()->requirements['instructions']));
+    }
+
+    public function test_custom_appointments_stay_visible_and_directly_accessible_in_every_stage(): void
+    {
+        $job = $this->booked();
+        $ordinary = $job->appointment->replicate(['product_job_id', 'reference_no']);
+        $ordinary->forceFill(['reference_no' => 'AP-ORDINARY-ARCHIVED', 'status' => 'Archived', 'product_job_id' => null])->save();
+        foreach ([$this->admin, $this->staff] as $operator) {
+            Sanctum::actingAs($operator);
+            foreach (['Completed', 'Cancelled', 'Archived'] as $status) {
+                $job->appointment->update(['status' => $status]);
+                $feed = $this->getJson('/api/appointments')->assertOk()->json('data');
+                $this->assertContains($job->appointment_id, array_column($feed, 'id'));
+                $this->assertNotContains($ordinary->id, array_column($feed, 'id'));
+                $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertOk()->assertJsonPath('data.status', $status)->assertJsonPath('data.custom_product.id', $job->id);
+            }
+        }
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertForbidden();
+    }
+
+    public function test_closed_custom_order_exposes_authorized_meeting_cleanup_without_changing_its_agreement(): void
+    {
+        $job = $this->booked();
+        $quote = $this->quote($job);
+        $order = $this->accept($job, $quote);
+        $job->appointment->update(['status' => 'Archived', 'appointment_method' => 'online', 'meeting_url' => 'https://meet.google.com/retired-private-link', 'meeting_platform' => 'Google Meet']);
+        $agreement = $quote->fresh()->agreement;
+        foreach ([$this->staff, $this->admin] as $operator) {
+            Sanctum::actingAs($operator);
+            $this->getJson('/api/admin/orders/'.$order->id)->assertOk()->assertJsonPath('data.custom_product.meeting.can_remove_meeting_link', true);
+        }
+        $url = '/api/admin/appointments/'.$job->appointment_id.'/meeting';
+        $this->patchJson($url, ['platform' => null, 'meeting_url' => null, 'expected_version' => 0])->assertOk()->assertJsonPath('data.meeting_status', 'No active meeting link');
+        $this->patchJson($url, ['platform' => null, 'meeting_url' => null, 'expected_version' => 0])->assertOk()->assertJsonPath('data.schedule_version', 1);
+        $events = DB::table('appointment_product_events')->where('job_id', $job->id)->where('action', 'meeting_link_removed')->get();
+        $this->assertCount(1, $events);
+        $this->assertStringNotContainsString('retired-private-link', json_encode($events));
+        $this->assertSame($agreement, $quote->fresh()->agreement);
+        $this->assertSame('incoming', $order->fresh()->lifecycle_status);
+        $this->assertSame('pending', $order->payment->fresh()->status);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/appointments/'.$job->appointment_id)->assertJsonPath('data.meeting_url', null);
+        $this->patchJson($url, ['platform' => null, 'meeting_url' => null, 'expected_version' => 1])->assertForbidden();
+    }
+
+    public function test_meeting_removal_rechecks_the_schedule_version_and_preserves_the_replacement_link(): void
+    {
+        $job = $this->booked();
+        $appointment = $job->appointment;
+        $appointment->update(['appointment_method' => 'online', 'meeting_platform' => 'Google Meet', 'meeting_url' => 'https://meet.google.com/original-link']);
+        Sanctum::actingAs($this->staff);
+        $url = '/api/admin/appointments/'.$appointment->id.'/meeting';
+        $this->patchJson($url, ['platform' => 'Zoom', 'meeting_url' => 'https://zoom.us/replacement-link', 'expected_version' => 0])->assertOk()->assertJsonPath('data.schedule_version', 1);
+        $this->patchJson($url, ['platform' => null, 'meeting_url' => null, 'expected_version' => 0])->assertConflict();
+        $this->assertSame('https://zoom.us/replacement-link', $appointment->fresh()->meeting_url);
+        $this->assertDatabaseMissing('appointment_product_events', ['job_id' => $job->id, 'action' => 'meeting_link_removed']);
+        $appointment->update(['status' => 'Completed']);
+        $this->patchJson($url, ['platform' => 'Zoom', 'meeting_url' => 'https://zoom.us/another-link', 'expected_version' => 1])->assertUnprocessable();
+        $this->patchJson($url, ['platform' => null, 'meeting_url' => null, 'expected_version' => 1])->assertOk()->assertJsonPath('data.schedule_version', 2)->assertJsonPath('data.meeting_status', 'No active meeting link');
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/appointments/'.$appointment->id)->assertOk()->assertJsonPath('data.meeting_url', null)->assertJsonPath('data.meeting_status', 'No active meeting link');
+    }
+
     public function test_optional_booking_preserves_the_meeting_and_persists_numeric_revision_and_idempotency(): void
     {
         $data = $this->booking();

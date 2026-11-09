@@ -219,6 +219,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/customer/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule']);
     Route::get('/customer/appointments/{appointment}/attachments/{file}', [AppointmentController::class, 'attachment'])->where('file','[0-9]+|legacy');
     Route::patch('/admin/appointments/{appointment}/meeting', [AppointmentController::class, 'updateMeeting']);
+    Route::get('/admin/appointments/{appointment}', [AppointmentController::class, 'teamShow']);
     Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
     Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
 

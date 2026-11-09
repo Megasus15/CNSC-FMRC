@@ -106,6 +106,33 @@ final class AppointmentProducts
         return implode("\n\n", $parts);
     }
 
+    /** New customer briefs have one authoritative notes field; legacy reads are lossless. */
+    public static function customerNotes(array $data, ?string ...$legacyNotes): string
+    {
+        if ((int) ($data['customer_notes_version'] ?? 0) >= 1) {
+            return trim((string) ($data['instructions'] ?? ''));
+        }
+
+        return self::mergeBookingNotes(...[...$legacyNotes, $data['instructions'] ?? null, $data['personalization'] ?? null]);
+    }
+
+    public static function customerBrief(array $data, bool $draft = false, array $previous = [], ?string ...$legacyNotes): array
+    {
+        $data['instructions'] = self::customerNotes($data, ...$legacyNotes);
+        foreach (['finish', 'personalization', 'intended_use'] as $key) {
+            if (! array_key_exists($key, $data) && array_key_exists($key, $previous)) {
+                $data[$key] = $previous[$key];
+            }
+        }
+
+        return self::brief($data, $draft) + ['customer_notes_version' => 1];
+    }
+
+    public static function customerBriefView(array $data, ?string ...$legacyNotes): array
+    {
+        return array_replace($data, ['instructions' => self::customerNotes($data, ...$legacyNotes), 'customer_notes_version' => 1]);
+    }
+
     public static function eligible(int $id, bool $lock = false): Service
     {
         self::requireIntake();
@@ -117,6 +144,8 @@ final class AppointmentProducts
 
     public static function sameBrief(array $first, array $second): bool
     {
+        $first = self::customerBriefView($first);
+        $second = self::customerBriefView($second);
         // Browser forms send empty optional fields that older saved briefs omit.
         foreach (array_unique([...array_keys($first), ...array_keys($second)]) as $key) {
             $a = $first[$key] ?? null;
@@ -178,9 +207,9 @@ final class AppointmentProducts
     /** Called inside the existing booking transaction and schedule lock. */
     public static function booked(Appointment $appointment, array $input, int $customer, string $key, ?int $draftId, mixed $revision, array $stored): AppointmentProductJob
     {
-        $brief = self::brief($input);
-        $service = self::eligible($brief['service_id']);
         $job = $draftId ? AppointmentProductJob::where('customer_id', $customer)->whereKey($draftId)->lockForUpdate()->firstOrFail() : null;
+        $brief = self::customerBrief($input, false, $job?->requirements ?? [], $appointment->additional_notes);
+        $service = self::eligible($brief['service_id']);
         if ($job) {
             self::version($job, $revision);
             abort_unless($job->state === 'draft' && ! $job->appointment_id, 409, 'This draft has already been booked. Open its appointment.');
@@ -380,6 +409,7 @@ final class AppointmentProducts
 
         return ['order_type' => 'custom', 'custom_product' => ['job_id' => $job?->id, 'appointment_id' => $job?->appointment_id,
             'appointment_reference' => $job?->appointment?->reference_no, 'service' => $job?->service_name, 'quotation_version' => $q?->version,
+            'meeting' => $operator && $job?->appointment ? AppointmentScheduling::meetingData($job->appointment, true) : null,
             'agreement' => $q?->agreement, 'stage' => $status, 'production_status' => $order->appointment_production_status, 'collection_pending' => (bool) $order->collection_hold, 'revision' => (int) $order->production_revision,
             'online_payment_available' => self::onlinePaymentAvailable(),
             'available_actions' => ['record_cash' => $operator && ! $order->collection_hold && $order->payment_method === 'Cash at FMRC' && $order->payment?->status === 'pending' && $q?->state === 'accepted' && $q->expires_at->isFuture() && ! in_array($order->lifecycle_status, ['cancelled', 'rejected', 'completed']),
@@ -420,7 +450,8 @@ final class AppointmentProducts
         };
 
         return ['id' => $job->id, 'online_payment_available' => self::onlinePaymentAvailable(), 'appointment_id' => $job->appointment_id, 'service_id' => $job->service_id, 'service_name' => $job->service_name,
-            'state' => $job->state, 'progress' => $progress, 'stage' => $stage, 'revision' => (int) $job->revision, 'request_key' => $job->request_key, 'requirements' => $job->requirements, 'booking' => $job->booking,
+            'state' => $job->state, 'progress' => $progress, 'stage' => $stage, 'revision' => (int) $job->revision, 'request_key' => $job->request_key,
+            'requirements' => self::customerBriefView($job->requirements ?? [], $job->booking['aptDesc'] ?? null, $job->appointment?->additional_notes), 'booking' => $job->booking,
             'next_action' => $next, 'outcome_note' => $job->outcome_note, 'discussed_at' => $job->discussed_at?->toIso8601String(),
             'files' => DB::table('appointment_product_files')->where('job_id', $job->id)->get(['id', 'name', 'size', 'message_id'])->all(),
             'messages' => DB::table('appointment_product_messages')->where('job_id', $job->id)->orderBy('id')->get(['id', 'sender_name', 'sender_role', 'body', 'created_at'])->all(),
