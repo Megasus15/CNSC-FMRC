@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Mail\AppointmentCompleted;
 use App\Mail\AppointmentConfirmation;
 use App\Models\AdminNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentCalendarDay;
 use App\Models\AppointmentTimeSlot;
 use App\Services\AppointmentFiles;
+use App\Services\AppointmentConsultations;
 use App\Services\AppointmentScheduling;
 use App\Services\AppointmentProducts;
 use App\Support\OrderNotifier;
@@ -328,38 +328,11 @@ class AppointmentController extends Controller
         $appointment = DB::transaction(function () use ($appointment) {
             AppointmentScheduling::lock();
             $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
-            abort_if(in_array(strtolower($current->status), ['completed', 'cancelled', 'archived'], true), 422, 'This appointment cannot be marked as completed.');
-            $current->status = 'Completed';
-            $current->save();
-
+            AppointmentConsultations::completeLocked($current);
             return $current;
         });
 
-        // --- Customer Email: Thank-you note for the completed visit ---
-        // Same deferred-send pattern as store(): queued behind the response so
-        // SMTP latency or an SMTP outage can never make "Mark as Done" fail in
-        // the Admin/Staff portal.
-        $emailAddress = trim((string) ($appointment->email ?? ''));
-        if ($emailAddress !== '' && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-            $appointmentForMail = $appointment;
-            OrderNotifier::afterResponse(function () use ($emailAddress, $appointmentForMail) {
-                try {
-                    Mail::to($emailAddress)
-                        ->send(new AppointmentCompleted($appointmentForMail));
-
-                    Log::info(
-                        '[APPT EMAIL] Sent AppointmentCompleted to '
-                        .$emailAddress
-                        .' | Ref: '.$appointmentForMail->reference_no
-                    );
-                } catch (\Throwable $e) {
-                    Log::error(
-                        '[APPT EMAIL] Thank-you SMTP send FAILED for '
-                        .$appointmentForMail->reference_no.': '.$e->getMessage()
-                    );
-                }
-            });
-        }
+        AppointmentConsultations::notifyCompleted($appointment);
 
         return response()->json([
             'message' => 'Appointment marked as completed.',

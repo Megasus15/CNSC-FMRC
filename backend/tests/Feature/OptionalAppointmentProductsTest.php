@@ -369,6 +369,103 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertSame('sent', $quote->fresh()->state);
     }
 
+    public function test_guided_consultation_completes_only_the_selected_meeting_and_retries_once(): void
+    {
+        foreach ([$this->admin, $this->staff] as $i => $operator) {
+            Sanctum::actingAs($this->customer);
+            $created = $this->postJson('/api/appointments', $this->booking(['appointment_time' => $i ? '10:00 - 11:00 AM' : '9:00 - 10:00 AM']))->assertCreated();
+            $j = AppointmentProductJob::findOrFail($created->json('data.custom_product.id'));
+            $a = $j->appointment;
+            $sibling = $a->replicate(['reference_no']);
+            $sibling->reference_no = 'AP-SIBLING-GUIDED-'.$i;
+            $sibling->save();
+            $body = ['outcome' => 'ready_for_quote', 'note' => 'Design and specifications agreed.', 'discussion_confirmed' => true,
+                'complete_consultation' => true, 'discussed_appointment_id' => $a->id, 'expected_schedule_version' => 0,
+                'expected_revision' => $j->revision, 'request_key' => (string) Str::uuid()];
+            Sanctum::actingAs($operator);
+            $path = '/api/admin/appointment-products/'.$j->id.'/outcome';
+            $this->postJson($path, array_replace($body, ['discussion_confirmed' => false]))->assertUnprocessable();
+            $a->update(['schedule_version' => 1]);
+            $this->postJson($path, $body)->assertConflict();
+            $this->assertSame('Scheduled', $a->fresh()->status);
+            foreach (['Cancelled', 'Archived'] as $status) {
+                $a->update(['status' => $status, 'schedule_version' => 0]);
+                $this->postJson($path, $body)->assertUnprocessable();
+            }
+            $a->update(['status' => 'Scheduled']);
+            $this->postJson($path, $body)->assertOk()->assertJsonPath('appointment.status', 'Completed')->assertJsonPath('data.state', 'ready_for_quote');
+            $notifications = DB::table('admin_notifications')->count();
+            $this->postJson($path, $body)->assertOk()->assertJsonPath('data.revision', $j->fresh()->revision);
+            $this->assertSame($notifications, DB::table('admin_notifications')->count());
+            $this->assertSame(1, DB::table('appointment_product_events')->where('job_id', $j->id)->where('action', 'outcome')->count());
+            $this->assertSame('Scheduled', $sibling->fresh()->status);
+            $this->postJson($path, array_replace($body, ['note' => 'Different details']))->assertConflict();
+            Sanctum::actingAs($this->customer);
+            $this->postJson($path, $body)->assertForbidden();
+        }
+    }
+
+    public function test_guided_followup_outcomes_only_complete_an_attended_owned_consultation(): void
+    {
+        $job = $this->booked();
+        $followup = $job->appointment->replicate(['reference_no']);
+        $followup->forceFill(['reference_no' => 'AP-GUIDED-FOLLOWUP', 'product_job_id' => $job->id]);
+        $followup->save();
+        $outside = $followup->replicate(['reference_no']);
+        $outside->forceFill(['reference_no' => 'AP-OTHER-JOB', 'product_job_id' => null]);
+        $outside->save();
+        Sanctum::actingAs($this->staff);
+        $path = '/api/admin/appointment-products/'.$job->id.'/outcome';
+        $body = ['outcome' => 'needs_information', 'note' => 'Please confirm the remaining specifications.',
+            'complete_consultation' => false, 'discussion_confirmed' => false, 'expected_revision' => 0];
+        $this->postJson($path, $body + ['discussed_appointment_id' => $outside->id])->assertNotFound();
+        foreach (['needs_information', 'follow_up', 'declined'] as $outcome) {
+            $followup->refresh()->update(['status' => 'Scheduled']);
+            $body = array_replace($body, ['outcome' => $outcome, 'expected_revision' => $job->fresh()->revision,
+                'discussed_appointment_id' => $followup->id]);
+            $this->postJson($path, $body)->assertOk()->assertJsonPath('appointment.status', 'Scheduled');
+            $attended = array_replace($body, ['complete_consultation' => true, 'discussion_confirmed' => true,
+                'expected_revision' => $job->fresh()->revision, 'expected_schedule_version' => 0, 'request_key' => (string) Str::uuid()]);
+            $this->postJson($path, $attended)->assertOk()->assertJsonPath('appointment.id', $followup->id)->assertJsonPath('appointment.status', 'Completed');
+            $this->postJson($path, $attended)->assertOk();
+            $this->assertSame('Scheduled', $job->appointment->fresh()->status);
+            $this->assertSame('Scheduled', $outside->fresh()->status);
+        }
+        $followup->update(['status' => 'Archived']);
+        $this->postJson($path, array_replace($body, ['expected_revision' => $job->fresh()->revision]))->assertUnprocessable();
+    }
+
+    public function test_guided_consultation_rolls_back_when_saving_the_outcome_fails(): void
+    {
+        $j = $this->booked();
+        Sanctum::actingAs($this->staff);
+        $event = 'eloquent.updating: '.AppointmentProductJob::class;
+        \Illuminate\Support\Facades\Event::listen($event, fn () => throw \Illuminate\Validation\ValidationException::withMessages(['outcome' => 'Fixture conflict']));
+        try {
+            $this->postJson('/api/admin/appointment-products/'.$j->id.'/outcome', ['outcome' => 'ready_for_quote', 'note' => 'Agreed specifications.',
+                'complete_consultation' => true, 'discussion_confirmed' => true, 'discussed_appointment_id' => $j->appointment_id,
+                'expected_schedule_version' => 0, 'expected_revision' => 0, 'request_key' => (string) Str::uuid()])->assertUnprocessable();
+            $this->assertSame('Scheduled', $j->appointment->fresh()->status);
+            $this->assertSame('awaiting_consultation', $j->fresh()->state);
+        } finally { \Illuminate\Support\Facades\Event::forget($event); }
+    }
+
+    public function test_quotation_uses_unified_notes_without_requiring_finish(): void
+    {
+        $j = $this->booked();
+        $spec = $this->brief();
+        unset($spec['finish']);
+        $spec += ['personalization' => 'Print FMRC on the front.', 'instructions' => 'Use the approved layout.'];
+        $q = $this->quote($j, ['specifications' => $spec]);
+        $this->assertArrayNotHasKey('finish', $q->agreement['specifications']);
+        $this->assertSame("Use the approved layout.\n\nPrint FMRC on the front.", $q->agreement['specifications']['instructions']);
+        $this->assertSame(1, $q->agreement['specifications']['customer_notes_version']);
+        $original = $q->agreement;
+        $order = $this->accept($j, $q);
+        $this->assertSame($original, $q->fresh()->agreement);
+        $this->assertSame('pending', $order->payment->status);
+    }
+
     public function test_both_operators_save_and_read_back_the_ready_outcome_in_the_appointment_feed(): void
     {
         foreach ([$this->admin, $this->staff] as $i => $operator) {

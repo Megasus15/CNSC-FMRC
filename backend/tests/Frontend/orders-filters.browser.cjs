@@ -130,7 +130,7 @@ test('Tracking modal keeps J&T, legacy delivery and cash pickup saves separate i
     if (req.method === 'PATCH') {
       let body = ''; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body); writes.push({role, id: order.id, input});
-      Object.assign(order, {customer_stage: input.stage, courier_name: input.courier_name, courier_tracking_no: input.courier_tracking_no});
+      for(const key of ['stage','courier_name','courier_tracking_no'])if(key in input)order[key==='stage'?'customer_stage':key]=input[key];
     }
     json({data: order}); return true;
   });
@@ -139,7 +139,7 @@ test('Tracking modal keeps J&T, legacy delivery and cash pickup saves separate i
     await h.run(`document.querySelector('[data-order-track="${id}"]').click()`);
     await h.until("document.getElementById('modalTrackingUpdate').classList.contains('show')");
     await h.until("!document.querySelector('.fmrc-load-veil.is-on')&&!document.querySelector('.fmrc-load-boot')&&(!document.querySelector('.fmrc-load-veil')||Number(getComputedStyle(document.querySelector('.fmrc-load-veil')).opacity)<0.05)");
-    assert.equal(await h.run("document.querySelector('#modalTrackingUpdate .modal-title').textContent"), 'Update Tracking Status');
+    assert.equal(await h.run("document.querySelector('#modalTrackingUpdate .modal-title').textContent"), id===73?'Manage pickup':'Update Tracking Status');
   };
   for (const portal of ['admin', 'staff']) {
     await h.go('/' + portal + '-page/orders.html');
@@ -153,23 +153,23 @@ test('Tracking modal keeps J&T, legacy delivery and cash pickup saves separate i
     await h.until("!document.getElementById('modalTrackingUpdate').classList.contains('show')");
     for (const id of [72, 73]) {
       await open(id);
-      assert.equal(await h.run("document.getElementById('trackingStage').disabled"), false);
+      assert.equal(await h.run("document.getElementById('trackingStage').disabled"), id===73);
       assert.equal(await h.run("document.getElementById('trackingManagedShipment').hidden"), true);
       assert.equal(await h.run("document.getElementById('trackingCourierField').hidden"), id === 73);
       assert.equal(await h.run("document.getElementById('trackingCourierNoField').hidden"), id === 73);
       assert.equal(await h.run("document.getElementById('trackingCourierNo').readOnly"), false);
       const before = writes.length;
-      const previousPage = await h.run('performance.timeOrigin');
-      await h.run(`document.getElementById('trackingStage').value='to_receive';document.getElementById('trackingEventTitle').value='Prepared by ${portal}';document.getElementById('btnSaveTrackingUpdate').click()`);
+      await h.run(`document.getElementById('trackingStage').value='to_receive';document.getElementById('trackingEventTitle').value='Prepared by ${portal}';document.getElementById('trackingEventTitle').dispatchEvent(new Event('input'));document.getElementById('btnSaveTrackingUpdate').click()`);
       await h.until("document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Confirm Tracking Update'");
       await h.run("document.getElementById('adminSystemPopupOk').click()");
-      await h.until(`performance.timeOrigin!==${previousPage} && document.readyState==='complete'`);
+      await h.until("!document.getElementById('modalTrackingUpdate').classList.contains('show')");
       assert.equal(writes.length, before + 1);
       assert.equal(writes.at(-1).role, portal);
-      assert.equal(writes.at(-1).input.stage, 'to_receive');
-      assert.equal(writes.at(-1).input.courier_tracking_no, id === 73 ? null : 'LEGACY12345');
+      assert.equal(writes.at(-1).input.stage, id===73?undefined:'to_receive');
+      if(id===73)assert.equal(writes.at(-1).input.event_type,'admin_update');
+      assert.equal(writes.at(-1).input.courier_tracking_no, id === 73 ? undefined : 'LEGACY12345');
       await open(id);
-      assert.equal(await h.run("document.getElementById('trackingStage').value"), 'to_receive');
+      assert.equal(await h.run("document.getElementById('trackingStage').value"), id===73?'to_ship':'to_receive');
       if (id === 72) assert.equal(await h.run("document.getElementById('trackingCourierNo').value"), 'LEGACY12345');
       for (const width of [390, 1440]) {
         await h.send('Emulation.setDeviceMetricsOverride', {width, height: 900, deviceScaleFactor: 1, mobile: false});

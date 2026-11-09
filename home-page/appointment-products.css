@@ -140,3 +140,31 @@ html[data-theme="dark"] #modalViewAppointment { --appointment-hover:#76263b; }
 html[data-portal-motion="reduced"] .ap-panel * { transition:none!important; animation:none!important; }
 
 html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }
+
+/* One readable workflow and approval language across the appointment portals. */
+.ap-workflow { margin:0 0 22px; padding:18px; border:1px solid var(--ap-line); border-radius:10px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); }
+.ap-workflow-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.ap-workflow ol { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:10px; list-style:none; padding:0; margin:18px 0; }
+.ap-workflow li { display:flex; align-items:flex-start; flex-direction:column; gap:9px; padding:12px 9px; border:1px solid var(--ap-line); border-radius:8px; color:var(--ap-muted); font-size:11px; line-height:1.5; background:var(--ap-paper); overflow-wrap:anywhere; }
+.ap-step-number { display:inline-grid; place-items:center; width:26px; height:26px; flex-shrink:0; border:1px solid var(--ap-line); border-radius:50%; font-weight:700; }
+.ap-workflow li.is-current { color:var(--ap-wine); border-color:var(--ap-wine); font-weight:700; box-shadow:0 0 0 1px var(--ap-wine); }
+.ap-workflow li.is-current .ap-step-number { background:var(--ap-solid); color:#fff; border-color:var(--ap-solid); }
+.ap-workflow li.is-done .ap-step-number { background:var(--portal-success-soft,#e6f4e9); color:var(--portal-success,#26753d); border-color:transparent; }
+.ap-next-action { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding-top:16px; border-top:1px solid var(--ap-line); }
+.ap-next-action p { flex:1 1 240px; margin:0; }
+.ap-policy-card { margin:22px 0 16px; padding:20px; border:1px solid var(--ap-line); border-radius:10px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); }
+.ap-policy-heading { display:flex; align-items:flex-start; gap:12px; }
+.ap-policy-heading p { margin:5px 0 0; color:var(--ap-muted); }
+.ap-policy-documents { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:18px 0; }
+.ap-panel .ap-policy-documents details { padding:0; margin:0; border:1px solid var(--ap-line); border-radius:8px; background:var(--ap-paper); overflow:hidden; }
+.ap-policy-documents summary { padding:13px 15px; color:var(--ap-wine); }
+.ap-policy-documents .ap-terms { max-height:none; margin:0; padding:15px; border:0; border-top:1px solid var(--ap-line); border-radius:0; font-size:12px; }
+.ap-approval-check { margin:16px 0; padding:14px 16px; border:1px solid var(--ap-line); border-radius:8px; background:var(--ap-paper); }
+.ap-policy-card .ap-approval-check { margin-bottom:0; }
+.ap-preferences { margin:20px 0; }
+.ap-preferences .ap-summary { margin:10px 0 0; }
+.ap-panel :is(input,select,textarea):disabled { background:var(--surface-alt,var(--customer-paper-sink,#f1ece7)); color:var(--ap-muted); opacity:1; cursor:default; }
+#customerAppointmentsModal .ap-btn:hover:not(:disabled):not(.is-secondary) { background:color-mix(in srgb,var(--ap-solid),#000 18%); color:#fff; border-color:color-mix(in srgb,var(--ap-solid),#000 18%); }
+#customerAppointmentsModal .ap-btn.is-secondary:hover:not(:disabled) { background:color-mix(in srgb,var(--ap-wine) 8%,var(--ap-paper)); color:var(--ap-wine); border-color:var(--ap-wine); }
+@media(max-width:850px) { .ap-workflow ol { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media(max-width:700px) { .ap-workflow,.ap-policy-card { padding:16px; } .ap-workflow ol { grid-template-columns:1fr; gap:7px; } .ap-workflow li { flex-direction:row; align-items:center; font-size:12px; padding:8px 10px; } .ap-policy-documents { grid-template-columns:1fr; } .ap-next-action .ap-btn { width:100%; } }

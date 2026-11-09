@@ -45,9 +45,9 @@ test('optional appointment products preserve drafts and share the existing modal
       const read=async()=>{let body='';for await(const chunk of req)body+=chunk;return JSON.parse(body||'{}');};
       const copy=()=>JSON.parse(JSON.stringify(job));
       if(route==='/api/commerce/policy'){await pause(180);return json({data:{version:'fixture-policy',terms_text:'Production begins after full payment.',refund_text:'Contact FMRC for assistance.'}});}
-      if(route==='/api/admin/appointment-products/71/outcome'){const input=await read();if(rejectOutcome)return json({message:'Complete an attended consultation before confirming the product discussion.'},422);assert(input.discussion_confirmed);job.discussed_at=new Date().toISOString();job.state='ready_for_quote';job.stage='Preparing quotation';job.revision++;return json({message:'Consultation outcome saved.',data:copy()});}
+      if(route==='/api/admin/appointment-products/71/outcome'){const input=await read();if(rejectOutcome)return json({message:'Complete an attended consultation before confirming the product discussion.'},422);assert(input.discussion_confirmed);assert.equal(input.complete_consultation,true);assert.equal(input.expected_schedule_version,appointment.schedule_version||0);appointment.status='Completed';job.discussed_at=new Date().toISOString();job.state='ready_for_quote';job.stage='Preparing quotation';job.revision++;return json({message:'Consultation outcome saved.',data:copy(),appointment:{...appointment,custom_product:copy()}});}
       if(route==='/api/admin/appointment-products/71/quotations'){
-        const input=await read();assert.equal(Number(input.expected_revision),job.revision);
+        const input=await read();assert.equal(Number(input.expected_revision),job.revision);assert.equal('finish' in input.specifications,false);assert.equal('personalization' in input.specifications,false);assert.equal(input.specifications.customer_notes_version,1);
         if(failQuotation){failQuotation=false;failedQuoteKey=input.request_key;return json({message:'The quotation could not be sent. Your entries are still here.'},503);}
         if(failedQuoteKey)assert.equal(input.request_key,failedQuoteKey,'Retry reuses the same quotation idempotency key');
         assert.equal(input.delivery.delivery_province,'Camarines Norte');assert.equal(input.delivery.delivery_city,'Daet');assert.equal(input.delivery.delivery_barangay,'Alawihao');assert.equal(input.delivery.delivery_postal_code,'0460');assert.equal(Number(input.shipping_fee),100.25);
@@ -256,7 +256,7 @@ test('optional appointment products preserve drafts and share the existing modal
         ['quoted','Completed',admin?/Await customer approval/:/approve your quotation/],
         ['expired','Completed',admin?/sending a new version/:/Ask the FMRC team/],
         ['in_production','Completed',admin?/Manage production in Orders/:/FMRC team is making/],
-        ['in_transit','Completed',admin?/customer.*receipt confirmation/:/confirm receipt/],
+        ['in_transit','Completed',admin?/automatic.*delivery updates/:/automatic delivery updates/],
         ['completed','Completed',admin?/This custom order is complete/:/Your custom order is complete/],
       ];
       for(const [state,status,expected]of cases){
@@ -329,7 +329,9 @@ test('optional appointment products preserve drafts and share the existing modal
     assert.equal(await run(`!!document.querySelector('[data-ap-form="quotation"]')`),true,'a lower-revision feed cannot undo an outcome');
     cacheProgress=false;
     await quotationControls({failure:true});
-    const sendQuotation=()=>run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-tab="1"]').click();(()=>{const f=document.querySelector('[data-ap-form="quotation"]');f.closest('details').open=true;f.elements.spec_finish.value='Matte';f.elements.design_notes.value='Final desk sign layout';f.elements.unit_price.value='200';f.elements.lead_time.value='Five working days';f.requestSubmit();})()`);
+    assert.equal(await run(`!!document.querySelector('[name="spec_finish"],[name="spec_personalization"]')`),false,'Quotation uses the same unified request fields');
+    assert.equal(await run(`document.querySelectorAll('.ap-workflow li').length`),7,'All seven custom-product steps stay visible');
+    const sendQuotation=()=>run(`document.getElementById('adminSystemPopupOk')?.click();document.querySelector('[data-ap-tab="1"]').click();(()=>{const f=document.querySelector('[data-ap-form="quotation"]');f.closest('details').open=true;f.elements.design_notes.value='Final desk sign layout';f.elements.unit_price.value='200';f.elements.lead_time.value='Five working days';f.requestSubmit();})()`);
     failQuotation=true;await sendQuotation();await confirm('Confirm action');await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Action not completed'`);
     assert.equal(quoteWrites,0);assert.equal(await run(`document.querySelector('[name="delivery_barangay"]').value`),'Alawihao');assert.equal(await run(`document.querySelector('[name="shipping_fee"]').value`),'100.25');
     await sendQuotation();await confirm('Confirm action');await until(`!!document.querySelector('.ap-message h4')`);assert.equal(quoteWrites,1);await run(`document.getElementById('adminSystemPopupOk')?.click()`);

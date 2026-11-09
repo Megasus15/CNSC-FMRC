@@ -5967,3 +5967,55 @@ html.report-modal-open-root {
 .order-item-list li div { display:flex;flex-direction:column;gap:6px;min-width:0; }
 .order-item-list li strong { overflow-wrap:anywhere; }
 .order-item-list li span { color:var(--text-muted);font-size:.78rem; }
+
+/* Order workspaces share one scroll region and consistent operational cards. */
+.order-dialog .modal-body-scroll { display:block; overscroll-behavior:contain; }
+.order-dialog .order-dialog-section { margin:0 0 20px; padding:20px; border:1px solid var(--border-color,#dfe5ed); border-radius:12px; background:var(--surface,#fdfaf6); min-width:0; }
+.order-dialog .order-dialog-section > .order-section-title { margin:0 0 18px; padding:0 0 14px; }
+.order-dialog .order-dialog-section > .form-grid { margin:0; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.order-dialog :is(.form-grid > .ap-panel,.form-grid > [data-pickup-collection],.form-grid > [data-jnt-summary],.form-grid > .order-history-list) { grid-column:1 / -1; min-width:0; width:100%; }
+.order-dialog .form-grid > .ap-panel { margin:0; padding:18px; }
+.order-dialog .form-grid > .ap-panel .ap-head { margin-bottom:16px; }
+.order-dialog .form-grid > .ap-panel form { border-top:1px solid var(--border-color,#dfe5ed); padding-top:20px; margin-top:20px; }
+.order-dialog .ap-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.order-dialog .ap-summary dd { overflow-wrap:anywhere; }
+.order-dialog .order-fulfillment-card { margin:0; background:var(--surface-alt,#f7f3ef); }
+.order-flow-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.order-dialog .order-flow-heading .order-section-title { margin:0; padding:0; border:0; }
+.order-flow-actions { display:flex; align-items:flex-end; flex-wrap:wrap; gap:16px; }
+.order-flow-actions .field-stack { flex:1 1 240px; margin:0; }
+.pickup-cash-confirm { flex:1 1 100%; display:grid; gap:16px; }
+.pickup-cash-confirm p { margin:0; }
+.pickup-cash-confirm .btn-admin { justify-self:end; }
+.order-flow-check { display:flex; gap:10px; align-items:flex-start; font-size:.86rem; line-height:1.6; }
+.order-dialog .order-flow-check input { min-height:0; width:18px; height:18px; padding:0; margin-top:3px; accent-color:var(--primary-color,#800000); }
+.order-dialog .order-notes-card { padding:18px; border:1px solid var(--border-color,#dfe5ed); border-radius:12px; background:var(--surface,#fdfaf6); }
+.order-notes-card > summary { cursor:pointer; font-weight:700; color:var(--primary-color,#800000); font-size:.9rem; }
+.order-notes-card > .form-grid { margin-top:18px; }
+.order-history-list { list-style:none; margin:0; padding:0; }
+.order-history-list li { border-left:2px solid var(--border-color,#dfe5ed); padding:0 0 20px 18px; margin-left:6px; font-size:.85rem; position:relative; }
+.order-history-list li::before { content:""; position:absolute; width:10px; height:10px; background:var(--primary-color,#800000); border:3px solid var(--surface,#fdfaf6); border-radius:50%; left:-6px; top:2px; }
+.order-history-list li:last-child { padding-bottom:0; }
+.order-history-list li > div { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px 20px; }
+.order-history-list time,.order-history-list small { color:var(--text-muted,#677381); font-size:.76rem; }
+.order-history-list p { margin:8px 0; line-height:1.6; overflow-wrap:anywhere; }
+.order-dialog :is(.field-stack,.payment-verification-block,.ap-field) { min-width:0; }
+.order-dialog .ap-btn { min-height:44px; }
+.order-dialog #modalOrderItemsList { grid-column:1 / -1; }
+.order-dialog .modal-footer-fixed { gap:12px; }
+@media(max-width:650px) {
+ .order-dialog .order-dialog-section { padding:16px; margin-bottom:16px; }
+ .order-dialog .order-dialog-section > .form-grid,.order-dialog .ap-summary { grid-template-columns:minmax(0,1fr); }
+ .order-flow-actions > .btn-admin { flex:1 1 auto; }
+ .order-dialog :is(.ap-btn,.btn-admin) { white-space:normal; text-align:center; }
+}
+
+:is(#modalOrderDetails,#modalTrackingUpdate) :where(:not(i)) { font-family:"Montserrat",sans-serif!important; }
+:is(#modalOrderDetails,#modalTrackingUpdate) .order-dialog-section > .order-section-title { margin:0 0 18px; padding:0 0 14px; }
+
+.order-section-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding-bottom:14px; margin-bottom:18px; border-bottom:1px solid var(--border-color,#dfe5ed); }
+:is(#modalOrderDetails,#modalTrackingUpdate) .order-section-header > .order-section-title { border:0; margin:0; padding:0; }
+.order-section-header .btn-admin { padding:8px 12px; font-size:.8rem; min-height:40px; }
+
+/* Align every J&T card action with the shared right-aligned dialog actions. */
+:is(#modalOrderDetails,#modalTrackingUpdate) .shipment-control-card .shipment-actions { justify-content:flex-end; }

@@ -917,6 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (order) => String(order?.id || "") !== orderId,
     );
 
+    state.summaryRevision=(state.summaryRevision||0)+1;
     const lifecycle = String(summary.lifecycle_status || "").toLowerCase();
     if (lifecycle === "incoming") {
       state.incoming.push(summary);
@@ -929,10 +930,46 @@ document.addEventListener("DOMContentLoaded", () => {
     mapOrderById();
   };
 
+  const ensureOrderDetailsLayout = () => {
+    const body=modalOrderDetails?.querySelector('.modal-body-scroll');
+    if(!body||body.dataset.structured)return body;
+    body.dataset.structured='true';modalOrderDetails.classList.add('order-dialog');
+    const old=body.querySelector(':scope > .form-grid');
+    const groups=[
+      ['summary','Order summary','receipt',['modalOrderNo','modalOrderDate','modalOrderStatus']],
+      ['customer','Customer','user',['modalOrderCustomer','modalOrderContact','modalOrderAddress']],
+      ['items','Items and totals','box-open',['modalOrderItem','modalOrderItemsList','modalOrderQty','modalOrderSubtotal','modalOrderShippingFee','modalOrderDeliveryEstimate','modalOrderTotal']],
+      ['payment','Payment','wallet',['modalOrderPayment','modalOrderReference','modalPaymentVerifyBlock']],
+      ['fulfillment','Fulfillment','truck',['modalOrderNotes']],
+      ['history','Order history','clock-rotate-left',[]],
+    ];
+    for(const [key,title,icon,ids] of groups){
+      const card=document.createElement('section');card.className='order-dialog-section';card.dataset.orderSection=key;
+      card.innerHTML='<header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-'+icon+'" aria-hidden="true"></i>'+title+'</h4></header><div class="form-grid"></div>';
+      for(const id of ids){const field=body.querySelector('#'+id);if(field)card.querySelector('.form-grid').append(field.closest('.field-stack')||field);}
+      body.append(card);
+    }
+    old?.remove();return body;
+  };
+  const renderOrderHistory = (order,body) => {
+    const host=body?.querySelector('[data-order-section="history"] .form-grid');if(!host)return;
+    const seen=new Set(),events=(order.tracking_events||[]).filter(e=>{const key=[e.event_type,e.occurred_at,e.description,e.location_name].join('|');if(seen.has(key))return false;seen.add(key);return true;});
+    const html=events.length?'<ol class="order-history-list">'+events.map(e=>'<li><div><strong>'+escapeHtml(e.title||'Order update')+'</strong><time>'+escapeHtml(formatDateLabel(e.occurred_at||e.created_at))+'</time></div>'+(e.description&&e.description!==e.title?'<p>'+escapeHtml(e.description)+'</p>':'')+(e.location_name?'<small>'+escapeHtml(e.location_name)+'</small>':'')+'</li>').join('')+'</ol>':'<p class="field-hint">Order updates will appear here.</p>';
+    if(host.dataset.content!==html){host.innerHTML=html;host.dataset.content=html;}
+  };
+  const refreshMatchingOrderDialogs = order => {
+    if(!order?.id)return;
+    upsertOrderSummaryInState(order);renderAll();
+    if(modalOrderDetails?.classList.contains('show')&&modalOrderDetails.dataset.orderId===String(order.id))populateOrderDetailsModal(order);
+    if(modalTrackingUpdate?.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id)){
+      trackingModalOrder=order;syncManagedTrackingContext(order);
+    }
+  };
+
   window.addEventListener("fmrc:shipment-updated",event=>{
     const order=event.detail?.order;if(!order?.id)return;
     upsertOrderSummaryInState(order);
-    if(modalOrderDetails?.classList.contains("show"))populateOrderDetailsModal(order);
+    if(modalOrderDetails?.classList.contains("show")&&modalOrderDetails.dataset.orderId===String(order.id))populateOrderDetailsModal(order);
     if(modalTrackingUpdate?.classList.contains("show") && String(trackingOrderId?.value) === String(order.id)) {
       trackingModalOrder = order;
       syncManagedTrackingContext(order);
@@ -941,9 +978,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const populateOrderDetailsModal = (order) => {
     if (!order || !modalOrderDetails) return;
-    if (!paymentActionBusy) paymentVerificationKey = "";
+    modalOrderDetails.dataset.orderId=String(order.id);
 
-    const body=modalOrderDetails.querySelector('.modal-body-scroll');
+    const body=ensureOrderDetailsLayout();
+    const scrollTop=body?.scrollTop,focused=body?.contains(document.activeElement)?document.activeElement:null;
     if(body){
       let notice=body.querySelector('[data-cancellation-notice]');
       if(!notice){notice=document.createElement('section');notice.className='order-cancellation-notice';notice.dataset.cancellationNotice='';body.prepend(notice);}
@@ -953,7 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const setInput = (id, value) => {
       const input = document.getElementById(id);
       if (!input) return;
-      input.value = value || "-";
+      input.value = value ?? "--";
       input.disabled = true;
     };
     if(body){
@@ -990,7 +1028,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     setInput("modalOrderCustomer", order.customer_name || "Customer");
-    setInput("modalOrderContact", order.customer_contact || "N/A");
+    setInput("modalOrderContact", order.customer_contact || "Not provided");
     setInput(
       "modalOrderAddress",
       order.customer_address ||
@@ -1003,7 +1041,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const isPaid = paymentStatus === "paid";
     const isGcash = String(order.payment_method || "").toLowerCase() === "gcash";
     const gatewayLabel = order.payment_method_label || (order.payment_checkout_method === 'qrph' ? 'QR Ph' : 'GCash');
-    let paymentDisplay = order.payment_method || "N/A";
+    let paymentDisplay = order.payment_method_label || order.payment_method || "Not recorded";
     if (isGcash) {
       paymentDisplay = paymentStatus === "refunded"
         ? `${gatewayLabel} (Refund recorded)`
@@ -1052,35 +1090,59 @@ document.addEventListener("DOMContentLoaded", () => {
         "-";
     }
 
-    renderPickupCollection(order, body);
-    window.FMRCAppointmentProducts?.mountOrder(body,order,true);
-    window.AdminCourierShipments?.render(order,body);
+    const fulfillment=body?.querySelector('[data-order-section="fulfillment"] .form-grid');
+    let manage=body?.querySelector('[data-manage-fulfillment]');
+    if(!manage){manage=document.createElement('button');manage.type='button';manage.className='btn-admin btn-secondary';manage.dataset.manageFulfillment='';body?.querySelector('[data-order-section="fulfillment"] .order-section-header')?.append(manage);}
+    manage.hidden=!isGuidedOrder(order)||['completed','cancelled','rejected'].includes(order.lifecycle_status);
+    manage.textContent=(order.is_pickup||order.fulfillment_type==='pickup')?'Manage pickup':'Manage delivery';
+    manage.onclick=async()=>{if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(body))return;body.querySelectorAll('form[data-dirty]').forEach(form=>form.dataset.dirty='false');modalOrderDetails.classList.remove('show');openTrackingModal(state.ordersById.get(String(order.id))||order);};
+    renderPickupCollection(order,fulfillment);
+    window.FMRCAppointmentProducts?.mountOrder(fulfillment,order,true);
+    window.AdminCourierShipments?.render(order,fulfillment);
+    renderOrderHistory(order,body);
     body?.querySelectorAll('input[readonly],textarea[readonly],select[readonly]').forEach(input=>{input.disabled=true;});
     modalOrderDetails.classList.add("show");
+    if(body&&scrollTop!==undefined)body.scrollTop=scrollTop;
+    if(focused?.isConnected)focused.focus({preventScroll:true});
   };
 
-  const renderPickupCollection = (order, body) => {
-    let section = body?.querySelector('[data-pickup-collection]');
-    if (!order.is_pickup || order.custom_product) { section?.remove(); return; }
-    if (!section) { section=document.createElement('section');section.className='order-fulfillment-card';section.dataset.pickupCollection='';body.append(section); }
-    const same=section.dataset.orderId===String(order.id),draft=same?section.querySelector('input')?.value||'':'';
-    if (same && section.contains(document.activeElement)) return;
-    section.dataset.orderId=String(order.id);
-    section.innerHTML='<h4 class="order-section-title"><i class="fa-solid fa-store" aria-hidden="true"></i>Pickup at FMRC</h4><p>'+escapeHtml(order.collection_blocked_reason || 'Confirm the customer’s pickup code after handing over the order.')+'</p>'+
-      (order.can_confirm_collection?'<div class="field-stack"><label for="collectionPickupCode">Customer pickup code</label><input class="input-field" id="collectionPickupCode" autocomplete="off" maxlength="20" /></div><div class="order-modal-actions"><button type="button" class="btn-admin" data-confirm-collection>Confirm pickup collection</button></div>':'');
-    const input=section.querySelector('input');if(input)input.value=draft;
-    const button=section.querySelector('[data-confirm-collection]');
-    if(input)input.disabled=collectionRequests.has(String(order.id));
-    if(button)button.disabled=collectionRequests.has(String(order.id));
-    if(button)button.onclick=async()=>{
-      if(collectionRequests.has(String(order.id)))return;
-      const code=input.value.trim();if(!code){input.focus();showPopup('Enter the pickup code shown in the customer’s order.',{title:'Pickup code required'});return;}
-      if(!await askConfirm('Confirm that this paid order has been handed to the customer at FMRC?',{title:'Confirm pickup collection',confirmText:'Confirm collection'}))return;
-      collectionRequests.add(String(order.id));button.disabled=true;input.disabled=true;
-      try{const response=await request('/admin/orders/'+order.id+'/complete',{method:'POST',body:{pickup_code:code}});
-        upsertOrderSummaryInState(response.data);populateOrderDetailsModal(response.data);void syncOrders(false);
-      }catch(error){collectionRequests.delete(String(order.id));renderPickupCollection(order,body);showPopup(error.message||'Collection could not be confirmed. Refresh and try again.',{title:'Collection unavailable'});}
-      finally{collectionRequests.delete(String(order.id));}
+  const renderPickupCollection = (order, host) => {
+    let section=host?.querySelector('[data-pickup-collection]');
+    if(!host||!(order.is_pickup||order.fulfillment_type==='pickup')||order.custom_product){section?.remove();return;}
+    if(!section){section=document.createElement('section');section.className='order-fulfillment-card';section.dataset.pickupCollection='';host.append(section);}
+    const prefix=host.closest('#modalTrackingUpdate')?'tracking':'collection';
+    const same=section.dataset.orderId===String(order.id),code=same?section.querySelector('[data-pickup-code]')?.value||'':'';
+    const ack=same&&section.dataset.paymentKey===[order.payment_status,order.payment_reference,order.total_amount].join('|')&&section.querySelector('[data-cash-ack]')?.checked;
+    const focused=section.contains(document.activeElement)?document.activeElement?.dataset?.pickupFocus:null;
+    const feedback=same?section.querySelector('[data-pickup-feedback]')?.textContent||'':'';
+    section.dataset.orderId=String(order.id);section.dataset.paymentKey=[order.payment_status,order.payment_reference,order.total_amount].join('|');
+    const closed=['completed','cancelled','rejected'].includes(order.lifecycle_status),ready=!!order.pickup_ready_at||order.customer_stage==='to_receive';
+    const busy=collectionRequests.has(String(order.id))||paymentActionBusy;
+    let controls='';
+    if(!closed&&order.lifecycle_status==='incoming')controls='<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>';
+    else if(!closed&&!ready)controls='<button type="button" class="btn-admin" data-pickup-action="ready">Mark ready for pickup</button>';
+    if(!closed&&ready&&normalizePaymentMethodKey(order.payment_method)==='cop'&&order.payment_status!=='paid'&&paymentActionAllowed(order,'paid'))controls+='<div class="pickup-cash-confirm"><p>Amount to receive <strong>'+escapeHtml(order.payment_amount_label||order.total_label||formatMoney(order.total_amount))+'</strong></p><label class="order-flow-check"><input type="checkbox" data-cash-ack data-pickup-focus="cash" '+(ack?'checked':'')+'><span>I received the full amount in cash.</span></label><button type="button" class="btn-admin" data-pickup-action="cash" '+(!ack?'disabled':'')+'>Record cash payment</button></div>';
+    if(order.can_confirm_collection)controls+='<div class="field-stack"><label for="'+prefix+'PickupCode">Customer pickup code</label><input class="input-field" id="'+prefix+'PickupCode" data-pickup-code data-pickup-focus="code" autocomplete="off" maxlength="20"></div><button type="button" class="btn-admin" data-confirm-collection data-pickup-action="collect">Confirm pickup</button>';
+    section.innerHTML='<div class="order-flow-heading"><h4 class="order-section-title"><i class="fa-solid fa-store" aria-hidden="true"></i>Pickup at FMRC</h4><span class="status-pill '+(closed?'status-grey':'status-blue')+'">'+escapeHtml(order.customer_stage_label||order.lifecycle_status_label||'Preparing order')+'</span></div><p>'+escapeHtml(order.collection_blocked_reason||'Check the customer’s pickup code before handing over the order.')+'</p><div class="order-flow-actions">'+controls+'</div><p class="field-hint" data-pickup-feedback role="status"></p>';
+    const input=section.querySelector('[data-pickup-code]');if(input)input.value=code;
+    section.querySelector('[data-pickup-feedback]').textContent=feedback;
+    if(busy)section.querySelectorAll('button,input').forEach(n=>n.disabled=true);
+    if(focused)section.querySelector('[data-pickup-focus="'+focused+'"]')?.focus({preventScroll:true});
+    section.querySelector('[data-cash-ack]')?.addEventListener('change',e=>{section.querySelector('[data-pickup-action="cash"]').disabled=!e.target.checked||paymentActionBusy;});
+    section.onclick=async event=>{
+      const button=event.target.closest('[data-pickup-action]');if(!button||button.disabled||collectionRequests.has(String(order.id)))return;
+      const action=button.dataset.pickupAction;
+      if(action==='cash'){void setPaymentStatus('paid',{orderId:String(order.id),ack:section.querySelector('[data-cash-ack]'),button});return;}
+      if(action==='collect'&&!input?.value.trim()){input?.focus();section.querySelector('[data-pickup-feedback]').textContent='Enter the pickup code from the customer’s order.';return;}
+      collectionRequests.add(String(order.id));button.disabled=true;
+      try{
+        const confirmText=action==='collect'?'Confirm pickup collection':action==='approve'?'Approve order':'Mark ready for pickup';
+        if(!await askConfirm(action==='collect'?'Confirm that this paid order has been handed to the customer at FMRC?':action==='approve'?'Approve this order for preparation?':'Confirm that this order is ready for the customer to collect?',{title:confirmText,confirmText}))return;
+        const result=await request('/admin/orders/'+order.id+(action==='collect'?'/complete':action==='approve'?'/approve':'/tracking'),{method:action==='ready'?'PATCH':'POST',body:action==='collect'?{pickup_code:input.value.trim()}:action==='ready'?{stage:'to_receive'}:{}});
+        collectionRequests.delete(String(order.id));refreshMatchingOrderDialogs(result.data);
+        notifyOrdersRealtimeUpdate({type:'pickup-updated',orderId:order.id});
+      }catch(error){section.querySelector('[data-pickup-feedback]').textContent=error.message||'This action could not be saved. Refresh and try again.';}
+      finally{collectionRequests.delete(String(order.id));const latest=state.ordersById.get(String(order.id));if(latest)renderPickupCollection(latest,host);}
     };
   };
 
@@ -1126,7 +1188,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gatewayAction.hidden = !isAutomated;
     gatewayAction.textContent = order?.cancel_pending ? 'Review customer cancellation' : 'Payment & refund details';
     if(order?.cancel_pending){delete gatewayAction.dataset.gatewayManage;gatewayAction.dataset.cancellationReview=String(order.id);}else delete gatewayAction.dataset.cancellationReview;
-    modalPaymentVerifyBlock.hidden = false;
+    modalPaymentVerifyBlock.hidden = order?.order_type === 'custom' && !isGcash;
     modalPaymentVerifyBlock.dataset.orderId = String(order?.id || "");
     modalPaymentVerifyBlock.dataset.paymentMethod = isGcash ? "gcash" : "cash";
     modalPaymentVerifyBlock.dataset.paymentState = status === "refunded"
@@ -1234,7 +1296,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (modalPaymentProofEmpty) modalPaymentProofEmpty.hidden = Boolean(proofUrl);
 
-    if (modalPaymentConfirmWrap) modalPaymentConfirmWrap.hidden = !canConfirm;
+    if (modalPaymentConfirmWrap) modalPaymentConfirmWrap.hidden = !canConfirm || ((order.is_pickup||order.fulfillment_type==='pickup') && normalizePaymentMethodKey(order.payment_method)==='cop');
     if (modalPaymentCorrectionWrap) modalPaymentCorrectionWrap.hidden = !canCorrect;
     if (modalPaymentRefundWrap) modalPaymentRefundWrap.hidden = !canRefund;
     if (modalRefundRefWrap) modalRefundRefWrap.hidden = !canRefund;
@@ -1284,18 +1346,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  const setPaymentStatus = async (nextStatus) => {
-    const orderId = String(modalPaymentVerifyBlock?.dataset.orderId || "");
+  const setPaymentStatus = async (nextStatus, context = null) => {
+    const orderId = String(context?.orderId || modalPaymentVerifyBlock?.dataset.orderId || "");
     const order = state.ordersById.get(orderId);
     if (!orderId || !order || paymentActionBusy) return;
+    const acknowledgement = context?.ack || modalPaymentAcknowledgement;
     // A live refresh may have changed the evidence since this box was checked.
-    renderPaymentVerification(order);
+    if (!context) renderPaymentVerification(order);
     if (!paymentActionAllowed(order, nextStatus)) {
-      renderPaymentVerification(order);
+      if (!context) renderPaymentVerification(order);
       return;
     }
-    if (nextStatus === "paid" && !modalPaymentAcknowledgement?.checked) {
-      modalPaymentAcknowledgement?.focus();
+    if (nextStatus === "paid" && !acknowledgement?.checked) {
+      acknowledgement?.focus();
       return;
     }
     const refundReference = String(modalRefundReference?.value || "").trim();
@@ -1332,8 +1395,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Lock before opening the confirmation too, so double clicks cannot queue two mutations.
     paymentActionBusy = true;
-    renderPaymentVerification(order);
-    const activeButton = nextStatus === "paid" ? btnMarkPaymentPaid : nextStatus === "pending" ? btnMarkPaymentPending : btnRecordRefund;
+    if (!context) renderPaymentVerification(order);
+    const activeButton = context?.button || (nextStatus === "paid" ? btnMarkPaymentPaid : nextStatus === "pending" ? btnMarkPaymentPending : btnRecordRefund);
+    if(activeButton)activeButton.disabled=true;
     const originalHtml = activeButton?.innerHTML;
     let requestStarted = false;
     let resolvedUpdate = false;
@@ -1356,12 +1420,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const updated = response?.order || response?.data;
       if (!updated?.id) throw new Error("The payment response could not be refreshed. Reopen the order to check its latest status.");
-      upsertOrderSummaryInState(updated);
-      renderAll();
+      refreshMatchingOrderDialogs(updated);
       resolvedUpdate = true;
-      if (modalOrderDetails?.classList.contains("show") && modalPaymentVerifyBlock?.dataset.orderId === orderId) {
-        populateOrderDetailsModal(updated);
-      }
       notifyOrdersRealtimeUpdate({ type: "payment-updated", orderId });
       showPopup(config.success, { title: "Success" });
     } catch (error) {
@@ -1370,11 +1430,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const refreshed = await request(`/admin/orders/${orderId}`);
           if (!refreshed?.data?.id) throw new Error("Missing order");
-          upsertOrderSummaryInState(refreshed.data);
-          renderAll();
-          if (modalOrderDetails?.classList.contains("show") && modalPaymentVerifyBlock?.dataset.orderId === orderId) {
-            populateOrderDetailsModal(refreshed.data);
-          }
+          refreshMatchingOrderDialogs(refreshed.data);
         } catch {
           const latest = state.ordersById.get(orderId);
           if (latest) upsertOrderSummaryInState({ ...latest, payment_actions: null });
@@ -1385,7 +1441,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (activeButton && originalHtml !== undefined) activeButton.innerHTML = originalHtml;
       paymentActionBusy = false;
       const latest = state.ordersById.get(String(modalPaymentVerifyBlock?.dataset.orderId || ""));
-      if (latest) renderPaymentVerification(latest);
+      if (latest && !context) renderPaymentVerification(latest);
+      const target=state.ordersById.get(orderId);
+      if(target)refreshMatchingOrderDialogs(target);
     }
   };
 
@@ -2342,6 +2400,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const summaryRevision=state.summaryRevision||0;
     const requestId = state.syncRequestId + 1;
     state.syncRequestId = requestId;
 
@@ -2361,6 +2420,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       ]);
 
+      if(summaryRevision!==(state.summaryRevision||0)){state.pendingForceSync=true;return;}
       state.incoming = Array.isArray(response.incoming)
         ? response.incoming
         : [];
@@ -2386,12 +2446,20 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshPaymentsFromDirectory();
       mapOrderById();
       renderAll();
+      if(modalOrderDetails?.classList.contains('show')){const current=state.ordersById.get(modalOrderDetails.dataset.orderId);if(current)populateOrderDetailsModal(current);}
+      if(modalTrackingUpdate?.classList.contains('show')){const current=state.ordersById.get(String(trackingOrderId?.value));if(current){trackingModalOrder=current;syncManagedTrackingContext(current);}}
       const productOrderId=new URLSearchParams(location.search).get('order_id');
       if(productOrderId&&!state.productDeepLinkOpened){
         let linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
         // Archived linked orders are deliberately absent from the active tables.
         if(!linked){const detail=await request('/admin/orders/'+encodeURIComponent(productOrderId));linked=detail.data;}
-        if(linked){state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);}
+        if(linked){
+          state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);
+          const action=new URLSearchParams(location.search).get('order_action');
+          const selector={cash_receipt:'[data-ap-order-form="cash_receipt"]',payment:'[data-order-section="payment"]',start:'[data-ap-production="start"]',ready:'[data-ap-production="ready"]',collect:'[data-ap-order-form="collect"]',handover:'[data-jnt-summary]',summary:'[data-order-section="summary"]'}[action];
+          const target=selector?modalOrderDetails.querySelector(selector):null;
+          if(target){target.scrollIntoView({block:'center'});target.querySelector('input:not(:disabled),button:not(:disabled)')?.focus({preventScroll:true});}
+        }
       }
       window.AdminPageNotice.clear("orders");
       state.lastSyncAt = Date.now();
@@ -2554,8 +2622,10 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/[\s_-]+/g, "");
 
   const hasManagedJntTracking = order => order?.shipment_tracking_mode === 'jnt_dropoff' || (order?.courier_shipment?.tracking_provider === '17track' && Boolean(order.courier_shipment.id));
+  const isGuidedOrder = order => order?.order_type === 'custom' || !!order?.custom_product || !!order?.is_pickup || order?.fulfillment_type === 'pickup';
+  const notesOnlyTracking = order => hasManagedJntTracking(order) || isGuidedOrder(order);
   const areCourierFieldsApplicable = (order = trackingModalOrder) => {
-    if (hasManagedJntTracking(order)) return false;
+    if (notesOnlyTracking(order)) return false;
     const method = normalizePaymentMethodKey(
       order?.payment_method || order?.payment?.method,
     );
@@ -2566,7 +2636,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!trackingCourierSelect) return;
 
     const managed = hasManagedJntTracking(order);
-    const shouldShowCourierFields = managed || areCourierFieldsApplicable(order);
+    const pickup=order?.is_pickup || order?.fulfillment_type==='pickup';
+    const shouldShowCourierFields = !pickup && (managed || areCourierFieldsApplicable(order));
     trackingCourierSelect.disabled = managed;
     if (trackingCourierNo) trackingCourierNo.readOnly = managed;
     if (trackingCourierField)
@@ -2823,6 +2894,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!trackingPresetSelect) return;
 
     const wrap = trackingPresetSelect.closest(".field-stack");
+    if (isGuidedOrder(order)) {if(wrap)wrap.hidden=true;return;}
     if (hasManagedJntTracking(order)) {
       const selected = trackingPresetSelect.value;
       if (wrap) wrap.hidden = order.customer_stage !== 'to_ship';
@@ -2994,38 +3066,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const syncTrackingNoteAction = () => {
     if (!btnSaveTrackingUpdate) return;
-    const managed = hasManagedJntTracking(trackingModalOrder);
+    const managed = notesOnlyTracking(trackingModalOrder);
     btnSaveTrackingUpdate.textContent = trackingNoteBusy ? 'Saving…' : managed ? 'Save FMRC note' : 'Save Update';
     btnSaveTrackingUpdate.disabled = trackingNoteBusy || (managed && (!trackingEventTitle?.value.trim() && !trackingEventDescription?.value.trim()));
     for (const input of [trackingEventTitle, trackingEventDescription, trackingPresetSelect]) if(input)input.disabled=trackingNoteBusy;
   };
   for (const input of [trackingEventTitle, trackingEventDescription]) input?.addEventListener('input', syncTrackingNoteAction);
 
+  const ensureTrackingLayout = () => {
+    const grid=modalTrackingUpdate?.querySelector('.modal-body-scroll > .form-grid');if(!grid)return;
+    modalTrackingUpdate.classList.add('order-dialog');
+    let workflow=document.getElementById('trackingGuidedWorkflow');
+    if(!workflow){workflow=document.createElement('div');workflow.id='trackingGuidedWorkflow';workflow.className='full';document.getElementById('trackingManagedShipment').before(workflow);}
+    let notes=document.getElementById('trackingOptionalNotes');
+    if(!notes){
+      notes=document.createElement('details');notes.id='trackingOptionalNotes';notes.className='order-notes-card full';
+      notes.innerHTML='<summary>Optional customer note</summary><p class="field-hint">Share a short FMRC update. Notes do not change payment or fulfillment.</p><div class="form-grid"></div>';
+      const title=document.getElementById('trackingNotesHeading');title.before(notes);title.hidden=true;
+      for(const field of [trackingPresetSelect,trackingEventTitle,trackingEventDescription])notes.querySelector('.form-grid').append(field.closest('.field-stack'));
+    }
+    return workflow;
+  };
   const syncManagedTrackingContext = (order) => {
-    const managed = hasManagedJntTracking(order);
-    modalTrackingUpdate.querySelector('.modal-title').textContent = 'Update Tracking Status';
-    if (trackingStage?.closest('.field-stack')) trackingStage.closest('.field-stack').hidden = false;
-    if (trackingStage) {
-      trackingStage.disabled = managed;
-      if (managed) trackingStage.value = order.customer_stage;
-    }
-    for (const field of [trackingLatitude, trackingLocationName]) {
-      if (field?.closest('.field-stack')) field.closest('.field-stack').hidden = managed;
-    }
+    const body=modalTrackingUpdate.querySelector('.modal-body-scroll'),scroll=body.scrollTop;
+    const managed=hasManagedJntTracking(order),guided=isGuidedOrder(order),locked=notesOnlyTracking(order);
+    const pickup=order.is_pickup||order.fulfillment_type==='pickup';
+    const workflow=ensureTrackingLayout();
+    modalTrackingUpdate.querySelector('.modal-title').textContent = pickup ? 'Manage pickup' : 'Update Tracking Status';
+    if(trackingStage){trackingStage.disabled=locked;if(locked)trackingStage.value=order.customer_stage;}
+    for(const field of [trackingLatitude,trackingLocationName])if(field?.closest('.field-stack'))field.closest('.field-stack').hidden=locked;
     syncCourierFields(order);
-    const hint = document.getElementById('trackingManagedHint');
-    const host = document.getElementById('trackingManagedShipment');
-    if (hint) {
-      hint.hidden = !managed;
-      hint.textContent = 'J&T delivery progress is supplied by 17TRACK. Record the physical handover once. Optional FMRC notes do not change courier status or complete an order.';
+    const notes=document.getElementById('trackingOptionalNotes');
+    if(notes&&notes.dataset.orderId!==String(order.id)){notes.open=!pickup;notes.dataset.orderId=String(order.id);}
+    const hint=document.getElementById('trackingManagedHint'),host=document.getElementById('trackingManagedShipment');
+    if(hint){hint.hidden=!locked;hint.textContent=pickup?'Prepare the order, confirm payment, and check the customer’s pickup code before handing it over.':guided?'Use the next available action below. Record the J&T handover once; courier updates then follow automatically.':'J&T delivery progress is supplied by 17TRACK. Record the physical handover once. FMRC notes do not change courier status or complete an order.';}
+    if(workflow){
+      if(workflow.dataset.orderId!==String(order.id)){workflow.replaceChildren();workflow.dataset.orderId=String(order.id);}
+      workflow.hidden=!guided;
+      if(guided){renderPickupCollection(order,workflow);window.FMRCAppointmentProducts?.mountOrder(workflow,order,true);}
     }
-    if (host) {
-      host.hidden = !managed;
-      if (managed) window.AdminJntTracking?.render(order, host);
-      else host.replaceChildren();
-    }
-    renderCheckpointPresetOptions(order);
-    syncTrackingNoteAction();
+    if(host){host.hidden=!managed||pickup;if(managed&&!pickup)window.AdminJntTracking?.render(order,host);else host.replaceChildren();}
+    renderCheckpointPresetOptions(order);syncTrackingNoteAction();body.scrollTop=scroll;
   };
 
   const openTrackingModal = (order) => {
@@ -3099,18 +3180,19 @@ document.addEventListener("DOMContentLoaded", () => {
     syncTrackingMapPreview();
 
     syncManagedTrackingContext(order);
-    if (hasManagedJntTracking(order)) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
+    if (notesOnlyTracking(order)) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
     trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
-    if (hasManagedJntTracking(order)) {
+    if (notesOnlyTracking(order)) {
+      const readbackRevision=state.summaryRevision||0;
       void request(`/admin/orders/${order.id}`).then(response => {
-        if (!response?.data || !modalTrackingUpdate.classList.contains('show') || String(trackingOrderId?.value) !== String(order.id)) return;
+        if (!response?.data || readbackRevision!==(state.summaryRevision||0) || !modalTrackingUpdate.classList.contains('show') || String(trackingOrderId?.value) !== String(order.id)) return;
         trackingModalOrder = response.data;
         upsertOrderSummaryInState(response.data);
         syncManagedTrackingContext(response.data);
       }).catch(() => {
         if (modalTrackingUpdate.classList.contains('show') && String(trackingOrderId?.value) === String(order.id)) {
-          document.getElementById('trackingManagedHint').textContent = 'Current shipment details could not be loaded. Use Refresh saved updates below before recording a handover.';
+          document.getElementById('trackingManagedHint').textContent = 'Current order details could not be loaded. Reopen this dialog before continuing.';
         }
       });
     }
@@ -3122,7 +3204,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getTrackingFormSnapshot = () => ({
     orderId: String(trackingOrderId?.value || "").trim(),
-    stage: hasManagedJntTracking(trackingModalOrder) ? '' : String(trackingStage?.value || "").trim(),
+    stage: notesOnlyTracking(trackingModalOrder) ? '' : String(trackingStage?.value || "").trim(),
     title: String(trackingEventTitle?.value || "").trim(),
     description: String(trackingEventDescription?.value || "").trim(),
     courierKey: areCourierFieldsApplicable(trackingModalOrder)
@@ -3138,11 +3220,18 @@ document.addEventListener("DOMContentLoaded", () => {
     latitude: String(trackingLatitude?.value || "").trim(),
     longitude: String(trackingLongitude?.value || "").trim(),
     handover: hasManagedJntTracking(trackingModalOrder) ? window.AdminJntTracking?.draft(trackingModalOrder.id) : null,
+    pickupCode: document.querySelector('#trackingGuidedWorkflow [data-pickup-code]')?.value || '',
+    cashAcknowledged: !!document.querySelector('#trackingGuidedWorkflow [data-cash-ack]')?.checked,
+    customDrafts: [...(document.querySelectorAll('#trackingGuidedWorkflow form[data-dirty="true"]'))].map(form=>[form.dataset.apOrderForm,[...new FormData(form)]]),
   });
 
   trackingDiscardGuard = window.createAdminFormDiscardGuard?.({
     getSnapshot: getTrackingFormSnapshot,
-    close: closeTrackingModal,
+    close: () => {
+      const workflow=document.getElementById('trackingGuidedWorkflow');
+      workflow?.replaceChildren();if(workflow)delete workflow.dataset.orderId;
+      closeTrackingModal();
+    },
   });
 
   // ── Returns & Refunds modals ───────────────────────────────────────────
@@ -5391,7 +5480,7 @@ document.addEventListener("DOMContentLoaded", () => {
       longitude: longitude.value,
     };
 
-    if (hasManagedJntTracking(trackingModalOrder)) {
+    if (notesOnlyTracking(trackingModalOrder)) {
       for (const key of ['stage', 'courier_name', 'courier_tracking_no', 'location_name', 'latitude', 'longitude']) delete payload[key];
       payload.event_type = 'admin_update';
       if (!payload.title && !payload.description) {
@@ -5432,8 +5521,7 @@ document.addEventListener("DOMContentLoaded", () => {
         type: "tracking-updated",
         orderId: String(orderId),
       });
-      queueSuccessFlash("Tracking update saved successfully.", "Success");
-      window.location.reload();
+      window.showAdminSuccessNotification?.("FMRC update saved.", {title:"Saved!"});
     } catch (error) {
       showPopup(error.message || "Unable to save tracking update.", {
         title: "Update Failed",
@@ -5682,7 +5770,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let gatewayOrderTimer, gatewayOrderDelay = 5000;
   const pollGatewayOrders = async () => {
     clearTimeout(gatewayOrderTimer);
-    if (!document.hidden && !isPopupVisible()) {
+    const orderBusy=window.FMRCAppointmentProducts?.orderBusy(trackingOrderId?.value)||window.FMRCAppointmentProducts?.orderBusy(modalOrderDetails?.dataset.orderId);
+    if (!document.hidden && !isPopupVisible() && !paymentActionBusy && !trackingNoteBusy && !collectionRequests.size && !orderBusy) {
       const previous = state.lastSyncAt;
       await syncOrders(false, {source: 'auto'});
       gatewayOrderDelay = state.lastSyncAt > previous ? 5000 : Math.min(gatewayOrderDelay * 2, 30000);
@@ -5690,7 +5779,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gatewayOrderTimer = setTimeout(pollGatewayOrders, gatewayOrderDelay);
   };
   gatewayOrderTimer = setTimeout(pollGatewayOrders, 5000);
-  window.addEventListener('fmrc:custom-order-updated', () => { void syncOrders(false, {force:true,source:'action'}); });
+  window.addEventListener('fmrc:custom-order-updated', event => { if(event.detail?.order)refreshMatchingOrderDialogs(event.detail.order);void syncOrders(false, {force:true,source:'action'}); });
   window.addEventListener('fmrc:appointment-updated', () => { void syncOrders(false, {force:true,source:'action'}); });
   window.addEventListener('online', pollGatewayOrders);
   window.addEventListener('focus', pollGatewayOrders);

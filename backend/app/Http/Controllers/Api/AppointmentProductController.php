@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\AppointmentFiles;
+use App\Services\AppointmentConsultations;
 use App\Services\AppointmentProducts as Products;
 use App\Services\AppointmentScheduling;
 use App\Services\CommercePolicy;
@@ -243,35 +244,74 @@ class AppointmentProductController extends Controller
         return Storage::disk('local')->download($record->path, $record->name, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
     }
 
+    private function outcomeReplay(AppointmentProductJob $job, ?string $key, string $fingerprint): ?int
+    {
+        if (! $key) return null;
+        $event = DB::table('appointment_product_events')->where('job_id', $job->id)->where('action', 'outcome')
+            ->where('metadata->completion_request_key', $key)->first();
+        if (! $event) return null;
+        $metadata = json_decode($event->metadata, true);
+        abort_unless(hash_equals((string) ($metadata['fingerprint'] ?? ''), $fingerprint), 409,
+            'This confirmation was already used for different details. Review the saved consultation.');
+
+        return (int) $metadata['appointment_id'];
+    }
+
+    private function outcomeResult(Request $request, AppointmentProductJob $job, int $appointmentId)
+    {
+        $appointment = app(AppointmentController::class)->teamShow($request, Appointment::findOrFail($appointmentId))->getData(true)['data'];
+
+        return response()->json(['message' => 'Consultation outcome saved.', 'data' => Products::present($job->fresh()), 'appointment' => $appointment])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function outcome(Request $r, AppointmentProductJob $job)
     {
         $this->operator($r);
         $v = $r->validate(['outcome' => 'required|in:ready_for_quote,needs_information,follow_up,declined',
-            'note' => 'required|string|max:2000', 'discussed_appointment_id' => 'nullable|integer', 'discussion_confirmed' => 'required_if:outcome,ready_for_quote|accepted_if:outcome,ready_for_quote']);
+            'note' => 'required|string|max:2000', 'discussed_appointment_id' => 'nullable|integer',
+            'discussion_confirmed' => 'required_if:outcome,ready_for_quote|accepted_if:outcome,ready_for_quote',
+            'complete_consultation' => 'sometimes|boolean', 'expected_schedule_version' => 'required_if:complete_consultation,true|integer|min:0']);
+        $complete = $r->boolean('complete_consultation');
+        $key = $complete ? $this->key($r) : null;
+        if ($complete) abort_unless($r->boolean('discussion_confirmed'), 422, 'Confirm that the consultation took place before marking it done.');
+        $meetingId = (int) ($v['discussed_appointment_id'] ?? $job->appointment_id);
+        $fingerprint = hash('sha256', json_encode([$meetingId, $v['outcome'], trim($v['note']), $complete, $r->boolean('discussion_confirmed'), $v['expected_schedule_version'] ?? null]));
+        if ($replay = $this->outcomeReplay($job, $key, $fingerprint)) return $this->outcomeResult($r, $job, $replay);
         Products::version($job, $r->input('expected_revision'));
-        if ($v['outcome'] === 'ready_for_quote') {
-            $meeting = Appointment::where('product_job_id', $job->id)->whereKey($v['discussed_appointment_id'] ?? $job->appointment_id)->firstOrFail();
-            abort_unless($meeting->status === 'Completed', 422, 'Mark the attended consultation as Done before confirming the product discussion.');
+        $meeting = Appointment::whereKey($meetingId)->where(fn ($query) => $query->where('product_job_id', $job->id)->orWhere('id', $job->appointment_id))->firstOrFail();
+        abort_if(in_array($meeting->status, ['Cancelled', 'Archived'], true), 422, 'A cancelled or archived consultation cannot be confirmed.');
+        if ($complete) abort_unless($meeting->schedule_version === (int) $v['expected_schedule_version'], 409, 'The consultation schedule changed. Refresh its details before confirming.');
+        if ($v['outcome'] === 'ready_for_quote' && ! $complete) {
+            abort_unless($meeting->status === 'Completed', 422, 'Confirm the attended consultation before preparing the quotation.');
         }
-        if ($job->quotes()->whereIn('state', ['sent', 'accepted', 'closing'])->exists()) {
-            $this->closeOffers($job, 'superseded');
-        }
-        DB::transaction(function () use ($job, $r, $v) {
+        if ($job->quotes()->whereIn('state', ['sent', 'accepted', 'closing'])->exists()) $this->closeOffers($job, 'superseded');
+        DB::transaction(function () use ($job, $r, $v, $complete, $key, $fingerprint, $meetingId) {
+            AppointmentScheduling::lock();
             $j = AppointmentProductJob::whereKey($job->id)->lockForUpdate()->firstOrFail();
+            if ($this->outcomeReplay($j, $key, $fingerprint)) return;
             Products::version($j, $r->input('expected_revision'));
+            $a = Appointment::whereKey($meetingId)->where(fn ($query) => $query->where('product_job_id', $j->id)->orWhere('id', $j->appointment_id))->lockForUpdate()->firstOrFail();
+            abort_if(in_array($a->status, ['Cancelled', 'Archived'], true), 422, 'A cancelled or archived consultation cannot be confirmed.');
+            if ($complete) {
+                abort_unless($a->schedule_version === (int) $v['expected_schedule_version'], 409,
+                    'The consultation schedule changed. Your entries are still here. Refresh its details before confirming.');
+                if (AppointmentConsultations::completeLocked($a, true)) {
+                    DB::afterCommit(fn () => AppointmentConsultations::notifyCompleted($a));
+                }
+            }
             if ($v['outcome'] === 'ready_for_quote') {
-                $a = Appointment::where('product_job_id', $j->id)->whereKey($v['discussed_appointment_id'] ?? $j->appointment_id)->firstOrFail();
-                // Mark as Done records the actual meeting outcome. An attended
-                // consultation can finish earlier than its reserved schedule.
-                abort_unless($a->status === 'Completed', 422, 'Mark the attended consultation as Done before confirming the product discussion.');
+                abort_unless($a->status === 'Completed', 422, 'Confirm the attended consultation before preparing the quotation.');
                 $j->fill(['discussed_appointment_id' => $a->id, 'discussed_at' => now(), 'discussed_by' => $r->user()->id]);
             }
             $j->fill(['state' => $v['outcome'], 'outcome_note' => $v['note']]);
             Products::touch($j);
-            Products::event($j, 'outcome', $v['note'], $r->user()->id);
-        });
+            Products::event($j, 'outcome', $v['note'], $r->user()->id, $complete ? [
+                'completion_request_key' => $key, 'fingerprint' => $fingerprint, 'appointment_id' => $a->id,
+            ] : []);
+        }, 3);
 
-        return $this->result($job, 'Consultation outcome saved.');
+        return $this->outcomeResult($r, $job, $meetingId);
     }
 
     public function followUp(Request $r, AppointmentProductJob $job)
@@ -346,8 +386,8 @@ class AppointmentProductController extends Controller
         if ($job->quotes()->where('request_key', $key)->exists()) {
             return $this->result($job, 'Quotation already sent.');
         }
-        $spec = Products::brief($this->data($r, 'specifications'));
-        Validator::make($spec, ['dimensions' => 'required|string', 'material' => 'required|string', 'colors' => 'required|string', 'finish' => 'required|string'])->validate();
+        $spec = Products::customerBrief($this->data($r, 'specifications'));
+        Validator::make($spec, ['dimensions' => 'required|string', 'material' => 'required|string', 'colors' => 'required|string'])->validate();
         abort_if($spec['needs_advice'] ?? false, 422, 'Resolve specifications needing advice before sending the final quotation.');
         $v = $r->validate(['unit_price' => 'required|numeric|decimal:0,2|min:0.01|max:100000', 'shipping_fee' => 'required|numeric|decimal:0,2|min:0|max:100000',
             'lead_time' => 'required|string|max:300', 'design_notes' => 'required|string|min:5|max:2000', 'fulfillment_type' => 'required|in:pickup,delivery',

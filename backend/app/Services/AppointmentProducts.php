@@ -459,7 +459,7 @@ final class AppointmentProducts
                 'expires_at' => $q->expires_at->toIso8601String(), 'accepted_at' => $q->accepted_at?->toIso8601String(), 'sent_at' => $q->sent_at->toIso8601String()])->all(),
             'orders' => $orders->map(fn ($o) => ['id' => $o->id, 'order_no' => $o->order_no, 'lifecycle_status' => $o->lifecycle_status,
                 'payment_status' => $o->payment?->status, 'payment_method' => $o->payment_method, 'total' => (float) $o->total] + self::orderData($o))->all(),
-            'follow_ups' => Appointment::where('product_job_id',$job->id)->where('id','!=',$job->appointment_id)->get(['id', 'reference_no', 'appointment_date', 'appointment_time', 'status', 'appointment_method'])->all(),
+            'follow_ups' => Appointment::where('product_job_id',$job->id)->where('id','!=',$job->appointment_id)->get(['id', 'reference_no', 'appointment_date', 'appointment_time', 'status', 'appointment_method', 'schedule_version'])->all(),
             'activity' => DB::table('appointment_product_events')->where('job_id',$job->id)->orderByDesc('id')->limit(50)->get(['action', 'description', 'created_at'])->all()];
     }
 }
