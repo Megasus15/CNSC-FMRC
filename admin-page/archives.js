@@ -358,7 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <td style="font-weight:600;">${itemName}</td>
       <td style="color:var(--portal-muted-color,#64748b);">${blankWhenVariants(window.AdminTableValue.html(item.description))}</td>
       <td>${blankWhenVariants(window.AdminTableValue.html(item.unit))}</td>
-      <td>${blankWhenVariants(window.AdminTableValue.html(onHand))}</td>
+      <td>${blankWhenVariants(window.AdminTableValue.html(item.on_hand))}</td>
       <td>${blankWhenVariants(statusPill(status))}</td>
       <td>${blankWhenVariants(window.AdminTableValue.html(item.remarks))}</td>
       <td><span style="font-size:0.75rem;background:#f0f2f5;padding:2px 8px;border-radius:99px;font-weight:600;">${window.AdminTableValue.html(item.category)}</span></td>
@@ -395,7 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td><div class="inv-variant-indent"><span class="inv-variant-name">${window.AdminTableValue.html(variant.name)}</span></div></td>
         <td style="color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(variant.description)}</td>
         <td>${window.AdminTableValue.html(variant.unit)}</td>
-        <td>${window.AdminTableValue.html(variantOnHand)}</td>
+        <td>${window.AdminTableValue.html(variant.on_hand)}</td>
         <td>${statusPill(variantStatus)}</td>
         <td>${window.AdminTableValue.html(variant.remarks)}</td>
         <td></td>
@@ -474,7 +474,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return `<tr>
         ${rowCheckbox(module, row, row.title)}
         <td style="font-weight:600;">${window.AdminTableValue.html(row.title)}</td>
-        <td><strong style="color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.discount_percent)}% OFF</strong></td>
+        <td><strong style="color:var(--portal-data-color,#800000);">${window.AdminTableValue.missing(row.discount_percent) ? "--" : `${window.AdminTableValue.html(row.discount_percent)}% OFF`}</strong></td>
         <td>${window.AdminTableValue.html(scope)}</td>
         <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleLabel(row)}</td>
         <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>

@@ -534,6 +534,10 @@ document.addEventListener("DOMContentLoaded", () => {
     })}`;
   };
 
+  // Table placeholders must not turn an absent amount into a recorded zero.
+  const formatTableMoney = (amount) =>
+    window.AdminTableValue.missing(amount) ? "--" : formatMoney(amount);
+
   const formatDateLabel = (value) => {
     if (window.AdminTableValue.missing(value)) return "--";
     const date = new Date(value);
@@ -1546,7 +1550,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="order-items-cell">${renderOrderItemsInline(order)}${renderAppointmentLink(order)}</td>
             <td>${window.AdminTableValue.html(formatQuantity(order.quantity))}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatTableMoney(order.total_amount))}</td>
             <td>${window.AdminTableValue.html(formatDateLabel(order.created_at))}</td>
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
@@ -1590,7 +1594,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td>
             <td>${window.AdminTableValue.html(order.customer_name)}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatTableMoney(order.total_amount))}</td>
             <td>${statusCell}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -1633,7 +1637,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const paymentAmountLabel =
           payment.total_label ||
           payment.amount_label ||
-          formatMoney(payment.total_amount || payment.amount);
+          formatTableMoney(payment.total_amount ?? payment.amount);
         return `
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="payment-orders" value="${orderId}" aria-label="Select payment for ${window.AdminTableValue.html(orderNo)}" /></td>
@@ -1717,8 +1721,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${window.AdminTableValue.html(row.project_description)}${row.project_description_other ? `: ${window.AdminTableValue.html(row.project_description_other)}` : ""}</td>
           <td title="${window.AdminTableValue.html(row.item_detail || row.order_item)}">${window.AdminTableValue.html(row.item_detail || row.order_item)}</td>
           <td>${window.AdminTableValue.html(row.unit)}</td>
-          <td>${window.AdminTableValue.html(row.subtotal_cost_label || formatMoney(row.subtotal_cost))}</td>
-          <td>${window.AdminTableValue.html(row.total_label || formatMoney(row.total))}</td>
+          <td>${window.AdminTableValue.html(row.subtotal_cost_label || formatTableMoney(row.subtotal_cost))}</td>
+          <td>${window.AdminTableValue.html(row.total_label || formatTableMoney(row.total))}</td>
           <td>${window.AdminTableValue.html(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
           <td><span class="status-pill ${walkInStatusClass(row)}">${window.AdminTableValue.html(walkInStatusLabel(row))}</span></td>
           <td class="action-icons sticky-action">
@@ -1761,7 +1765,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td>
             <td>${window.AdminTableValue.html(order.customer_name)}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatTableMoney(order.total_amount))}</td>
             <td><span class="status-pill status-red">Rejected</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -1785,7 +1789,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const refunded = order.payment_status === "refunded";
         const paid = order.payment_status === "paid";
         const label = refunded ? "Refund recorded" : paid ? "Refund due" : "Verify payment";
-        return `<tr><td>${window.AdminTableValue.html(order.order_no_display || order.order_no)}</td><td>${window.AdminTableValue.html(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td><td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td><td>${window.AdminTableValue.html(order.customer_name)}</td><td>${renderPaymentMethodCell(order)}</td><td>${window.AdminTableValue.html(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
+        return `<tr><td>${window.AdminTableValue.html(order.order_no_display || order.order_no)}</td><td>${window.AdminTableValue.html(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td><td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td><td>${window.AdminTableValue.html(order.customer_name)}</td><td>${renderPaymentMethodCell(order)}</td><td>${window.AdminTableValue.html(order.payment_amount_label || formatTableMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
       },
     });
   };
@@ -1888,7 +1892,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     }
     return {
-      label: row?.requested_amount_label || formatMoney(row?.requested_amount),
+      label: row?.requested_amount_label || formatTableMoney(row?.requested_amount),
       caption: "Requested",
     };
   };
@@ -3230,8 +3234,8 @@ document.addEventListener("DOMContentLoaded", () => {
                   <tr>
                     <td>${window.AdminTableValue.html(item?.product_name || "Returned item")}</td>
                     <td>${window.AdminTableValue.html(String(item?.quantity ?? 1))}</td>
-                    <td>${window.AdminTableValue.html(item?.unit_price_label || formatMoney(item?.unit_price))}</td>
-                    <td>${window.AdminTableValue.html(item?.line_total_label || formatMoney(item?.line_total))}</td>
+                    <td>${window.AdminTableValue.html(item?.unit_price_label || formatTableMoney(item?.unit_price))}</td>
+                    <td>${window.AdminTableValue.html(item?.line_total_label || formatTableMoney(item?.line_total))}</td>
                   </tr>`,
               )
               .join("")}

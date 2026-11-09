@@ -259,7 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="promotions" value="${promotion.id}" aria-label="Select ${window.AdminTableValue.html(promotion.title)}" /></td>
             <td style="font-weight:600;color:var(--portal-muted-color,#6b7280);">${rowNum}</td>
             <td style="font-weight:600;color:var(--portal-data-color,#1e293b);">${window.AdminTableValue.html(promotion.title)}</td>
-            <td><span style="font-weight:700;color:var(--portal-data-color,#800000);">${promotion.discount_percent}% OFF</span></td>
+            <td><span style="font-weight:700;color:var(--portal-data-color,#800000);">${window.AdminTableValue.missing(promotion.discount_percent) ? "--" : `${window.AdminTableValue.html(promotion.discount_percent)}% OFF`}</span></td>
             <td style="font-size:0.82rem;color:var(--portal-data-color,#475569);">${scopeText}</td>
             <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleText}</td>
             <td>${status(promotion)}</td>

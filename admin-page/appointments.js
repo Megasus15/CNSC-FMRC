@@ -704,7 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `<tr>
           <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="appointments" value="${item.id}" aria-label="Select ${formatApNo(item.reference_no)}" /></td>
-          <td>${formatApNo(item.reference_no)}</td>
+          <td>${window.AdminTableValue.html(item.reference_no)}</td>
           <td title="${window.AdminTableValue.html(item.client_name)}">${window.AdminTableValue.html(item.client_name)}</td>
           <td>${window.AdminTableValue.html(item.contact_number)}</td>
           <td>${window.AdminTableValue.html(item.email)}</td>
