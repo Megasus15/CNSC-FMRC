@@ -60,8 +60,6 @@
 .ap-linked-meeting p { margin:6px 0 0; }
 .ap-meeting-removal { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-left:auto; max-width:100%; }
 .ap-meeting-removal .ap-btn svg { width:17px; height:17px; flex-shrink:0; }
-.appointment-custom-work { display:grid; justify-items:start; gap:6px; margin-top:8px; white-space:normal; }
-.appointment-custom-work strong { overflow-wrap:anywhere; font-size:12px; }
 .admin-main .ap-reference-link,.ap-reference-link { display:inline-flex; align-items:center; padding:5px 8px; border:1px solid var(--ap-line,#eadede); border-radius:6px; color:var(--portal-action,var(--ap-wine,#800000)); background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); font-size:12px; font-weight:600; line-height:1.5; text-decoration:none; }
 .ap-reference-link:hover { text-decoration:underline; text-underline-offset:3px; }
 .ap-reference-link:focus-visible { outline:2px solid var(--portal-action,#800000); outline-offset:3px; }

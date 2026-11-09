@@ -95,8 +95,9 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/'/g, "&#39;");
 
   const formatDateTime = (value) => {
-    const date = new Date(value || Date.now());
-    if (Number.isNaN(date.getTime())) return "-";
+    if (window.AdminTableValue.missing(value)) return "--";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
     return date.toLocaleString("en-PH", {
       timeZone: MANILA_TZ,
       month: "short",
@@ -287,13 +288,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `
           <tr data-row-id="${row.id}">
-            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="inquiries" value="${row.id}" aria-label="Select inquiry from ${escapeHtml(row.sender_name)}" /></td>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="inquiries" value="${row.id}" aria-label="Select inquiry from ${window.AdminTableValue.html(row.sender_name)}" /></td>
             <td class="inq-name-cell">
-              <div><strong>${escapeHtml(row.sender_name)}</strong></div>
+              <div><strong>${window.AdminTableValue.html(row.sender_name)}</strong></div>
               <div class="inq-text-muted">${escapeHtml(row.sender_email)}</div>
             </td>
-            <td><div class="inq-message-preview">${escapeHtml(row.message)}</div></td>
-            <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+            <td><div class="inq-message-preview">${window.AdminTableValue.html(row.message)}</div></td>
+            <td>${window.AdminTableValue.html(formatDateTime(row.created_at))}</td>
             <td><span class="inq-status-pill ${statusClass}">${statusText}</span></td>
             <td><span class="inq-read-badge ${readClass}">${readText}</span></td>
             <td class="sticky-action">

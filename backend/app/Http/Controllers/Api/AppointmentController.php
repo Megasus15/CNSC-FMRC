@@ -44,6 +44,7 @@ class AppointmentController extends Controller
         $hasJobs = Schema::hasTable('appointment_product_jobs');
         $hasJobColumn = Schema::hasColumn('appointments', 'product_job_id');
         $appointments = Appointment::query()
+            ->where('status', '!=', 'Archived')
             ->where(function ($query) use ($hasJobs, $hasJobColumn) {
                 $query->whereNotIn('status', ['Cancelled', 'Archived']);
                 if ($hasJobColumn) $query->orWhereNotNull('product_job_id');
@@ -247,11 +248,12 @@ class AppointmentController extends Controller
 
         $archivedIds = DB::transaction(function () use ($ids): array {
             AppointmentScheduling::lock();
-            foreach (Appointment::whereIn('id',$ids)->where('status','Completed')->get() as $item) AppointmentProducts::protectAppointment($item,true);
-            $eligibleIds = Appointment::query()
+            $eligible = Appointment::query()
                 ->whereIn('id', $ids)
                 ->where('status', 'Completed')
-                ->pluck('id')
+                ->lockForUpdate()->get();
+            foreach ($eligible as $item) AppointmentProducts::protectAppointment($item, true);
+            $eligibleIds = $eligible->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->values()
                 ->all();
@@ -285,15 +287,17 @@ class AppointmentController extends Controller
         if ($denied = $this->ensureAdminOrStaff($request)) {
             return $denied;
         }
-        if (strtolower((string) $appointment->status) !== 'completed') {
-            return response()->json([
-                'message' => 'Only appointments marked as completed can be archived.',
-            ], 422);
-        }
-
-        AppointmentProducts::protectAppointment($appointment,true);
-        $appointment->status = 'Archived';
-        $appointment->save();
+        $appointment = DB::transaction(function () use ($appointment) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            // Repeated submissions are harmless; never act on a related consultation.
+            if ($current->status === 'Archived') return $current;
+            abort_unless(strtolower((string) $current->status) === 'completed', 422, 'Only appointments marked as completed can be archived.');
+            AppointmentProducts::protectAppointment($current, true);
+            $current->status = 'Archived';
+            $current->save();
+            return $current;
+        });
 
         return response()->json([
             'message' => 'Appointment archived successfully.',

@@ -212,13 +212,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const raw = String(value || "")
       .trim()
       .toLowerCase();
-    if (!raw) return "N/A";
+    if (!raw) return "--";
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   };
 
   const formatDate = (value) => {
+    if (window.AdminTableValue.missing(value)) return "--";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
+    if (Number.isNaN(date.getTime())) return "--";
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -313,19 +314,17 @@ document.addEventListener("DOMContentLoaded", () => {
       tableBody.innerHTML = paged
         .map((user, idx) => {
           const displayIndex = String(start + idx + 1).padStart(3, "0");
-          const displayUsername = user?.username
-            ? escapeHtml(user.username)
-            : "N/A";
-          const displayEmail = user?.email ? escapeHtml(user.email) : "N/A";
+          const displayUsername = window.AdminTableValue.html(user?.username);
+          const displayEmail = window.AdminTableValue.html(user?.email);
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
           const isCurrentAdmin = Number(user?.id) === getCurrentAdminId();
 
           return `
             <tr>
-              <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${escapeHtml(user?.name || "user")}" ${isCurrentAdmin ? 'title="Your signed-in account cannot be deleted"' : ""} /></td>
+              <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${window.AdminTableValue.html(user?.name || "user")}" ${isCurrentAdmin ? 'title="Your signed-in account cannot be deleted"' : ""} /></td>
               <td>${displayIndex}</td>
-              <td>${escapeHtml(user?.name || "N/A")}</td>
+              <td>${window.AdminTableValue.html(user?.name)}</td>
               <td>${displayUsername}</td>
               <td>${displayEmail}</td>
               <td><span class="role-tag ${roleClass}">${displayRole}</span></td>
@@ -535,9 +534,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return `
             <tr data-request-row="${row.id}">
               <td>${displayIndex}</td>
-              <td>${escapeHtml(row?.name || "N/A")}</td>
-              <td>${row?.username ? escapeHtml(row.username) : "N/A"}</td>
-              <td>${row?.email ? escapeHtml(row.email) : "N/A"}</td>
+              <td>${window.AdminTableValue.html(row?.name)}</td>
+              <td>${row?.username ? window.AdminTableValue.html(row.username) : "--"}</td>
+              <td>${row?.email ? window.AdminTableValue.html(row.email) : "--"}</td>
               <td>${formatDate(row?.created_at)}</td>
               <td><span class="status-pill ${pillClass}" data-tooltip="${statusTooltip}">${toTitleCase(status)}</span></td>
               <td class="action-icons sticky-action">${actions}

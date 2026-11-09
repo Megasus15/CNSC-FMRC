@@ -70,8 +70,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const formatDateTime = (value) => {
-    const date = new Date(value || Date.now());
-    if (Number.isNaN(date.getTime())) return "-";
+    if (window.AdminTableValue.missing(value)) return "--";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
     return date.toLocaleString("en-PH", { timeZone: MANILA_TZ, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   };
 
@@ -140,12 +141,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!rows.length) { renderEmpty("No ratings found."); return; }
 
     tableBody.innerHTML = rows.map((row) => {
-      const customerName = escapeHtml(row.user?.name || row.user?.email || "Unknown");
-      const customerEmail = escapeHtml(row.user?.email || "");
+      const customerName = window.AdminTableValue.html(row.user?.name || row.user?.email);
+      const customerEmail = window.AdminTableValue.html(row.user?.email || "");
       const orderLabel = row.order?.order_no ? `Order ${row.order.order_no}` : "Order";
       const productName = escapeHtml(row.product_name || "Custom Order");
       const stars = Number(row.stars) || 0;
-      const feedback = row.feedback ? escapeHtml(row.feedback) : null;
+      const feedback = row.feedback ? window.AdminTableValue.html(row.feedback) : null;
       const hasReply = Boolean(row.admin_reply);
       const mediaCount = Array.isArray(row.media) ? row.media.length : Number(row.media_count) || 0;
 
@@ -159,9 +160,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="font-size:0.73rem;color:#6b7280">${customerEmail}</div>
             ${row.is_anonymous ? `<span class="rating-reply-status pending" style="margin-top:4px"><i class="fa-solid fa-user-secret"></i> Anonymous on product page</span>` : ""}
           </td>
-          <td>${productName}<div style="font-size:0.73rem;color:var(--portal-muted-color,#6b7280);margin-top:3px">${escapeHtml(orderLabel)}</div></td>
+          <td>${productName}<div style="font-size:0.73rem;color:var(--portal-muted-color,#6b7280);margin-top:3px">${window.AdminTableValue.html(orderLabel)}</div></td>
           <td><span class="star-display">${renderStars(stars)}</span> <span style="font-size:0.75rem;color:var(--portal-muted-color,#6b7280);margin-left:4px">${stars}/5</span></td>
-          <td>${feedback ? `<div class="rating-feedback-preview">${feedback}</div>` : `<span class="rating-no-feedback">No feedback</span>`}</td>
+          <td>${feedback ? `<div class="rating-feedback-preview">${feedback}</div>` : `<span class="rating-no-feedback">--</span>`}</td>
           <td><span class="rating-reply-status ${mediaCount ? "replied" : "pending"}"><i class="fa-regular ${mediaCount ? "fa-images" : "fa-image"}"></i> ${mediaCount} media</span><div style="font-size:0.75rem;color:var(--portal-muted-color,#6b7280);margin-top:4px"><i class="fa-regular fa-thumbs-up"></i> ${Number(row.likes_count) || 0} likes</div></td>
           <td>
             ${hasReply
@@ -169,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
               : `<span class="rating-reply-status pending"><i class="fa-regular fa-clock"></i> No reply</span>`
             }
           </td>
-          <td style="font-size:0.78rem;color:#6b7280">${escapeHtml(formatDateTime(row.created_at))}</td>
+          <td style="font-size:0.78rem;color:#6b7280">${window.AdminTableValue.html(formatDateTime(row.created_at))}</td>
           <td class="sticky-action">
             <div class="ratings-table-actions">
               <button type="button" class="btn-compact" data-action="view" data-id="${row.id}" title="View &amp; Reply"><i class="fa-regular fa-eye"></i></button>

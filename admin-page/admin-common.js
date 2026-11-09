@@ -1,3 +1,12 @@
+// Presentation only: never coerce zero/false or rewrite a customer's literal text.
+(() => {
+  const missing = value => value == null || (typeof value === 'string' && value.trim() === '');
+  const text = value => missing(value) ? '--' : String(value);
+  const html = value => text(value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  window.AdminTableValue = Object.freeze({ missing, text, html });
+})();
+
 // One viewport notice for page-data failures in both Admin and Staff.
 (() => {
   const failures = new Map();

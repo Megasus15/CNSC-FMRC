@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `<tr class="table-empty-row"><td colspan="${columns}"><div class="table-empty-state"><i class="${options?.icon || "fa-regular fa-folder-open"}"></i><span>${esc(message)}</span></div></td></tr>`;
 
   const fmtDate = (value, withTime = false) => {
-    if (!value) return "—";
+    if (window.AdminTableValue.missing(value)) return "--";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return esc(value);
     const options = {
@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       className = "status-red";
     }
-    return `<span class="status-pill ${className}">${esc(text)}</span>`;
+    return `<span class="status-pill ${className}">${window.AdminTableValue.html(text)}</span>`;
   };
 
   const scheduleLabel = (row) => {
@@ -348,20 +348,20 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `<button type="button" class="inv-variant-toggle" data-inv-toggle="${item.source_id}" aria-expanded="false" title="Toggle variants"><i class="fa-solid fa-chevron-right"></i></button>`
       : "";
     const itemName = hasVariants
-      ? `<div class="inv-name-cell">${toggle}<span>${esc(item.item_name)}</span><span class="inv-variant-count">${variants.length} variant${variants.length === 1 ? "" : "s"}</span></div>`
-      : esc(item.item_name);
+      ? `<div class="inv-name-cell">${toggle}<span>${window.AdminTableValue.html(item.item_name)}</span><span class="inv-variant-count">${variants.length} variant${variants.length === 1 ? "" : "s"}</span></div>`
+      : window.AdminTableValue.html(item.item_name);
     const blankWhenVariants = (value) => (hasVariants ? "" : value);
 
     let html = `<tr${hasVariants ? ' class="inv-has-variants"' : ""}>
       ${rowCheckbox("inventory", item, item.item_name)}
       <td>${rowNumber}</td>
       <td style="font-weight:600;">${itemName}</td>
-      <td style="color:var(--portal-muted-color,#64748b);">${blankWhenVariants(esc(item.description || "—"))}</td>
-      <td>${blankWhenVariants(esc(item.unit || "—"))}</td>
-      <td>${blankWhenVariants(esc(onHand))}</td>
+      <td style="color:var(--portal-muted-color,#64748b);">${blankWhenVariants(window.AdminTableValue.html(item.description))}</td>
+      <td>${blankWhenVariants(window.AdminTableValue.html(item.unit))}</td>
+      <td>${blankWhenVariants(window.AdminTableValue.html(onHand))}</td>
       <td>${blankWhenVariants(statusPill(status))}</td>
-      <td>${blankWhenVariants(esc(item.remarks || "—"))}</td>
-      <td><span style="font-size:0.75rem;background:#f0f2f5;padding:2px 8px;border-radius:99px;font-weight:600;">${esc(item.category)}</span></td>
+      <td>${blankWhenVariants(window.AdminTableValue.html(item.remarks))}</td>
+      <td><span style="font-size:0.75rem;background:#f0f2f5;padding:2px 8px;border-radius:99px;font-weight:600;">${window.AdminTableValue.html(item.category)}</span></td>
       <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(item.archived_at)}</td>
       <td class="action-icons sticky-action">${restoreButton("inventory", item, item.item_name)}${deleteButton("inventory", item, item.item_name)}</td>
     </tr>`;
@@ -392,12 +392,12 @@ document.addEventListener("DOMContentLoaded", () => {
       html += `<tr class="inv-variant-row" data-parent-inv="${item.source_id}" style="display:none;">
         <td class="admin-bulk-select-cell"></td>
         <td></td>
-        <td><div class="inv-variant-indent"><span class="inv-variant-name">${esc(variant.name)}</span></div></td>
-        <td style="color:var(--portal-muted-color,#64748b);">${esc(variant.description || "—")}</td>
-        <td>${esc(variant.unit || "—")}</td>
-        <td>${esc(variantOnHand)}</td>
+        <td><div class="inv-variant-indent"><span class="inv-variant-name">${window.AdminTableValue.html(variant.name)}</span></div></td>
+        <td style="color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(variant.description)}</td>
+        <td>${window.AdminTableValue.html(variant.unit)}</td>
+        <td>${window.AdminTableValue.html(variantOnHand)}</td>
         <td>${statusPill(variantStatus)}</td>
-        <td>${esc(variant.remarks || "—")}</td>
+        <td>${window.AdminTableValue.html(variant.remarks)}</td>
         <td></td>
         <td></td>
         <td class="sticky-action"></td>
@@ -410,9 +410,9 @@ document.addEventListener("DOMContentLoaded", () => {
         <td colspan="10">
           <div class="table-footer" style="padding:6px 0;background:transparent;border:0;">
             <div class="table-footer-meta">${window.AdminTablePagination.label(variantPage, variants.length, PAGE_SIZE)}</div>
-            <div class="table-pagination" aria-label="${esc(item.item_name)} archived variant pages">
+            <div class="table-pagination" aria-label="${window.AdminTableValue.html(item.item_name)} archived variant pages">
               <button type="button" class="page-btn" data-archive-variant-prev="${item.source_id}" ${variantPage <= 1 ? "disabled" : ""} aria-label="Previous archived variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-              <input class="page-number" data-archive-variant-page="${item.source_id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to archived variant page for ${esc(item.item_name)}" />
+              <input class="page-number" data-archive-variant-page="${item.source_id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to archived variant page for ${window.AdminTableValue.html(item.item_name)}" />
               <button type="button" class="page-btn" data-archive-variant-next="${item.source_id}" ${variantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next archived variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
             </div>
           </div>
@@ -427,26 +427,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (module === "online_refund") {
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
-        <td><strong>${esc(row.order_no)}</strong></td><td>${esc(row.customer_name)}</td>
-        <td>${esc(row.payment_method)}</td><td>${esc(row.received_label)}</td><td>${esc(row.refunded_label)}</td>
+        <td><strong>${window.AdminTableValue.html(row.order_no)}</strong></td><td>${window.AdminTableValue.html(row.customer_name)}</td>
+        <td>${window.AdminTableValue.html(row.payment_method)}</td><td>${window.AdminTableValue.html(row.received_label)}</td><td>${window.AdminTableValue.html(row.refunded_label)}</td>
         <td>${statusPill(row.status_label)}</td>
-        <td>${fmtDate(row.archived_at, true)}<div>${esc(row.archived_by)}</div></td>
-        <td class="action-icons sticky-action"><button type="button" data-refund-view="${Number(row.order_id)}" data-tooltip="View details" aria-label="View refund for ${esc(row.order_no)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>${restoreButton(module, row, row.order_no)}</td>
+        <td>${fmtDate(row.archived_at, true)}<div>${window.AdminTableValue.html(row.archived_by)}</div></td>
+        <td class="action-icons sticky-action"><button type="button" data-refund-view="${Number(row.order_id)}" data-tooltip="View details" aria-label="View refund for ${window.AdminTableValue.html(row.order_no)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>${restoreButton(module, row, row.order_no)}</td>
       </tr>`;
     }
     if (module === "inventory") return renderInventoryRow(row, index);
     if (module === "appointment") {
       return `<tr>
         ${rowCheckbox(module, row, row.reference_no)}
-        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.reference_no)}</td>
-        <td style="font-weight:600;">${esc(row.client_name)}</td>
-        <td>${esc(row.contact_number)}</td>
-        <td style="color:var(--portal-muted-color,#64748b);">${esc(row.email)}</td>
-        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;">${esc(row.full_address || "—")}</td>
-        <td>${esc(row.client_type)}</td>
-        <td>${esc(row.purpose)}</td>
-        <td>${esc(row.appointment_date)}</td>
-        <td>${esc(row.appointment_time)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.reference_no)}</td>
+        <td style="font-weight:600;">${window.AdminTableValue.html(row.client_name)}</td>
+        <td>${window.AdminTableValue.html(row.contact_number)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(row.email)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;">${window.AdminTableValue.html(row.full_address)}</td>
+        <td>${window.AdminTableValue.html(row.client_type)}</td>
+        <td>${window.AdminTableValue.html(row.purpose)}</td>
+        <td>${window.AdminTableValue.html(row.appointment_date)}</td>
+        <td>${window.AdminTableValue.html(row.appointment_time)}</td>
         <td>${statusPill(row.status)}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.reference_no)}${deleteButton(module, row, row.reference_no)}</td>
@@ -455,12 +455,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (module === "order") {
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
-        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.order_no)}</td>
-        <td style="font-weight:600;">${esc(row.order_item)}</td>
-        <td>${esc(row.date)}</td>
-        <td>${esc(row.customer_name)}</td>
-        <td>${esc(row.payment_method)}</td>
-        <td style="font-weight:700;">${esc(row.total_label)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.order_no)}</td>
+        <td style="font-weight:600;">${window.AdminTableValue.html(row.order_item)}</td>
+        <td>${window.AdminTableValue.html(row.date)}</td>
+        <td>${window.AdminTableValue.html(row.customer_name)}</td>
+        <td>${window.AdminTableValue.html(row.payment_method)}</td>
+        <td style="font-weight:700;">${window.AdminTableValue.html(row.total_label)}</td>
         <td>${statusPill(row.lifecycle_status)}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
@@ -473,9 +473,9 @@ document.addEventListener("DOMContentLoaded", () => {
           : `${Array.isArray(row.product_ids) ? row.product_ids.length : 0} selected product(s)`;
       return `<tr>
         ${rowCheckbox(module, row, row.title)}
-        <td style="font-weight:600;">${esc(row.title)}</td>
-        <td><strong style="color:var(--portal-data-color,#800000);">${esc(row.discount_percent)}% OFF</strong></td>
-        <td>${esc(scope)}</td>
+        <td style="font-weight:600;">${window.AdminTableValue.html(row.title)}</td>
+        <td><strong style="color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.discount_percent)}% OFF</strong></td>
+        <td>${window.AdminTableValue.html(scope)}</td>
         <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleLabel(row)}</td>
         <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
@@ -484,7 +484,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (module === "return") {
-      const customer = row.customer_name || row.customer_email || "Unknown";
+      const customer = row.customer_name || row.customer_email;
       const status = String(row.status || "");
       // Same palette the Returns & Refunds panel uses on the Orders page.
       const statusClass =
@@ -498,16 +498,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const itemsLine = `${itemsCount} item${itemsCount === 1 ? "" : "s"} • ${quantity} pc${quantity === 1 ? "" : "s"}`;
       return `<tr>
         ${rowCheckbox(module, row, row.return_no)}
-        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.return_no)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${esc(row.order_no)}</div></td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.return_no)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${window.AdminTableValue.html(row.order_no)}</div></td>
         <td>
-          <strong>${esc(customer)}</strong>
-          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.customer_email)}</div>` : ""}
+          <strong>${window.AdminTableValue.html(customer)}</strong>
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(row.customer_email)}</div>` : ""}
         </td>
-        <td><strong>${esc(row.product_name)}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(itemsLine)}</div></td>
-        <td style="min-width:180px;white-space:normal;">${esc(row.reason_label)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.resolution_label)}</div></td>
-        <td style="font-weight:700;">${esc(row.amount_label)}${row.refund_method_label ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${esc(row.refund_method_label)}</div>` : ""}</td>
-        <td><span class="status-pill ${statusClass}">${esc(row.status_label)}</span></td>
-        <td>${esc(row.handled_by || "—")}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.media_count || 0)} evidence</div></td>
+        <td><strong>${window.AdminTableValue.html(row.product_name)}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(itemsLine)}</div></td>
+        <td style="min-width:180px;white-space:normal;">${window.AdminTableValue.html(row.reason_label)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(row.resolution_label)}</div></td>
+        <td style="font-weight:700;">${window.AdminTableValue.html(row.amount_label)}${row.refund_method_label ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${window.AdminTableValue.html(row.refund_method_label)}</div>` : ""}</td>
+        <td><span class="status-pill ${statusClass}">${window.AdminTableValue.html(row.status_label)}</span></td>
+        <td>${window.AdminTableValue.html(row.handled_by)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(row.media_count || 0)} evidence</div></td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.created_at)}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.return_no)}${deleteButton(module, row, row.return_no)}</td>
@@ -515,25 +515,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (module === "rating") {
-      const customer = row.customer_name || row.customer_email || "Unknown";
+      const customer = row.customer_name || row.customer_email;
       const orderLabel = row.order_no ? `Order ${row.order_no}` : "Order";
       const stars = Math.min(5, Math.max(0, Number(row.stars) || 0));
       const starMarkup = `${"★".repeat(stars)}${"☆".repeat(5 - stars)}`;
       const replyLabel = row.admin_reply ? "Replied" : "No reply";
       const replyClass = row.admin_reply ? "status-green" : "status-yellow";
-      const feedback = row.feedback || "No feedback";
+      const feedback = row.feedback;
       return `<tr>
         ${rowCheckbox(module, row, customer)}
         <td>
-          <strong>${esc(customer)}</strong>
-          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.customer_email)}</div>` : ""}
+          <strong>${window.AdminTableValue.html(customer)}</strong>
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(row.customer_email)}</div>` : ""}
           ${row.is_anonymous ? `<div style="font-size:0.7rem;color:#92400e;margin-top:3px;"><i class="fa-solid fa-user-secret"></i> Anonymous on product page</div>` : ""}
         </td>
-        <td><strong>${esc(row.product_name || "Custom Order")}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(orderLabel)}</div></td>
+        <td><strong>${window.AdminTableValue.html(row.product_name || "Custom Order")}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${window.AdminTableValue.html(orderLabel)}</div></td>
         <td><span style="color:#f59e0b;letter-spacing:1px;white-space:nowrap;">${starMarkup}</span><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${stars}/5</div></td>
-        <td style="min-width:220px;max-width:300px;white-space:normal;">${esc(feedback)}</td>
+        <td style="min-width:220px;max-width:300px;white-space:normal;">${window.AdminTableValue.html(feedback)}</td>
         <td>${statusPill(replyLabel).replace("status-gray", replyClass)}</td>
-        <td>${esc(row.media_count || 0)} media<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);"><i class="fa-regular fa-thumbs-up"></i> ${esc(row.likes_count || 0)} likes</div></td>
+        <td>${window.AdminTableValue.html(row.media_count || 0)} media<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);"><i class="fa-regular fa-thumbs-up"></i> ${window.AdminTableValue.html(row.likes_count || 0)} likes</div></td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.created_at)}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, customer)}${deleteButton(module, row, customer)}</td>
@@ -546,18 +546,18 @@ document.addEventListener("DOMContentLoaded", () => {
       // colour from the word itself.
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
-        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.order_no)}</td>
-        <td style="font-weight:600;">${esc(row.customer_name)}</td>
-        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;min-width:180px;white-space:normal;">${esc(row.address)}</td>
-        <td>${esc(row.contact_number)}</td>
-        <td>${esc(row.client_type)}</td>
-        <td>${esc(row.agency_organization)}</td>
-        <td style="min-width:200px;white-space:normal;">${esc(row.project_description)}</td>
-        <td style="min-width:180px;white-space:normal;">${esc(row.item_detail)}</td>
-        <td>${esc(row.unit)}</td>
-        <td>${esc(row.subtotal_cost_label)}</td>
-        <td style="font-weight:700;">${esc(row.total_label)}</td>
-        <td>${esc(row.payment)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${window.AdminTableValue.html(row.order_no)}</td>
+        <td style="font-weight:600;">${window.AdminTableValue.html(row.customer_name)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;min-width:180px;white-space:normal;">${window.AdminTableValue.html(row.address)}</td>
+        <td>${window.AdminTableValue.html(row.contact_number)}</td>
+        <td>${window.AdminTableValue.html(row.client_type)}</td>
+        <td>${window.AdminTableValue.html(row.agency_organization)}</td>
+        <td style="min-width:200px;white-space:normal;">${window.AdminTableValue.html(row.project_description)}</td>
+        <td style="min-width:180px;white-space:normal;">${window.AdminTableValue.html(row.item_detail)}</td>
+        <td>${window.AdminTableValue.html(row.unit)}</td>
+        <td>${window.AdminTableValue.html(row.subtotal_cost_label)}</td>
+        <td style="font-weight:700;">${window.AdminTableValue.html(row.total_label)}</td>
+        <td>${window.AdminTableValue.html(row.payment)}</td>
         <td>${statusPill(row.status)}</td>
         <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at, true)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
@@ -566,9 +566,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return `<tr>
       ${rowCheckbox(module, row, row.title)}
-      <td style="font-weight:600;">${esc(row.title)}</td>
-      <td>${esc(row.placement || "Everywhere")}</td>
-      <td style="min-width:220px;white-space:normal;">${esc(row.message)}</td>
+      <td style="font-weight:600;">${window.AdminTableValue.html(row.title)}</td>
+      <td>${window.AdminTableValue.html(row.placement || "Everywhere")}</td>
+      <td style="min-width:220px;white-space:normal;">${window.AdminTableValue.html(row.message)}</td>
       <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleLabel(row)}</td>
       <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
       <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>

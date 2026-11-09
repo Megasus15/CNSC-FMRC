@@ -768,15 +768,15 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         inlineVariantPages.set(Number(item.id), variantPage);
         const statusText = displayStatus(item.status);
-        const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${escHtml(statusText)}</span>`;
+        const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${window.AdminTableValue.html(statusText)}</span>`;
         const remarksHtml = item.remarks
-          ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
-          : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">—</span>`;
+          ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${window.AdminTableValue.html(item.remarks)}</span>`
+          : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">--</span>`;
         const baseDescriptionHtml = hasVariants
           ? ""
-          : escHtml(item.description || "—");
-        const baseUnitHtml = hasVariants ? "" : escHtml(item.unit || "—");
-        const baseOnHandHtml = hasVariants ? "" : escHtml(item.on_hand ?? 0);
+          : window.AdminTableValue.html(item.description);
+        const baseUnitHtml = hasVariants ? "" : window.AdminTableValue.html(item.unit);
+        const baseOnHandHtml = hasVariants ? "" : window.AdminTableValue.html(item.on_hand);
         const baseStatusHtml = hasVariants ? "" : statusHtml;
         const baseRemarksHtml = hasVariants ? "" : remarksHtml;
         const toggleHtml = hasVariants
@@ -785,15 +785,15 @@ document.addEventListener("DOMContentLoaded", () => {
             </button>`
           : "";
         const itemNameHtml = hasVariants
-          ? `<div class="inv-name-cell">${toggleHtml}<span>${escHtml(item.item_name)}</span><span class="inv-variant-count">${variants.length} variant${variants.length !== 1 ? "s" : ""}</span></div>`
-          : escHtml(item.item_name);
+          ? `<div class="inv-name-cell">${toggleHtml}<span>${window.AdminTableValue.html(item.item_name)}</span><span class="inv-variant-count">${variants.length} variant${variants.length !== 1 ? "s" : ""}</span></div>`
+          : window.AdminTableValue.html(item.item_name);
 
         rows.push(`
           <tr${hasVariants ? ' class="inv-has-variants"' : ""}>
-            <td class="inv-select-cell"><input type="checkbox" data-inv-select="${item.id}" data-inv-category="${escHtml(category)}" aria-label="Select ${escHtml(item.item_name)}" ${selectedIds.has(Number(item.id)) ? "checked" : ""}></td>
+            <td class="inv-select-cell"><input type="checkbox" data-inv-select="${item.id}" data-inv-category="${window.AdminTableValue.html(category)}" aria-label="Select ${window.AdminTableValue.html(item.item_name)}" ${selectedIds.has(Number(item.id)) ? "checked" : ""}></td>
             <td>${rowNum}</td>
-            <td title="${escHtml(item.item_name)}">${itemNameHtml}</td>
-            <td title="${hasVariants ? "" : escHtml(item.description || "")}">${baseDescriptionHtml}</td>
+            <td title="${window.AdminTableValue.html(item.item_name)}">${itemNameHtml}</td>
+            <td title="${hasVariants ? "" : window.AdminTableValue.html(item.description || "")}">${baseDescriptionHtml}</td>
             <td>${baseUnitHtml}</td>
             <td>${baseOnHandHtml}</td>
             <td>${baseStatusHtml}</td>
@@ -818,23 +818,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 baseline: variant.initial_on_hand ?? variant.on_hand,
               }),
             );
-            const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
+            const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${window.AdminTableValue.html(variantStatus)}</span>`;
             const variantRemarksHtml = variant.remarks
-              ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
-              : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">—</span>`;
+              ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${window.AdminTableValue.html(variant.remarks)}</span>`
+              : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">--</span>`;
             rows.push(`
               <tr class="inv-variant-row" data-variant-parent="${item.id}" style="display:none;">
                 <td aria-hidden="true"></td>
                 <td>&nbsp;</td>
-                <td title="${escHtml(variant.name || "")}">
+                <td title="${window.AdminTableValue.html(variant.name || "")}">
                   <span class="inv-variant-name">
                     <span class="inv-variant-chip">Variant</span>
-                    <span class="inv-variant-indent">${escHtml(variant.name || "—")}</span>
+                    <span class="inv-variant-indent">${window.AdminTableValue.html(variant.name)}</span>
                   </span>
                 </td>
-                <td title="${escHtml(variant.description || "")}">${escHtml(variant.description || "—")}</td>
-                <td>${escHtml(variant.unit || "—")}</td>
-                <td>${variant.on_hand ?? 0}</td>
+                <td title="${window.AdminTableValue.html(variant.description || "")}">${window.AdminTableValue.html(variant.description)}</td>
+                <td>${window.AdminTableValue.html(variant.unit)}</td>
+                <td>${window.AdminTableValue.html(variant.on_hand)}</td>
                 <td>${variantStatusHtml}</td>
                 <td>${variantRemarksHtml}</td>
                 <td class="sticky-action" aria-hidden="true"><span style="color:var(--portal-muted-color,#cbd5f5);">—</span></td>
@@ -1511,7 +1511,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const remarksCls = remarksClass(item.remarks);
     const remarksHtml = item.remarks
       ? `<span class="remarks-pill ${remarksCls}">${escHtml(item.remarks)}</span>`
-      : '<span style="color:var(--portal-muted-color,#9ca3af);">—</span>';
+      : '<span style="color:var(--portal-muted-color,#9ca3af);">--</span>';
 
     const variants = Array.isArray(item.variants) ? item.variants : [];
     const variantTotalPages = Math.max(
@@ -1537,16 +1537,16 @@ document.addEventListener("DOMContentLoaded", () => {
             baseline: variant.initial_on_hand ?? variant.on_hand,
           }),
         );
-        const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
+        const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${window.AdminTableValue.html(variantStatus)}</span>`;
         const variantRemarksHtml = variant.remarks
-          ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
-          : '<span style="color:var(--portal-muted-color,#9ca3af);">—</span>';
+          ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${window.AdminTableValue.html(variant.remarks)}</span>`
+          : '<span style="color:var(--portal-muted-color,#9ca3af);">--</span>';
         return `
         <tr>
-          <td>${escHtml(variant.name || "—")}</td>
-          <td>${escHtml(variant.description || "—")}</td>
-          <td>${escHtml(variant.unit || "—")}</td>
-          <td>${variant.on_hand ?? 0}</td>
+          <td>${window.AdminTableValue.html(variant.name)}</td>
+          <td>${window.AdminTableValue.html(variant.description)}</td>
+          <td>${window.AdminTableValue.html(variant.unit)}</td>
+          <td>${window.AdminTableValue.html(variant.on_hand)}</td>
           <td>${variantStatusHtml}</td>
           <td>${variantRemarksHtml}</td>
         </tr>

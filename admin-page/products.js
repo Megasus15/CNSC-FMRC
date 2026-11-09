@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const rowNum = String(start + idx + 1).padStart(3, "0");
           const imgCell = p.image_data
             ? `<img src="${p.image_data}" alt="${escHtml(p.name)}" style="height:36px;width:48px;object-fit:cover;border-radius:6px;" loading="lazy" decoding="async" />`
-            : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">No image</span>`;
+            : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">--</span>`;
           const stockStatusHtml =
             p.stock_status === "in_stock"
               ? `<span class="status-pill status-green">In Stock</span>`
@@ -649,16 +649,16 @@ document.addEventListener("DOMContentLoaded", () => {
           const discountPercent = Math.max(0, Math.min(100, Number(p.discount_percent || 0)));
           const priceCell = discountPercent > 0
             ? `<div><span style="background:var(--portal-accent-soft,#fee2e2);color:var(--portal-data-color,#b91c1c);font-size:0.68rem;font-weight:800;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px;">${discountPercent}% OFF</span><br/><s style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">${formatPrice(p.price)}</s> <b style="color:var(--portal-data-color,#c0392b);">${formatPrice(p.sale_price)}</b></div>`
-            : formatPrice(p.price);
+            : (window.AdminTableValue.missing(p.price) ? "--" : formatPrice(p.price));
           return `
           <tr class="${p.is_blocked ? "row-blocked" : ""}">
-            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="products" value="${p.id}" aria-label="Select ${escHtml(p.name)}" /></td>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="products" value="${p.id}" aria-label="Select ${window.AdminTableValue.html(p.name)}" /></td>
             <td>${rowNum}</td>
-            <td title="${escHtml(p.name)}">${escHtml(p.name)}</td>
-            <td>${escHtml(p.category)}</td>
-            <td>${escHtml(p.code || "—")}</td>
+            <td title="${window.AdminTableValue.html(p.name)}">${window.AdminTableValue.html(p.name)}</td>
+            <td>${window.AdminTableValue.html(p.category)}</td>
+            <td>${window.AdminTableValue.html(p.code)}</td>
             <td>${imgCell}</td>
-            <td>${p.stock ?? 0}</td>
+            <td>${window.AdminTableValue.html(p.stock)}</td>
             <td>${priceCell}</td>
             <td>${stockStatusHtml}</td>
             <td>${visibilityHtml}</td>
@@ -1249,12 +1249,12 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         return `<tr>
-          <td>${escHtml(p.product_code || "N/A")}</td>
-          <td>${p.order_type==="custom"?`<a class="photo-link" href="appointments.html?custom_products=1&custom_service=${encodeURIComponent(p.service||"")}" title="View custom work and linked orders in Appointments">${escHtml(p.product_name||"Custom Product")}</a>`:escHtml(p.product_name || "Unnamed")}</td>
-          <td>${escHtml(p.category || "N/A")}</td>
-          <td>${escHtml(p.total_sold ?? 0)}</td>
-          <td>${escHtml(revenue)}</td>
-          <td><span class="perf-status ${statusClass}">${escHtml(statusLabel)}</span></td>
+          <td>${window.AdminTableValue.html(p.product_code)}</td>
+          <td>${p.order_type==="custom"?`<a class="photo-link" href="appointments.html?custom_products=1&custom_service=${encodeURIComponent(p.service||"")}" title="View custom work and linked orders in Appointments">${window.AdminTableValue.html(p.product_name||"Custom Product")}</a>`:window.AdminTableValue.html(p.product_name)}</td>
+          <td>${window.AdminTableValue.html(p.category)}</td>
+          <td>${window.AdminTableValue.html(p.total_sold ?? 0)}</td>
+          <td>${window.AdminTableValue.html(revenue)}</td>
+          <td><span class="perf-status ${statusClass}">${window.AdminTableValue.html(statusLabel)}</span></td>
         </tr>`;
       })
       .join("");

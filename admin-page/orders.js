@@ -535,8 +535,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const formatDateLabel = (value) => {
-    const date = new Date(value || Date.now());
-    if (Number.isNaN(date.getTime())) return "-";
+    if (window.AdminTableValue.missing(value)) return "--";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
     return date.toLocaleString("en-PH", {
       timeZone: PHILIPPINES_TIME_ZONE,
       month: "short",
@@ -548,8 +549,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const formatDateShort = (value) => {
-    const date = new Date(value || Date.now());
-    if (Number.isNaN(date.getTime())) return "-";
+    if (window.AdminTableValue.missing(value)) return "--";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
     return date.toLocaleDateString("en-PH", {
       timeZone: PHILIPPINES_TIME_ZONE,
       month: "short",
@@ -1522,7 +1524,7 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    return `<span class="status-pill status-grey">${escapeHtml(method || "N/A")}</span>`;
+    return `<span class="status-pill status-grey">${window.AdminTableValue.html(method)}</span>`;
   };
 
   const renderIncomingTable = () => {
@@ -1538,14 +1540,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const statusClass = lifecycleClass("incoming");
         return `
           <tr>
-            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="incoming-orders" value="${order.id}" aria-label="Select ${escapeHtml(order.order_no_display || `order ${order.order_no || order.id}`)}" /></td>
-            <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
-            <td>${escapeHtml(order.customer_name || "Customer")}</td>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="incoming-orders" value="${order.id}" aria-label="Select ${window.AdminTableValue.html(order.order_no_display || `order ${order.order_no || order.id}`)}" /></td>
+            <td>${window.AdminTableValue.html(order.order_no_display || `#${order.order_no || order.id}`)}</td>
+            <td>${window.AdminTableValue.html(order.customer_name)}</td>
             <td class="order-items-cell">${renderOrderItemsInline(order)}${renderAppointmentLink(order)}</td>
-            <td>${escapeHtml(formatQuantity(order.quantity))}</td>
+            <td>${window.AdminTableValue.html(formatQuantity(order.quantity))}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
-            <td>${escapeHtml(formatDateLabel(order.created_at))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(formatDateLabel(order.created_at))}</td>
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -1579,16 +1581,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const statusCell = order.cancel_pending ? `<button type="button" class="status-pill status-blue status-pill-action" data-cancellation-review="${order.id}">Cancellation requested</button>` : canTrack
           ? `<button type="button" class="status-pill ${statusClass} status-pill-action" data-order-track="${order.id}">${escapeHtml(order.lifecycle_status_label || "Pending")}</button>`
-          : `<span class="status-pill ${statusClass}">${escapeHtml(order.lifecycle_status_label || "Pending")}</span>`;
+          : `<span class="status-pill ${statusClass}">${window.AdminTableValue.html(order.lifecycle_status_label || "Pending")}</span>`;
 
         return `
           <tr>
-            <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
-            <td>${escapeHtml(formatDateShort(order.created_at))}</td>
-            <td>${escapeHtml(order.customer_name || "Customer")}</td>
+            <td>${window.AdminTableValue.html(order.order_no_display || `#${order.order_no || order.id}`)}</td>
+            <td>${window.AdminTableValue.html(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
+            <td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td>
+            <td>${window.AdminTableValue.html(order.customer_name)}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
             <td>${statusCell}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -1622,7 +1624,7 @@ document.addEventListener("DOMContentLoaded", () => {
           payment.completed_at ||
           payment.updated_at ||
           payment.created_at;
-        const paymentMethod = payment.payment_method_label || payment.payment_method || payment.method || "N/A";
+        const paymentMethod = payment.payment_method_label || payment.payment_method || payment.method;
         // Completed orders can now be refunded, so this column has to call out a
         // reversed payment instead of reporting every row as Completed.
         const isRefunded =
@@ -1634,14 +1636,14 @@ document.addEventListener("DOMContentLoaded", () => {
           formatMoney(payment.total_amount || payment.amount);
         return `
           <tr>
-            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="payment-orders" value="${orderId}" aria-label="Select payment for ${escapeHtml(orderNo)}" /></td>
-            <td>${escapeHtml(paymentId)}</td>
-            <td>${escapeHtml(orderNo)}</td>
-            <td>${escapeHtml(payment.customer_name || "Customer")}</td>
-            <td>${escapeHtml(paymentMethod)}</td>
-            <td>${escapeHtml(paymentAmountLabel)}</td>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="payment-orders" value="${orderId}" aria-label="Select payment for ${window.AdminTableValue.html(orderNo)}" /></td>
+            <td>${window.AdminTableValue.html(paymentId)}</td>
+            <td>${window.AdminTableValue.html(orderNo)}</td>
+            <td>${window.AdminTableValue.html(payment.customer_name)}</td>
+            <td>${window.AdminTableValue.html(paymentMethod)}</td>
+            <td>${window.AdminTableValue.html(paymentAmountLabel)}</td>
             <td><span class="status-pill ${isRefunded ? "status-red" : "status-green"}">${isRefunded ? "Refunded" : "Completed"}</span></td>
-            <td>${escapeHtml(paidAt ? formatDateLabel(paidAt) : "-")}</td>
+            <td>${window.AdminTableValue.html(paidAt ? formatDateLabel(paidAt) : null)}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${orderId}"><i class="fa-regular fa-eye"></i></button>
               ${payment.payment_is_automated ? `<button type="button" data-tooltip="Manage online refund" aria-label="Manage online refund" data-gateway-manage="${orderId}"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>` : ''}
@@ -1706,19 +1708,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `
         <tr>
-          <td>${escapeHtml(row.order_no || "-")}</td>
-          <td>${escapeHtml(row.customer_name || row.customer || "-")}</td>
-          <td title="${escapeHtml(row.address || "-")}">${escapeHtml(row.address || "-")}</td>
-          <td>${escapeHtml(row.contact_number || "-")}</td>
-          <td>${escapeHtml(row.client_type || "-")}${row.client_type_other ? `: ${escapeHtml(row.client_type_other)}` : ""}</td>
-          <td>${escapeHtml(row.agency_organization || "-")}</td>
-          <td>${escapeHtml(row.project_description || "-")}${row.project_description_other ? `: ${escapeHtml(row.project_description_other)}` : ""}</td>
-          <td title="${escapeHtml(row.item_detail || row.order_item || "-")}">${escapeHtml(row.item_detail || row.order_item || "-")}</td>
-          <td>${escapeHtml(row.unit || "-")}</td>
-          <td>${escapeHtml(row.subtotal_cost_label || formatMoney(row.subtotal_cost))}</td>
-          <td>${escapeHtml(row.total_label || formatMoney(row.total))}</td>
-          <td>${escapeHtml(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
-          <td><span class="status-pill ${walkInStatusClass(row)}">${escapeHtml(walkInStatusLabel(row))}</span></td>
+          <td>${window.AdminTableValue.html(row.order_no)}</td>
+          <td>${window.AdminTableValue.html(row.customer_name || row.customer)}</td>
+          <td title="${window.AdminTableValue.html(row.address)}">${window.AdminTableValue.html(row.address)}</td>
+          <td>${window.AdminTableValue.html(row.contact_number)}</td>
+          <td>${window.AdminTableValue.html(row.client_type)}${row.client_type_other ? `: ${window.AdminTableValue.html(row.client_type_other)}` : ""}</td>
+          <td>${window.AdminTableValue.html(row.agency_organization)}</td>
+          <td>${window.AdminTableValue.html(row.project_description)}${row.project_description_other ? `: ${window.AdminTableValue.html(row.project_description_other)}` : ""}</td>
+          <td title="${window.AdminTableValue.html(row.item_detail || row.order_item)}">${window.AdminTableValue.html(row.item_detail || row.order_item)}</td>
+          <td>${window.AdminTableValue.html(row.unit)}</td>
+          <td>${window.AdminTableValue.html(row.subtotal_cost_label || formatMoney(row.subtotal_cost))}</td>
+          <td>${window.AdminTableValue.html(row.total_label || formatMoney(row.total))}</td>
+          <td>${window.AdminTableValue.html(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
+          <td><span class="status-pill ${walkInStatusClass(row)}">${window.AdminTableValue.html(walkInStatusLabel(row))}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Order Info" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
             ${isSettled ? "" : `<button type="button" data-tooltip="Mark as Done" data-walkin-complete="${row.id}"><i class="fa-solid fa-circle-check"></i></button>`}
@@ -1755,11 +1757,11 @@ document.addEventListener("DOMContentLoaded", () => {
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="rejected-orders" value="${order.id}" aria-label="Select ${orderNo}" /></td>
             <td>${orderNo}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
-            <td>${escapeHtml(formatDateShort(order.created_at))}</td>
-            <td>${escapeHtml(order.customer_name || "Customer")}</td>
+            <td>${window.AdminTableValue.html(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td>
+            <td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td>
+            <td>${window.AdminTableValue.html(order.customer_name)}</td>
             <td>${renderPaymentMethodCell(order)}</td>
-            <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${window.AdminTableValue.html(order.total_label || formatMoney(order.total_amount))}</td>
             <td><span class="status-pill status-red">Rejected</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -1783,7 +1785,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const refunded = order.payment_status === "refunded";
         const paid = order.payment_status === "paid";
         const label = refunded ? "Refund recorded" : paid ? "Refund due" : "Verify payment";
-        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
+        return `<tr><td>${window.AdminTableValue.html(order.order_no_display || order.order_no)}</td><td>${window.AdminTableValue.html(order.product_name || "Custom Order")}${order.order_type==="custom"?`<br>${renderAppointmentLink(order)}`:""}</td><td>${window.AdminTableValue.html(formatDateShort(order.created_at))}</td><td>${window.AdminTableValue.html(order.customer_name)}</td><td>${renderPaymentMethodCell(order)}</td><td>${window.AdminTableValue.html(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
       },
     });
   };
@@ -1981,17 +1983,17 @@ document.addEventListener("DOMContentLoaded", () => {
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="order-returns" value="${row.id}" aria-label="Select return ${returnNo}" ${row.can_archive ? "" : "disabled"} /></td>
             <td>${returnNo}${evidenceBadge}</td>
-            <td>${escapeHtml(row.order_no_display || `#${row.order_no || row.order_id}`)}</td>
-            <td>${escapeHtml(formatDateShort(row.requested_at || row.created_at))}</td>
-            <td>${escapeHtml(row.customer_name || "Customer")}</td>
+            <td>${window.AdminTableValue.html(row.order_no_display || `#${row.order_no || row.order_id}`)}</td>
+            <td>${window.AdminTableValue.html(formatDateShort(row.requested_at || row.created_at))}</td>
+            <td>${window.AdminTableValue.html(row.customer_name)}</td>
             <td class="order-items-cell">${renderOrderItemsInline(row)}</td>
-            <td>${escapeHtml(row.reason_label || "-")}</td>
-            <td>${escapeHtml(row.resolution_label || "-")}</td>
+            <td>${window.AdminTableValue.html(row.reason_label)}</td>
+            <td>${window.AdminTableValue.html(row.resolution_label)}</td>
             <td>
               <div>${escapeHtml(amount.label)}</div>
               <div class="return-amount-caption">${amount.caption}</div>
             </td>
-            <td><span class="status-pill ${returnStatusClass(row.status)}">${escapeHtml(returnStatusLabel(row))}</span></td>
+            <td><span class="status-pill ${returnStatusClass(row.status)}">${window.AdminTableValue.html(returnStatusLabel(row))}</span></td>
             <td class="action-icons sticky-action">${renderReturnActionIcons(row, returnNo)}</td>
           </tr>
         `;
@@ -3226,10 +3228,10 @@ document.addEventListener("DOMContentLoaded", () => {
               .map(
                 (item) => `
                   <tr>
-                    <td>${escapeHtml(item?.product_name || "Returned item")}</td>
-                    <td>${escapeHtml(String(item?.quantity ?? 1))}</td>
-                    <td>${escapeHtml(item?.unit_price_label || formatMoney(item?.unit_price))}</td>
-                    <td>${escapeHtml(item?.line_total_label || formatMoney(item?.line_total))}</td>
+                    <td>${window.AdminTableValue.html(item?.product_name || "Returned item")}</td>
+                    <td>${window.AdminTableValue.html(String(item?.quantity ?? 1))}</td>
+                    <td>${window.AdminTableValue.html(item?.unit_price_label || formatMoney(item?.unit_price))}</td>
+                    <td>${window.AdminTableValue.html(item?.line_total_label || formatMoney(item?.line_total))}</td>
                   </tr>`,
               )
               .join("")}

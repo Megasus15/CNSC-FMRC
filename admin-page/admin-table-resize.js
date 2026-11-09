@@ -155,7 +155,7 @@
      like a bug. Keys written before the band was added simply never match again
      and the column re-measures. */
   const storageKey = (state) =>
-    `${STORE_PREFIX}${location.pathname}#${state.table.id || state.index}:${state.sig}:${LIM.name}`;
+    `${STORE_PREFIX}${location.pathname}#${state.table.id || state.index}:${state.sig}:${LIM.name}${state.table.id === "appointmentsTable" ? ":compact-purpose-v2" : ""}`;
 
   const readStored = (state) => {
     try {

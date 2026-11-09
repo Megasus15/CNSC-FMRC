@@ -119,6 +119,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeTimePickerContext = null;
   let viewingAppointment = null;
   let archivingAppointmentId = null;
+  let archiveRequestPending = false;
+  let appointmentReadVersion = 0;
+  const forgetArchivedAppointments = (ids) => {
+    ++appointmentReadVersion; // Invalidate reads started before the mutation completed.
+    const removed = new Set(ids.map(String));
+    state.appointments = state.appointments.filter(item => !removed.has(String(item.id)));
+    renderTable();
+  };
   let appointmentBulkController = null;
 
   const state = {
@@ -502,13 +510,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchAppointments = async () => {
+    const readVersion = ++appointmentReadVersion;
     const response = await fetch(`${API_BASE_URL}/appointments`, {
       cache: 'no-store',
       headers: { Accept: "application/json",Authorization:"Bearer "+(window.AdminSession?.getToken()||"") },
     });
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
-    const appointments = (Array.isArray(payload?.data) ? payload.data : []).map(appointment => {
+    if (readVersion !== appointmentReadVersion) return;
+    const appointments = (Array.isArray(payload?.data) ? payload.data : [])
+      .filter(item => String(item.status).toLowerCase() !== 'archived').map(appointment => {
       const savedAppointment = state.appointments.find(item => item.id === appointment.id);
       const saved = savedAppointment?.custom_product;
       const incoming = appointment.custom_product;
@@ -588,7 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const filteredAppointments = () => {
     const query = (searchInput?.value || "").trim().toLowerCase();
-    let source=state.appointments;
+    let source=state.appointments.filter(item => String(item.status).toLowerCase() !== "archived");
     if(document.getElementById('appointmentWorkFilter')?.value==='custom') {
       source=source.filter(a=>!!a.custom_product);
       const service=new URLSearchParams(location.search).get('custom_service');if(service)source=source.filter(a=>a.custom_product.service_name===service);
@@ -637,12 +648,12 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {{emptyHtml?: string, withThumb?: boolean}} [options]
    */
   const attachmentHtml = (appointment, options = {}) => {
-    const emptyHtml = options.emptyHtml ?? "N/A";
+    const emptyHtml = options.emptyHtml ?? "--";
     if(appointment.attachments?.length)return window.AdminAppointmentDetails?.files(appointment, options)||emptyHtml;
     const fileName = safe(appointment.attachment_name);
     const fileUrl = String(appointment.attachment_url || "").trim();
 
-    if (fileName === "N/A") return emptyHtml;
+    if (window.AdminTableValue.missing(appointment.attachment_name)) return emptyHtml;
     if (!fileUrl) return `<span class="photo-link">${fileName}</span>`;
 
     const kind =
@@ -694,17 +705,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<tr>
           <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="appointments" value="${item.id}" aria-label="Select ${formatApNo(item.reference_no)}" /></td>
           <td>${formatApNo(item.reference_no)}</td>
-          <td title="${safe(item.client_name)}">${safe(item.client_name)}</td>
-          <td>${safe(item.contact_number)}</td>
-          <td>${safe(item.email)}</td>
-          <td title="${safe(item.full_address)}">${safe(item.full_address)}</td>
-          <td>${safe(item.client_type)}</td>
-          <td>${safe(item.purpose)}${item.custom_product?`<div class="appointment-custom-work"><strong>${safe(item.custom_product.requirements?.name||'Custom product')}</strong><span class="ap-badge">${safe(item.custom_product.stage)}</span>${(item.custom_product.orders||[]).slice(0,1).map(order=>`<a class="ap-reference-link" href="orders.html?order_id=${encodeURIComponent(order.id)}" aria-label="Open order ${safe(order.order_no)}">${safe(order.order_no)}</a>`).join('')}</div>`:""}</td>
+          <td title="${window.AdminTableValue.html(item.client_name)}">${window.AdminTableValue.html(item.client_name)}</td>
+          <td>${window.AdminTableValue.html(item.contact_number)}</td>
+          <td>${window.AdminTableValue.html(item.email)}</td>
+          <td title="${window.AdminTableValue.html(item.full_address)}">${window.AdminTableValue.html(item.full_address)}</td>
+          <td>${window.AdminTableValue.html(item.client_type)}</td>
+          <td>${window.AdminTableValue.html(item.purpose)}</td>
           <td>${fileCell}</td>
-          <td title="${safe(item.additional_notes)}">${safe(item.additional_notes)}</td>
-          <td>${prettyDate(item.appointment_date)}</td>
-          <td>${safe(item.appointment_time)}</td>
-          <td><span class="status-pill ${statusClass(item.status)}">${item.custom_product?'Consultation: ':''}${safe(item.status)}</span></td>
+          <td title="${window.AdminTableValue.html(item.additional_notes)}">${window.AdminTableValue.html(item.additional_notes)}</td>
+          <td>${window.AdminTableValue.missing(item.appointment_date) ? "--" : prettyDate(item.appointment_date)}</td>
+          <td>${window.AdminTableValue.html(item.appointment_time)}</td>
+          <td><span class="status-pill ${statusClass(item.status)}">${item.custom_product?'Consultation: ':''}${window.AdminTableValue.html(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
             ${["completed", "cancelled", "archived"].includes(String(item.status || "").toLowerCase()) ? "" : `<button type="button" class="appointment-complete-action" data-tooltip="Mark as Done" data-complete-id="${item.id}"><i class="fa-solid fa-circle-check"></i></button>`}
@@ -788,6 +799,7 @@ document.addEventListener("DOMContentLoaded", () => {
                       "Failed to archive selected appointments.",
                   );
                 }
+                forgetArchivedAppointments(payload.processed_ids || []);
                 return payload;
               },
               afterSuccess: async () => {
@@ -1211,6 +1223,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Appointment Archive Modal ──────────────────────────────────────────────
   const openAppointmentArchiveModal = (appt) => {
+    if (archiveRequestPending || archivingAppointmentId !== null) return;
     if (!isAppointmentCompleted(appt)) {
       window.showAdminPopup?.(
         "Only appointments marked as Done can be archived.",
@@ -1228,6 +1241,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnCancelArchiveAppt")
     ?.addEventListener("click", () => {
+      if (archiveRequestPending) return;
       document
         .getElementById("modalArchiveAppointment")
         ?.classList.remove("show");
@@ -1237,7 +1251,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnConfirmArchiveAppt")
     ?.addEventListener("click", async () => {
-      if (!archivingAppointmentId) return;
+      if (!archivingAppointmentId || archiveRequestPending) return;
+      const appointmentId = archivingAppointmentId;
+      archiveRequestPending = true;
+      const cancelBtn = document.getElementById("btnCancelArchiveAppt");
+      if (cancelBtn) cancelBtn.disabled = true;
 
       const confirmBtn = document.getElementById("btnConfirmArchiveAppt");
       if (confirmBtn) {
@@ -1254,7 +1272,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const res = await fetch(
-          `${API_BASE_URL}/appointments/${archivingAppointmentId}/archive`,
+          `${API_BASE_URL}/appointments/${appointmentId}/archive`,
           {
             method: "PATCH",
             headers: {
@@ -1277,6 +1295,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .getElementById("modalArchiveAppointment")
           ?.classList.remove("show");
         archivingAppointmentId = null;
+        forgetArchivedAppointments([appointmentId]);
         await refreshAll();
         setTimeout(() => {
           window.showAdminPopup?.(
@@ -1290,6 +1309,8 @@ document.addEventListener("DOMContentLoaded", () => {
           title: "Error",
         });
       } finally {
+        archiveRequestPending = false;
+        if (cancelBtn) cancelBtn.disabled = false;
         if (confirmBtn) {
           confirmBtn.disabled = false;
           confirmBtn.innerHTML =

@@ -352,8 +352,8 @@
 
   const asArray = (value) => (Array.isArray(value) ? value : []);
 
-  const asDisplayText = (value, fallback = "—") => {
-    if (value === null || value === undefined || value === "") return fallback;
+  const asDisplayText = (value, fallback = "--") => {
+    if (window.AdminTableValue.missing(value)) return fallback;
     if (typeof value === "object") {
       return String(
         value.name || value.email || value.label || value.title || fallback,
@@ -374,7 +374,7 @@
   const normalizeType = (value) => String(value || "text").toLowerCase();
 
   const formatDateValue = (value, includeTime = false) => {
-    if (value === null || value === undefined || value === "") return "—";
+    if (window.AdminTableValue.missing(value)) return window.AdminTableValue.text(value);
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return String(value);
     return includeTime
@@ -383,7 +383,7 @@
   };
 
   const formatValue = (value, type = "text") => {
-    if (value === null || value === undefined || value === "") return "—";
+    if (window.AdminTableValue.missing(value)) return window.AdminTableValue.text(value);
 
     const normalizedType = normalizeType(type);
     if (["currency", "money", "amount", "sales"].includes(normalizedType)) {

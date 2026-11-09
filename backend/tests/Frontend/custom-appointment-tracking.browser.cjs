@@ -68,8 +68,8 @@ for(const portal of ['admin','staff'])test(`${portal} opens archived custom appo
   await h.send('Network.setBlockedURLs',{urls:['https://*']});
   await h.go(`/${portal}-page/appointments.html?appointment_id=54`);
   await h.until(`document.querySelector('#modalViewAppointment.show [data-remove-meeting]')`);
-  assert.match(await h.run(`document.querySelector('#appointmentsTableBody').textContent`),/AP-00054/);
-  assert.match(await h.run(`document.querySelector('#appointmentsTableBody').textContent`),/Consultation: Archived/);
+  assert.doesNotMatch(await h.run(`document.querySelector('#appointmentsTableBody').textContent`),/AP-00054/);
+  assert.match(await h.run(`document.querySelector('#modalViewAppointment').textContent`),/AP-00054/);
   assert.match(await h.run(`document.querySelector('.ap-linked-orders').textContent`),/ORD-000081/);
   assert.equal(await h.run(`document.querySelector('#modalViewAppointment [data-remove-meeting]').classList.contains('btn-admin')`),true);
   for(const theme of ['light','dark'])for(const width of [390,1440]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await h.run(`document.documentElement.dataset.theme='${theme}';document.querySelector('#modalViewAppointment [data-remove-meeting]').scrollIntoView({block:'center',behavior:'instant'})`);assert.equal(await h.run(`document.getElementById('apptViewBody').scrollWidth>document.getElementById('apptViewBody').clientWidth+1`),false);await h.shot(portal+'-appointment-meeting-'+theme+'-'+width);}

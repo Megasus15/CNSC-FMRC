@@ -153,13 +153,55 @@ class OptionalAppointmentProductsTest extends TestCase
             foreach (['Completed', 'Cancelled', 'Archived'] as $status) {
                 $job->appointment->update(['status' => $status]);
                 $feed = $this->getJson('/api/appointments')->assertOk()->json('data');
-                $this->assertContains($job->appointment_id, array_column($feed, 'id'));
+                if ($status === 'Archived') $this->assertNotContains($job->appointment_id, array_column($feed, 'id'));
+                else $this->assertContains($job->appointment_id, array_column($feed, 'id'));
                 $this->assertNotContains($ordinary->id, array_column($feed, 'id'));
                 $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertOk()->assertJsonPath('data.status', $status)->assertJsonPath('data.custom_product.id', $job->id);
             }
         }
         Sanctum::actingAs($this->customer);
         $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertForbidden();
+    }
+
+    public function test_archiving_one_consultation_never_archives_siblings_or_another_custom_request(): void
+    {
+        $job = $this->booked();
+        $job->update(['state' => 'cancelled']);
+        $first = $job->appointment;
+        $first->update(['status' => 'Completed']);
+        $sibling = $first->replicate(['reference_no']);
+        $sibling->reference_no = 'AP-SIBLING';
+        $sibling->save();
+        $otherJob = $job->replicate(['appointment_id', 'request_key']);
+        $otherJob->request_key = (string) \Illuminate\Support\Str::uuid();
+        $otherJob->save();
+        $independent = $first->replicate(['reference_no']);
+        $independent->forceFill(['reference_no' => 'AP-INDEPENDENT', 'product_job_id' => $otherJob->id])->save();
+        $otherJob->update(['appointment_id' => $independent->id]);
+        $jobsBefore = AppointmentProductJob::orderBy('id')->get()->toArray();
+        foreach ([$this->admin, $this->staff] as $operator) {
+            Sanctum::actingAs($operator);
+            $url = '/api/appointments/'.$first->id;
+            $this->patchJson($url.'/archive')->assertOk();
+            $this->patchJson($url.'/archive')->assertOk();
+            $this->assertSame('Archived', $first->fresh()->status);
+            $this->assertSame('Completed', $sibling->fresh()->status);
+            $this->assertSame('Completed', $independent->fresh()->status);
+            $this->assertNotContains($first->id, array_column($this->getJson('/api/appointments')->assertOk()->json('data'), 'id'));
+            $this->getJson('/api/admin/appointments/'.$first->id)->assertOk()->assertJsonPath('data.status', 'Archived');
+            $this->patchJson($url.'/unarchive')->assertOk()->assertJsonPath('data.status', 'Completed');
+        }
+        // A stale selection cannot archive an appointment whose eligibility changed.
+        $sibling->update(['status' => 'Pending']);
+        $this->patchJson('/api/appointments/'.$sibling->id.'/archive')->assertUnprocessable();
+        $this->patchJson('/api/appointments/archive-bulk', ['ids' => [$first->id, $sibling->id]])
+            ->assertOk()->assertJsonPath('processed_ids', [$first->id])->assertJsonPath('skipped_ids', [$sibling->id]);
+        $this->assertSame('Pending', $sibling->fresh()->status);
+        $this->assertSame('Completed', $independent->fresh()->status);
+        $this->assertSame($jobsBefore, AppointmentProductJob::orderBy('id')->get()->toArray());
+        $this->assertSame(0, Order::count());
+        Sanctum::actingAs($this->customer);
+        $this->patchJson('/api/appointments/'.$independent->id.'/archive')->assertForbidden();
     }
 
     public function test_closed_custom_order_exposes_authorized_meeting_cleanup_without_changing_its_agreement(): void
