@@ -3795,6 +3795,7 @@ body.reports-page .module-content {
 .report-generate-slot {
   display: flex;
   justify-content: flex-end;
+  grid-column: 5 / -1;
 }
 
 .report-generate-slot .btn-admin {

@@ -279,13 +279,13 @@
     "custom_products",
   ]);
   const CATEGORY_LABELS = {
-    sales: "Overall Sales",
+    sales: "Sales",
     completed_orders: "Completed Orders",
     processing_orders: "Processing Orders",
     appointments: "Appointments",
-    inventory: "Inventory Stocks",
-    product_inventory: "Product Stocks",
-    custom_products: "Custom Products",
+    inventory: "Inventory",
+    product_inventory: "Product Stock",
+    custom_products: "Custom Orders",
   };
   const SERIES_COLORS = [
     "#800000",
