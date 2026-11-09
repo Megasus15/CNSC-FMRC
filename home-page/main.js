@@ -9314,6 +9314,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return lifecycle === "rejected" || lifecycle === "cancelled";
       };
 
+      const isCustomProductOrder = (order) =>
+        String(order?.order_type || "").toLowerCase() === "custom" ||
+        Boolean(order?.custom_product);
+
       const getVisibleOrdersByPanel = (stageKey) => {
         if (stageKey === "returns") {
           // Keep In Progress / History sections; newest requests lead each section.
@@ -9327,7 +9331,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         // To Rate keeps its existing unrated/rated sections in newest-first order.
         const stage = stageKey === "to_rate" ? "completed" : stageKey;
-        return orders.filter(order => !isDeadOrder(order) && String(order.customer_stage || "") === stage);
+        return orders.filter(order => !isDeadOrder(order) && String(order.customer_stage || "") === stage
+          && (stageKey !== "to_rate" || !isCustomProductOrder(order)));
       };
 
       const setActivePanel = (index) => {
@@ -9908,6 +9913,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const order = state.orders.find(
           (row) => String(row.id) === String(orderId),
         );
+        if (isCustomProductOrder(order)) return;
         const items = getBuyAgainItems(order);
 
         if (items.length > 1) {
@@ -9927,6 +9933,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
         if (!orderId) return;
         const selectedOrder = state.orders.find((order) => String(order.id) === String(orderId));
+        if (isCustomProductOrder(selectedOrder)) return;
         void openRatingModal(orderId, orderName, selectedOrder);
       };
 
@@ -11576,10 +11583,10 @@ document.addEventListener("DOMContentLoaded", () => {
                   <div class="customer-order-actions">
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
                     ${payActionsHtml}
-                    ${String(order.customer_stage) === 'completed' && isLive && !order.has_rating
+                    ${isCompleted && !isCustomProductOrder(order) && !order.has_rating
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
                       : ''}
-                    ${isCompleted
+                    ${isCompleted && !isCustomProductOrder(order)
                       ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}">Buy Again</button>`
                       : ''}
                     ${returnActionsHtml}
@@ -12459,6 +12466,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const orderId = rateBtn.getAttribute("data-order-rate") || "";
           const orderName = rateBtn.getAttribute("data-order-name") || "Order";
           if (!orderId) return;
+          if (isCustomProductOrder(state.orders.find(order => String(order.id) === String(orderId)))) return;
           void openRatingModal(orderId, orderName);
           return;
         }
