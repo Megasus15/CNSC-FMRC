@@ -16,7 +16,7 @@ async function browserFixture(t, apiHandler = () => null) {
     try {
       if (route.startsWith('/api/')) {
         const role = String(req.headers.authorization || '').includes('staff') ? 'staff' : 'admin';
-        if (await apiHandler({req, route, json, role})) return;
+        if (await apiHandler({req, res, route, json, role})) return;
         if (route === '/api/user') return json({id:role === 'admin' ? 11 : 22, role, email:role+'@example.test', username:'Fixture'});
         if (route === '/api/admin/preferences') return json({user_id:role === 'admin' ? 11 : 22,preferences:{theme:'light',compact:false,reducedMotion:false}});
         if (route === '/api/admin/session') return json({server_time:new Date().toISOString(),idle_warning_at:new Date(Date.now()+3600000).toISOString(),idle_expires_at:new Date(Date.now()+3780000).toISOString(),absolute_expires_at:new Date(Date.now()+21600000).toISOString()});

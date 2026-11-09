@@ -8,6 +8,7 @@
   const REPORT_ROWS_PER_SHEET_FALLBACK = 10;
   const REPORT_POLL_INTERVAL_MS = 30_000;
   const REPORT_REQUEST_TIMEOUT_MS = 20_000;
+  const REPORT_RETRY_MAX_MS = 300_000;
   const SITE_SETTINGS_REQUEST_TIMEOUT_MS = 8_000;
   const REPORT_ASSET_TIMEOUT_MS = 10_000;
   // Cap on the best-effort decode of one letterhead image (see
@@ -672,10 +673,17 @@
       tableIndex: 0,
       tableCategory: '',
       isLoading: false,
+      reportRequest: null,
+      refreshQueued: false,
+      refreshFailures: 0,
+      retryNotBefore: 0,
+      disposed: false,
       pollTimer: 0,
       realtimeTimer: 0,
       ordersChannel: null,
+      productsChannel: null,
       siteSettingsChannel: null,
+      unsubscribeLiveData: null,
       letterhead: { ...REPORT_LETTERHEAD_DEFAULTS },
       letterheadStored: {},
       letterheadPromise: null,
@@ -698,6 +706,12 @@
     const setButtonPending = (button, active, label) => {
       if (!button) return;
       if (active) {
+        // An export uses the saved snapshot. A pending quiet read must not
+        // replace that snapshot halfway through measuring or exporting it.
+        if ([elements.preview, elements.print, elements.csv, elements.excel].includes(button)
+          && state.reportRequest?.background) {
+          state.reportRequest.controller.abort();
+        }
         if (!button.dataset.reportOriginalHtml) {
           button.dataset.reportOriginalHtml = button.innerHTML;
         }
@@ -715,10 +729,13 @@
       button.disabled = false;
     };
 
+    const artifactIsPending = () => state.previewPreparing || Boolean(state.previewRenderPromise)
+      || [elements.preview, elements.print, elements.csv, elements.excel]
+        .some((button) => button?.getAttribute("aria-busy") === "true");
+
     const syncActionButtons = () => {
       const isPending = (button) => button?.getAttribute("aria-busy") === "true";
-      const artifactPending = state.previewPreparing || Boolean(state.previewRenderPromise)
-        || [elements.preview, elements.print, elements.csv, elements.excel].some(isPending);
+      const artifactPending = artifactIsPending();
       if (elements.generate) {
         elements.generate.disabled = state.isLoading || artifactPending || isPending(elements.generate);
       }
@@ -1010,12 +1027,18 @@
         .join("");
     };
 
-    const renderTablePage = () => {
+    const activeReportTable = () => {
       const tables = state.reportData ? [state.reportData.table, ...state.reportData.additional_tables] : [];
-      const tableData = tables[state.tableIndex] || {
+      return tables[state.tableIndex] || {
         columns: [],
         rows: [],
       };
+    };
+
+    const reportTablePageCount = () => Math.max(1, Math.ceil(activeReportTable().rows.length / REPORT_PAGE_SIZE));
+
+    const renderTablePage = () => {
+      const tableData = activeReportTable();
       const columns = tableData.columns;
       const rows = tableData.rows;
       elements.tableTitle.textContent = tableData.title || 'Report Details';
@@ -1114,7 +1137,7 @@
       return `report-${Date.now().toString(36)}-${random}`;
     };
 
-    const requestReport = async (params, source = "refresh") => {
+    const requestReport = async (params, source = "refresh", controller = new AbortController()) => {
       const token = getToken();
       if (!token) {
         const error = new Error("Please sign in again to access live reports.");
@@ -1132,13 +1155,6 @@
         query.set("quarter", String(params.quarter));
       }
 
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(
-        () => controller.abort(),
-        REPORT_REQUEST_TIMEOUT_MS,
-      );
-      let response;
-      let payload = {};
       const isIntentionalGeneration = source === "generate" && !window.AdminSession?.isSpectator?.();
       const requestUrl = isIntentionalGeneration
         ? `${API_BASE_URL}/admin/reports/generate`
@@ -1153,8 +1169,17 @@
             generation_key: params.generationKey,
           })
         : undefined;
-      try {
-        response = await fetch(requestUrl, {
+      let timeoutId;
+      const deadline = new Promise((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          const error = new Error("The reports request timed out. Please try again.");
+          error.status = 408;
+          reject(error);
+          controller.abort();
+        }, REPORT_REQUEST_TIMEOUT_MS);
+      });
+      const read = async () => {
+        const response = await fetch(requestUrl, {
           method: isIntentionalGeneration ? "POST" : "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1169,32 +1194,64 @@
           cache: "no-store",
           signal: controller.signal,
         });
-        payload = await response.json().catch(() => ({}));
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          throw new Error("The reports request timed out. Please try again.");
+        let payload;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          // Aborting a stalled response body is still a failed refresh. Never
+          // turn it into an empty, success-shaped report.
+          if (controller.signal.aborted || error?.name === "AbortError") throw error;
+          if (response.ok) throw new Error("The report response was incomplete. Please try again.");
         }
-        throw error;
+        if (!response.ok) {
+          const error = new Error(
+            payload?.message || "Unable to load this report. Please try again.",
+          );
+          error.status = response.status;
+          error.code = payload?.code || payload?.error?.code || "";
+          const retryAfter = response.headers.get("Retry-After");
+          const retryDelay = /^\d+$/.test(retryAfter || "")
+            ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+          error.retryAfterMs = Math.max(0, retryDelay || 0);
+          throw error;
+        }
+        const data = payload?.data || payload;
+        if (!data?.report || !Array.isArray(data?.table?.rows)) {
+          throw new Error("The report response was incomplete. Please try again.");
+        }
+        return normalizeReportPayload(payload);
+      };
+      try {
+        // Cover both response headers and JSON body, even if a fetch wrapper
+        // does not settle promptly after its signal is aborted.
+        return await Promise.race([read(), deadline]);
       } finally {
         window.clearTimeout(timeoutId);
       }
-
-      if (!response.ok) {
-        const error = new Error(
-          payload?.message || "Unable to load this report. Please try again.",
-        );
-        error.status = response.status;
-        error.code = payload?.code || payload?.error?.code || "";
-        throw error;
-      }
-      return normalizeReportPayload(payload);
     };
 
     const loadReport = async (params, source = "refresh") => {
       if (source === "generate" && window.AdminSession?.isSpectator?.()) source = "refresh";
-      if (state.isLoading) return false;
-      state.isLoading = true;
+      if (state.disposed) return false;
+      const background = ["poll", "realtime"].includes(source);
+      if (state.reportRequest) {
+        if (background || !state.reportRequest.background) {
+          if (source === "realtime") state.refreshQueued = true;
+          return false;
+        }
+        // Explicit Refresh/Generate takes priority over a slow automatic read.
+        // The superseded response must never overwrite the selected report.
+        state.reportRequest.controller.abort();
+      }
+      const request = { controller: new AbortController(), background };
+      state.reportRequest = request;
+      state.refreshQueued = false;
+      window.clearTimeout(state.pollTimer);
+      // Retain the initial selection even if the first read fails, so the
+      // automatic retry has a report to request without another button click.
+      if (!state.activeParams) state.activeParams = copyReportFilters(params);
       const hadGoodData = Boolean(state.reportData);
+      state.isLoading = !background || !hadGoodData;
       const preserveCurrentPage = hadGoodData &&
         ["poll", "realtime"].includes(source) &&
         reportFilterKey(state.activeParams || {}) === reportFilterKey(params);
@@ -1211,9 +1268,10 @@
       if (!hadGoodData) renderLoadingState();
 
       try {
-        const data = await requestReport(params, source);
+        const data = await requestReport(params, source, request.controller);
+        if (state.reportRequest !== request || request.controller.signal.aborted) return false;
         const synchronizedAt =
-          data.report.generated_at || new Date().toISOString();
+          data.report.snapshot_at || data.report.generated_at || new Date().toISOString();
         const filterKey = reportFilterKey(params);
         if (source === "generate") {
           state.auditedReport = {
@@ -1234,6 +1292,8 @@
           };
         }
         state.reportData = data;
+        state.refreshFailures = 0;
+        state.retryNotBefore = 0;
         state.activeParams = copyReportFilters(params);
         if (!preserveCurrentPage) state.currentPage = 1;
         window.AdminLiveData?.setAvailability?.("reports-data", true);
@@ -1260,15 +1320,26 @@
         }
         return true;
       } catch (error) {
+        if (state.reportRequest !== request || state.disposed
+          || (request.controller.signal.aborted && Number(error?.status) !== 408)) return false;
+        state.refreshFailures += 1;
+        const retryDelay = Math.max(
+          Math.min(REPORT_POLL_INTERVAL_MS * 2 ** Math.min(state.refreshFailures - 1, 4), REPORT_RETRY_MAX_MS),
+          Number(error?.retryAfterMs) || 0,
+        );
+        state.retryNotBefore = Date.now() + retryDelay;
         const message = window.AdminPageNotice.describe(error);
-        window.AdminPageNotice.show(error, { key: "reports" });
+        window.AdminPageNotice.show(error, {
+          key: "reports",
+          retry: () => { void loadReport({ ...(state.activeParams || params) }, "refresh"); },
+        });
         if (![400, 409, 422].includes(Number(error?.status))) {
           window.AdminLiveData?.setAvailability?.("reports-data", false);
         }
         if (hadGoodData) {
-          showPageMessage("Showing the last loaded report.");
+          showPageMessage(`${message} Showing the last loaded report. Automatic refresh will retry; you can also select Refresh.`);
         } else {
-          showPageMessage("");
+          showPageMessage("Automatic refresh will retry. You can also select Refresh.");
           renderInitialError(message);
         }
 
@@ -1282,9 +1353,13 @@
         }
         return false;
       } finally {
-        state.isLoading = false;
-        setButtonPending(initiatingButton, false);
-        syncActionButtons();
+        if (state.reportRequest === request) {
+          state.reportRequest = null;
+          state.isLoading = false;
+          setButtonPending(initiatingButton, false);
+          syncActionButtons();
+          scheduleReportRefresh(state.refreshQueued ? REPORT_REALTIME_DEBOUNCE_MS : REPORT_POLL_INTERVAL_MS);
+        }
       }
     };
 
@@ -2778,23 +2853,40 @@
       },
     });
 
+    function scheduleReportRefresh(delay = REPORT_POLL_INTERVAL_MS) {
+      window.clearTimeout(state.pollTimer);
+      if (documentOnly || state.disposed || document.hidden || navigator.onLine === false) return;
+      // Schedule after settlement, not on an interval that can immediately
+      // restart a failed request. Change signals also respect retry backoff.
+      state.pollTimer = window.setTimeout(
+        () => refreshActiveReport(state.refreshQueued ? "realtime" : "poll"),
+        Math.max(delay, state.retryNotBefore - Date.now()),
+      );
+    }
+
     const refreshActiveReport = (source) => {
-      if (!state.activeParams || state.isLoading) return;
-      if (state.previewPreparing || state.previewRenderPromise) return;
-      if ([elements.preview, elements.print, elements.csv, elements.excel]
-        .some((button) => button?.getAttribute("aria-busy") === "true")) return;
+      if (!state.activeParams || state.disposed) return;
+      if (document.hidden || navigator.onLine === false) {
+        state.refreshQueued = true;
+        return;
+      }
+      if (state.reportRequest) {
+        if (source === "realtime") state.refreshQueued = true;
+        return;
+      }
+      if (artifactIsPending() || Date.now() < state.retryNotBefore) {
+        state.refreshQueued = true;
+        scheduleReportRefresh(REPORT_REALTIME_DEBOUNCE_MS);
+        return;
+      }
       void loadReport({ ...state.activeParams }, source);
     };
 
-    const scheduleOrdersRealtimeRefresh = () => {
-      if (
-        document.visibilityState !== "visible" ||
-        !state.activeParams ||
-        !ORDER_DRIVEN_CATEGORIES.has(state.activeParams.category)
-      ) {
-        return;
-      }
+    const scheduleRealtimeRefresh = (categories) => {
+      if (!state.activeParams || (categories && !categories.has(state.activeParams.category))) return;
+      state.refreshQueued = true;
       window.clearTimeout(state.realtimeTimer);
+      if (document.hidden || navigator.onLine === false) return;
       state.realtimeTimer = window.setTimeout(
         () => refreshActiveReport("realtime"),
         REPORT_REALTIME_DEBOUNCE_MS,
@@ -2802,9 +2894,23 @@
     };
 
     const setupRealtime = () => {
+      const scheduleOrdersRealtimeRefresh = () => scheduleRealtimeRefresh(ORDER_DRIVEN_CATEGORIES);
+      const appointmentCategories = new Set(["appointments", "custom_products"]);
+      const stockCategories = new Set(["inventory", "product_inventory"]);
       window.addEventListener("fmrc:orders-updated", scheduleOrdersRealtimeRefresh);
-      ['fmrc:appointments-updated','fmrc:appointment-updated','fmrc:custom-product-updated','fmrc:custom-order-updated']
-        .forEach(name=>window.addEventListener(name,scheduleOrdersRealtimeRefresh));
+      ['fmrc:appointments-updated', 'fmrc:appointment-updated', 'fmrc:custom-product-updated']
+        .forEach(name=>window.addEventListener(name, () => scheduleRealtimeRefresh(appointmentCategories)));
+      window.addEventListener('fmrc:custom-order-updated', () => {
+        scheduleRealtimeRefresh(new Set([...ORDER_DRIVEN_CATEGORIES, ...appointmentCategories]));
+      });
+      ["fmrc:inventory-updated", "fmrc:products-updated"]
+        .forEach(name => window.addEventListener(name, () => scheduleRealtimeRefresh(stockCategories)));
+      state.unsubscribeLiveData = window.AdminLiveData?.subscribe?.((event) => {
+        if (["all", "archives"].includes(event?.scope)) scheduleRealtimeRefresh();
+        if (["orders", "payments", "refunds"].includes(event?.scope)) scheduleOrdersRealtimeRefresh();
+        if (["appointments", "custom_products"].includes(event?.scope)) scheduleRealtimeRefresh(appointmentCategories);
+        if (["inventory", "products"].includes(event?.scope)) scheduleRealtimeRefresh(stockCategories);
+      });
       window.addEventListener("storage", (event) => {
         if (event.key === ORDERS_STORAGE_KEY) scheduleOrdersRealtimeRefresh();
       });
@@ -2821,6 +2927,12 @@
           state.ordersChannel = null;
         }
         try {
+          state.productsChannel = new window.BroadcastChannel("fmrc-products-realtime");
+          state.productsChannel.addEventListener("message", () => scheduleRealtimeRefresh(stockCategories));
+        } catch {
+          state.productsChannel = null;
+        }
+        try {
           state.siteSettingsChannel = new window.BroadcastChannel(
             SITE_SETTINGS_REALTIME_CHANNEL,
           );
@@ -2832,19 +2944,34 @@
         }
       }
 
-      state.pollTimer = window.setInterval(() => {
-        if (document.visibilityState === "visible") {
-          refreshActiveReport("poll");
-        }
-      }, REPORT_POLL_INTERVAL_MS);
+      document.addEventListener("visibilitychange", () => {
+        window.clearTimeout(state.pollTimer);
+        window.clearTimeout(state.realtimeTimer);
+        // Returning to the tab resumes quiet polling. A real change that
+        // arrived while hidden is retained and refreshed after the debounce.
+        if (!document.hidden) scheduleReportRefresh(state.refreshQueued ? REPORT_REALTIME_DEBOUNCE_MS : REPORT_POLL_INTERVAL_MS);
+      });
+      window.addEventListener("online", () => {
+        state.retryNotBefore = 0;
+        state.refreshFailures = 0;
+        scheduleRealtimeRefresh();
+      });
+      window.addEventListener("offline", () => {
+        window.clearTimeout(state.pollTimer);
+        window.clearTimeout(state.realtimeTimer);
+      });
 
       window.addEventListener(
         "beforeunload",
         () => {
-          window.clearInterval(state.pollTimer);
+          state.disposed = true;
+          state.reportRequest?.controller.abort();
+          window.clearTimeout(state.pollTimer);
           window.clearTimeout(state.realtimeTimer);
           state.ordersChannel?.close?.();
+          state.productsChannel?.close?.();
           state.siteSettingsChannel?.close?.();
+          state.unsubscribeLiveData?.();
           unlockPreviewEnvironment();
         },
         { once: true },
@@ -2908,8 +3035,7 @@
         renderTablePage();
       });
       elements.nextPage.addEventListener("click", () => {
-        const rowCount = state.reportData?.table.rows.length || 0;
-        const totalPages = Math.max(1, Math.ceil(rowCount / REPORT_PAGE_SIZE));
+        const totalPages = reportTablePageCount();
         if (state.currentPage >= totalPages) return;
         state.currentPage += 1;
         renderTablePage();
@@ -2918,13 +3044,7 @@
       if (window.AdminPageNumberInput?.bind) {
         window.AdminPageNumberInput.bind(elements.pageNumber, {
           getPage: () => state.currentPage,
-          getTotalPages: () =>
-            Math.max(
-              1,
-              Math.ceil(
-                (state.reportData?.table.rows.length || 0) / REPORT_PAGE_SIZE,
-              ),
-            ),
+          getTotalPages: reportTablePageCount,
           onChange: (page) => {
             state.currentPage = page;
             renderTablePage();
@@ -2932,12 +3052,7 @@
         });
       } else {
         elements.pageNumber.addEventListener("change", () => {
-          const totalPages = Math.max(
-            1,
-            Math.ceil(
-              (state.reportData?.table.rows.length || 0) / REPORT_PAGE_SIZE,
-            ),
-          );
+          const totalPages = reportTablePageCount();
           state.currentPage = Math.max(
             1,
             Math.min(Number.parseInt(elements.pageNumber.value, 10) || 1, totalPages),

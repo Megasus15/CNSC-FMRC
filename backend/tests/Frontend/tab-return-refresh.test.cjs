@@ -106,8 +106,11 @@ async function checkReportPagination() {
   let rows = 50;
   const state = { isLoading: false, currentPage: 3, reportData: {}, activeParams: { ...params } };
   const context = {
-    state, window: {AdminPageNotice:{clear(){},describe:error=>error.message,show(){}}}, elements: { lastUpdated: {} },
+    state, AbortController,
+    REPORT_POLL_INTERVAL_MS: 30000, REPORT_REALTIME_DEBOUNCE_MS: 550, REPORT_RETRY_MAX_MS: 300000,
+    window: {clearTimeout(){},AdminPageNotice:{clear(){},describe:error=>error.message,show(){}}}, elements: { lastUpdated: {} },
     setButtonPending() {}, syncActionButtons() {},
+    scheduleReportRefresh() {},
     renderLoadingState: () => { loadingViews++; },
     requestReport: async () => ({ report: { generated_at: '2026-09-29T12:00:00Z' }, table: { rows: Array(rows).fill({}) } }),
     copyReportFilters: value => ({ ...value }),
