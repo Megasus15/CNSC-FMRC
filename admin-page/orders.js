@@ -906,7 +906,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mapOrderById();
   };
 
-  const upsertOrderSummaryInState = (summary) => {
+  const upsertOrderSummaryInState = (summary, mutation = true) => {
     const orderId = String(summary?.id || "");
     if (!orderId) return;
 
@@ -917,7 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (order) => String(order?.id || "") !== orderId,
     );
 
-    state.summaryRevision=(state.summaryRevision||0)+1;
+    if(mutation)state.summaryRevision=(state.summaryRevision||0)+1;
     const lifecycle = String(summary.lifecycle_status || "").toLowerCase();
     if (lifecycle === "incoming") {
       state.incoming.push(summary);
@@ -951,37 +951,85 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     old?.remove();return body;
   };
+  // List responses omit history and accepted policy. Only full detail reads may
+  // refresh open dialogs; keep them separate from the table's summary polling.
+  const orderDetailsCache = new Map();
+  const orderDetailsReads = new Map();
+  const orderDetailsRevisions = new Map();
+  const hasOrderHistory = order => Array.isArray(order?.timeline) || Array.isArray(order?.tracking_events);
+  const rememberOrderDetails = order => {
+    const key=String(order.id),previous=orderDetailsCache.get(key);
+    const details={...previous,...order};
+    orderDetailsCache.set(key,details);return details;
+  };
+  const orderDetailsNotice = (orderId,message='') => {
+    if(modalOrderDetails?.dataset.orderId!==String(orderId))return;
+    const body=ensureOrderDetailsLayout();let notice=body?.querySelector('[data-order-readback]');
+    const scroll=body?.scrollTop||0,height=body?.scrollHeight||0;
+    if(!notice){notice=document.createElement('div');notice.className='order-readback-notice';notice.dataset.orderReadback='';notice.setAttribute('role','status');body?.prepend(notice);}
+    notice.hidden=!message;
+    if(notice.dataset.message===message)return;
+    notice.dataset.message=message;notice.replaceChildren();
+    if(message){const text=document.createElement('span');text.textContent=message;notice.append(text);
+      const retry=document.createElement('button');retry.type='button';retry.className='btn-admin btn-secondary';retry.textContent='Try again';retry.onclick=()=>void loadSavedOrder(orderId).catch(()=>{});notice.append(retry);}
+    if(body&&scroll>0)body.scrollTop=scroll+body.scrollHeight-height;
+  };
   const renderOrderHistory = (order,body) => {
     const host=body?.querySelector('[data-order-section="history"] .form-grid');if(!host)return;
-    const seen=new Set(),events=(order.tracking_events||[]).filter(e=>{const key=[e.event_type,e.occurred_at,e.description,e.location_name].join('|');if(seen.has(key))return false;seen.add(key);return true;});
-    const html=events.length?'<ol class="order-history-list">'+events.map(e=>'<li><div><strong>'+escapeHtml(e.title||'Order update')+'</strong><time>'+escapeHtml(formatDateLabel(e.occurred_at||e.created_at))+'</time></div>'+(e.description&&e.description!==e.title?'<p>'+escapeHtml(e.description)+'</p>':'')+(e.location_name?'<small>'+escapeHtml(e.location_name)+'</small>':'')+'</li>').join('')+'</ol>':'<p class="field-hint">Order updates will appear here.</p>';
+    const seen=new Set(),events=(order.timeline||order.tracking_events||[]).filter(e=>{const key=e.id?'id:'+e.id:[e.event_type,e.occurred_at,e.description,e.location_name].join('|');if(seen.has(key))return false;seen.add(key);return true;});
+    const html=events.length?'<ol class="order-history-list">'+events.map(e=>'<li><div><strong>'+escapeHtml(e.title||'Order update')+'</strong><time>'+escapeHtml(e.occurred_at_label||formatDateLabel(e.occurred_at||e.created_at))+'</time></div>'+(e.description&&e.description!==e.title?'<p>'+escapeHtml(e.description)+'</p>':'')+(e.location_name?'<small>'+escapeHtml(e.location_name)+'</small>':'')+'</li>').join('')+'</ol>':'<p class="field-hint">'+(hasOrderHistory(order)?'No order updates yet.':'Loading order history…')+'</p>';
     if(host.dataset.content!==html){host.innerHTML=html;host.dataset.content=html;}
   };
-  const refreshMatchingOrderDialogs = order => {
+  const refreshMatchingOrderDialogs = (order, {readback=false}={}) => {
     if(!order?.id)return;
-    upsertOrderSummaryInState(order);renderAll();
-    if(modalOrderDetails?.classList.contains('show')&&modalOrderDetails.dataset.orderId===String(order.id))populateOrderDetailsModal(order);
-    if(modalTrackingUpdate?.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id)){
-      trackingModalOrder=order;syncManagedTrackingContext(order);
-    }
+    const key=String(order.id),previous=orderDetailsCache.get(key);
+    if(readback&&previous&&JSON.stringify(previous)===JSON.stringify(order)){orderDetailsNotice(key);return previous;}
+    if(!readback)orderDetailsRevisions.set(key,(orderDetailsRevisions.get(key)||0)+1);
+    const details=rememberOrderDetails(order);
+    if(!readback||state.ordersById.has(key)){upsertOrderSummaryInState(order,!readback);renderAll();}
+    if(modalOrderDetails?.classList.contains('show')&&modalOrderDetails.dataset.orderId===key)populateOrderDetailsModal(details);
+    if(modalTrackingUpdate?.classList.contains('show')&&String(trackingOrderId?.value)===key){trackingModalOrder=details;syncManagedTrackingContext(details);}
+    const visible=(modalOrderDetails?.classList.contains('show')&&modalOrderDetails.dataset.orderId===key)||(modalTrackingUpdate?.classList.contains('show')&&String(trackingOrderId?.value)===key);
+    if(!readback&&!hasOrderHistory(order)&&visible&&JSON.stringify(previous)!==JSON.stringify(details))void loadSavedOrder(key).catch(()=>{});
+    return details;
   };
-
-  window.addEventListener("fmrc:shipment-updated",event=>{
-    const order=event.detail?.order;if(!order?.id)return;
-    upsertOrderSummaryInState(order);
-    if(modalOrderDetails?.classList.contains("show")&&modalOrderDetails.dataset.orderId===String(order.id))populateOrderDetailsModal(order);
-    if(modalTrackingUpdate?.classList.contains("show") && String(trackingOrderId?.value) === String(order.id)) {
-      trackingModalOrder = order;
-      syncManagedTrackingContext(order);
-    }
-  });
+  const loadSavedOrder = orderId => {
+    const key=String(orderId),revision=orderDetailsRevisions.get(key)||0,readKey=key+':'+revision;
+    if(orderDetailsReads.has(readKey))return orderDetailsReads.get(readKey);
+    const read=request('/admin/orders/'+encodeURIComponent(key)).then(response=>{
+      if(String(response?.data?.id)!==key)throw Error('The saved order details could not be loaded.');
+      if((orderDetailsRevisions.get(key)||0)!==revision)return orderDetailsCache.get(key)||state.ordersById.get(key);
+      window.AdminJntTracking?.clearReadError?.(key);
+      orderDetailsNotice(key);return refreshMatchingOrderDialogs(response.data,{readback:true});
+    }).catch(error=>{if((orderDetailsRevisions.get(key)||0)===revision)orderDetailsNotice(key,'Could not refresh this order. Your saved details and entries are kept.');throw error;})
+      .finally(()=>orderDetailsReads.delete(readKey));
+    orderDetailsReads.set(readKey,read);return read;
+  };
+  const openOrderDetailsModal = async order => {
+    populateOrderDetailsModal(rememberOrderDetails(order));
+    try{return await loadSavedOrder(order.id);}catch{return order;}
+  };
+  const refreshOpenOrderDialogs = () => {
+    const ids=new Set();
+    if(modalOrderDetails?.classList.contains('show'))ids.add(modalOrderDetails.dataset.orderId);
+    if(modalTrackingUpdate?.classList.contains('show'))ids.add(String(trackingOrderId?.value));
+    for(const id of ids)if(id)void loadSavedOrder(id).catch(()=>{});
+  };
+  window.AdminOrderDialogs={load:loadSavedOrder,ownsPolling:true};
+  window.addEventListener('fmrc:shipment-updated',event=>{if(event.detail?.order)refreshMatchingOrderDialogs(event.detail.order);});
 
   const populateOrderDetailsModal = (order) => {
     if (!order || !modalOrderDetails) return;
-    modalOrderDetails.dataset.orderId=String(order.id);
-
+    const sameOrder=modalOrderDetails.dataset.orderId===String(order.id);
+    order=rememberOrderDetails(order);
+    const snapshot=JSON.stringify(order);
+    if(sameOrder&&modalOrderDetails.dataset.snapshot===snapshot){modalOrderDetails.classList.add('show');return;}
+    modalOrderDetails.dataset.orderId=String(order.id);modalOrderDetails.dataset.snapshot=snapshot;
     const body=ensureOrderDetailsLayout();
-    const scrollTop=body?.scrollTop,focused=body?.contains(document.activeElement)?document.activeElement:null;
+    if(!sameOrder){const notice=body?.querySelector('[data-order-readback]');if(notice){notice.hidden=true;notice.dataset.message='';notice.replaceChildren();}}
+    const scrollTop=sameOrder?body?.scrollTop:0,focused=sameOrder&&body?.contains(document.activeElement)?document.activeElement:null;
+    const focusId=focused?.id,focusName=focused?.name,focusStart=focused?.selectionStart,focusEnd=focused?.selectionEnd;
+    const opened=sameOrder?[...body.querySelectorAll('details')].map(node=>[node.querySelector('summary')?.textContent,node.open]):[];
     if(body){
       let notice=body.querySelector('[data-cancellation-notice]');
       if(!notice){notice=document.createElement('section');notice.className='order-cancellation-notice';notice.dataset.cancellationNotice='';body.prepend(notice);}
@@ -1103,7 +1151,9 @@ document.addEventListener("DOMContentLoaded", () => {
     body?.querySelectorAll('input[readonly],textarea[readonly],select[readonly]').forEach(input=>{input.disabled=true;});
     modalOrderDetails.classList.add("show");
     if(body&&scrollTop!==undefined)body.scrollTop=scrollTop;
-    if(focused?.isConnected)focused.focus({preventScroll:true});
+    for(const [label,open] of opened){const node=[...body.querySelectorAll('details')].find(d=>d.querySelector('summary')?.textContent===label);if(node)node.open=open;}
+    const nextFocus=focused?.isConnected?focused:focusId?document.getElementById(focusId):[...body.querySelectorAll('[name]')].find(n=>n.name===focusName);
+    if(focused&&nextFocus){nextFocus.focus({preventScroll:true});if(typeof focusStart==='number'&&nextFocus.setSelectionRange)try{nextFocus.setSelectionRange(focusStart,focusEnd);}catch{}}
   };
 
   const renderPickupCollection = (order, host) => {
@@ -1118,6 +1168,8 @@ document.addEventListener("DOMContentLoaded", () => {
     section.dataset.orderId=String(order.id);section.dataset.paymentKey=[order.payment_status,order.payment_reference,order.total_amount].join('|');
     const closed=['completed','cancelled','rejected'].includes(order.lifecycle_status),ready=!!order.pickup_ready_at||order.customer_stage==='to_receive';
     const busy=collectionRequests.has(String(order.id))||paymentActionBusy;
+    const snapshot=JSON.stringify([order.id,order.customer_stage,order.customer_stage_label,order.lifecycle_status,order.lifecycle_status_label,order.pickup_ready_at,order.payment_status,order.payment_method,order.payment_reference,order.total_amount,order.payment_amount_label,order.total_label,order.payment_actions,order.can_confirm_collection,order.collection_blocked_reason,busy]);
+    if(section.dataset.snapshot===snapshot)return;section.dataset.snapshot=snapshot;
     let controls='';
     if(!closed&&order.lifecycle_status==='incoming')controls='<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>';
     else if(!closed&&!ready)controls='<button type="button" class="btn-admin" data-pickup-action="ready">Mark ready for pickup</button>';
@@ -2446,15 +2498,14 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshPaymentsFromDirectory();
       mapOrderById();
       renderAll();
-      if(modalOrderDetails?.classList.contains('show')){const current=state.ordersById.get(modalOrderDetails.dataset.orderId);if(current)populateOrderDetailsModal(current);}
-      if(modalTrackingUpdate?.classList.contains('show')){const current=state.ordersById.get(String(trackingOrderId?.value));if(current){trackingModalOrder=current;syncManagedTrackingContext(current);}}
+      refreshOpenOrderDialogs();
       const productOrderId=new URLSearchParams(location.search).get('order_id');
       if(productOrderId&&!state.productDeepLinkOpened){
         let linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
         // Archived linked orders are deliberately absent from the active tables.
         if(!linked){const detail=await request('/admin/orders/'+encodeURIComponent(productOrderId));linked=detail.data;}
         if(linked){
-          state.productDeepLinkOpened=true;populateOrderDetailsModal(linked);
+          state.productDeepLinkOpened=true;await openOrderDetailsModal(linked);
           const action=new URLSearchParams(location.search).get('order_action');
           const selector={cash_receipt:'[data-ap-order-form="cash_receipt"]',payment:'[data-order-section="payment"]',start:'[data-ap-production="start"]',ready:'[data-ap-production="ready"]',collect:'[data-ap-order-form="collect"]',handover:'[data-jnt-summary]',summary:'[data-order-section="summary"]'}[action];
           const target=selector?modalOrderDetails.querySelector(selector):null;
@@ -3081,8 +3132,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let notes=document.getElementById('trackingOptionalNotes');
     if(!notes){
       notes=document.createElement('details');notes.id='trackingOptionalNotes';notes.className='order-notes-card full';
-      notes.innerHTML='<summary>Optional customer note</summary><p class="field-hint">Share a short FMRC update. Notes do not change payment or fulfillment.</p><div class="form-grid"></div>';
-      const title=document.getElementById('trackingNotesHeading');title.before(notes);title.hidden=true;
+      notes.innerHTML='<summary>Optional FMRC note</summary><p class="field-hint">Share a short FMRC update. Notes do not change payment or fulfillment.</p><div class="form-grid"></div>';
+      const title=document.getElementById('trackingNotesHeading');title.before(notes);title.remove();
       for(const field of [trackingPresetSelect,trackingEventTitle,trackingEventDescription])notes.querySelector('.form-grid').append(field.closest('.field-stack'));
     }
     return workflow;
@@ -3096,6 +3147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(trackingStage){trackingStage.disabled=locked;if(locked)trackingStage.value=order.customer_stage;}
     for(const field of [trackingLatitude,trackingLocationName])if(field?.closest('.field-stack'))field.closest('.field-stack').hidden=locked;
     syncCourierFields(order);
+    trackingEventDescription.placeholder=pickup?'Optional message about preparation or pickup.':'Optional FMRC note for the customer. Courier scans are added automatically.';
     const notes=document.getElementById('trackingOptionalNotes');
     if(notes&&notes.dataset.orderId!==String(order.id)){notes.open=!pickup;notes.dataset.orderId=String(order.id);}
     const hint=document.getElementById('trackingManagedHint'),host=document.getElementById('trackingManagedShipment');
@@ -3183,19 +3235,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (notesOnlyTracking(order)) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
     trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
-    if (notesOnlyTracking(order)) {
-      const readbackRevision=state.summaryRevision||0;
-      void request(`/admin/orders/${order.id}`).then(response => {
-        if (!response?.data || readbackRevision!==(state.summaryRevision||0) || !modalTrackingUpdate.classList.contains('show') || String(trackingOrderId?.value) !== String(order.id)) return;
-        trackingModalOrder = response.data;
-        upsertOrderSummaryInState(response.data);
-        syncManagedTrackingContext(response.data);
-      }).catch(() => {
-        if (modalTrackingUpdate.classList.contains('show') && String(trackingOrderId?.value) === String(order.id)) {
-          document.getElementById('trackingManagedHint').textContent = 'Current order details could not be loaded. Reopen this dialog before continuing.';
-        }
-      });
-    }
+    modalTrackingUpdate.querySelector('.modal-body-scroll').scrollTop=0;
+    if(notesOnlyTracking(order))void loadSavedOrder(order.id).catch(()=>{
+      if(modalTrackingUpdate.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id))document.getElementById('trackingManagedHint').textContent='Current order details could not be loaded. Your entries are kept. Use Refresh saved updates or reopen this dialog before continuing.';
+    });
   };
 
   const closeTrackingModal = () => {
@@ -5544,7 +5587,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const orderId = String(viewBtn.getAttribute("data-order-view") || "");
       const order = state.ordersById.get(orderId);
       if (order) {
-        populateOrderDetailsModal(order);
+        void openOrderDetailsModal(order);
       }
       return;
     }
@@ -5751,7 +5794,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return true;
     }
 
-    populateOrderDetailsModal(order);
+    void openOrderDetailsModal(order);
     const row = document.querySelector(`[data-order-view="${orderId}"]`);
     if (row) window.AdminNotifFocus?.flash(row);
     return true;

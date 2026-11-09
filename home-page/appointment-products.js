@@ -557,10 +557,11 @@
   function mountOrder(host,order,admin=team) {
     if(!host)return;let box=host.querySelector('[data-ap-order]');if(order.order_type!=='custom'){box?.remove();return;}
     if(box&&box.dataset.orderId!==String(order.id)){box.remove();box=null;}
-    if(box&&(dirty(box)||box.getAttribute('aria-busy')==='true'))return;if(box?.dataset.snapshot===JSON.stringify(order))return;if(!box){box=document.createElement('section');box.dataset.apOrder='';box.className='ap-panel';host.prepend(box);}
+    const snapshot=JSON.stringify({id:order.id,order_no:order.order_no,payment_status:order.payment_status,payment_method:order.payment_method,lifecycle_status:order.lifecycle_status,fulfillment_type:order.fulfillment_type,custom_product:order.custom_product});
+    if(box&&(dirty(box)||box.getAttribute('aria-busy')==='true'))return;if(box?.dataset.snapshot===snapshot)return;if(!box){box=document.createElement('section');box.dataset.apOrder='';box.className='ap-panel';host.prepend(box);}
     const opened=new Map([...box.querySelectorAll('details')].map(d=>[d.querySelector('summary')?.textContent,d.open]));
     const focused=box.contains(document.activeElement)?document.activeElement?.name:null;
-    box.dataset.orderId=String(order.id);box.dataset.snapshot=JSON.stringify(order);
+    box.dataset.orderId=String(order.id);box.dataset.snapshot=snapshot;
     const c=order.custom_product;if(!c||c.unavailable){box.textContent='Custom-product details are temporarily unavailable. Please try again.';return;}
     const actions=c.available_actions||{},g=c.agreement;const path=admin?`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/appointments.html?appointment_id=${c.appointment_id}`:`/home-page/?my_appointments=1&appointment_id=${c.appointment_id}`;
     const role=window.AdminSession?.getUserInfo?.()?.role || (window.AdminSession?.isStaff||location.pathname.includes('staff-page')?'staff':'admin');
@@ -578,7 +579,7 @@
     box.querySelectorAll('input,textarea,select').forEach((input,i)=>{input.id='ap-order-'+(host.id||host.closest('[id]')?.id||'record')+'-'+order.id+'-'+i;});
     if(focused)[...box.querySelectorAll('[name]')].find(n=>n.name===focused)?.focus({preventScroll:true});
     if(admin&&c.meeting)mountMeetingRemoval(box.querySelector('[data-order-meeting]'),{...c.meeting,id:c.appointment_id,reference_no:c.appointment_reference});
-    box.oninput=e=>{const f=e.target.closest('form');if(f)f.dataset.dirty='true';};box.onsubmit=e=>{const f=e.target.closest('[data-ap-order-form]');if(f){e.preventDefault();void perform(f.dataset.apOrderForm,f);}};
+    box.oninput=box.onchange=e=>{const f=e.target.closest('form');if(f)f.dataset.dirty='true';};box.onsubmit=e=>{const f=e.target.closest('[data-ap-order-form]');if(f){e.preventDefault();void perform(f.dataset.apOrderForm,f);}};
     box.onclick=async e=>{const b=e.target.closest('[data-ap-production]');if(b)void perform(b.dataset.apProduction);
       if(e.target.closest('[data-ap-switch-payment]')){if(busy||!await confirm('Change payment method? FMRC must first confirm that the previous checkout cannot receive payment.'))return;busy=true;
         try{await request(`/customer/orders/${order.id}/custom-payment-method`,{method:'POST',body:JSON.stringify({payment_method:order.payment_method==='Cash at FMRC'?'online':'cash',expected_revision:c.revision})});location.reload();}catch(error){await popup(error.message);}finally{busy=false;}}

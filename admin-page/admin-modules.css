@@ -6019,3 +6019,10 @@ html.report-modal-open-root {
 
 /* Align every J&T card action with the shared right-aligned dialog actions. */
 :is(#modalOrderDetails,#modalTrackingUpdate) .shipment-control-card .shipment-actions { justify-content:flex-end; }
+
+/* Author display rules must not expose hidden fields or obsolete headings. */
+:is(#modalOrderDetails,#modalTrackingUpdate) [hidden] { display:none!important; }
+.order-notes-card[open] > .field-hint { margin-top:10px; }
+.order-readback-notice { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:14px 16px;border:1px solid var(--border-color,#dfe5ed);border-radius:10px;background:var(--surface-alt,#f7f3ef);color:var(--text-muted,#677381);font-size:.82rem;line-height:1.6; }
+.order-readback-notice .btn-admin { flex-shrink:0; }
+@media(max-width:600px){.order-readback-notice{align-items:flex-start;flex-direction:column;}}

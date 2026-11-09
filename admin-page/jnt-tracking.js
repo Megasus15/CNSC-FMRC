@@ -1,7 +1,11 @@
 /* Shared J&T handover controls. Page refreshes read FMRC data, never the courier API. */
 (() => {
   'use strict';
-  const states = new Map();
+  const states = new Set();
+  // The same order can be open in Details and Tracking. Each host owns its draft.
+  const hosts = new WeakMap();
+  const currentHost = state => state.host?.querySelector('[data-courier-controls]')?.dataset.orderId===String(state.order?.id);
+  const orderBusy = orderId => [...states].some(state=>String(state.order?.id)===String(orderId)&&state.busy);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const api = () => String(window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
   const request = async (path, options = {}) => {
@@ -22,18 +26,18 @@
   const localTime = value => new Date((value ? new Date(value).getTime() : Date.now()) + 8*3600000).toISOString().slice(0,16);
   const changed = (state, order, broadcast = false) => {
     state.order = order;
-    render(order, state.host);
+    if(currentHost(state))render(order,state.host);
     if (broadcast) window.dispatchEvent(new CustomEvent('fmrc:shipment-updated',{detail:{order}}));
   };
   const load = async state => {
     if (state.busy || state.polling || Date.now() < (state.nextPoll || 0)) return;
     state.polling = true;
-    try { changed(state, await request('/admin/orders/'+state.order.id), state.host.id === 'trackingManagedShipment'); state.failures = 0; state.nextPoll = 0; }
-    catch (error) { state.failures = Math.min(4, (state.failures || 0) + 1); state.nextPoll = Date.now() + 5000 * 2 ** state.failures; state.message = error.message; render(state.order, state.host); }
+    try { const shared=window.AdminOrderDialogs;const order=await (shared?shared.load(state.order.id):request('/admin/orders/'+state.order.id));state.readError=false;state.message='';if(order)changed(state,order,!shared);state.failures=0;state.nextPoll=0; }
+    catch (error) { state.failures = Math.min(4, (state.failures || 0) + 1); state.nextPoll = Date.now() + 5000 * 2 ** state.failures; state.readError=true;state.message=error.message;if(currentHost(state))render(state.order,state.host); }
     finally { state.polling = false; }
   };
   const mutate = async (state, method, suffix, payload) => {
-    if (state.busy) return;
+    if (orderBusy(state.order.id)) return;
     state.busy = true; state.message = ''; render(state.order, state.host);
     try {
       const order = await request('/admin/orders/'+state.order.id+'/shipment/tracking'+suffix, {method,body:JSON.stringify(payload)});
@@ -43,7 +47,7 @@
     } catch (error) {
       state.message = error.message;
       try { changed(state, await request('/admin/orders/'+state.order.id)); } catch { /* Preserve draft and request key after an uncertain response. */ }
-    } finally { state.busy = false; render(state.order, state.host); }
+    } finally { state.busy = false;if(currentHost(state))render(state.order,state.host); }
   };
   const renderTest = (order, host, state) => {
     const test = order.tracking_test;
@@ -62,17 +66,18 @@
         '<div class="shipment-actions"><button type="button" class="btn-admin" data-tracking-test-link>Link test tracking</button></div>')+
         '<p class="shipment-message" role="status" data-tracking-test-message></p></details>';
       const act=async(remove)=>{
-        if(state.busy)return;
+        if(orderBusy(order.id))return;
         const number=panel.querySelector('[data-tracking-test-number]')?.value.trim();
         if(!remove&&(!/^[a-z0-9-]{5,50}$/i.test(number||'')||!panel.querySelector('[data-tracking-test-consent]').checked)){
           panel.querySelector('[data-tracking-test-message]').textContent='Enter your verified diagnostic tracking number and confirm that it is your own parcel.';return;
         }
         window.showAdminConfirmPopup(remove?'Remove the external parcel tracking test from this order?':'Link this external parcel as a clearly labelled tracking test? The FMRC order stage and payment stay unchanged.',
           {title:remove?'Remove Tracking Test':'Link Tracking Test',confirmText:remove?'Remove test':'Link test',onConfirm:async()=>{
+            if(orderBusy(order.id))return;
             state.busy=true;render(state.order,host);
             try{const data=await request('/admin/orders/'+order.id+'/tracking-test',{method:remove?'DELETE':'POST',body:remove?undefined:JSON.stringify({tracking_number:number,test_confirmed:true})});changed(state,data,true);}
             catch(error){panel.querySelector('[data-tracking-test-message]').textContent=error.message;}
-            finally{state.busy=false;render(state.order,host);}
+            finally{state.busy=false;if(currentHost(state))render(state.order,host);}
           }});
       };
       panel.querySelector('[data-tracking-test-link]')?.addEventListener('click',()=>void act(false));
@@ -88,8 +93,9 @@
   };
   const render = (order, host) => {
     if (!host || order.courier_shipment?.tracking_provider!=='17track') return;
-    let state = states.get(String(order.id));
-    if (!state) { state = {draft:null,editing:false,busy:false,polling:false,message:'',layout:null}; states.set(String(order.id),state); }
+    let records=hosts.get(host);if(!records){records=new Map();hosts.set(host,records);}
+    let state=records.get(String(order.id));
+    if(!state){state={draft:null,editing:false,busy:false,polling:false,message:'',layout:null};records.set(String(order.id),state);states.add(state);}
     if (!Array.isArray(order.timeline) && Array.isArray(state.order?.timeline)) order = {...order, timeline:state.order.timeline};
     state.order = order; state.host = host;
     renderTest(order,host,state);
@@ -164,9 +170,12 @@
     if (historyHost.dataset.value !== history) {const open=historyHost.querySelector('details')?.open;historyHost.innerHTML=history;historyHost.dataset.value=history;if(open===false&&historyHost.firstElementChild)historyHost.firstElementChild.open=false;}
   };
   setInterval(() => {
-    if (document.hidden) return;
-    for (const state of states.values()) if (state.host?.isConnected && state.host.closest('#modalOrderDetails, #modalTrackingUpdate')?.classList.contains('show')
+    if (document.hidden||window.AdminOrderDialogs?.ownsPolling) return;
+    for (const state of states) if (state.host?.isConnected && state.host.closest('#modalOrderDetails, #modalTrackingUpdate')?.classList.contains('show')
       && state.host.querySelector('[data-courier-controls]')?.dataset.orderId === String(state.order.id)) void load(state);
   }, 5000);
-  window.AdminJntTracking = {render, draft: orderId => states.get(String(orderId))?.draft || null, busy: orderId => Boolean(states.get(String(orderId))?.busy)};
+  const clearReadError=orderId=>{
+    for(const state of states)if(String(state.order?.id)===String(orderId)&&state.readError){state.readError=false;state.message='';state.failures=0;state.nextPoll=0;if(currentHost(state))render(state.order,state.host);}
+  };
+  window.AdminJntTracking = {render,clearReadError,draft:orderId=>[...states].find(state=>String(state.order?.id)===String(orderId)&&state.host?.id==='trackingManagedShipment')?.draft||null,busy:orderBusy};
 })();

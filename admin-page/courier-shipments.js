@@ -16,6 +16,7 @@
   };
   const render=(order,host)=>{
     if(!host)return;
+    if(order.is_pickup||order.fulfillment_type==='pickup'){host.querySelector('[data-courier-controls]')?.remove();host.querySelector('[data-tracking-test-controls]')?.remove();return;}
     if(order.courier_shipment?.tracking_provider==='17track'){window.AdminJntTracking?.render(order,host);return;}
     let card=host.querySelector('[data-courier-controls]');if(!card){card=document.createElement('section');card.dataset.courierControls='';card.className='shipment-control-card';host.appendChild(card);}
     const state=drafts.get(String(order.id))||{draft:null,busy:false,message:'',blocked:false};state.order=order;state.host=host;drafts.set(String(order.id),state);
