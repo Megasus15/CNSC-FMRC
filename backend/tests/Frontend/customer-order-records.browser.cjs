@@ -3,13 +3,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {browserFixture, chrome} = require('./helpers/website-browser.cjs');
 
-for (const prefix of ['', '/apps/customer']) {
+for (const prefix of ['', '/apps/customer', '/products-page/product.html']) {
   test(`Customer order records, refund details and protected history removal on ${prefix || 'website'}`, {skip: !chrome, timeout: 120000}, async t => {
+    const page = prefix.endsWith('.html') ? prefix : prefix + '/home-page/';
     const profile = {id: 33, role: 'customer', name: 'Customer Fixture', email: 'customer@example.test'};
     const makeOrder = (id, eligible = true) => ({id, order_no: `ORD-${id}`, order_no_display: `#ORD-${id}`, product_name: `Prototype ${id}`,
-      total_amount: 150, total_label: '₱ 150.00', quantity: 1, payment_method: 'COP', payment_status: 'paid', payment_is_confirmed: true,
+      total_amount: 150, total_label: '₱ 150.00', quantity: 1, payment_method: 'GCash', payment_status: 'paid', payment_is_confirmed: true, payment_is_automated: true,
       fulfillment_type: 'delivery', lifecycle_status: 'completed', customer_stage: 'completed', has_rating: true,
-      created_at: '2026-11-01T02:00:00Z', history_removal: {eligible, reason: eligible ? null : 'Wait until the refund is resolved.', code: eligible ? null : 'return_open'},
+      created_at: '2026-11-01T02:00:00Z', history_removal: {eligible, reason: eligible ? null : 'Wait until the payment provider confirms the refund or FMRC resolves the refund issue.', code: eligible ? null : 'refund_unresolved'},
       items: [{id, product_name: 'Prototype', quantity: 1, unit_price: 150, line_total: 150}],
       pricing: {item_subtotal_label: '₱ 140.00', shipping_fee_label: '₱ 10.00', payable_total_label: '₱ 150.00'},
       courier_name: 'J&T Express', courier_tracking_no: 'JT0026952419687',
@@ -19,7 +20,7 @@ for (const prefix of ['', '/apps/customer']) {
         {id: 'scan-driver', kind: 'courier', status: 'out_for_delivery', title: 'Out for delivery', description: '【OCW_Mark Jerald Tabadero : 639950198016】 Photo proof of delivery is required.', location_name: 'LABO', date_key: '2026-11-09', date_label: 'November 9, 2026', time_label: '7:33:31 AM', occurred_at: '2026-11-09T07:33:31+08:00'},
         {id: 'scan-2', kind: 'courier', title: 'Departed Pili for Labo', location_name: 'PILI', date_key: '2026-11-09', date_label: 'November 9, 2026', time_label: '2:42:15 AM', occurred_at: '2026-11-09T02:42:15+08:00'},
         {id: 'note-1', kind: 'note', title: 'Packed securely', description: 'Protective packaging added.', date_key: '2026-11-07', date_label: 'November 7, 2026', time_label: '9:00:00 AM', occurred_at: '2026-11-07T09:00:00+08:00'}]});
-    let orders = [makeOrder(101), makeOrder(102), makeOrder(103, false)], returns = [{id: 7, order_id: 103, return_no: 'RTN-7', status: 'refund_processing', status_label: 'Refund Processing', status_group: 'open', resolution: 'refund', reason_label: 'Damaged', requested_amount: 150, requested_amount_label: '₱ 150.00', approved_amount_label: '₱ 150.00', refunded_amount: 0, refunded_amount_label: '₱ 0.00', media: [], items: [], timeline: []}];
+    let orders = [makeOrder(101), makeOrder(102), makeOrder(103, false)], returns = [{id: 7, order_id: 103, return_no: 'RTN-7', status: 'refund_processing', status_label: 'Refund Processing', status_group: 'open', payment_is_automated: true, resolution: 'refund', reason_label: 'Damaged', requested_amount: 150, requested_amount_label: '₱ 150.00', approved_amount_label: '₱ 150.00', refunded_amount: 0, refunded_amount_label: '₱ 0.00', media: [], items: [], timeline: []}];
     const mutations = [];
     let holdNextList = false, releaseStale, stalePending = false, detailVersion = 1;
     const h = await browserFixture(t, async ({req, route, json}) => {
@@ -44,7 +45,7 @@ for (const prefix of ['', '/apps/customer']) {
     });
     await h.send('Network.setBlockedURLs', {urls: ['https://*']});
     await h.send('Page.addScriptToEvaluateOnNewDocument', {source: `localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',${JSON.stringify(JSON.stringify(profile))});`});
-    await h.go(prefix + '/home-page/?orders=1&order_id=101');
+    await h.go(page + '?orders=1&order_id=101');
     await h.until(`document.querySelector('#customerOrderDetailModal.show .customer-record-event.is-delivered')`);
     assert.equal(await h.run(`document.querySelectorAll('.customer-record-event').length`), 4);
     assert.equal(await h.run(`document.querySelectorAll('.customer-record-date').length`), 2);
@@ -66,15 +67,31 @@ for (const prefix of ['', '/apps/customer']) {
     for (const width of [390, 1440]) for (const theme of ['light', 'dark']) {
       await h.send('Emulation.setDeviceMetricsOverride', {width, height: 900, deviceScaleFactor: 1, mobile: false});
       await h.run(`document.documentElement.dataset.theme='${theme}';document.querySelector('.customer-order-detail-timeline').scrollIntoView({behavior:'instant',block:'start'})`);
-      const layout = await h.run(`(()=>{const body=document.getElementById('customerOrderDetailContent'),foot=document.querySelector('.customer-order-record-foot');return {overflow:body.scrollWidth>body.clientWidth+1,foot:foot.getBoundingClientRect().bottom,bodyColor:getComputedStyle(body).color,background:getComputedStyle(body).backgroundColor,events:document.querySelectorAll('.customer-record-event').length}})()`);
+      const layout = await h.run(`(()=>{const body=document.getElementById('customerOrderDetailContent'),modal=document.getElementById('customerOrderDetailModal');return {overflow:body.scrollWidth>body.clientWidth+1,footer:!!document.querySelector('.customer-order-record-foot'),bottomGap:modal.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom,close:document.getElementById('closeCustomerOrderDetail').getBoundingClientRect().width,events:document.querySelectorAll('.customer-record-event').length}})()`);
       assert.equal(layout.overflow, false, JSON.stringify({width, theme, layout}));
-      assert(layout.foot <= 901 && layout.foot > 0, JSON.stringify(layout));
+      assert.equal(layout.footer, false);
+      assert(layout.bottomGap < 3 && layout.close >= 32, JSON.stringify(layout));
       assert.match(await h.run(`getComputedStyle(document.querySelector('.customer-record-event-copy')).fontFamily`), /Montserrat/);
       await h.shot(`order-record-${width}-${theme}`);
     }
-    await h.run(`document.querySelector('[data-order-record-close]').click()`);
+    await h.run(`document.getElementById('closeCustomerOrderDetail').click()`);
     await h.until(`!document.querySelector('#customerOrderDetailModal.show')`);
     assert.equal(await h.run(`document.querySelector('[data-order-remove="103"]').disabled`), true);
+    assert.equal(await h.run(`document.querySelector('[data-panel="all"] [data-order-remove="103"]').closest('.customer-order-actions')!==null`), true);
+    assert.equal(await h.run(`document.querySelector('[data-panel="all"] [data-order-remove="103"]').parentElement.textContent.trim()`), 'Refund must be resolved first');
+    assert.equal(await h.run(`document.getElementById('customerOrdersTabs').nextElementSibling.matches('.customer-orders-history-tools:not(.ux-dlg__foot)')`), true);
+    for (const width of [320, 390, 1440]) for (const theme of ['light', 'dark']) {
+      await h.send('Emulation.setDeviceMetricsOverride', {width, height: 900, deviceScaleFactor: 1, mobile: false});
+      await h.run(`document.documentElement.dataset.theme='${theme}'`);
+      const list = await h.run(`(()=>{const tools=document.querySelector('.customer-orders-history-tools'),panel=document.querySelector('[data-panel="all"]'),button=panel.querySelector('[data-gateway-order]'),style=getComputedStyle(button),row=tools.getBoundingClientRect(),tabs=document.getElementById('customerOrdersTabs').getBoundingClientRect(),viewport=document.getElementById('customerOrdersViewport').getBoundingClientRect(),clear=tools.querySelector('button').getBoundingClientRect();return {overflow:panel.scrollWidth>panel.clientWidth+1,toolOverflow:tools.scrollWidth>tools.clientWidth+1,background:style.backgroundColor,image:style.backgroundImage,color:style.color,gapAbove:row.top-tabs.bottom,gapBelow:viewport.top-row.bottom,edgeDifference:Math.abs(row.left-viewport.left)+Math.abs(row.right-viewport.right),buttonCentered:Math.abs((clear.top+clear.bottom-row.top-row.bottom)/2)}})()`);
+      await h.shot(`order-list-${width}-${theme}`);
+      assert.equal(list.overflow, false, JSON.stringify({width, theme, list}));
+      assert.equal(list.toolOverflow, false, JSON.stringify({width, theme, list, tools: await h.run(`Array.from(document.querySelector('.customer-orders-history-tools').children).map(el=>({width:el.getBoundingClientRect().width,minWidth:getComputedStyle(el).minWidth,font:getComputedStyle(el).fontSize,padding:getComputedStyle(el).padding}))`)}));
+      assert.equal(list.image, 'none');
+      assert.equal(list.background, 'rgb(107, 32, 43)');
+      assert(list.gapAbove >= 10 && list.gapBelow >= 10 && Math.abs(list.gapAbove-list.gapBelow) <= 2, 'History toolbar has balanced vertical spacing: ' + JSON.stringify(list));
+      assert(list.edgeDifference <= 2 && list.buttonCentered <= 1, 'History toolbar aligns with the order list and centers its action: ' + JSON.stringify(list));
+    }
     assert.match(await h.run(`document.querySelector('[data-orders-clear]').textContent`), /\(2\)/);
     // Cancel is a true no-op.
     await h.run(`document.querySelector('[data-panel="all"] [data-order-remove="101"]').click()`);
@@ -105,9 +122,14 @@ for (const prefix of ['', '/apps/customer']) {
     await h.until(`document.querySelector('#customerOrderDetailContent').textContent.includes('FMRC reviewed the evidence')`);
     assert.match(await h.run(`document.querySelector('[data-order-record-eyebrow]').textContent`), /Return & refund/);
     assert.equal(await h.run(`!!document.querySelector('.customer-return-receipt')`), false, 'A zero / pending refund is not a confirmed receipt');
+    const refundButton = await h.run(`(()=>{const button=document.querySelector('#customerOrderDetailContent [data-gateway-order="103"]'),style=getComputedStyle(button);return {background:style.backgroundColor,image:style.backgroundImage,height:button.getBoundingClientRect().height}})()`);
+    assert.equal(refundButton.background, 'rgb(107, 32, 43)', 'Refund Payment details uses the same maroon action');
+    assert.equal(refundButton.image, 'none');
+    assert.equal(refundButton.height, 42);
+    assert.equal(await h.run(`document.querySelector('#customerOrderDetailModal .ux-dlg__foot')`), null);
     await h.shot('refund-processing');
-    await h.run(`document.querySelector('[data-order-record-close]').click()`);
-    await h.go(prefix + '/home-page/?orders=1&order_id=101');
+    await h.run(`document.getElementById('closeCustomerOrderDetail').click()`);
+    await h.go(page + '?orders=1&order_id=101');
     await h.until(`document.querySelector('#customerOrderDetailContent').textContent.includes('Removed from My Orders')`);
     assert.deepEqual(await h.run('fixtureErrors'), []);
     t.diagnostic('Screenshots: ' + h.artifacts);

@@ -8655,6 +8655,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const openOrdersModal = (activeUserInfo) => {
     if (!customerOrdersController) {
       const overlay = document.createElement("div");
+      const historyTrashIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg>';
       overlay.id = "customerOrdersModal";
       overlay.className = "customer-orders-overlay ux-dlg";
       overlay.innerHTML = `
@@ -8682,6 +8683,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="customer-orders-tab" data-tab="cancelled"><span class="customer-orders-tab-label">Cancelled</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
           </div>
 
+          <div class="customer-orders-history-tools">
+            <span>Remove closed orders after 7 days.</span>
+            <button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" data-orders-clear disabled>${historyTrashIcon} Clear eligible (0)</button>
+          </div>
           <div class="customer-orders-viewport" id="customerOrdersViewport">
             <div class="customer-orders-track" id="customerOrdersTrack">
               <section class="customer-orders-panel" data-panel="all"></section>
@@ -8695,10 +8700,6 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <div class="customer-orders-history-tools ux-dlg__foot">
-            <span>Closed orders can be removed after seven days.</span>
-            <button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" data-orders-clear disabled><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Clear eligible orders (0)</button>
-          </div>
           <section class="customer-order-detail-modal ux-dlg__card" id="customerOrderDetailModal" role="dialog" aria-modal="true" aria-labelledby="customerOrderDetailTitle" aria-hidden="true">
             <div class="customer-order-detail-head ux-dlg__head">
               <button type="button" class="customer-orders-close ux-dlg__close" id="closeCustomerOrderDetail" aria-label="Close">&times;</button>
@@ -8707,7 +8708,6 @@ document.addEventListener("DOMContentLoaded", () => {
               <h3 id="customerOrderDetailTitle" class="ux-dlg__title">Order Details</h3>
             </div>
             <div class="customer-order-detail-content" id="customerOrderDetailContent"></div>
-            <div class="customer-order-record-foot ux-dlg__foot"><button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" data-order-record-close>Close</button></div>
           </section>
         </section>
       `;
@@ -11303,11 +11303,33 @@ document.addEventListener("DOMContentLoaded", () => {
       }, true);
 
       const eligibleHistoryOrders = () => state.orders.filter(order => order.history_removal?.eligible);
+      const historyRemovalMessage = (policy) => {
+        if (policy.eligible) return '';
+        if (policy.code === 'waiting_period') {
+          const available = new Date(policy.available_at || '');
+          return Number.isFinite(available.getTime())
+            ? `Available ${available.toLocaleString('en-US', {timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}`
+            : 'Available after 7 days';
+        }
+        return ({
+          refund_unresolved: 'Refund must be resolved first',
+          refund_due: 'Refund confirmation pending',
+          return_open: 'Return or refund still open',
+          payment_review: 'Payment review pending',
+          payment_unresolved: 'Payment confirmation pending',
+          cancellation_open: 'Cancellation under review',
+          closure_date_missing: 'Closure date needs review',
+          refund_date_missing: 'Refund date needs review',
+          setup_required: 'Removal not available yet',
+          removed: 'Removed from My Orders'
+        })[policy.code] || 'Order must be resolved first';
+      };
       const updateHistoryControls = () => {
         const count = eligibleHistoryOrders().length;
         const clear = overlay.querySelector('[data-orders-clear]');
         clear.disabled = state.historyBusy || state.loading || !count;
-        clear.innerHTML = `<i class="fa-regular fa-trash-can" aria-hidden="true"></i> ${state.historyBusy ? 'Removing orders…' : `Clear eligible orders (${count})`}`;
+        clear.innerHTML = `${historyTrashIcon} ${state.historyBusy ? 'Removing…' : `Clear eligible (${count})`}`;
+        clear.setAttribute('aria-label', `Clear ${count} eligible orders from My Orders`);
         overlay.querySelectorAll('[data-order-remove]').forEach(button => {
           const order = state.orders.find(row => String(row.id) === button.dataset.orderRemove);
           button.disabled = state.historyBusy || !order?.history_removal?.eligible;
@@ -11319,11 +11341,17 @@ document.addEventListener("DOMContentLoaded", () => {
           const returnRow = card.dataset.returnRow ? state.returns.find(row => String(row.id) === card.dataset.returnRow) : null;
           const order = state.orders.find(row => String(row.id) === String(id || returnRow?.order_id));
           if (!order || !order.history_removal || order.history_removal.code === 'in_progress') return;
-          const host = card.querySelector('.customer-order-side, .customer-torate-side, .customer-rated-side');
-          if (!host) return;
+          let host = card.querySelector('.customer-order-actions');
+          if (!host) {
+            host = document.createElement('div');
+            host.className = 'customer-order-actions';
+            card.classList.add('has-history-actions');
+            card.querySelectorAll('.customer-torate-side > button, .customer-rated-side > button').forEach(button => host.appendChild(button));
+            card.appendChild(host);
+          }
           const policy = order.history_removal;
-          const note = policy.eligible ? 'Remove from My Orders' : (policy.reason || 'Available after this order is resolved.');
-          host.insertAdjacentHTML('beforeend', `<div class="customer-order-history-action"><button type="button" class="customer-order-history-delete" data-order-remove="${escapeHtml(order.id)}" aria-label="Remove order ${escapeHtml(order.order_no || order.id)} from My Orders" title="${escapeHtml(note)}"${policy.eligible ? '' : ' disabled'}><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>${!policy.eligible ? `<small>${escapeHtml(note)}</small>` : ''}</div>`);
+          const note = historyRemovalMessage(policy);
+          host.insertAdjacentHTML('afterbegin', `<div class="customer-order-history-action"><button type="button" class="customer-order-history-delete" data-order-remove="${escapeHtml(order.id)}" aria-label="Remove order ${escapeHtml(order.order_no || order.id)} from My Orders" title="${escapeHtml(note || 'Remove from My Orders')}"${policy.eligible ? '' : ' disabled'}>${historyTrashIcon}</button>${note ? `<small>${escapeHtml(note)}</small>` : ''}</div>`);
         });
         updateHistoryControls();
       };
@@ -12406,7 +12434,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const remove = event.target.closest('[data-order-remove]');
         if (remove && !remove.disabled) { event.preventDefault(); void removeOrderHistory(remove.dataset.orderRemove); return; }
         if (event.target.closest('[data-orders-clear]')) { event.preventDefault(); void removeOrderHistory(); return; }
-        if (event.target.closest('[data-order-record-close]')) { void closeDetailModal(); return; }
         const imageTrigger = event.target.closest(
           ".customer-order-image-trigger",
         );

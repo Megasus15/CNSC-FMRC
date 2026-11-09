@@ -20911,7 +20911,8 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
    Header close buttons, image previews and rating stars keep their own shapes. */
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
-  .customer-order-section-head .customer-order-pay-btn,
+  .customer-order-pay-btn,
+  .customer-orders-history-tools .ux-dlg__btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,
@@ -21047,7 +21048,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card :i
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
-  .customer-order-section-head .customer-order-pay-btn,
+  .customer-order-pay-btn,
+  .customer-orders-history-tools .ux-dlg__btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,
@@ -21072,7 +21074,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
   .customer-order-actions > button,
-  .customer-order-section-head .customer-order-pay-btn,
+  .customer-order-pay-btn,
+  .customer-orders-history-tools .ux-dlg__btn,
   .customer-return-detail-actions > button,
   .customer-order-rate-btn,
   .customer-order-logistics-link,
@@ -21327,26 +21330,32 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 }
 #customerOrdersModal .customer-orders-history-tools {
   display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 12px 22px; border-top: 1px solid var(--record-edge);
-  background: var(--record-paper); color: var(--record-muted); font-size: .75rem;
+  gap: 16px; margin: 14px var(--ux-dlg-pad-x) 0; padding: 12px 14px;
+  border: 1px solid var(--customer-line); border-radius: 12px; background: var(--customer-paper-sink);
+  color: var(--customer-muted); font-size: 12px; line-height: 1.5;
 }
-#customerOrdersModal .customer-orders-history-tools button { min-height: 40px; font-size: .76rem; white-space: normal; }
-#customerOrdersModal .customer-order-history-action { display: flex; align-items: center; justify-content: flex-end; gap: 9px; max-width: 240px; }
-#customerOrdersModal .customer-order-history-action small { font-size: .68rem; line-height: 1.5; color: var(--record-muted); text-align: right; }
+#customerOrdersModal .customer-orders-history-tools > span { min-width: 0; }
+#customerOrdersModal .ux-dlg__card .customer-orders-history-tools .ux-dlg__btn { flex: 0 0 auto; width: auto; max-width: 100%; min-height: 40px; padding: 8px 12px; font-size: 12px; }
+#customerOrdersModal :is(.customer-orders-history-tools, .customer-order-history-delete) svg { width: 18px; height: 18px; flex-shrink: 0; }
+#customerOrdersModal .customer-order-history-action { display: flex; align-items: center; gap: 9px; margin-right: auto; min-width: 0; max-width: 100%; }
+#customerOrdersModal .customer-order-history-action small { max-width: 230px; font-size: 12px; line-height: 1.5; color: var(--customer-muted); }
 #customerOrdersModal .customer-order-history-delete {
   display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
-  flex: 0 0 38px; border: 1px solid var(--record-edge); border-radius: 50%;
-  color: var(--customer-wine, #782235); background: var(--record-paper); cursor: pointer; font: inherit;
+  flex: 0 0 38px; padding: 0; border: 1px solid var(--customer-line); border-radius: 8px;
+  color: var(--customer-wine, #782235); background: var(--customer-paper); cursor: pointer; font: inherit;
 }
-#customerOrdersModal .customer-order-history-delete:hover:not(:disabled) { background: var(--record-tint); border-color: currentColor; }
+#customerOrdersModal .customer-order-history-delete:hover:not(:disabled) { background: var(--customer-paper-sink); border-color: currentColor; }
 #customerOrdersModal .customer-order-history-delete:focus-visible { outline: 2px solid var(--customer-wine, #782235); outline-offset: 3px; }
-#customerOrdersModal .customer-order-history-delete:disabled { color: var(--record-muted); background: var(--record-tint); opacity: .55; cursor: not-allowed; }
+#customerOrdersModal .customer-order-history-delete:disabled { color: var(--customer-muted); background: var(--customer-paper-sink); opacity: .55; cursor: not-allowed; }
+#customerOrdersModal :is(.customer-torate-card, .customer-rated-card).has-history-actions { flex-wrap: wrap; }
+#customerOrdersModal .has-history-actions > .customer-order-actions { flex: 0 0 100%; grid-column: 1 / -1; padding-top: 10px; border-top: 1px solid var(--customer-line); }
+#customerOrdersModal .has-history-actions :is(.customer-torate-side, .customer-rated-side):empty { display: none; }
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions { align-items: center; }
 #customerOrdersModal #customerOrderDetailModal { background: var(--record-paper); color: var(--record-ink); overflow: hidden; }
 #customerOrdersModal #customerOrderDetailModal .customer-order-detail-content {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 24px clamp(16px, 3vw, 30px); background: var(--record-tint); color: var(--record-ink);
 }
-#customerOrdersModal #customerOrderDetailModal .customer-order-record-foot { flex: 0 0 auto; justify-content: flex-end; padding: 12px 24px; border-top: 1px solid var(--record-edge); background: var(--record-paper); }
 #customerOrderDetailModal .customer-order-detail-content > :is(.customer-order-detail-items, .customer-order-detail-fulfillment, .customer-order-detail-logistics, .customer-order-detail-timeline, .customer-order-detail-map-wrap, .customer-return-progress) {
   margin: 0 0 18px; padding: clamp(16px, 2.5vw, 24px); border: 1px solid var(--record-edge); border-radius: 14px; background: var(--record-paper);
 }
@@ -21395,12 +21404,12 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 #customerReturnRequestModal :is(select, textarea, input), #customerReturnRequestModal button { font-family: inherit; }
 #customerReturnRequestModal .customer-return-estimate { border-radius: 12px; border-color: var(--record-edge, #e8dfd9); }
 @media (max-width: 640px) {
-  #customerOrdersModal .customer-orders-history-tools { gap: 8px; padding: 10px 14px; }
-  #customerOrdersModal .customer-orders-history-tools > span { max-width: 45%; font-size: .65rem; }
-  #customerOrdersModal .customer-orders-history-tools button { max-width: 55%; padding: 8px 10px; font-size: .7rem; }
-  #customerOrdersModal .customer-order-history-action { max-width: 190px; }
+  #customerOrdersModal .customer-orders-history-tools { gap: 12px; padding: 10px 12px; font-size: 11px; }
+  #customerOrdersModal .customer-orders-history-tools > span { flex: 1 1 0; }
+  #customerOrdersModal .ux-dlg__card .customer-orders-history-tools .ux-dlg__btn { padding: 8px; font-size: 11px; }
+  #customerOrdersModal .customer-order-actions > .customer-order-history-action { flex-basis: 100%; }
+  #customerOrdersModal .customer-order-history-action small { max-width: none; }
   #customerOrdersModal #customerOrderDetailModal .customer-order-detail-content { padding: 16px 12px; }
-  #customerOrdersModal #customerOrderDetailModal .customer-order-record-foot { padding: 10px 16px; }
   #customerOrderDetailModal :is(.customer-return-summary, .customer-order-detail-summary, .customer-order-fulfillment-grid) { grid-template-columns: 1fr; }
   #customerOrderDetailModal .customer-record-event-head { flex-direction: column; }
   #customerOrderDetailModal .customer-order-waybill-no { font-size: .8rem; overflow-wrap: anywhere; }
@@ -21408,8 +21417,15 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 
 #customerOrdersModal #customerOrderDetailModal .customer-order-waybill-no { background: var(--record-tint); color: var(--record-ink); border: 1px solid var(--record-edge); padding: 4px 8px; }
 #customerOrdersModal #customerOrderDetailModal button.customer-order-waybill-copy:not(:disabled) { background: var(--record-paper); color: var(--record-ink); border-color: var(--record-edge); }
-#customerOrdersModal .customer-orders-modal, #customerOrderDetailModal .customer-order-detail-content, #customerOrderDetailModal .customer-order-record-foot { font-family: "Montserrat", "Poppins", sans-serif; }
+#customerOrdersModal .customer-orders-modal, #customerOrderDetailModal .customer-order-detail-content { font-family: "Montserrat", "Poppins", sans-serif; }
 #customerOrderDetailModal .customer-record-event-dot svg { width: 12px; height: 12px; }
+
+@media (max-width: 480px) {
+  #customerOrdersModal .customer-orders-history-tools { margin-top: 10px; }
+}
+@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  #customerOrdersModal .customer-orders-history-tools { margin-top: 8px; }
+}
 
 #customerOrdersModal #customerOrderDetailModal :is(p, strong, dt, dd, span, time, code, button, a, h4, small),
 #customerReturnRequestModal :is(p, strong, span, small, input, textarea, select, button) { font-family: "Montserrat", "Poppins", sans-serif; }
