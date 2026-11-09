@@ -593,6 +593,52 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertDatabaseCount('walk_in_orders', 0);
     }
 
+    public function test_customer_order_list_preserves_custom_identity_and_only_regular_orders_can_be_rated(): void
+    {
+        $job = $this->booked();
+        $quote = $this->quote($job);
+        $custom = $this->accept($job, $quote);
+        $this->act($custom, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'CUSTOM-LIST-1000', 'confirmed_received' => true])->assertOk();
+        $this->act($custom, 'start')->assertOk();
+        $this->act($custom, 'ready')->assertOk();
+        $this->act($custom, 'collect', ['pickup_code' => $custom->pickup_code])->assertOk();
+
+        $product = Product::create(['name' => 'Regular catalog item', 'code' => 'CUSTOM-LIST-CATALOG', 'category' => 'Regular', 'price' => 20, 'stock' => 25]);
+        $regular = Order::create(['order_no' => 'ORD-REGULAR-LIST', 'customer_id' => $this->customer->id,
+            'customer_name' => $this->customer->name, 'customer_contact' => $this->customer->email, 'quantity' => 1,
+            'subtotal' => 20, 'total' => 20, 'payment_method' => 'COP', 'fulfillment_type' => 'pickup',
+            'lifecycle_status' => 'completed', 'customer_stage' => 'completed', 'completed_at' => now()]);
+        $item = $regular->items()->create(['product_id' => $product->id, 'product_name' => $product->name, 'quantity' => 1, 'unit_price' => 20, 'line_total' => 20]);
+
+        Sanctum::actingAs($this->customer);
+        $response = $this->getJson('/api/customer/orders')->assertOk()->assertJsonPath('counts.all', 2)
+            ->assertJsonPath('counts.completed', 2)->assertJsonPath('counts.to_rate', 1);
+        $rows = collect($response->json('data'))->keyBy('id');
+        $this->assertSame('custom', $rows[$custom->id]['order_type']);
+        $this->assertSame('Completed', $rows[$custom->id]['custom_product']['stage']);
+        $this->assertSame($job->id, $rows[$custom->id]['custom_product']['job_id']);
+        $this->assertSame($quote->agreement, $rows[$custom->id]['custom_product']['agreement']);
+        $this->assertSame($custom->fresh()->production_revision, $rows[$custom->id]['custom_product']['revision']);
+        $this->assertSame(0, $rows[$custom->id]['rating_total_items']);
+        $this->assertSame('regular', $rows[$regular->id]['order_type']);
+        $this->assertSame(1, $rows[$regular->id]['rating_total_items']);
+
+        $this->getJson('/api/customer/orders/'.$custom->id)->assertOk()->assertJsonPath('data.order_type', 'custom');
+        $this->getJson('/api/customer/orders/'.$custom->id.'/rating')->assertUnprocessable();
+        $this->postJson('/api/customer/orders/'.$custom->id.'/rating', [
+            'order_item_id' => $custom->items()->sole()->id, 'stars' => 5,
+        ])->assertUnprocessable();
+        $this->assertDatabaseMissing('product_ratings', ['order_id' => $custom->id]);
+
+        $this->getJson('/api/customer/orders/'.$regular->id.'/rating')->assertOk();
+        $this->postJson('/api/customer/orders/'.$regular->id.'/rating', ['order_item_id' => $item->id, 'stars' => 5])->assertOk();
+        $this->getJson('/api/customer/orders')->assertOk()->assertJsonPath('counts.to_rate', 0);
+        $this->assertSame('completed', $custom->fresh()->customer_stage);
+        $this->assertSame('paid', $custom->fresh()->payment->status);
+        $this->assertEquals(1000, $custom->fresh()->total);
+        $this->assertEquals(25, $product->fresh()->stock);
+    }
+
     public function test_custom_online_acceptance_and_switch_honor_the_shared_payment_availability(): void
     {
         config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_test_fixture', 'payments.paymongo.webhook_secret' => 'fixture-hook']);

@@ -108,6 +108,8 @@ class ProductRatingController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        abort_if(\App\Services\AppointmentProducts::custom($order), 422, 'Product reviews are available only for regular orders.');
+
         $ratings = ProductRating::query()
             ->where('user_id', $request->user()->id)
             ->where('order_id', $order->id)

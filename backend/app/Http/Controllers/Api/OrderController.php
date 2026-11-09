@@ -645,6 +645,14 @@ class OrderController extends Controller
             ->select($this->existingColumns('orders', [
                 'id',
                 'order_no',
+                // Keep the custom-product identity in the projected list read.
+                // Otherwise orderData() sees a regular order even though its
+                // full detail is linked to an accepted custom quotation.
+                'appointment_product_job_id',
+                'appointment_product_quote_id',
+                'appointment_production_status',
+                'production_revision',
+                'collection_hold',
                 'customer_id',
                 'customer_name',
                 'customer_contact',

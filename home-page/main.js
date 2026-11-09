@@ -9316,7 +9316,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isCustomProductOrder = (order) =>
         String(order?.order_type || "").toLowerCase() === "custom" ||
-        Boolean(order?.custom_product);
+        Boolean(order?.custom_product) ||
+        Boolean(order?.appointment_product_job_id) ||
+        String(order?.payment_method || "").trim().toLowerCase() === "cash at fmrc";
 
       const getVisibleOrdersByPanel = (stageKey) => {
         if (stageKey === "returns") {
