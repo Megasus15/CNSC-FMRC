@@ -70,6 +70,7 @@ class Order extends Model
         'approved_at',
         'rejected_at',
         'completed_at',
+        'customer_hidden_at',
         'is_archived',
         'archived_at',
     ];
@@ -173,6 +174,7 @@ class Order extends Model
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'completed_at' => 'datetime',
+        'customer_hidden_at' => 'datetime',
         'cancel_requested_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'cancel_decided_at' => 'datetime',
@@ -342,6 +344,18 @@ class Order extends Model
     public function returns(): HasMany
     {
         return $this->hasMany(OrderReturn::class);
+    }
+
+    public function historyReturns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
+    }
+
+    public function historyClosureEvents(): HasMany
+    {
+        return $this->hasMany(OrderTrackingEvent::class)
+            ->whereIn('title', ['Order completed', 'Order cancelled', 'Order rejected'])
+            ->orderByDesc('occurred_at');
     }
 
     /** The single return still awaiting action, if any. */

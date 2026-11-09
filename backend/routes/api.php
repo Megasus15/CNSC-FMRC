@@ -241,6 +241,8 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::get('/admin/shipping-tracking', [ShipmentTrackingController::class, 'settings']);
     Route::put('/admin/shipping-tracking', [ShipmentTrackingController::class, 'updateSettings']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
+    Route::post('/customer/orders/history/clear', [\App\Http\Controllers\Api\CustomerOrderHistoryController::class, 'clear'])->middleware('throttle:20,1');
+    Route::delete('/customer/orders/{order}/history', [\App\Http\Controllers\Api\CustomerOrderHistoryController::class, 'destroy'])->middleware('throttle:30,1');
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);
     Route::post('/customer/orders/{order}/received', [OrderController::class, 'customerMarkReceived']);

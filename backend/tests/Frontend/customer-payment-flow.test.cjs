@@ -74,7 +74,9 @@ function harness(initial = order()) {
   };
   const context = vm.createContext({
     document, navigator: {},
-    window: { clearTimeout() {}, setTimeout() {} },
+    window: { clearTimeout() {}, setTimeout() {}, location: {search: ''} },
+    URLSearchParams,
+    getCustomerToken: () => 'test',
     setTimeout() {}, requestAnimationFrame: (callback) => callback(),
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     ORDER_STAGE_FLOW: ['to_pay', 'to_ship', 'to_receive', 'completed'],
@@ -87,7 +89,7 @@ function harness(initial = order()) {
     renderGcashHowToPay: (_, amount) => `Send ${amount}`,
     showCustomerPopup: (message, options) => popups.push({ message, ...options }),
     submitGcashPayment: async () => null,
-    state: { token: 'test', lastRefreshAt: 0, orders: [initial], returns: [], etag: '' },
+    state: { token: 'test', historyGeneration: 0, removedOrderIds: new Set(), lastRefreshAt: 0, orders: [initial], returns: [], etag: '' },
     fetchCustomerOrders: async () => ({ orders: [initial], etag: 'updated' }),
     writeCustomerOrdersCache() {}, renderOrders() {}, setSyncStatus() {},
     refreshActiveDetail() {}, refreshActiveReturnDetail() {}, handleSessionExpired() {},
@@ -201,6 +203,27 @@ test('live order refresh closes an open pay panel immediately when staff confirm
   assert.equal(resolved[0], null);
   assert.equal(popups[0].title, 'Payment confirmed');
   assert.match(popups[0].message, /awaiting approval from the FMRC team/);
+});
+
+test('a stale refresh cannot restore a removed order or overwrite a later customer session', async () => {
+  const {context} = harness();
+  let complete;
+  context.fetchCustomerOrders = () => new Promise(resolve => {complete = resolve;});
+  const pending = context.refreshOrders(false, true);
+  context.state.historyGeneration++;
+  context.state.orders = [];
+  context.state.removedOrderIds.add('1');
+  complete({orders: [paid()], etag: 'old'});
+  await pending;
+  assert.equal(context.state.orders.length, 0);
+  assert.notEqual(context.state.etag, 'old');
+
+  const next = context.refreshOrders(false, true);
+  context.state.token = 'another-customer';
+  complete({orders: [paid()], etag: 'wrong-customer'});
+  await next;
+  assert.equal(context.state.orders.length, 0);
+  assert.notEqual(context.state.etag, 'wrong-customer');
 });
 
 for (const outcome of ['rejected', 'older success']) {

@@ -8695,14 +8695,19 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <section class="customer-order-detail-modal ux-dlg__card" id="customerOrderDetailModal" aria-hidden="true">
+          <div class="customer-orders-history-tools ux-dlg__foot">
+            <span>Closed orders can be removed after seven days.</span>
+            <button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" data-orders-clear disabled><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Clear eligible orders (0)</button>
+          </div>
+          <section class="customer-order-detail-modal ux-dlg__card" id="customerOrderDetailModal" role="dialog" aria-modal="true" aria-labelledby="customerOrderDetailTitle" aria-hidden="true">
             <div class="customer-order-detail-head ux-dlg__head">
               <button type="button" class="customer-orders-close ux-dlg__close" id="closeCustomerOrderDetail" aria-label="Close">&times;</button>
               <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
-              <p class="ux-dlg__eyebrow">Order record</p>
+              <p class="ux-dlg__eyebrow" data-order-record-eyebrow>Order record</p>
               <h3 id="customerOrderDetailTitle" class="ux-dlg__title">Order Details</h3>
             </div>
             <div class="customer-order-detail-content" id="customerOrderDetailContent"></div>
+            <div class="customer-order-record-foot ux-dlg__foot"><button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" data-order-record-close>Close</button></div>
           </section>
         </section>
       `;
@@ -8762,6 +8767,9 @@ document.addEventListener("DOMContentLoaded", () => {
         loading: false,
         refreshInProgress: false,
         refreshQueued: false,
+        historyBusy: false,
+        historyGeneration: 0,
+        removedOrderIds: new Set(),
         lastRefreshAt: 0,
         detailLoading: false,
         activeDetailId: null,
@@ -9626,7 +9634,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       /** The money figure that matters most at this point of the lifecycle. */
       const resolveReturnAmount = (returnRow) => {
-        if (returnRow?.refunded_amount_label) {
+        if (Number(returnRow?.refunded_amount || 0) > 0 && returnRow?.refunded_at) {
           return { label: returnRow.refunded_amount_label, caption: "Refunded" };
         }
         if (returnRow?.approved_amount_label) {
@@ -11294,6 +11302,105 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }, true);
 
+      const eligibleHistoryOrders = () => state.orders.filter(order => order.history_removal?.eligible);
+      const updateHistoryControls = () => {
+        const count = eligibleHistoryOrders().length;
+        const clear = overlay.querySelector('[data-orders-clear]');
+        clear.disabled = state.historyBusy || state.loading || !count;
+        clear.innerHTML = `<i class="fa-regular fa-trash-can" aria-hidden="true"></i> ${state.historyBusy ? 'Removing orders…' : `Clear eligible orders (${count})`}`;
+        overlay.querySelectorAll('[data-order-remove]').forEach(button => {
+          const order = state.orders.find(row => String(row.id) === button.dataset.orderRemove);
+          button.disabled = state.historyBusy || !order?.history_removal?.eligible;
+        });
+      };
+      const decorateHistoryControls = () => {
+        overlay.querySelectorAll('.customer-order-card, .customer-torate-card, .customer-rated-card').forEach(card => {
+          const id = card.querySelector('[data-order-detail]')?.dataset.orderDetail || card.querySelector('[data-order-rate]')?.dataset.orderRate;
+          const returnRow = card.dataset.returnRow ? state.returns.find(row => String(row.id) === card.dataset.returnRow) : null;
+          const order = state.orders.find(row => String(row.id) === String(id || returnRow?.order_id));
+          if (!order || !order.history_removal || order.history_removal.code === 'in_progress') return;
+          const host = card.querySelector('.customer-order-side, .customer-torate-side, .customer-rated-side');
+          if (!host) return;
+          const policy = order.history_removal;
+          const note = policy.eligible ? 'Remove from My Orders' : (policy.reason || 'Available after this order is resolved.');
+          host.insertAdjacentHTML('beforeend', `<div class="customer-order-history-action"><button type="button" class="customer-order-history-delete" data-order-remove="${escapeHtml(order.id)}" aria-label="Remove order ${escapeHtml(order.order_no || order.id)} from My Orders" title="${escapeHtml(note)}"${policy.eligible ? '' : ' disabled'}><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>${!policy.eligible ? `<small>${escapeHtml(note)}</small>` : ''}</div>`);
+        });
+        updateHistoryControls();
+      };
+      const removeOrderHistory = async (orderId = null) => {
+        if (state.historyBusy || !state.token) return;
+        const ids = orderId ? [String(orderId)] : eligibleHistoryOrders().map(order => String(order.id));
+        if (!ids.length) return;
+        const token = state.token, cacheKey = state.cacheKey;
+        const trigger = document.activeElement;
+        state.historyBusy = true; updateHistoryControls();
+        let removedCount = 0, skipped = [];
+        try {
+          const confirmed = await showCustomerPopup(orderId
+            ? 'Remove this order from My Orders? FMRC will keep its transaction and payment records.'
+            : `Remove ${ids.length} eligible orders from My Orders? Active orders stay visible. FMRC will keep the transaction and payment records.`,
+            {title: orderId ? 'Remove order' : 'Clear eligible orders', isConfirm: true, okText: orderId ? 'Remove order' : `Remove ${ids.length} orders`, cancelText: 'Keep orders'});
+          if (!confirmed || token !== getCustomerToken() || token !== state.token || cacheKey !== state.cacheKey) return;
+          state.historyGeneration++; state.etag = '';
+          for (let offset = 0; offset < ids.length; offset += 1000) {
+            const batch = ids.slice(offset, offset + 1000);
+            const {response, data} = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders/${orderId ? `${encodeURIComponent(orderId)}/history` : 'history/clear'}`, {
+              method: orderId ? 'DELETE' : 'POST', headers: {Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+              body: JSON.stringify(orderId ? {} : {order_ids: batch})
+            });
+            if (token !== getCustomerToken() || token !== state.token || cacheKey !== state.cacheKey) return;
+            if (!response.ok) throw createCustomerApiError(response, data, 'The order could not be removed.');
+            const removed = new Set((data.removed_ids || []).map(String));
+            removedCount += removed.size; skipped.push(...(data.skipped || []));
+            removed.forEach(id => {state.removedOrderIds.add(id); state.detailsById.delete(id); state.detailEtagsById.delete(id);});
+            state.orders = state.orders.filter(order => !removed.has(String(order.id)));
+            state.returns = state.returns.filter(row => !removed.has(String(row.order_id)));
+            state.returnDetailsById.clear();
+            if (removed.has(String(state.activeDetailId)) || (state.activeReturnDetailId && !state.returns.some(row => String(row.id) === String(state.activeReturnDetailId)))) await closeDetailModal();
+            writeCustomerOrdersCache(cacheKey, state.orders, '', state.returns, state.cancelReasonOptions);
+            try { localStorage.setItem('fmrc_customer_order_history_changed', JSON.stringify({customer: cacheKey, ids: [...removed], at: Date.now()})); } catch { /* Other tabs recover through their normal live refresh. */ }
+            renderOrders();
+          }
+          setSyncStatus('live', `${removedCount} order${removedCount === 1 ? '' : 's'} removed${skipped.length ? `; ${skipped.length} kept for review` : ''}.`);
+          if (skipped.length) await showCustomerPopup(skipped.map(row => row.reason).filter((reason, index, all) => all.indexOf(reason) === index).join(' '), {title: 'Some orders were kept'});
+        } catch (error) {
+          if (token === state.token) await showCustomerPopup(error.message || 'Please try again.', {title: removedCount ? 'Some orders were removed' : 'Order not removed'});
+        } finally {
+          if (token === state.token && cacheKey === state.cacheKey) {
+            state.historyBusy = false; updateHistoryControls();
+            if (trigger?.isConnected && !trigger.disabled) trigger.focus({preventScroll: true});
+            else (overlay.querySelector(`.customer-orders-tab[data-tab="${stageByPanel[state.activeIndex]}"]`))?.focus({preventScroll: true});
+            state.etag = ''; void refreshOrders(false, true);
+          }
+        }
+      };
+      const renderReadableTimeline = (entries, isReturn = false) => {
+        if (!entries.length) return '<p class="customer-order-timeline-empty">Updates will appear here as your order progresses.</p>';
+        let previousDate = '';
+        return `<ol class="customer-record-timeline">${entries.map((entry, index) => {
+          const date = entry.date_key || String(entry.occurred_at || '').slice(0, 10) || 'unknown';
+          const heading = date !== previousDate ? `<span class="customer-record-date">${escapeHtml(entry.date_label || formatOrderDate(entry.occurred_at))}</span>` : '';
+          previousDate = date;
+          const title = entry.title || (isReturn ? 'Request update' : 'Order update');
+          const description = String(entry.description || '').trim();
+          const delivered = entry.status === 'delivered';
+          const source = entry.kind === 'note' ? 'FMRC note' : entry.kind === 'order' ? 'FMRC update' : '';
+          return `<li class="customer-record-event${index === 0 ? ' is-latest' : ''}${delivered ? ' is-delivered' : ''}">${heading}
+            <div class="customer-record-event-row"><span class="customer-record-event-dot" aria-hidden="true">${delivered ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>' : ''}</span>
+              <div class="customer-record-event-copy"><div class="customer-record-event-head"><strong>${escapeHtml(title)}</strong><time${entry.occurred_at ? ` datetime="${escapeHtml(entry.occurred_at)}"` : ''}>${escapeHtml(entry.time_label || entry.occurred_at_label || formatOrderDate(entry.occurred_at))}</time></div>
+                ${description && description.replace(/[.\s]+$/g, '').toLowerCase() !== String(title).replace(/[.\s]+$/g, '').toLowerCase() ? `<p>${escapeHtml(description)}</p>` : ''}
+                ${entry.location_name || source ? `<div class="customer-record-event-meta">${entry.location_name ? `<span><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${escapeHtml(entry.location_name)}</span>` : ''}${source ? `<span>${source}</span>` : ''}</div>` : ''}
+              </div></div></li>`;
+        }).join('')}</ol>`;
+      };
+      const preserveRecordView = (render) => {
+        const scroll = detailContent.scrollTop;
+        const focused = detailContent.contains(document.activeElement) ? document.activeElement : null;
+        const attrs = focused ? [...focused.attributes].filter(a => a.name === 'id' || a.name === 'href' || a.name.startsWith('data-')) : [];
+        render(); detailContent.scrollTop = scroll;
+        if (attrs.length) [...detailContent.querySelectorAll('button, a, input, select, textarea')].find(node => node.tagName === focused.tagName && attrs.every(a => node.getAttribute(a.name) === a.value))?.focus({preventScroll: true});
+      };
+
       const renderOrders = () => {
         if (state.loading) {
           panels.forEach((panel) => {
@@ -11475,6 +11582,7 @@ document.addEventListener("DOMContentLoaded", () => {
           setOrderTabCount(tab, count);
         });
 
+        decorateHistoryControls();
         hydrateCustomerOrderImages(overlay);
       };
 
@@ -11642,9 +11750,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const courierTrackingUrl = String(
           courierState.tracking_url || "",
         ).trim();
-        // The courier's own tracking page, when the one-click link had to come
-        // from 17TRACK instead. Secondary on purpose: it needs the number pasted
-        // into a form, so it is the long way round to the same checkpoints.
+        // Prefer the official courier page alongside the single saved tracking number.
         const courierOwnTrackingUrl = String(
           courierState.courier_tracking_url || "",
         ).trim();
@@ -11688,9 +11794,7 @@ document.addEventListener("DOMContentLoaded", () => {
               ["Postal code", deliveryAddress.postal_code],
               ["Landmark", deliveryAddress.landmark],
             ];
-        if (detail.pricing) fulfillmentRows.push(
-          ['Item subtotal',detail.pricing.item_subtotal_label], ['Shipping fee',detail.pricing.shipping_fee_label],
-          ['Payable total',detail.pricing.payable_total_label], ['Estimated delivery',detail.pricing.estimated_delivery_label]);
+        if (detail.pricing && !isPickupOrder) fulfillmentRows.push(['Estimated delivery', detail.pricing.estimated_delivery_label]);
 
         const fulfillmentRowsHtml = fulfillmentRows
           .filter(([, value]) => String(value || "").trim())
@@ -11720,7 +11824,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
 
-        detailTitle.textContent = `Order ${safeOrderNo}`;
+        detailTitle.textContent = `Order ${detail.order_no_display || `#${detail.order_no || detail.id || '-'}`}`;
+        detailModal.querySelector('[data-order-record-eyebrow]').textContent = 'Order record';
+        detailModal.dataset.recordType = 'order';
 
         detailContent.innerHTML = `
           <div class="customer-order-detail-summary">
@@ -11730,9 +11836,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           ${cancelDetailHtml}
-          ${paymentDetailHtml}
-          ${acceptedPolicyHtml}
-
+          <p class="customer-record-context">Placed ${escapeHtml(detail.created_at_label || formatOrderDate(detail.created_at))}</p>
           <div class="customer-order-detail-items">
             <h4>Items (${detailItems.length || 1})</h4>
             <div class="customer-order-detail-items-list">
@@ -11740,6 +11844,9 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
+          ${detail.pricing ? `<section class="customer-order-detail-fulfillment customer-order-pricing"><h4>Order total</h4><dl class="customer-order-fulfillment-grid">${[['Item subtotal', detail.pricing.item_subtotal_label], ['Shipping fee', detail.pricing.shipping_fee_label], ['Total', detail.pricing.payable_total_label]].map(([label, value]) => `<div class="customer-order-fulfillment-row"><dt>${label}</dt><dd>${escapeHtml(value || '—')}</dd></div>`).join('')}</dl></section>` : ''}
+          ${paymentDetailHtml}
+          ${acceptedPolicyHtml}
           ${fulfillmentHtml}
           ${detail.tracking_test?.linked ? `<section class="customer-order-detail-logistics" data-customer-tracking-test>
             <h4>Tracking test — external parcel</h4>
@@ -11755,7 +11862,7 @@ document.addEventListener("DOMContentLoaded", () => {
             (isPickupOrder || detail.tracking_test?.linked)
               ? ""
               : `<div class="customer-order-detail-logistics">
-            <h4>Courier Tracking</h4>
+            <h4>Shipment tracking</h4>
             <p><strong>${courierName}</strong></p>
             ${automaticShipment ? `<p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label)}</strong></p>
               <dl class="customer-order-fulfillment-grid">
@@ -11772,26 +11879,7 @@ document.addEventListener("DOMContentLoaded", () => {
                    </div>`
                 : ""
             }
-            ${
-              courierTrackingUrl
-                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${
-                    trackingIsUniversal
-                      ? "Track this parcel on 17TRACK"
-                      : `Open ${courierName} tracking`
-                  }</a>
-                   ${
-                     courierOwnTrackingUrl
-                       ? `<a class="customer-order-logistics-link customer-order-logistics-link--ghost" href="${escapeHtml(courierOwnTrackingUrl)}" target="_blank" rel="noopener noreferrer">Or open ${courierName}'s own site</a>`
-                       : ""
-                   }
-                   <p class="customer-order-logistics-note">${
-                     trackingIsUniversal
-                       ? `The tracking number is already in that link — 17TRACK recognises ${courierName} from the number and lists their checkpoints, no typing needed. ${courierName}'s own site asks you to paste the number in yourself, which is why it is the second link.`
-                       : courierState.tracking_url_is_prefilled ? `Opens ${courierName}'s tracking page with this tracking number already filled in.`
-                       : `Copy the tracking number above and paste it into ${courierName}'s tracking page.`
-                   }</p>`
-                : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
-            }
+            ${(courierOwnTrackingUrl || courierTrackingUrl) ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierOwnTrackingUrl || courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${courierOwnTrackingUrl || !trackingIsUniversal ? `Open ${courierName} tracking` : 'Open parcel tracking'}</a><p class="customer-order-logistics-note">Updates appear automatically after the courier records a scan. You can also check the courier website using this tracking number.</p>` : '<p class="customer-order-logistics-note">Tracking details will appear after FMRC records the handover.</p>'}
           </div>`
           }
 
@@ -11809,37 +11897,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           </div>` : ''}
 
-          <div class="customer-order-detail-timeline">
-            <h4>Order Timeline</h4>
-            <div class="customer-order-timeline-list">
-              ${
-                timeline.length
-                  ? timeline
-                      .map(
-                        (entry) => `
-                          <article class="customer-order-timeline-item">
-                            <div class="customer-order-timeline-dot"></div>
-                            <div class="customer-order-timeline-body">
-                              <div class="customer-order-timeline-top">
-                                <strong>${escapeHtml(entry.title || "Order update")}</strong>
-                                <span>${escapeHtml(entry.occurred_at_label || formatOrderDate(entry.occurred_at))}</span>
-                              </div>
-                              ${entry.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
-                              <div class="customer-order-timeline-meta">
-                                <span>${escapeHtml(entry.stage_label || ORDER_STAGE_LABELS[entry.stage] || "Stage update")}</span>
-                                <span>${escapeHtml(entry.source_label || 'FMRC')}</span>
-                                ${entry.metadata?.tracking_number ? `<span>Tracking number ${escapeHtml(entry.metadata.tracking_number)}</span>` : ''}
-                                ${entry.location_name ? `<span>${escapeHtml(entry.location_name)}</span>` : ""}
-                              </div>
-                            </div>
-                          </article>
-                        `,
-                      )
-                      .join("")
-                  : '<p class="customer-order-timeline-empty">Timeline updates will appear once your order is processed.</p>'
-              }
-            </div>
-          </div>
+          <section class="customer-order-detail-timeline"><div class="customer-order-section-head"><h4>Order timeline</h4><span>Latest first · Philippine time</span></div>${renderReadableTimeline(Array.isArray(detail.customer_timeline) ? detail.customer_timeline : timeline)}</section>
         `;
 
         detailModal.classList.add("show");
@@ -11926,13 +11984,13 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>`;
 
         const refundReceiptHtml =
-          status === "refunded" || detail?.refunded_amount_label
+          Number(detail?.refunded_amount || 0) > 0 && Boolean(detail?.refunded_at)
             ? `
               <div class="customer-order-detail-logistics customer-return-receipt">
-                <h4>Refund Receipt</h4>
-                <p><strong>${escapeHtml(detail?.refunded_amount_label || "-")}</strong> via ${escapeHtml(detail?.refund_method_label || "-")}</p>
+                <h4>${status === 'refunded' ? 'Refund confirmed' : 'Confirmed refund so far'}</h4>
+                <p><strong>${escapeHtml(detail?.refunded_amount_label || formatOrderCurrency(detail?.refunded_amount))}</strong>${detail?.refund_method_label ? ` · ${escapeHtml(detail.refund_method_label)}` : ''}</p>
                 ${detail?.refund_reference ? `<p class="customer-order-logistics-note">Reference: ${escapeHtml(detail.refund_reference)}</p>` : ""}
-                ${detail?.refunded_at_label ? `<p class="customer-order-logistics-note">Released ${escapeHtml(detail.refunded_at_label)}</p>` : ""}
+                ${detail?.refunded_at_label ? `<p class="customer-order-logistics-note">Confirmed ${escapeHtml(detail.refunded_at_label)}</p>` : ""}
               </div>
             `
             : "";
@@ -11968,7 +12026,11 @@ document.addEventListener("DOMContentLoaded", () => {
           .filter(Boolean)
           .join("");
 
-        detailTitle.textContent = `Return ${returnNo}`;
+        detailTitle.textContent = `Return ${detail?.return_no_display || `#${detail?.return_no || detail?.id || '-'}`}`;
+        detailModal.querySelector('[data-order-record-eyebrow]').textContent = 'Return & refund record';
+        detailModal.dataset.recordType = 'return';
+        const returnNextStep = ({requested: 'FMRC is reviewing your request. Keep the item and packaging while you wait.', approved: 'Follow FMRC’s return instructions and add the return shipping details when sent.', item_in_transit: 'Your return is on its way to FMRC for inspection.', item_received: 'FMRC received the return and will confirm the resolution.', refund_processing: detail?.payment_is_automated ? 'Your refund is processing. Open Payment details to check whether a secure refund claim is ready.' : 'FMRC is arranging your refund. Confirmation will appear here once it is sent.', refunded: 'The refund has been confirmed. Check the receiving wallet or bank for the transfer.', rejected: 'FMRC reviewed this request. Read the decision below for details.', cancelled: 'This request is closed.'})[status] || 'Check the latest request update below.';
+        const parentOrder = state.orders.find(order => String(order.id) === String(detail.order_id));
 
         // The same two customer actions the list row offers, so a customer who
         // opened the detail first does not have to back out to act.
@@ -11991,11 +12053,12 @@ document.addEventListener("DOMContentLoaded", () => {
             : "";
 
         detailContent.innerHTML = `
-          <div class="customer-order-detail-summary">
+          <section class="customer-return-progress" data-status="${escapeHtml(status)}"><span class="customer-return-status ${resolveReturnPillClass(status)}">${escapeHtml(detail?.status_label || 'Requested')}</span><p>${escapeHtml(returnNextStep)}</p>${parentOrder && detail?.payment_is_automated ? renderOrderPaymentAction(parentOrder) : ''}</section>
+          <div class="customer-order-detail-summary customer-return-summary">
             <div class="customer-order-detail-chip"><span>Status</span><strong>${escapeHtml(detail?.status_label || "Requested")}</strong></div>
             <div class="customer-order-detail-chip"><span>Reason</span><strong>${escapeHtml(detail?.reason_label || "-")}</strong></div>
             <div class="customer-order-detail-chip"><span>Resolution</span><strong>${escapeHtml(detail?.resolution_label || "-")}</strong></div>
-            <div class="customer-order-detail-chip"><span>Requested</span><strong>${escapeHtml(detail?.requested_amount_label || "-")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Estimated request</span><strong>${escapeHtml(detail?.requested_amount_label || "-")}</strong></div>
             ${detail?.approved_amount_label ? `<div class="customer-order-detail-chip"><span>Approved</span><strong>${escapeHtml(detail.approved_amount_label)}</strong></div>` : ""}
             <div class="customer-order-detail-chip"><span>Order</span><strong>${escapeHtml(detail?.order_no_display || `#${detail?.order_no || detail?.order_id || "-"}`)}</strong></div>
           </div>
@@ -12017,35 +12080,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           ${refundReceiptHtml}
 
-          <div class="customer-order-detail-timeline">
-            <h4>Return Timeline</h4>
-            <div class="customer-order-timeline-list">
-              ${
-                timeline.length
-                  ? timeline
-                      .map(
-                        (entry) => `
-                          <article class="customer-order-timeline-item">
-                            <div class="customer-order-timeline-dot"></div>
-                            <div class="customer-order-timeline-body">
-                              <div class="customer-order-timeline-top">
-                                <strong>${escapeHtml(entry?.title || "Return update")}</strong>
-                                <span>${escapeHtml(entry?.occurred_at_label || formatOrderDate(entry?.occurred_at))}</span>
-                              </div>
-                              ${entry?.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
-                              <div class="customer-order-timeline-meta">
-                                <span>${escapeHtml(entry?.status_label || "Return update")}</span>
-                                ${entry?.actor_role ? `<span>${escapeHtml(RETURN_ACTOR_LABELS[String(entry.actor_role)] || entry.actor_role)}</span>` : ""}
-                              </div>
-                            </div>
-                          </article>
-                        `,
-                      )
-                      .join("")
-                  : '<p class="customer-order-timeline-empty">Timeline updates will appear as your request moves forward.</p>'
-              }
-            </div>
-          </div>
+          <section class="customer-order-detail-timeline"><div class="customer-order-section-head"><h4>Request history</h4><span>Latest first · Philippine time</span></div>${renderReadableTimeline(timeline, true)}</section>
         `;
 
         detailModal.classList.add("show");
@@ -12058,6 +12093,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!detailModal || !detailContent || !detailTitle) return;
 
         const key = String(returnId);
+        const generation = state.historyGeneration, token = state.token;
+        detailModal.querySelector('[data-order-record-eyebrow]').textContent = 'Return & refund record';
+        detailModal.dataset.recordType = 'return';
         state.activeDetailId = null;
         state.activeReturnDetailId = key;
 
@@ -12088,11 +12126,12 @@ document.addEventListener("DOMContentLoaded", () => {
         state.returnDetailLoading = true;
         try {
           const detail = await fetchCustomerReturnDetail(state.token, key);
-          if (detail && state.activeReturnDetailId === key) {
+          if (detail && state.activeReturnDetailId === key && token === state.token && generation === state.historyGeneration) {
             state.returnDetailsById.set(key, detail);
-            renderReturnDetailModal(detail);
+            preserveRecordView(() => renderReturnDetailModal(detail));
           }
         } catch (error) {
+          if (generation !== state.historyGeneration || token !== state.token || state.activeReturnDetailId !== key) return;
           if (state.activeReturnDetailId === key && !listRow) {
             detailTitle.textContent = "Return Details";
             detailContent.innerHTML = `
@@ -12113,14 +12152,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state.returnDetailLoading) return;
 
         const key = String(state.activeReturnDetailId);
+        const generation = state.historyGeneration, token = state.token;
         state.returnDetailLoading = true;
         try {
           const detail = await fetchCustomerReturnDetail(state.token, key);
-          if (detail && state.activeReturnDetailId === key) {
+          if (detail && state.activeReturnDetailId === key && token === state.token && generation === state.historyGeneration) {
             state.returnDetailsById.set(key, detail);
-            renderReturnDetailModal(detail);
+            preserveRecordView(() => renderReturnDetailModal(detail));
           }
         } catch (error) {
+          if (generation !== state.historyGeneration || token !== state.token) return;
           if (error?.isSessionExpired) {
             void handleSessionExpired();
             return;
@@ -12135,6 +12176,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!orderId || !state.token) return;
 
         const key = String(orderId);
+        const generation = state.historyGeneration, token = state.token;
+        detailModal.querySelector('[data-order-record-eyebrow]').textContent = 'Order record';
+        detailModal.dataset.recordType = 'order';
         // The order and return details share one sub-modal, so opening one
         // must release the other's refresh claim.
         state.activeReturnDetailId = null;
@@ -12162,6 +12206,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
           const result = await fetchCustomerOrderDetail(state.token, key);
+          if (generation !== state.historyGeneration || token !== state.token || state.activeDetailId !== key) return;
           if (result.detail) {
             state.detailsById.set(key, result.detail);
             state.detailEtagsById.set(key, result.etag || "");
@@ -12169,6 +12214,8 @@ document.addEventListener("DOMContentLoaded", () => {
             state.lastDetailRefreshAt = Date.now();
           }
         } catch (error) {
+          if (generation !== state.historyGeneration || token !== state.token || state.activeDetailId !== key) return;
+          if (error?.status === 410) { state.activeDetailId = null; state.detailsById.delete(key); state.detailEtagsById.delete(key); }
           if (error?.isSessionExpired) {
             void handleSessionExpired();
             return;
@@ -12189,9 +12236,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!state.activeDetailId || !state.token) return;
         if (!detailModal?.classList.contains("show")) return;
         if (state.detailLoading) return;
+        // Do not advance the detail ETag while an editor still holds a draft.
+        if (window.FMRCAppointmentProducts?.isDirty(detailContent)) return;
         if (!force && Date.now() - state.lastDetailRefreshAt < 1000) return;
 
         state.detailLoading = true;
+        const generation = state.historyGeneration, token = state.token;
         try {
           const detailKey = String(state.activeDetailId);
           const result = await fetchCustomerOrderDetail(
@@ -12199,6 +12249,7 @@ document.addEventListener("DOMContentLoaded", () => {
             detailKey,
             state.detailEtagsById.get(detailKey) || "",
           );
+          if (generation !== state.historyGeneration || token !== state.token || detailKey !== state.activeDetailId) return;
           if (result.etag) {
             state.detailEtagsById.set(detailKey, result.etag);
           }
@@ -12216,6 +12267,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           state.lastDetailRefreshAt = Date.now();
         } catch (error) {
+          if (generation !== state.historyGeneration || token !== state.token) return;
           if (error?.isSessionExpired) {
             void handleSessionExpired();
             return;
@@ -12247,6 +12299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         state.refreshInProgress = true;
+        const generation = state.historyGeneration, token = state.token;
 
         if (showLoading) {
           state.loading = true;
@@ -12255,15 +12308,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-          const result = await fetchCustomerOrders(state.token, state.etag);
+          const result = await fetchCustomerOrders(token, state.etag);
+          if (generation !== state.historyGeneration || token !== state.token || token !== getCustomerToken()) return;
           state.lastRefreshAt = Date.now();
           state.loading = false;
 
           if (!result.notModified && Array.isArray(result.orders)) {
-            state.orders = result.orders;
+            state.orders = result.orders.filter(order => !state.removedOrderIds.has(String(order.id)));
             // Returns ride in the same response, so they refresh in lockstep
             // with the order rows and stay covered by the same ETag.
-            if (Array.isArray(result.returns)) state.returns = result.returns;
+            if (Array.isArray(result.returns)) state.returns = result.returns.filter(row => !state.removedOrderIds.has(String(row.order_id)));
             if (result.returnWindowDays) {
               state.returnWindowDays = result.returnWindowDays;
             }
@@ -12299,12 +12353,13 @@ document.addEventListener("DOMContentLoaded", () => {
           const deepLinkedOrder = new URLSearchParams(window.location.search).get("order_id");
           if (new URLSearchParams(window.location.search).get("orders") === "1" && deepLinkedOrder && !state.notificationOrderOpened) {
             state.notificationOrderOpened = true;
-            if (state.orders.some(order => String(order.id) === deepLinkedOrder)) void openOrderDetail(deepLinkedOrder);
+            void openOrderDetail(deepLinkedOrder);
           }
 
           void refreshActiveDetail(false);
           void refreshActiveReturnDetail();
         } catch (error) {
+          if (generation !== state.historyGeneration || token !== state.token || token !== getCustomerToken()) return;
           state.lastRefreshAt = Date.now();
           if (error?.isSessionExpired) {
             // Not a connectivity blip - retrying would never recover.
@@ -12348,6 +12403,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       overlay.addEventListener("click", (event) => {
+        const remove = event.target.closest('[data-order-remove]');
+        if (remove && !remove.disabled) { event.preventDefault(); void removeOrderHistory(remove.dataset.orderRemove); return; }
+        if (event.target.closest('[data-orders-clear]')) { event.preventDefault(); void removeOrderHistory(); return; }
+        if (event.target.closest('[data-order-record-close]')) { void closeDetailModal(); return; }
         const imageTrigger = event.target.closest(
           ".customer-order-image-trigger",
         );
@@ -12584,6 +12643,22 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       window.addEventListener("storage", (event) => {
+        if (event.key === 'fmrc_customer_order_history_changed') {
+          try {
+            const change = JSON.parse(event.newValue || '{}');
+            if (change.customer !== state.cacheKey) return;
+            state.historyGeneration++; state.etag = '';
+            (change.ids || []).forEach(id => state.removedOrderIds.add(String(id)));
+            state.orders = state.orders.filter(order => !state.removedOrderIds.has(String(order.id)));
+            state.returns = state.returns.filter(row => !state.removedOrderIds.has(String(row.order_id)));
+            state.detailsById.clear(); state.detailEtagsById.clear(); state.returnDetailsById.clear();
+            if (state.removedOrderIds.has(String(state.activeDetailId)) || (state.activeReturnDetailId && !state.returns.some(row => String(row.id) === String(state.activeReturnDetailId)))) void closeDetailModal();
+            writeCustomerOrdersCache(state.cacheKey, state.orders, '', state.returns, state.cancelReasonOptions);
+            renderOrders();
+            if (overlay.classList.contains('show')) void refreshOrders(false, true);
+          } catch { /* Live refresh will recover if another tab's message is malformed. */ }
+          return;
+        }
         if (event.key !== ORDERS_REALTIME_SIGNAL_KEY) return;
         if (!overlay.classList.contains("show") || document.hidden) return;
         const popup = document.getElementById("customerSystemPopup");
@@ -12615,6 +12690,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       customerOrdersController = {
         open: async (nextUserInfo) => {
+          state.historyGeneration++;
+          if (String(nextUserInfo?.id || nextUserInfo?.email || 'customer-orders') !== state.cacheKey) state.removedOrderIds.clear();
+          state.historyBusy = false;
           state.userInfo = nextUserInfo;
           state.cacheKey = String(
             nextUserInfo?.id || nextUserInfo?.email || "customer-orders",
@@ -13340,7 +13418,7 @@ const openReturnRequestModal = (() => {
           .join("")}
       </div>
 
-      <label class="customer-rating-field-label" for="returnNote">4. Note for the store <span>(optional)</span></label>
+      <label class="customer-rating-field-label" for="returnNote">4. Additional notes for FMRC <span>(optional)</span></label>
       <textarea id="returnNote" class="customer-rating-feedback" data-return-note maxlength="1000" rows="3" placeholder="Anything else we should know...">${escapeReturnHtml(returnDraft.note || "")}</textarea>
 
       <div class="customer-rating-media-field">
@@ -13351,10 +13429,10 @@ const openReturnRequestModal = (() => {
       </div>
 
       <div class="customer-return-estimate">
-        <span>Estimated refund</span>
+        <span data-return-estimate-label>${returnDraft.resolution === "refund" ? "Estimated refund" : "Selected item value"}</span>
         <strong data-return-estimate>${escapeReturnHtml(pesoLabel(estimatedRefund()))}</strong>
       </div>
-      <p class="customer-return-fineprint">The final amount is confirmed by the store after review. Keep the item and its packaging until then.</p>
+      <p class="customer-return-fineprint">FMRC confirms the final amount after review. Keep the item and its packaging until then.</p>
     `;
   };
 
@@ -13480,6 +13558,8 @@ const openReturnRequestModal = (() => {
       if (resolutionInput) {
         if (!returnDraft) return;
         returnDraft.resolution = resolutionInput.value;
+        const estimateLabel = body.querySelector('[data-return-estimate-label]');
+        if (estimateLabel) estimateLabel.textContent = returnDraft.resolution === 'refund' ? 'Estimated refund' : 'Selected item value';
         markReturnDirty();
         body
           ?.querySelectorAll(".customer-return-resolution-option")

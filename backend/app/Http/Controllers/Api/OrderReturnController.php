@@ -11,6 +11,7 @@ use App\Models\OrderReturnItem;
 use App\Models\Payment;
 use App\Support\OrderNotifier;
 use App\Support\ReturnPresenter;
+use App\Support\CustomerOrderHistory;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,6 +65,7 @@ class OrderReturnController extends Controller
 
         $returns = OrderReturn::query()
             ->where('customer_id', $request->user()->id)
+            ->when(CustomerOrderHistory::available(), fn ($query) => $query->whereHas('order', fn ($order) => $order->whereNull('customer_hidden_at')))
             ->where('is_archived', false)
             ->with([
                 'order.payment',
@@ -327,6 +329,9 @@ class OrderReturnController extends Controller
         }
 
         $orderReturn->load(['order', 'items', 'events', 'handler:id,name,role']);
+
+        if ($orderReturn->order?->customer_hidden_at) return response()->json(['message' => 'Removed from My Orders. FMRC retains the transaction record.', 'code' => 'order_history_removed'], 410)
+            ->withHeaders(['Cache-Control' => 'private, no-store']);
 
         return response()->json(['data' => $this->transformReturnDetail($orderReturn)]);
     }

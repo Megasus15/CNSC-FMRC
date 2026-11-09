@@ -23,6 +23,8 @@ use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
+use App\Support\CustomerOrderHistory;
+use App\Support\CustomerOrderTimeline;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -699,6 +701,8 @@ class OrderController extends Controller
                 'pickup_ready_at',
                 'picked_up_at',
                 'completed_at',
+                'rejected_at',
+                'customer_hidden_at',
                 'created_at',
                 'updated_at',
             ]))
@@ -721,10 +725,12 @@ class OrderController extends Controller
                     ->orderByDesc('id'),
             ])
             ->where('customer_id', $request->user()->id)
+            ->when(CustomerOrderHistory::available(), fn ($query) => $query->whereNull('customer_hidden_at'))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
 
+        CustomerOrderHistory::prime($orders);
         $data = $orders
             ->map(fn (Order $order) => $this->transformOrderSummary($order, false, true))
             ->values();
@@ -805,6 +811,9 @@ class OrderController extends Controller
                 'message' => 'You are not allowed to access this order.',
             ], 403);
         }
+
+        if ($order->customer_hidden_at) return response()->json(['message' => 'Removed from My Orders. FMRC retains the transaction record.', 'code' => 'order_history_removed'], 410)
+            ->withHeaders(['Cache-Control' => 'private, no-store']);
 
         $order->load([
             'items' => fn ($query) => $query
@@ -3725,6 +3734,9 @@ class OrderController extends Controller
             $summary['rating_total_items']=0;
             $summary['has_rating']=true;
         }
+        if (strtolower((string) auth()->user()?->role) === 'customer') {
+            $summary['history_removal'] = CustomerOrderHistory::state($order);
+        }
         return $summary;
     }
 
@@ -3761,6 +3773,8 @@ class OrderController extends Controller
         return array_merge($summary, [
             'items' => $items,
             'timeline' => $timeline,
+            'customer_timeline' => CustomerOrderTimeline::present($order->trackingEvents,
+                $order->relationLoaded('latestShipmentTracker') ? $order->latestShipmentTracker : null),
             'courier_shipment' => ShipmentTracking::present($order, in_array(strtolower((string) auth()->user()?->role), ['admin','staff'], true), true),
             'accepted_policy' => $order->accepted_policy_text ? array_merge($order->accepted_policy_text,[
                 'accepted_at'=>$this->formatPhilippineIso($order->policy_accepted_at),
