@@ -99,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
     order: { all: [], page: 1, controller: null },
     return: { all: [], page: 1, controller: null },
     online_refund: { all: [], page: 1, controller: null },
+    cancellation: { all: [], page: 1, controller: null },
     rating: { all: [], page: 1, controller: null },
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
@@ -108,6 +109,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const inventoryVariantPages = new Map();
 
   const moduleConfig = {
+    cancellation: {
+      payloadKey: 'cancellations', tableId: 'cancellationArchiveTable', tbodyId: 'cancellationArchiveTbody',
+      footerId: 'cancellationArchiveFooter', metaId: 'cancellationArchiveMeta', pageId: 'cancellationArchivePage',
+      prevId: 'cancellationArchivePrev', nextId: 'cancellationArchiveNext', countId: 'tabCountCancellation', colCount: 8,
+      tableLabel: 'Cancellation Archives', restoreOnly: true, emptyMessage: 'No archived cancellations found.',
+      searchFields: ['order_no', 'customer_name', 'status', 'reason', 'reason_detail', 'decision_note', 'archived_by'],
+    },
     online_refund: {
       payloadKey: "online_refunds",
       tableId: "onlineRefundArchiveTable", tbodyId: "onlineRefundArchiveTbody",
@@ -424,6 +432,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderRow = (module, row, index) => {
+    if (module === 'cancellation') {
+      return `<tr>${row.can_restore ? rowCheckbox(module,row,row.order_no) : '<td class="admin-bulk-select-cell"></td>'}
+        <td><strong>${window.AdminTableValue.html(row.order_no)}</strong></td><td>${window.AdminTableValue.html(row.customer_name)}</td>
+        <td>${window.AdminTableValue.html(row.reason)}<div>${window.AdminTableValue.html(row.reason_detail)}</div></td>
+        <td>${statusPill(row.status === 'approved' ? 'Approved' : 'Declined')}</td><td>${fmtDate(row.decided_at,true)}</td>
+        <td>${fmtDate(row.archived_at,true)}<div>${window.AdminTableValue.html(row.archived_by)}</div></td>
+        <td class="action-icons sticky-action"><button type="button" data-cancellation-view="${Number(row.source_id)}" data-tooltip="View cancellation" aria-label="View cancellation for ${esc(row.order_no)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
+        ${row.can_restore ? restoreButton(module,row,row.order_no) : `<button type="button" disabled title="${esc(row.restore_reason)}" data-tooltip="${esc(row.restore_reason)}" aria-label="Restore unavailable"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>`}</td></tr>`;
+    }
     if (module === "online_refund") {
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
@@ -712,8 +729,8 @@ document.addEventListener("DOMContentLoaded", () => {
         footer: config.footer,
         tableLabel: config.tableLabel,
         getId: (row) => row?.source_id,
-        getEligibleRows: () => filteredRows(module),
-        getPageRows: () => pageRows(module),
+        getEligibleRows: () => filteredRows(module).filter(row=>module!=='cancellation'||row.can_restore),
+        getPageRows: () => pageRows(module).filter(row=>module!=='cancellation'||row.can_restore),
         selectionModes: [
           {
             key: "restore",
@@ -900,6 +917,21 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const cancellationView=target.closest('[data-cancellation-view]');
+    if(cancellationView){
+      const row=state.cancellation.all.find(item=>Number(item.source_id)===Number(cancellationView.dataset.cancellationView));
+      if(!row)return;
+      let dialog=document.getElementById('cancellationArchiveDetails');
+      if(!dialog){dialog=document.createElement('dialog');dialog.id='cancellationArchiveDetails';dialog.className='modal-card cancellation-archive-dialog';dialog.setAttribute('aria-labelledby','cancellationArchiveTitle');document.body.append(dialog);}
+      const field=(label,value)=>'<div><dt>'+esc(label)+'</dt><dd>'+window.AdminTableValue.html(value)+'</dd></div>';
+      dialog.innerHTML='<header class="modal-header-fixed"><h3 class="modal-title" id="cancellationArchiveTitle">Cancellation record</h3></header>'+
+        '<div class="modal-body-scroll"><section class="order-dialog-section"><h4>'+esc(row.order_no)+'</h4><p class="field-hint">Saved cancellation history. The linked order and payment remain unchanged.</p><dl class="cancellation-archive-fields">'+
+        field('Customer',row.customer_name)+field('Decision',row.status==='approved'?'Approved':'Declined')+field('Requested',fmtDate(row.requested_at,true))+field('Decided',fmtDate(row.decided_at,true))+
+        field('Reason',row.reason)+field('Additional details',row.reason_detail)+field('FMRC decision note',row.decision_note)+field('Payment status at archival',row.payment_status?.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()))+
+        field('Order amount',new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(row.amount||0)))+field('Archived',fmtDate(row.archived_at,true))+'</dl></section></div>'+
+        '<footer class="modal-footer-fixed"><button type="button" class="btn-admin btn-secondary" data-cancellation-close>Close</button></footer>';
+      dialog.querySelector('[data-cancellation-close]').onclick=()=>dialog.close();dialog.showModal();return;
+    }
     const refundView = target.closest('[data-refund-view]');
     if (refundView) {
       window.location.href = 'orders.html?refund_order=' + Number(refundView.dataset.refundView);

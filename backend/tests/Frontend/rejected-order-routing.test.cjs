@@ -24,8 +24,9 @@ function harness(rows = []) {
     rejectedOrdersTbody: {}, rejectedOrdersFooter: {}, rejectedBulkController: { sync() {} }, PAGE_SIZE: 10,
     escapeHtml: value => String(value ?? '').replaceAll('<', '&lt;'),
     formatDateShort: () => 'Oct 17, 2026', formatMoney: value => 'PHP ' + Number(value || 0).toFixed(2),
+    formatTableMoney: value => value == null ? '--' : 'PHP ' + Number(value).toFixed(2),
     renderPagedRows(config) { rendered.push({ rows: config.rows, html: config.rows.map(config.renderRow).join('') }); return 1; },
-    window: { dispatchEvent: event => events.push(event) },
+    window: { dispatchEvent: event => events.push(event), AdminTableValue: { html: value => String(value ?? '--') } },
     document: { querySelector: () => ({ click() { recordsClicks++; } }), getElementById: () => ({ scrollIntoView() { scrolls.push('rejected'); } }) },
     CustomEvent: class { constructor(type, { detail }) { this.type = type; this.detail = detail; } },
   });

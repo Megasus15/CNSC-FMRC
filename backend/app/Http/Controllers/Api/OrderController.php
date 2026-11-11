@@ -21,6 +21,8 @@ use App\Services\NinjaVanShipping;
 use App\Services\ShipmentTracking;
 use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
+use App\Support\OrderApproval;
+use App\Support\CancellationHistoryArchive;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
 use App\Support\CustomerOrderHistory;
@@ -1640,6 +1642,7 @@ class OrderController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
+        CancellationHistoryArchive::prime($orders);
         $mapped = $orders->map(
             fn (Order $order) => $this->transformOrderSummary($order, false)
         );
@@ -1743,7 +1746,10 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->get();
 
+            $processed = [];
             foreach ($orders as $order) {
+                $order->setRelation('payment', Payment::where('order_id', $order->id)->lockForUpdate()->first());
+                if (! OrderApproval::state($order)['allowed']) continue;
                 AppointmentProducts::assertProduction($order);
                 if (AppointmentProducts::custom($order)) { $order->appointment_production_status='in_production';$order->production_revision++; }
                 $paymentStatus = $order->payment?->status;
@@ -1756,6 +1762,7 @@ class OrderController extends Controller
                 $order->customer_stage = $nextCustomerStage;
                 $order->approved_at = Carbon::now();
                 $order->save();
+                $processed[] = (int) $order->id;
 
                 $this->createTrackingEvent($order, [
                     'created_by_user_id' => $request->user()?->id,
@@ -1785,12 +1792,8 @@ class OrderController extends Controller
                 $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
             }
 
-            return $orders->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            return $processed;
         });
-
-        if (!$processedIds) {
-            return response()->json(['message' => 'No incoming orders were found to approve.'], 404);
-        }
 
         return $this->bulkActionResponse('approve', 'incoming_orders', $ids, $processedIds);
     }
@@ -1890,40 +1893,30 @@ class OrderController extends Controller
             return $denied;
         }
 
-        if ($order->lifecycle_status !== 'incoming') {
-            return response()->json([
-                'message' => 'Only incoming orders can be approved.',
-            ], 422);
-        }
-        if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before approving this order.'],422);
-
-        $paymentStatus = $order->payment?->status;
-        $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
-
-        if (!in_array($nextCustomerStage, self::ALLOWED_CUSTOMER_STAGES, true)) {
-            $nextCustomerStage = 'to_pay';
-        }
-
-        $order->lifecycle_status = 'pending';
-        $order->customer_stage = $nextCustomerStage;
-        $order->approved_at = Carbon::now();
-        $updated=Order::whereKey($order->id)->where('lifecycle_status','incoming')
-            ->where(fn($q)=>$q->whereNull('cancel_state')->orWhere('cancel_state','!=','requested'))
-            ->update(['lifecycle_status'=>$order->lifecycle_status,'customer_stage'=>$order->customer_stage,'approved_at'=>$order->approved_at]);
-        if(!$updated) return response()->json(['message'=>'This order changed. Review its cancellation or current status before continuing.'],422);
-        $order->refresh();
-
-        $this->createTrackingEvent($order, [
-            'created_by_user_id' => $request->user()?->id,
-            'stage' => $order->customer_stage,
-            'event_type' => 'admin_update',
-            'title' => 'Order approved',
-            'description' => $this->approvalEventDescription($order),
-            'occurred_at' => now(),
-            'metadata' => [
-                'lifecycle_status' => 'pending',
-            ],
-        ]);
+        DB::transaction(function () use ($order, $request): void {
+            $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $fresh->setRelation('payment', Payment::where('order_id', $fresh->id)->lockForUpdate()->first());
+            $approval = OrderApproval::state($fresh);
+            abort_unless($approval['allowed'], 422, $approval['reason'] ?? 'This order cannot be approved.');
+            $stage = $fresh->payment?->status === 'paid' ? 'to_ship' : $fresh->customer_stage;
+            $fresh->lifecycle_status = 'pending';
+            $fresh->customer_stage = in_array($stage, self::ALLOWED_CUSTOMER_STAGES, true) ? $stage : 'to_pay';
+            $fresh->approved_at = now();
+            $fresh->save();
+            $order->setRawAttributes($fresh->getAttributes(), true);
+            $order->setRelation('payment', $fresh->payment);
+            $this->createTrackingEvent($order, [
+                'created_by_user_id' => $request->user()?->id,
+                'stage' => $order->customer_stage,
+                'event_type' => 'admin_update',
+                'title' => 'Order approved',
+                'description' => $this->approvalEventDescription($order),
+                'occurred_at' => now(),
+                'metadata' => [
+                    'lifecycle_status' => 'pending',
+                ],
+            ]);
+        });
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
@@ -2580,7 +2573,10 @@ class OrderController extends Controller
             'processed_ids' => array_values($processedIds),
             'processed_count' => count($processedIds),
             'skipped_ids' => array_values(array_diff($requestedIds, $processedIds)),
-            'message' => count($processedIds) . " order(s) {$pastTense} successfully.",
+            'message' => $action === 'approve'
+                ? count($processedIds) . " order(s) {$pastTense}."
+                    . (count($requestedIds) > count($processedIds) ? ' ' . count(array_diff($requestedIds, $processedIds)) . ' skipped because they are no longer eligible.' : '')
+                : count($processedIds) . " order(s) {$pastTense} successfully.",
         ]);
     }
 
@@ -3737,6 +3733,10 @@ class OrderController extends Controller
         }
 
         $summary = array_merge($summary, AppointmentProducts::orderData($order));
+        if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true)) {
+            $summary['approval'] = OrderApproval::state($order);
+            $summary['cancellation_archive'] = CancellationHistoryArchive::state($order);
+        }
         if (AppointmentProducts::custom($order)) {
             $summary['customer_stage_label']=$summary['custom_product']['stage'];
             $summary['rating_total_items']=0;

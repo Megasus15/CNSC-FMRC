@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\OrderCancellationArchive;
 use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\Promotion;
@@ -21,6 +22,7 @@ class AdminArchiveRecords
         'orders',
         'returns',
         'online_refunds',
+        'cancellations',
         'ratings',
         'promotions',
         'announcements',
@@ -35,6 +37,7 @@ class AdminArchiveRecords
             'orders' => Order::query()->where('is_archived', true),
             'returns' => OrderReturn::query()->where('is_archived', true),
             'online_refunds' => Payment::query()->whereNotNull('online_refund_archived_at'),
+            'cancellations' => OrderCancellationArchive::query()->whereNull('restored_at'),
             'ratings' => ProductRating::query()->where('is_archived', true),
             'promotions' => Promotion::query()->where('is_archived', true),
             'announcements' => Announcement::query()->where('is_archived', true),

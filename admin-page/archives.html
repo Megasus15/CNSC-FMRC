@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Archives | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css?v=2026.1108.1" />
-    <link rel="stylesheet" href="admin-modules.css?v=2026.1110.1" />
+    <link rel="stylesheet" href="admin-modules.css?v=2026.1111.8" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -332,6 +332,7 @@
               <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Online refunds
               <span class="tab-count" id="tabCountOnlineRefund">0</span>
             </button>
+            <button class="archive-tab-btn" data-tab="cancellation"><i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations <span class="tab-count" id="tabCountCancellation">0</span></button>
             <button class="archive-tab-btn" data-tab="rating">
               <i class="fa-solid fa-star"></i> Ratings &amp; Feedback
               <span class="tab-count" id="tabCountRating">0</span>
@@ -676,6 +677,23 @@
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="archive-section" id="sectionCancellation">
+            <div class="panel">
+              <div class="panel-header"><h3>Archived Cancellations <span class="archive-badge badge-return"><i class="fa-solid fa-ban" aria-hidden="true"></i> Customer requests</span></h3></div>
+              <p class="field-hint">Resolved cancellation history. Restoring a record does not change its order or payment. These records are kept and excluded from automatic deletion.</p>
+              <div class="table-scroll-hint"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper"><table class="admin-table inventory-table" id="cancellationArchiveTable">
+                <thead><tr><th class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-page="archive-cancellation" aria-label="Select restorable cancellations on this page" /></th><th>Order No.</th><th>Customer</th><th>Reason</th><th>Decision</th><th>Decided</th><th>Archived</th><th class="sticky-action">Actions</th></tr></thead>
+                <tbody id="cancellationArchiveTbody"></tbody>
+              </table></div>
+              <div class="table-footer" id="cancellationArchiveFooter"><div class="table-footer-meta" id="cancellationArchiveMeta">--</div><div class="table-pagination">
+                <button class="page-btn" id="cancellationArchivePrev" aria-label="Previous cancellation archives page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                <input class="page-number" id="cancellationArchivePage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to cancellation archives page" />
+                <button class="page-btn" id="cancellationArchiveNext" aria-label="Next cancellation archives page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+              </div></div>
             </div>
           </div>
 
@@ -1221,7 +1239,7 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1109.8"></script>
 
-    <script src="archives.js?v=2026.1109.9"></script>
+    <script src="archives.js?v=2026.1111.8"></script>
     <script src="admin-table-resize.js?v=2026.1109.8" defer></script>
   </body>
 </html>

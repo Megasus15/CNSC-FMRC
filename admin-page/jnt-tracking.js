@@ -32,9 +32,10 @@
   const load = async state => {
     if (state.busy || state.polling || Date.now() < (state.nextPoll || 0)) return;
     state.polling = true;
-    try { const shared=window.AdminOrderDialogs;const order=await (shared?shared.load(state.order.id):request('/admin/orders/'+state.order.id));state.readError=false;state.message='';if(order)changed(state,order,!shared);state.failures=0;state.nextPoll=0; }
-    catch (error) { state.failures = Math.min(4, (state.failures || 0) + 1); state.nextPoll = Date.now() + 5000 * 2 ** state.failures; state.readError=true;state.message=error.message;if(currentHost(state))render(state.order,state.host); }
-    finally { state.polling = false; }
+    if(currentHost(state))render(state.order,state.host);
+    try { const shared=window.AdminOrderDialogs;const order=await (shared?.loadFulfillment?shared.loadFulfillment(state.order.id):request('/admin/orders/'+state.order.id));state.readError=false;state.message='Updated '+new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit',second:'2-digit'}).format(new Date())+' PHT.';if(order)changed(state,order,false);state.failures=0;state.nextPoll=0; }
+    catch (error) { state.failures = Math.min(4, (state.failures || 0) + 1); state.nextPoll = Date.now() + 5000 * 2 ** state.failures; state.readError=true;state.message='Fulfillment could not be refreshed. Select Refresh to try again.';if(currentHost(state))render(state.order,state.host); }
+    finally { state.polling = false;if(currentHost(state))render(state.order,state.host); }
   };
   const mutate = async (state, method, suffix, payload) => {
     if (orderBusy(state.order.id)) return;
@@ -49,56 +50,14 @@
       try { changed(state, await request('/admin/orders/'+state.order.id)); } catch { /* Preserve draft and request key after an uncertain response. */ }
     } finally { state.busy = false;if(currentHost(state))render(state.order,state.host); }
   };
-  const renderTest = (order, host, state) => {
-    const test = order.tracking_test;
-    let panel = host.querySelector('[data-tracking-test-controls]');
-    if (!test?.linked && !test?.can_attach) { panel?.remove(); return; }
-    if (!panel) { panel=document.createElement('section');panel.className='shipment-control-card';panel.dataset.trackingTestControls='';host.prepend(panel); }
-    const layout=String(order.id)+':'+Boolean(test.linked);
-    if(panel.dataset.layout!==layout){
-      panel.dataset.layout=layout;
-      panel.innerHTML='<details '+(test.linked?'open':'')+'><summary><strong>Tracking test — external parcel</strong></summary>'+
-        '<p class="shipment-note">Use your own existing parcel to test automatic updates on this order. This test keeps the FMRC order in its current fulfillment stage.</p>'+
-        (test.linked?'<div data-tracking-test-result></div><div class="shipment-actions">'+(test.can_remove?'<button type="button" class="btn-admin btn-secondary" data-tracking-test-remove>Remove tracking test</button>':'')+'</div>':
-        '<div class="field-stack"><label>Test parcel tracking number<input class="input-field" data-tracking-test-number autocomplete="off" maxlength="50" placeholder="JT tracking number" /></label></div>'+
-        '<label class="jnt-confirm"><input type="checkbox" data-tracking-test-consent /><span>I own this external parcel and am using it for a tracking test.</span></label>'+
-        '<p class="shipment-note">Any QR Ph payment for this order is a real payment. The parcel shown in this test belongs to a separate purchase.</p>'+
-        '<div class="shipment-actions"><button type="button" class="btn-admin" data-tracking-test-link>Link test tracking</button></div>')+
-        '<p class="shipment-message" role="status" data-tracking-test-message></p></details>';
-      const act=async(remove)=>{
-        if(orderBusy(order.id))return;
-        const number=panel.querySelector('[data-tracking-test-number]')?.value.trim();
-        if(!remove&&(!/^[a-z0-9-]{5,50}$/i.test(number||'')||!panel.querySelector('[data-tracking-test-consent]').checked)){
-          panel.querySelector('[data-tracking-test-message]').textContent='Enter your verified diagnostic tracking number and confirm that it is your own parcel.';return;
-        }
-        window.showAdminConfirmPopup(remove?'Remove the external parcel tracking test from this order?':'Link this external parcel as a clearly labelled tracking test? The FMRC order stage and payment stay unchanged.',
-          {title:remove?'Remove Tracking Test':'Link Tracking Test',confirmText:remove?'Remove test':'Link test',onConfirm:async()=>{
-            if(orderBusy(order.id))return;
-            state.busy=true;render(state.order,host);
-            try{const data=await request('/admin/orders/'+order.id+'/tracking-test',{method:remove?'DELETE':'POST',body:remove?undefined:JSON.stringify({tracking_number:number,test_confirmed:true})});changed(state,data,true);}
-            catch(error){panel.querySelector('[data-tracking-test-message]').textContent=error.message;}
-            finally{state.busy=false;if(currentHost(state))render(state.order,host);}
-          }});
-      };
-      panel.querySelector('[data-tracking-test-link]')?.addEventListener('click',()=>void act(false));
-      panel.querySelector('[data-tracking-test-remove]')?.addEventListener('click',()=>void act(true));
-    }
-    panel.querySelectorAll('button,input').forEach(control=>control.disabled=state.busy);
-    const result=panel.querySelector('[data-tracking-test-result]');
-    if(result){
-      const html='<p><strong>Tracking number:</strong> <span class="jnt-waybill">'+escape(test.tracking_number)+'</span></p><p><strong data-tracking-test-status>'+escape(test.status_label)+'</strong></p><p>'+escape(test.message)+'</p>'+
-        '<ol class="shipment-events">'+(test.events||[]).map(event=>'<li><strong>'+escape(event.title)+'</strong><time>'+escape(event.time_label)+'</time><span>'+escape(event.location)+'</span><span>'+escape(event.description)+'</span></li>').join('')+'</ol>';
-      if(result.dataset.value!==html){result.innerHTML=html;result.dataset.value=html;}
-    }
-  };
   const render = (order, host) => {
     if (!host || order.courier_shipment?.tracking_provider!=='17track') return;
+    const scrollBody=host.closest('.modal-body-scroll'),scrollTop=scrollBody?.scrollTop;
     let records=hosts.get(host);if(!records){records=new Map();hosts.set(host,records);}
     let state=records.get(String(order.id));
     if(!state){state={draft:null,editing:false,busy:false,polling:false,message:'',layout:null};records.set(String(order.id),state);states.add(state);}
     if (!Array.isArray(order.timeline) && Array.isArray(state.order?.timeline)) order = {...order, timeline:state.order.timeline};
     state.order = order; state.host = host;
-    renderTest(order,host,state);
     let card = host.querySelector('[data-courier-controls]');
     if (!card) { card = document.createElement('section'); card.dataset.courierControls = ''; card.className = 'shipment-control-card'; host.appendChild(card); }
     const shipment = order.courier_shipment;
@@ -112,15 +71,15 @@
       const prefix = (host.id === 'trackingManagedShipment' ? 'tracking-jnt-' : 'jnt-')+order.id+'-';
       card.innerHTML = '<div class="shipment-heading"><h4>J&T Express delivery</h4><span class="status-pill status-yellow" data-jnt-status></span></div>'+
         '<p class="shipment-note" data-jnt-availability></p><div data-jnt-summary></div><p class="shipment-message" role="status" aria-live="polite" data-jnt-message></p>'+
-        (formOpen ? '<form data-jnt-form><fieldset><legend class="jnt-form-title">'+(state.editing?'Correct the recorded tracking number':'Record J&T tracking number')+'</legend><div class="shipment-fields">'+
+        (formOpen ? '<form data-jnt-form id="'+prefix+'form"><fieldset><legend class="jnt-form-title">'+(state.editing?'Correct tracking number':'Record parcel handover')+'</legend><div class="shipment-fields">'+
           '<div class="field-stack"><label for="'+prefix+'number">J&T tracking number</label><input class="input-field" id="'+prefix+'number" name="tracking_number" required minlength="5" maxlength="50" autocomplete="off" spellcheck="false" value="'+escape(draft.tracking_number)+'" /></div>'+
           '<div class="field-stack"><label for="'+prefix+'time">Actual handover time (Philippine time)</label><input class="input-field" id="'+prefix+'time" name="handed_over_at" type="datetime-local" required max="'+localTime()+'" value="'+escape(draft.handed_over_at)+'" /></div>'+
           '<div class="field-stack"><label for="'+prefix+'cost">J&T charge (PHP, optional)</label><input class="input-field" id="'+prefix+'cost" name="actual_shipping_cost" type="number" min="0" max="999999.99" step="0.01" value="'+escape(draft.actual_shipping_cost)+'" /></div>'+
           (state.editing?'<div class="field-stack"><label for="'+prefix+'reason">Reason for correction</label><textarea class="input-field" id="'+prefix+'reason" name="correction_reason" minlength="5" maxlength="500" required>'+escape(draft.correction_reason)+'</textarea></div>':'')+'</div>'+
           '<label class="jnt-confirm" for="'+prefix+'confirmed"><input id="'+prefix+'confirmed" name="handover_confirmed" type="checkbox" required '+(draft.handover_confirmed?'checked':'')+' /><span>I confirm this parcel was physically handed to J&T and the number matches the J&T receipt.</span></label>'+
-          '<p class="shipment-reference">The customer’s accepted shipping fee stays unchanged.</p><div class="shipment-actions"><button class="btn-admin" type="submit">'+(state.editing?'Save correction':'Record handover')+'</button>'+
-          (state.editing?'<button class="btn-admin btn-secondary" type="button" data-jnt-discard>Discard correction</button>':'')+'</div></fieldset></form>':'')+
-        '<div class="shipment-actions"><button class="btn-admin btn-secondary" type="button" data-jnt-load><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh saved updates</button>'+
+          '<p class="shipment-reference">The customer’s accepted shipping fee stays unchanged.</p></fieldset></form>':'')+
+        '<div class="shipment-actions shipment-primary-actions">'+(formOpen?'<button class="btn-admin" type="submit" form="'+prefix+'form" data-jnt-submit>'+(state.editing?'Save correction':'Record handover')+'</button>'+(state.editing?'<button class="btn-admin btn-secondary" type="button" data-jnt-discard>Discard correction</button>':''):'')+
+        '<button class="btn-admin btn-secondary" type="button" data-jnt-load><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> <span>Refresh</span></button>'+
         (shipment.id?'<button class="btn-admin btn-secondary" type="button" data-jnt-refresh>Request tracking update</button><button class="btn-admin btn-secondary" type="button" data-jnt-correct>Correct tracking number</button>':'')+'</div><div data-jnt-history></div>';
       const collect = () => {
         const form = card.querySelector('[data-jnt-form]'); if (!form) return;
@@ -147,7 +106,7 @@
       const correct = card.querySelector('[data-jnt-correct]'); if (correct) correct.onclick = () => {state.editing=true;state.editVersion=state.order.courier_shipment.version;state.draft=null;state.layout=null;state.message='';render(state.order,host);card.querySelector('[name="tracking_number"]')?.focus();};
       const discard = card.querySelector('[data-jnt-discard]'); if (discard) discard.onclick = () => {state.editing=false;state.draft=null;state.layout=null;render(state.order,host);};
     }
-    card.setAttribute('aria-busy', String(state.busy));
+    card.setAttribute('aria-busy', String(state.busy || state.polling));
     card.querySelector('[data-jnt-status]').textContent = shipment.status_label;
     card.querySelector('[data-jnt-status]').className = 'status-pill '+(shipment.status==='delivered'?'status-green':'status-yellow');
     card.querySelector('[data-jnt-availability]').textContent = shipment.availability_message;
@@ -163,11 +122,14 @@
     }
     const refresh = card.querySelector('[data-jnt-refresh]'); if (refresh) refresh.disabled = state.busy || !shipment.can_refresh;
     const correct = card.querySelector('[data-jnt-correct]'); if (correct) {correct.hidden=!shipment.can_correct || state.editing;correct.disabled=state.busy;}
-    card.querySelector('[data-jnt-load]').disabled = state.busy;
+    const submit=card.querySelector('[data-jnt-submit]');if(submit)submit.disabled=state.busy||!(state.editing?shipment.can_correct:shipment.can_record);
+    const loadButton=card.querySelector('[data-jnt-load]');loadButton.disabled=state.busy||state.polling;
+    loadButton.querySelector('span').textContent=state.polling?'Refreshing…':'Refresh';
     const entries = (order.timeline || []).filter(entry => entry.metadata?.source === '17track' || entry.metadata?.tracking_number);
     const history = entries.length ? '<details open><summary>Shipment history</summary><ol class="shipment-events">'+entries.map(entry=>'<li><strong>'+escape(entry.title)+'</strong><time>'+escape(entry.occurred_at_label)+'</time><span>'+escape(entry.source_label || 'FMRC')+(entry.metadata?.tracking_number?' · '+escape(entry.metadata.tracking_number):'')+'</span>'+(entry.location_name?'<span>'+escape(entry.location_name)+'</span>':'')+'</li>').join('')+'</ol></details>' : '';
     const historyHost=card.querySelector('[data-jnt-history]');
     if (historyHost.dataset.value !== history) {const open=historyHost.querySelector('details')?.open;historyHost.innerHTML=history;historyHost.dataset.value=history;if(open===false&&historyHost.firstElementChild)historyHost.firstElementChild.open=false;}
+    if(scrollBody)scrollBody.scrollTop=scrollTop;
   };
   setInterval(() => {
     if (document.hidden||window.AdminOrderDialogs?.ownsPolling) return;

@@ -52,6 +52,7 @@ class AdminDashboardLiveCountsTest extends TestCase
             'orders' => 1,
             'returns' => 1,
             'online_refunds' => 0,
+            'cancellations' => 0,
             'ratings' => 1,
             'promotions' => 1,
             'announcements' => 1,

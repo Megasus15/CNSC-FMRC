@@ -188,6 +188,13 @@ class Order extends Model
         return self::CANCEL_REASON_LABELS[$this->cancel_reason] ?? null;
     }
 
+    public function latestCancellationRequest(): HasOne
+    {
+        return $this->hasOne(OrderTrackingEvent::class)->ofMany(['id' => 'max'], fn ($query) => $query
+            ->where('metadata->source', 'customer_cancellation')
+            ->whereIn('title', ['Cancellation requested', 'Order cancelled']));
+    }
+
     /** True once the cancellation went through, however it was reached. */
     public function isCancelled(): bool
     {

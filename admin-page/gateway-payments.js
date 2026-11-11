@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelAlert=document.createElement('button');cancelAlert.type='button';cancelAlert.className='cancellation-alert';cancelAlert.hidden=true;tabs?.before(cancelAlert);
   const cancelWorkspace=document.createElement('section');cancelWorkspace.id='sectionCancellations';cancelWorkspace.className='archive-section';cancelWorkspace.hidden=true;
   cancelWorkspace.innerHTML=`<article class="panel cancellation-panel"><div class="panel-header"><div><h3>Customer cancellations</h3></div></div>
-    <p class="gateway-intro" data-cancel-result role="status" hidden></p><div class="gateway-toolbar"><label class="gateway-search"><input type="search" data-cancel-search placeholder="Order, customer or reason" aria-label="Search cancellations"></label><label class="gateway-filter"><select data-cancel-filter aria-label="Filter cancellations by status"><option value="requested">Awaiting decision</option><option value="all">All cancellations</option><option value="approved">Approved</option><option value="declined">Declined</option></select></label></div>
+    <p class="gateway-intro" data-cancel-result role="status" hidden></p><div class="gateway-toolbar"><label class="gateway-search"><input type="search" data-cancel-search placeholder="Order, customer or reason" aria-label="Search cancellations"></label><label class="gateway-filter"><select data-cancel-filter aria-label="Filter cancellations by status"><option value="requested">Awaiting decision</option><option value="all" selected>All cancellations</option><option value="approved">Approved</option><option value="declined">Declined</option></select></label></div>
     <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="orderCancellationsTable"><thead><tr><th>Order / customer</th><th>Requested</th><th>Customer's reason</th><th>Payment</th><th>Cancellation status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-cancellation-list><tr><td colspan="6">Loading cancellations...</td></tr></tbody></table></div>
     <div class="table-footer"><span class="table-footer-meta" data-cancel-page></span><div class="table-pagination"><button class="page-btn" type="button" data-cancel-prev aria-label="Previous cancellations page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to cancellations page" data-cancel-page-input><button class="page-btn" type="button" data-cancel-next aria-label="Next cancellations page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></div></article>`;
   workspace.after(cancelWorkspace);
@@ -52,19 +52,19 @@ document.addEventListener('DOMContentLoaded', () => {
   cancelShortcut.onclick=()=>{openWorkspace('cancellations');renderCancellations();};
   cancelAlert.onclick=()=>{cancelWorkspace.querySelector('[data-cancel-filter]').value='requested';cancelWorkspace.querySelector('[data-cancel-search]').value='';cancelPage=1;openWorkspace('cancellations');renderCancellations();};
   window.addEventListener('fmrc:orders-synced',e=>{
-    currentCancellations=(e.detail?.orders || []).filter(o=>o.cancel_state && o.cancel_state!=='none');
+    currentCancellations=(e.detail?.orders || []).filter(o=>o.cancel_state && o.cancel_state!=='none' && !o.cancellation_archive?.archived);
     renderCancellations();
   });
   let reloadPending = false;
   let page = 1, pages = 1, timer, busy = false, delay = 5000, snapshot = '', canApprove = false, currentRefunds = [], currentPayments = [], currentReceipts = [];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const emptyRow = message => `<tr class="table-empty-row"><td colspan="6"><div class="table-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span>${esc(message)}</span></div></td></tr>`;
-  const actionIcons = {'cancelapprove':'check','canceldecline':'xmark','gateway-manage':'rotate-left','order-view':'eye','cancellation-review':'clipboard-check','approve':'check','reject':'xmark','retry':'rotate-right','copy-claim':'copy','recoverrefund':'link','refund':'rotate-left','recovercheckout':'link','check':'arrows-rotate','history':'eye','archive':'box-archive'};
+  const actionIcons = {'cancelapprove':'check','canceldecline':'xmark','gateway-manage':'rotate-left','order-view':'eye','cancellation-review':'clipboard-check','approve':'check','reject':'xmark','retry':'rotate-right','copy-claim':'copy','recoverrefund':'link','refund':'rotate-left','recovercheckout':'link','check':'arrows-rotate','history':'eye','archive':'box-archive','cancelarchive':'box-archive'};
   const styleActions = root => root.querySelectorAll('.gateway-actions button').forEach(button => {
     const label=button.textContent.trim() || button.getAttribute('aria-label');
     const icon=Object.keys(actionIcons).find(key=>button.hasAttribute('data-'+key));
     button.type='button'; button.classList.remove('gateway-primary');
-    button.setAttribute('aria-label',label); button.dataset.tooltip=label;
+    button.setAttribute('aria-label',label); button.dataset.tooltip=icon==='cancelarchive'&&button.disabled ? button.title : label;
     if (icon==='archive') button.title=label;
     const spinning=button.disabled && icon==='check';
     button.innerHTML='<i class="'+(['order-view','history'].includes(icon)?'fa-regular':'fa-solid')+' fa-'+(spinning?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </article>`).join('') : '<p class="gateway-detail-empty">No refunds requested.</p>'}
     </section>`;
   const renderCancellations=()=>{
+    currentCancellations=currentCancellations.filter(o=>!o.cancellation_archive?.archived);
     const pending=currentCancellations.filter(o=>o.cancel_pending);
     cancelShortcut.innerHTML='<i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations <span class="tab-count">'+pending.length+'</span>';
     cancelAlert.hidden=!pending.length;cancelAlert.textContent=pending.length+' customer cancellation'+(pending.length===1?'':'s')+' awaiting a decision. View requests';
@@ -106,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pages=Math.max(1,Math.ceil(rows.length/10));cancelPage=Math.min(Math.max(1,cancelPage),pages);
     cancelWorkspace.querySelector('[data-cancellation-list]').innerHTML=rows.slice((cancelPage-1)*10,cancelPage*10).map(o=>{
       const paid=o.payment_status==='paid',automated=o.payment_is_automated;
-      return `<tr><td><strong>${window.AdminTableValue.html(o.order_no_display || o.order_no)}</strong><small>${window.AdminTableValue.html(o.customer_name)}</small></td><td>${window.AdminTableValue.html(dateLabel(o.cancel_requested_at))}</td><td>${window.AdminTableValue.html(cancellationReason(o))}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${window.AdminTableValue.html(o.payment_method_label || o.payment_method)}<small>${window.AdminTableValue.html(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="status-pill ${statusClass(o.cancel_pending?'requested':o.cancel_state)}" data-status="${o.cancel_pending?'requested':window.AdminTableValue.html(o.cancel_state)}">${window.AdminTableValue.html(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="action-icons sticky-action gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button></td></tr>`;
+      return `<tr><td><strong>${window.AdminTableValue.html(o.order_no_display || o.order_no)}</strong><small>${window.AdminTableValue.html(o.customer_name)}</small></td><td>${window.AdminTableValue.html(dateLabel(o.cancel_requested_at))}</td><td>${window.AdminTableValue.html(cancellationReason(o))}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${window.AdminTableValue.html(o.payment_method_label || o.payment_method)}<small>${window.AdminTableValue.html(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="status-pill ${statusClass(o.cancel_pending?'requested':o.cancel_state)}" data-status="${o.cancel_pending?'requested':window.AdminTableValue.html(o.cancel_state)}">${window.AdminTableValue.html(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="action-icons sticky-action gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button><button type="button" data-cancelarchive="${o.id}" aria-label="Archive cancellation" ${o.cancellation_archive?.allowed?'':'disabled'} title="${esc(o.cancellation_archive?.reason || 'Archive cancellation')}">Archive cancellation</button></td></tr>`;
     }).join('') || emptyRow('No cancellations match these filters.');
     cancelWorkspace.querySelector('[data-cancel-page]').textContent=window.AdminTablePagination.label(cancelPage, rows.length);
     cancelWorkspace.querySelector('[data-cancel-prev]').disabled=cancelPage===1;cancelWorkspace.querySelector('[data-cancel-next]').disabled=cancelPage===pages;
@@ -122,15 +123,32 @@ document.addEventListener('DOMContentLoaded', () => {
     else if(b.hasAttribute('data-cancel-next')){cancelPage++;renderCancellations();}
     else if(b.dataset.cancelapprove)show('cancelapprove',b.dataset.cancelapprove);
     else if(b.dataset.canceldecline)show('canceldecline',b.dataset.canceldecline);
+    else if(b.dataset.cancelarchive)archiveCancellation(b.dataset.cancelarchive);
   });
-  const api = async (path, body) => {
+  const archivingCancellations=new Set();
+  const archiveCancellation = id => {
+    const order=currentCancellations.find(row=>String(row.id)===String(id));
+    const key=order?.cancellation_archive?.request_key;
+    if(!key||!order.cancellation_archive.allowed||archivingCancellations.has(key))return;
+    window.showAdminConfirmPopup('Archive the cancellation for '+order.order_no+'? The order and payment records stay available.',{title:'Archive cancellation',confirmText:'Archive',onConfirm:async()=>{
+      if(archivingCancellations.has(key))return;archivingCancellations.add(key);
+      const feedback=cancelWorkspace.querySelector('[data-cancel-result]');
+      try{const result=await api('/admin/orders/'+id+'/cancellation/archive',{request_key:key},'PATCH');
+        currentCancellations=currentCancellations.filter(row=>String(row.id)!==String(id)||row.cancellation_archive?.request_key!==key);
+        window.dispatchEvent(new CustomEvent('fmrc:cancellation-archived',{detail:result.data}));
+        window.dispatchEvent(new CustomEvent('fmrc:archives-updated',{detail:{module:'cancellation',action:'archive'}}));
+        feedback.textContent=result.message;
+      }catch(error){feedback.textContent=error.message;}finally{archivingCancellations.delete(key);feedback.hidden=false;renderCancellations();}
+    }});
+  };
+  const api = async (path, body, method = body ? 'POST' : 'GET') => {
     const token = window.AdminSession?.getToken() || localStorage.getItem('auth_token');
     const controller = new AbortController(); let deadline;
     const timeout = new Promise((_, reject) => { deadline = setTimeout(() => {
       controller.abort(); reject(new Error('The request took too long. Check the payment status before trying again.'));
     }, 25000); });
     try { return await Promise.race([timeout, (async () => {
-    const response = await fetch(base + path, {method: body ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
+    const response = await fetch(base + path, {method, cache: 'no-store', signal: controller.signal,
       headers: {Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer ' + token}, ...(body ? {body:JSON.stringify(body)} : {})});
     const data = await response.json(); if (!response.ok) throw new Error(data.message || 'Payment information is unavailable. Please try again.'); return data;
     })()]); } finally { clearTimeout(deadline); }
@@ -195,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
           try {localStorage.setItem('fmrc_orders_updated_at',JSON.stringify(detail));realtimeChannel?.postMessage(detail);} catch {}
         }
       }
-      panel.querySelector('[data-page]').textContent = window.AdminTablePagination.label(page, data.payments.total, data.payments.per_page || 20);
+      panel.querySelector('[data-page]').textContent = window.AdminTablePagination.label(page, data.payments.total, data.payments.per_page || 10);
       panel.querySelector('[data-prev]').disabled = page <= 1; panel.querySelector('[data-next]').disabled = page >= pages;
       const paymentInput=panel.querySelector('[data-payment-page]'); paymentInput.value=page; paymentInput.max=pages;
       styleActions(panel);

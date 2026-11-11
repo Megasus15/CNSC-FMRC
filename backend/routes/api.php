@@ -336,6 +336,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
     // Admin/Staff: accept or refuse a customer's cancellation request.
     Route::post('/admin/orders/{order}/cancellation', [OrderController::class, 'decideCancellation']);
+    Route::patch('/admin/orders/{order}/cancellation/archive', [\App\Http\Controllers\Api\CancellationArchiveController::class, 'archive']);
     Route::patch('/admin/orders/{order}/archive', [OrderController::class, 'adminArchive']);
     Route::patch('/admin/orders/{order}/archive-payment', [OrderController::class, 'adminArchivePayment']);
     Route::patch('/admin/orders/{order}/unarchive', [OrderController::class, 'adminUnarchivePayment']);

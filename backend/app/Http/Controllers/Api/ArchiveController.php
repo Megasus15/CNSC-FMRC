@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\OrderCancellationArchive;
 use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
@@ -15,6 +16,7 @@ use App\Models\Promotion;
 use App\Models\WalkInOrder;
 use App\Support\AdminArchiveRecords;
 use App\Support\ReturnPresenter;
+use App\Support\CancellationHistoryArchive;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +44,7 @@ class ArchiveController extends Controller
         $orders = collect();
         $returns = collect();
         $onlineRefunds = collect();
+        $cancellations = collect();
         $promotions = collect();
         $announcements = collect();
         $ratings = collect();
@@ -359,7 +362,13 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: online refunds fetch failed', ['error' => $e->getMessage()]);
         }
 
+        if (($module === 'all' || $module === 'cancellation') && CancellationHistoryArchive::available()) {
+            $cancellations = OrderCancellationArchive::with(['order.latestCancellationRequest', 'archiver:id,name'])
+                ->whereNull('restored_at')->orderByDesc('archived_at')->orderByDesc('id')->get()
+                ->map(fn ($record) => CancellationHistoryArchive::present($record));
+        }
         return response()->json([
+            'cancellations' => $cancellations->values(),
             'inventory' => $inventory->values(),
             'appointments' => $appointments->values(),
             'orders' => $orders->values(),
@@ -380,13 +389,22 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'online_refund', 'promotion', 'announcement', 'rating', 'walkin'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'online_refund', 'cancellation', 'promotion', 'announcement', 'rating', 'walkin'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
 
         $module = $validated['module'];
         $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        if ($module === 'cancellation') {
+            abort_unless(CancellationHistoryArchive::available(), 503, 'Run the cancellation archive migration first.');
+            $processed = CancellationHistoryArchive::restoreIds($ids, $user->id);
+            return response()->json(['module' => $module, 'action' => 'restore', 'requested_ids' => $ids,
+                'processed_ids' => $processed, 'processed_count' => count($processed), 'skipped_ids' => array_values(array_diff($ids, $processed)),
+                'message' => count($processed).' cancellation record(s) restored. Orders and payments are unchanged.'
+                    . (count($processed) < count($ids) ? ' Some records could not be restored because their linked request changed or is unavailable.' : '')]);
+        }
 
         $restoredIds = DB::transaction(function () use ($module, $ids): array {
             if ($module === 'appointment') \App\Services\AppointmentScheduling::lock();

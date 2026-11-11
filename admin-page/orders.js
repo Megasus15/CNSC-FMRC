@@ -955,6 +955,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // refresh open dialogs; keep them separate from the table's summary polling.
   const orderDetailsCache = new Map();
   const orderDetailsReads = new Map();
+  const fulfillmentReads = new Map();
+  const orderReadSequence = new Map();
   const orderDetailsRevisions = new Map();
   const hasOrderHistory = order => Array.isArray(order?.timeline) || Array.isArray(order?.tracking_events);
   const rememberOrderDetails = order => {
@@ -996,12 +998,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadSavedOrder = orderId => {
     const key=String(orderId),revision=orderDetailsRevisions.get(key)||0,readKey=key+':'+revision;
     if(orderDetailsReads.has(readKey))return orderDetailsReads.get(readKey);
+    const sequence=(orderReadSequence.get(key)||0)+1;orderReadSequence.set(key,sequence);
     const read=request('/admin/orders/'+encodeURIComponent(key)).then(response=>{
       if(String(response?.data?.id)!==key)throw Error('The saved order details could not be loaded.');
       if((orderDetailsRevisions.get(key)||0)!==revision)return orderDetailsCache.get(key)||state.ordersById.get(key);
+      if(orderReadSequence.get(key)!==sequence)return orderDetailsCache.get(key)||state.ordersById.get(key);
       window.AdminJntTracking?.clearReadError?.(key);
       orderDetailsNotice(key);return refreshMatchingOrderDialogs(response.data,{readback:true});
-    }).catch(error=>{if((orderDetailsRevisions.get(key)||0)===revision)orderDetailsNotice(key,'Could not refresh this order. Your saved details and entries are kept.');throw error;})
+    }).catch(error=>{if((orderDetailsRevisions.get(key)||0)===revision&&orderReadSequence.get(key)===sequence)orderDetailsNotice(key,'Could not refresh this order. Your saved details and entries are kept.');throw error;})
       .finally(()=>orderDetailsReads.delete(readKey));
     orderDetailsReads.set(readKey,read);return read;
   };
@@ -1015,7 +1019,42 @@ document.addEventListener("DOMContentLoaded", () => {
     if(modalTrackingUpdate?.classList.contains('show'))ids.add(String(trackingOrderId?.value));
     for(const id of ids)if(id)void loadSavedOrder(id).catch(()=>{});
   };
-  window.AdminOrderDialogs={load:loadSavedOrder,ownsPolling:true};
+  // A manual fulfillment read must not rebuild Payment or other form sections.
+  const loadFulfillment = orderId => {
+    const key=String(orderId),revision=orderDetailsRevisions.get(key)||0,readKey=key+':'+revision;
+    if(fulfillmentReads.has(readKey))return fulfillmentReads.get(readKey);
+    const sequence=(orderReadSequence.get(key)||0)+1;orderReadSequence.set(key,sequence);
+    const read=request('/admin/orders/'+encodeURIComponent(key)).then(response=>{
+      if(String(response?.data?.id)!==key)throw Error('The saved fulfillment details could not be loaded.');
+      if((orderDetailsRevisions.get(key)||0)!==revision)return orderDetailsCache.get(key)||state.ordersById.get(key);
+      if(orderReadSequence.get(key)!==sequence)return orderDetailsCache.get(key)||state.ordersById.get(key);
+      // Do not mark the entire dialog as painted: normal polling still owns
+      // payment/status readback outside this section.
+      const details={...orderDetailsCache.get(key),...response.data};
+      for(const modal of [modalOrderDetails,modalTrackingUpdate]){
+        const id=modal===modalOrderDetails?modal.dataset.orderId:String(trackingOrderId?.value);
+        if(!modal?.classList.contains('show')||id!==key)continue;
+        const body=modal.querySelector('.modal-body-scroll'),scroll=body?.scrollTop;
+        const host=modal===modalOrderDetails?body.querySelector('[data-order-section="fulfillment"] .form-grid'):document.getElementById('trackingManagedShipment');
+        if(modal===modalOrderDetails){renderFulfillmentOverview(details,host);renderPickupCollection(details,host);window.FMRCAppointmentProducts?.mountOrder(host,details,true);}
+        else {trackingModalOrder=details;if(trackingStage?.disabled)trackingStage.value=details.customer_stage;}
+        window.AdminCourierShipments?.render(details,host);
+        if(body)body.scrollTop=scroll;
+      }
+      return details;
+    }).finally(()=>fulfillmentReads.delete(readKey));
+    fulfillmentReads.set(readKey,read);return read;
+  };
+  window.AdminOrderDialogs={load:loadSavedOrder,loadFulfillment,ownsPolling:true};
+  window.addEventListener('fmrc:cancellation-archived', event => {
+    const result=event.detail,key=String(result?.order_id||'');
+    const current=state.ordersById.get(key);
+    if(!current||current.cancellation_archive?.request_key!==result.request_key)return;
+    const archive={...current.cancellation_archive,archived:true,allowed:false,reason:'This cancellation is already archived.'};
+    orderDetailsRevisions.set(key,(orderDetailsRevisions.get(key)||0)+1);
+    if(orderDetailsCache.has(key))rememberOrderDetails({...orderDetailsCache.get(key),cancellation_archive:archive});
+    upsertOrderSummaryInState({...current,cancellation_archive:archive});renderAll();
+  });
   window.addEventListener('fmrc:shipment-updated',event=>{if(event.detail?.order)refreshMatchingOrderDialogs(event.detail.order);});
 
   const populateOrderDetailsModal = (order) => {
@@ -1044,9 +1083,9 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     if(body){
       let policy=body.querySelector('[data-accepted-policy]');
-      if(!policy){policy=document.createElement('section');policy.className='order-cancellation-notice';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
+      if(!policy){policy=document.createElement('section');policy.className='order-dialog-section order-policy-card';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
       policy.hidden=!order.accepted_policy;
-      if(order.accepted_policy){const accepted=order.accepted_policy;policy.replaceChildren();const title=document.createElement('strong');title.textContent='Accepted transaction policy';const note=document.createElement('p');note.textContent='Accepted '+(accepted.accepted_at_label || '')+'.';const link=document.createElement('a');link.href='/products-page/refund-policy.html?version='+encodeURIComponent(accepted.version)+'#refund-policy';link.target='_blank';link.rel='noopener noreferrer';link.textContent='View accepted Refund Policy and Transaction Terms';link.style.color='var(--portal-accent, #800000)';policy.append(title,note,link);}
+      if(order.accepted_policy){const accepted=order.accepted_policy;policy.innerHTML='<header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-file-shield" aria-hidden="true"></i>Accepted transaction policy</h4><span class="status-pill status-green">Accepted</span></header><p class="field-hint">Accepted '+escapeHtml(accepted.accepted_at_label||'Date not recorded')+'</p><div class="order-policy-actions">'+[['Transaction Terms','transaction-terms'],['Refund Policy','refund-policy']].map(([label,page])=>'<a class="btn-admin btn-secondary" href="/products-page/'+page+'.html?version='+encodeURIComponent(accepted.version)+'" target="_blank" rel="noopener noreferrer">'+label+'<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>').join('')+'</div>';}
     }
 
     setInput(
@@ -1139,6 +1178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const fulfillment=body?.querySelector('[data-order-section="fulfillment"] .form-grid');
+    renderFulfillmentOverview(order,fulfillment);
     let manage=body?.querySelector('[data-manage-fulfillment]');
     if(!manage){manage=document.createElement('button');manage.type='button';manage.className='btn-admin btn-secondary';manage.dataset.manageFulfillment='';body?.querySelector('[data-order-section="fulfillment"] .order-section-header')?.append(manage);}
     manage.hidden=!isGuidedOrder(order)||['completed','cancelled','rejected'].includes(order.lifecycle_status);
@@ -1156,6 +1196,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if(focused&&nextFocus){nextFocus.focus({preventScroll:true});if(typeof focusStart==='number'&&nextFocus.setSelectionRange)try{nextFocus.setSelectionRange(focusStart,focusEnd);}catch{}}
   };
 
+  const renderFulfillmentOverview = (order,host) => {
+    if(!host)return;
+    let summary=host.querySelector('[data-fulfillment-overview]');
+    if(!summary){summary=document.createElement('dl');summary.className='order-fulfillment-summary';summary.dataset.fulfillmentOverview='';host.prepend(summary);}
+    const fields=[['Method',order.is_pickup||order.fulfillment_type==='pickup'?'Pickup at FMRC':'J&T Express delivery'],['Progress',order.customer_stage_label||order.lifecycle_status_label||'Awaiting preparation']];
+    const html=fields.map(([title,value])=>'<div><dt>'+title+'</dt><dd>'+escapeHtml(value)+'</dd></div>').join('');
+    if(summary.dataset.content!==html){summary.innerHTML=html;summary.dataset.content=html;}
+    const notes=host.querySelector('#modalOrderNotes');if(notes){notes.value=order.notes||'No additional notes.';notes.disabled=true;const field=notes.closest('.field-stack');if(field)field.classList.add('full');}
+  };
+
   const renderPickupCollection = (order, host) => {
     let section=host?.querySelector('[data-pickup-collection]');
     if(!host||!(order.is_pickup||order.fulfillment_type==='pickup')||order.custom_product){section?.remove();return;}
@@ -1171,7 +1221,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const snapshot=JSON.stringify([order.id,order.customer_stage,order.customer_stage_label,order.lifecycle_status,order.lifecycle_status_label,order.pickup_ready_at,order.payment_status,order.payment_method,order.payment_reference,order.total_amount,order.payment_amount_label,order.total_label,order.payment_actions,order.can_confirm_collection,order.collection_blocked_reason,busy]);
     if(section.dataset.snapshot===snapshot)return;section.dataset.snapshot=snapshot;
     let controls='';
-    if(!closed&&order.lifecycle_status==='incoming')controls='<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>';
+    if(!closed&&order.lifecycle_status==='incoming')controls=approvalFor(order).allowed?'<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>':'<p class="field-hint">'+escapeHtml(approvalFor(order).reason)+'</p>';
     else if(!closed&&!ready)controls='<button type="button" class="btn-admin" data-pickup-action="ready">Mark ready for pickup</button>';
     if(!closed&&ready&&normalizePaymentMethodKey(order.payment_method)==='cop'&&order.payment_status!=='paid'&&paymentActionAllowed(order,'paid'))controls+='<div class="pickup-cash-confirm"><p>Amount to receive <strong>'+escapeHtml(order.payment_amount_label||order.total_label||formatMoney(order.total_amount))+'</strong></p><label class="order-flow-check"><input type="checkbox" data-cash-ack data-pickup-focus="cash" '+(ack?'checked':'')+'><span>I received the full amount in cash.</span></label><button type="button" class="btn-admin" data-pickup-action="cash" '+(!ack?'disabled':'')+'>Record cash payment</button></div>';
     if(order.can_confirm_collection)controls+='<div class="field-stack"><label for="'+prefix+'PickupCode">Customer pickup code</label><input class="input-field" id="'+prefix+'PickupCode" data-pickup-code data-pickup-focus="code" autocomplete="off" maxlength="20"></div><button type="button" class="btn-admin" data-confirm-collection data-pickup-action="collect">Confirm pickup</button>';
@@ -1503,6 +1553,11 @@ document.addEventListener("DOMContentLoaded", () => {
   btnMarkPaymentPending?.addEventListener("click", () => { void setPaymentStatus("pending"); });
   btnRecordRefund?.addEventListener("click", () => { void setPaymentStatus("refunded"); });
 
+  const approvalFor = order => order?.approval || {
+    allowed:order?.lifecycle_status==='incoming'&&!order.cancel_pending&&(order.order_type==='custom'?!!order.custom_product?.available_actions?.start_production:order.payment_status==='paid'||(['COP','COD'].includes(order.payment_method)&&order.payment_status==='pending')),
+    label:order?.order_type==='custom'?'Start production':'Approve order',
+    reason:'Payment must be confirmed before approving this order.',
+  };
   // One rejected order belongs to one work queue, including old cached payloads.
   const rejectedOrderWorkspace = (order) => {
     if (String(order?.lifecycle_status || "").toLowerCase() !== "rejected") return null;
@@ -1665,7 +1720,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
-              ${order.order_type!=="custom"||order.custom_product?.available_actions?.start_production?`<button data-tooltip="${order.order_type==="custom"?"Start Production":"Approve Order"}" aria-label="${order.order_type==="custom"?"Start Production":"Approve Order"}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
+              ${approvalFor(order).allowed?`<button data-tooltip="${escapeHtml(approvalFor(order).label)}" aria-label="${escapeHtml(approvalFor(order).label)}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
               <button data-tooltip="Reject Order" data-order-reject="${order.id}"><i class="fa-solid fa-xmark"></i></button>
             </td>
           </tr>
@@ -3237,7 +3292,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalTrackingUpdate.classList.add("show");
     modalTrackingUpdate.querySelector('.modal-body-scroll').scrollTop=0;
     if(notesOnlyTracking(order))void loadSavedOrder(order.id).catch(()=>{
-      if(modalTrackingUpdate.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id))document.getElementById('trackingManagedHint').textContent='Current order details could not be loaded. Your entries are kept. Use Refresh saved updates or reopen this dialog before continuing.';
+      if(modalTrackingUpdate.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id))document.getElementById('trackingManagedHint').textContent='Current order details could not be loaded. Your entries are kept. Use Refresh or reopen this dialog before continuing.';
     });
   };
 
@@ -4166,7 +4221,7 @@ document.addEventListener("DOMContentLoaded", () => {
         path: `/admin/orders/${orderId}/approve`,
         method: "POST",
         title: "Approve Incoming Order",
-        message: "Approve this Incoming Order and move it to Orders Directory? Payment verification remains a separate step if payment has not been confirmed.",
+        message: "Approve this order for preparation? Cash-on-pickup customers pay when collecting their order.",
         confirmText: "Approve",
         loadingText: "Approving...",
         success: "Order approved and moved to Orders Directory.",
@@ -4183,6 +4238,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const config = actionMap[action];
     if (!config) return;
+    if(action==='approve'&&!approvalFor(state.ordersById.get(String(orderId))).allowed){showPopup(approvalFor(state.ordersById.get(String(orderId))).reason,{title:'Approval unavailable'});return;}
     if(action==='approve' && state.ordersById.get(String(orderId))?.order_type==='custom')Object.assign(config,{
       title:'Start Production',message:'Start production of this approved custom product? Full payment must be confirmed first.',
       confirmText:'Start Production',loadingText:'Starting production...',success:'Custom-product production started.'});

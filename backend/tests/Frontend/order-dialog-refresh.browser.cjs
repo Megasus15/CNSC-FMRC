@@ -54,10 +54,10 @@ test('Order dialogs hydrate full records and keep unchanged polls, handover draf
     assert.equal(await h.run(`document.querySelector('#trackingManagedShipment [name="tracking_number"]')===trackingNumberNode`),true);
 
     failReads=true;
-    await h.run(`document.querySelector('#modalOrderDetails [data-jnt-load]').click()`);await h.until(`document.querySelector('[data-order-readback]:not([hidden])')`);
+    await h.run(`document.querySelector('#modalOrderDetails [data-jnt-load]').click()`);await h.until(`document.querySelector('#modalOrderDetails [data-jnt-message]').textContent.includes('could not')`);
     assert.match(await h.run(`document.querySelector('[data-order-section="history"]').textContent`),/Prepared at FMRC/);
     assert.equal(await h.run(`document.querySelector('#modalOrderDetails [name="tracking_number"]').value`),'JT-DRAFT-91');
-    failReads=false;await h.run(`document.querySelector('[data-order-readback] button').click()`);await h.until(`document.querySelector('[data-order-readback]').hidden`);
+    failReads=false;await h.run(`document.querySelector('#modalOrderDetails [data-jnt-load]').click()`);await h.until(`document.querySelector('#modalOrderDetails [data-jnt-message]').textContent.startsWith('Updated')`);
     await h.until(`!document.querySelector('#modalOrderDetails [data-jnt-message]').textContent.includes('could not')`);
 
     // A real saved courier change still reaches both views without erasing drafts.
