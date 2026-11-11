@@ -33,11 +33,16 @@ test('Shared return modal restores fields and records custom cash refunds with t
       assert.match(await h.run(`document.querySelector('[data-return-view="2"]').closest('tr').textContent`), /RTN-2/);
       continue;
     }
+    const openRefund=async id=>{
+      await h.run(`document.getElementById('modalReturnDetails').classList.remove('show');document.querySelector('[data-return-view="${id}"]').click()`);
+      await h.until(`!!document.querySelector('#modalReturnDetails [data-return-action="${id}"][data-return-mode="refund"]')`);
+      await h.run(`document.querySelector('#modalReturnDetails [data-return-action="${id}"][data-return-mode="refund"]').click()`);
+    };
     // Online refunds hide manual receipt fields; the next cash modal must restore them.
-    await h.run(`document.querySelector('[data-return-action="1"][data-return-mode="refund"]').click()`);
+    await openRefund(1);
     await h.until(`document.getElementById('modalReturnAction').classList.contains('show')`);
     assert.equal(await h.run(`document.getElementById('returnRefundReference').closest('.field-stack').style.display`), 'none');
-    await h.run(`document.getElementById('btnCancelReturnAction').click();document.querySelector('[data-return-action="2"][data-return-mode="refund"]').click()`);
+    await h.run(`document.getElementById('btnCancelReturnAction').click()`);await openRefund(2);
     await h.until(`document.getElementById('returnActionTitle').textContent==='Record cash refund'`);
     assert.equal(await h.run(`document.getElementById('returnRefundReference').closest('.field-stack').style.display`), '');
     assert.equal(await h.run(`document.getElementById('returnRefundAmount').value`), '600.00');
@@ -54,7 +59,7 @@ test('Shared return modal restores fields and records custom cash refunds with t
     await h.until(`!document.getElementById('modalReturnAction').classList.contains('show')`);
     assert.equal(writes.length, 1);
     await h.run(`document.querySelector('#adminSystemPopup.show #adminSystemPopupOk')?.click()`);
-    await h.run(`document.querySelector('[data-return-action="3"][data-return-mode="refund"]').click()`);
+    await openRefund(3);
     await h.until(`document.getElementById('modalReturnAction').classList.contains('show')`);
     assert.equal(await h.run(`document.getElementById('returnRefundMethod').disabled`), false);
     assert.equal(await h.run(`document.getElementById('returnRefundReference').maxLength`), 180);

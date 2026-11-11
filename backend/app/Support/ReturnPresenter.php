@@ -125,8 +125,10 @@ class ReturnPresenter
                 true,
             );
             if ($payload['payment_is_automated']) {
-                $refunds = \Illuminate\Support\Facades\DB::table('payment_refunds')
-                    ->where('order_return_id', $orderReturn->id)->get(['status', 'amount_centavos']);
+                $refunds = RefundStatus::claims(\Illuminate\Support\Facades\DB::table('payment_refunds')
+                    ->where('order_return_id', $orderReturn->id)->orderByDesc('id')->get());
+                $payload['online_refund_status'] = $refunds->first()?->status;
+                $payload['customer_claim_required'] = $refunds->contains(fn ($refund) => in_array($refund->status, ['pending', 'unknown'], true) && !empty($refund->transfer_link));
                 $payload['online_refund_pending'] = $refunds->contains(fn ($refund) => in_array($refund->status, ['requested', 'submitting', 'pending', 'unknown'], true));
                 $payload['can_change_resolution'] = $payload['can_change_resolution'] && !$payload['online_refund_pending'];
                 $reserved = $refunds->whereNotIn('status', ['failed', 'rejected'])->sum('amount_centavos');
