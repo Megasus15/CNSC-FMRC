@@ -1284,8 +1284,26 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ── Google Sign-In Integration (Google Identity Services OAuth 2.0) ──
+  // Every deployed origin must be authorized for this public client in Google
+  // Cloud. A browser callback cannot override that list; see GOOGLE_SIGN_IN_SETUP.md.
   const GOOGLE_CLIENT_ID = "55704463190-43888rtrprqlb7drpkmq52h5bhpr5p9u.apps.googleusercontent.com";
   let googleTokenClient = null;
+  let googleAuthInitialized = false;
+  let googlePopupPending = false;
+  let googleInitAttempts = 0;
+  let googleInitTimer = null;
+
+  const showGoogleAuthError = (code) => {
+    googlePopupPending = false;
+    const message = code === "origin_mismatch" || code === "redirect_uri_mismatch"
+      ? "Google sign-in is not configured for this website address. Please contact FMRC or sign in with your email and password."
+      : code === "popup_failed_to_open"
+        ? "Allow popups for this website, then try Google sign-in again."
+        : code === "not_ready"
+          ? "Google sign-in could not load. Check your connection and try again, or use your email and password."
+          : "Google sign-in was not completed. Please try again or use your email and password.";
+    setFieldError(loginForm?.classList.contains("active") ? "loginUser" : "signupName", message);
+  };
 
   const processGoogleAuthPayload = async (payload) => {
     toggleLoader(true, "Signing you in", true);
@@ -1363,22 +1381,28 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const handleGoogleCredentialResponse = async (response) => {
-    if (!response || !response.credential) return;
+    googlePopupPending = false;
+    if (!response?.credential) { showGoogleAuthError(); return; }
     await processGoogleAuthPayload({ id_token: response.credential });
   };
 
   const handleGoogleTokenResponse = async (tokenResponse) => {
-    if (tokenResponse.error) {
-      console.warn("Google OAuth Error:", tokenResponse.error);
+    googlePopupPending = false;
+    if (tokenResponse?.error) {
+      showGoogleAuthError(tokenResponse.error);
       return;
     }
-    if (!tokenResponse.access_token) return;
+    if (!tokenResponse?.access_token) { showGoogleAuthError(); return; }
     await processGoogleAuthPayload({ access_token: tokenResponse.access_token });
   };
 
   const initGoogleAuth = () => {
+    clearTimeout(googleInitTimer);
+    if (googleAuthInitialized) return;
     if (typeof window.google === "undefined" || !window.google.accounts) {
-      setTimeout(initGoogleAuth, 200);
+      // An extension or connection failure must not leave an endless retry loop.
+      // The button can retry initialization if Google's library loads later.
+      if (++googleInitAttempts <= 50) googleInitTimer = setTimeout(initGoogleAuth, 200);
       return;
     }
 
@@ -1389,6 +1413,7 @@ document.addEventListener("DOMContentLoaded", () => {
           client_id: GOOGLE_CLIENT_ID,
           scope: "openid email profile",
           callback: handleGoogleTokenResponse,
+          error_callback: (error) => showGoogleAuthError(error?.type),
         });
       }
 
@@ -1402,25 +1427,34 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
-      // Attach click listeners to both Login & Signup Google buttons
-      document.querySelectorAll(".google-auth-btn").forEach((btn) => {
-        btn.onclick = (e) => {
-          e.preventDefault();
-          hideStatus();
-          if (loginForm) clearFormErrors(loginForm);
-          if (signupForm) clearFormErrors(signupForm);
-
-          if (googleTokenClient) {
-            googleTokenClient.requestAccessToken({ prompt: "" });
-          } else if (window.google?.accounts?.id) {
-            window.google.accounts.id.prompt();
-          }
-        };
-      });
-    } catch (e) {
-      console.warn("Google Auth Init Error:", e);
+      googleAuthInitialized = Boolean(googleTokenClient || window.google.accounts.id);
+    } catch {
+      // Keep password sign-in usable and allow another initialization attempt.
+      googleAuthInitialized = false;
     }
   };
+
+  // Bind even if Google's script is blocked, so a click explains the problem.
+  document.querySelectorAll(".google-auth-btn").forEach((btn) => {
+    btn.onclick = (event) => {
+      event.preventDefault();
+      if (btn.disabled || googlePopupPending) return;
+      hideStatus();
+      if (loginForm) clearFormErrors(loginForm);
+      if (signupForm) clearFormErrors(signupForm);
+      initGoogleAuth();
+      try {
+        if (googleTokenClient) {
+          googlePopupPending = true;
+          googleTokenClient.requestAccessToken({ prompt: "" });
+        } else if (googleAuthInitialized && window.google?.accounts?.id) {
+          window.google.accounts.id.prompt();
+        } else showGoogleAuthError("not_ready");
+      } catch {
+        showGoogleAuthError("not_ready");
+      }
+    };
+  });
 
   initGoogleAuth();
 });
