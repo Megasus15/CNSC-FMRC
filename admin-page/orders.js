@@ -955,8 +955,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // refresh open dialogs; keep them separate from the table's summary polling.
   const orderDetailsCache = new Map();
   const orderDetailsReads = new Map();
-  const fulfillmentReads = new Map();
-  const orderReadSequence = new Map();
   const orderDetailsRevisions = new Map();
   const hasOrderHistory = order => Array.isArray(order?.timeline) || Array.isArray(order?.tracking_events);
   const rememberOrderDetails = order => {
@@ -998,14 +996,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadSavedOrder = orderId => {
     const key=String(orderId),revision=orderDetailsRevisions.get(key)||0,readKey=key+':'+revision;
     if(orderDetailsReads.has(readKey))return orderDetailsReads.get(readKey);
-    const sequence=(orderReadSequence.get(key)||0)+1;orderReadSequence.set(key,sequence);
     const read=request('/admin/orders/'+encodeURIComponent(key)).then(response=>{
       if(String(response?.data?.id)!==key)throw Error('The saved order details could not be loaded.');
       if((orderDetailsRevisions.get(key)||0)!==revision)return orderDetailsCache.get(key)||state.ordersById.get(key);
-      if(orderReadSequence.get(key)!==sequence)return orderDetailsCache.get(key)||state.ordersById.get(key);
       window.AdminJntTracking?.clearReadError?.(key);
       orderDetailsNotice(key);return refreshMatchingOrderDialogs(response.data,{readback:true});
-    }).catch(error=>{if((orderDetailsRevisions.get(key)||0)===revision&&orderReadSequence.get(key)===sequence)orderDetailsNotice(key,'Could not refresh this order. Your saved details and entries are kept.');throw error;})
+    }).catch(error=>{if((orderDetailsRevisions.get(key)||0)===revision)orderDetailsNotice(key,'Could not refresh this order. Your saved details and entries are kept.');throw error;})
       .finally(()=>orderDetailsReads.delete(readKey));
     orderDetailsReads.set(readKey,read);return read;
   };
@@ -1019,33 +1015,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(modalTrackingUpdate?.classList.contains('show'))ids.add(String(trackingOrderId?.value));
     for(const id of ids)if(id)void loadSavedOrder(id).catch(()=>{});
   };
-  // A manual fulfillment read must not rebuild Payment or other form sections.
-  const loadFulfillment = orderId => {
-    const key=String(orderId),revision=orderDetailsRevisions.get(key)||0,readKey=key+':'+revision;
-    if(fulfillmentReads.has(readKey))return fulfillmentReads.get(readKey);
-    const sequence=(orderReadSequence.get(key)||0)+1;orderReadSequence.set(key,sequence);
-    const read=request('/admin/orders/'+encodeURIComponent(key)).then(response=>{
-      if(String(response?.data?.id)!==key)throw Error('The saved fulfillment details could not be loaded.');
-      if((orderDetailsRevisions.get(key)||0)!==revision)return orderDetailsCache.get(key)||state.ordersById.get(key);
-      if(orderReadSequence.get(key)!==sequence)return orderDetailsCache.get(key)||state.ordersById.get(key);
-      // Do not mark the entire dialog as painted: normal polling still owns
-      // payment/status readback outside this section.
-      const details={...orderDetailsCache.get(key),...response.data};
-      for(const modal of [modalOrderDetails,modalTrackingUpdate]){
-        const id=modal===modalOrderDetails?modal.dataset.orderId:String(trackingOrderId?.value);
-        if(!modal?.classList.contains('show')||id!==key)continue;
-        const body=modal.querySelector('.modal-body-scroll'),scroll=body?.scrollTop;
-        const host=modal===modalOrderDetails?body.querySelector('[data-order-section="fulfillment"] .form-grid'):document.getElementById('trackingManagedShipment');
-        if(modal===modalOrderDetails){renderFulfillmentOverview(details,host);renderPickupCollection(details,host);window.FMRCAppointmentProducts?.mountOrder(host,details,true);}
-        else {trackingModalOrder=details;if(trackingStage?.disabled)trackingStage.value=details.customer_stage;}
-        window.AdminCourierShipments?.render(details,host);
-        if(body)body.scrollTop=scroll;
-      }
-      return details;
-    }).finally(()=>fulfillmentReads.delete(readKey));
-    fulfillmentReads.set(readKey,read);return read;
-  };
-  window.AdminOrderDialogs={load:loadSavedOrder,loadFulfillment,ownsPolling:true};
+  window.AdminOrderDialogs={load:loadSavedOrder,ownsPolling:true};
   window.addEventListener('fmrc:shipment-updated',event=>{if(event.detail?.order)refreshMatchingOrderDialogs(event.detail.order);});
 
   const populateOrderDetailsModal = (order) => {
@@ -1074,9 +1044,9 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     if(body){
       let policy=body.querySelector('[data-accepted-policy]');
-      if(!policy){policy=document.createElement('section');policy.className='order-dialog-section order-policy-card';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
+      if(!policy){policy=document.createElement('section');policy.className='order-cancellation-notice';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
       policy.hidden=!order.accepted_policy;
-      if(order.accepted_policy){const accepted=order.accepted_policy;policy.innerHTML='<header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-file-shield" aria-hidden="true"></i>Accepted transaction policy</h4><span class="status-pill status-green">Accepted</span></header><p class="field-hint">Accepted '+escapeHtml(accepted.accepted_at_label||'Date not recorded')+'</p><div class="order-policy-actions">'+[['Transaction Terms','transaction-terms'],['Refund Policy','refund-policy']].map(([label,page])=>'<a class="btn-admin btn-secondary" href="/products-page/'+page+'.html?version='+encodeURIComponent(accepted.version)+'" target="_blank" rel="noopener noreferrer">'+label+'<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>').join('')+'</div>';}
+      if(order.accepted_policy){const accepted=order.accepted_policy;policy.replaceChildren();const title=document.createElement('strong');title.textContent='Accepted transaction policy';const note=document.createElement('p');note.textContent='Accepted '+(accepted.accepted_at_label || '')+'.';const link=document.createElement('a');link.href='/products-page/refund-policy.html?version='+encodeURIComponent(accepted.version)+'#refund-policy';link.target='_blank';link.rel='noopener noreferrer';link.textContent='View accepted Refund Policy and Transaction Terms';link.style.color='var(--portal-accent, #800000)';policy.append(title,note,link);}
     }
 
     setInput(
@@ -1169,7 +1139,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const fulfillment=body?.querySelector('[data-order-section="fulfillment"] .form-grid');
-    renderFulfillmentOverview(order,fulfillment);
     let manage=body?.querySelector('[data-manage-fulfillment]');
     if(!manage){manage=document.createElement('button');manage.type='button';manage.className='btn-admin btn-secondary';manage.dataset.manageFulfillment='';body?.querySelector('[data-order-section="fulfillment"] .order-section-header')?.append(manage);}
     manage.hidden=!isGuidedOrder(order)||['completed','cancelled','rejected'].includes(order.lifecycle_status);
@@ -1187,16 +1156,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if(focused&&nextFocus){nextFocus.focus({preventScroll:true});if(typeof focusStart==='number'&&nextFocus.setSelectionRange)try{nextFocus.setSelectionRange(focusStart,focusEnd);}catch{}}
   };
 
-  const renderFulfillmentOverview = (order,host) => {
-    if(!host)return;
-    let summary=host.querySelector('[data-fulfillment-overview]');
-    if(!summary){summary=document.createElement('dl');summary.className='order-fulfillment-summary';summary.dataset.fulfillmentOverview='';host.prepend(summary);}
-    const fields=[['Method',order.is_pickup||order.fulfillment_type==='pickup'?'Pickup at FMRC':'J&T Express delivery'],['Progress',order.customer_stage_label||order.lifecycle_status_label||'Awaiting preparation']];
-    const html=fields.map(([title,value])=>'<div><dt>'+title+'</dt><dd>'+escapeHtml(value)+'</dd></div>').join('');
-    if(summary.dataset.content!==html){summary.innerHTML=html;summary.dataset.content=html;}
-    const notes=host.querySelector('#modalOrderNotes');if(notes){notes.value=order.notes||'No additional notes.';notes.disabled=true;const field=notes.closest('.field-stack');if(field)field.classList.add('full');}
-  };
-
   const renderPickupCollection = (order, host) => {
     let section=host?.querySelector('[data-pickup-collection]');
     if(!host||!(order.is_pickup||order.fulfillment_type==='pickup')||order.custom_product){section?.remove();return;}
@@ -1212,7 +1171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const snapshot=JSON.stringify([order.id,order.customer_stage,order.customer_stage_label,order.lifecycle_status,order.lifecycle_status_label,order.pickup_ready_at,order.payment_status,order.payment_method,order.payment_reference,order.total_amount,order.payment_amount_label,order.total_label,order.payment_actions,order.can_confirm_collection,order.collection_blocked_reason,busy]);
     if(section.dataset.snapshot===snapshot)return;section.dataset.snapshot=snapshot;
     let controls='';
-    if(!closed&&order.lifecycle_status==='incoming')controls=approvalFor(order).allowed?'<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>':'<p class="field-hint">'+escapeHtml(approvalFor(order).reason)+'</p>';
+    if(!closed&&order.lifecycle_status==='incoming')controls='<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>';
     else if(!closed&&!ready)controls='<button type="button" class="btn-admin" data-pickup-action="ready">Mark ready for pickup</button>';
     if(!closed&&ready&&normalizePaymentMethodKey(order.payment_method)==='cop'&&order.payment_status!=='paid'&&paymentActionAllowed(order,'paid'))controls+='<div class="pickup-cash-confirm"><p>Amount to receive <strong>'+escapeHtml(order.payment_amount_label||order.total_label||formatMoney(order.total_amount))+'</strong></p><label class="order-flow-check"><input type="checkbox" data-cash-ack data-pickup-focus="cash" '+(ack?'checked':'')+'><span>I received the full amount in cash.</span></label><button type="button" class="btn-admin" data-pickup-action="cash" '+(!ack?'disabled':'')+'>Record cash payment</button></div>';
     if(order.can_confirm_collection)controls+='<div class="field-stack"><label for="'+prefix+'PickupCode">Customer pickup code</label><input class="input-field" id="'+prefix+'PickupCode" data-pickup-code data-pickup-focus="code" autocomplete="off" maxlength="20"></div><button type="button" class="btn-admin" data-confirm-collection data-pickup-action="collect">Confirm pickup</button>';
@@ -1545,13 +1504,8 @@ document.addEventListener("DOMContentLoaded", () => {
   btnRecordRefund?.addEventListener("click", () => { void setPaymentStatus("refunded"); });
 
   // One rejected order belongs to one work queue, including old cached payloads.
-  const approvalFor = order => order?.approval || {
-    allowed:order?.lifecycle_status==='incoming'&&!order.cancel_pending&&(order.order_type==='custom'?!!order.custom_product?.available_actions?.start_production:order.payment_status==='paid'||(['COP','COD'].includes(order.payment_method)&&order.payment_status==='pending')),
-    label:order?.order_type==='custom'?'Start production':'Approve order',
-    reason:'Payment must be confirmed before approving this order.',
-  };
   const rejectedOrderWorkspace = (order) => {
-    if (!["rejected", "cancelled"].includes(String(order?.lifecycle_status || "").toLowerCase())) return null;
+    if (String(order?.lifecycle_status || "").toLowerCase() !== "rejected") return null;
     if (["rejected", "online_refunds", "manual_refunds"].includes(order.rejected_order_workspace)) return order.rejected_order_workspace;
     const hasValue = Number(order.payment_amount ?? order.total_amount ?? 1) > 0 || Number(order.total_amount || 0) > 0;
     const financial = order.payment_has_refund_record || (!order.payment_is_automated && order.payment_reference_supplied)
@@ -1561,14 +1515,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const getRejectedRows = () => state.directory.filter(order => rejectedOrderWorkspace(order) === "rejected");
   const getManualRefundRows = () => state.directory.filter(order => rejectedOrderWorkspace(order) === "manual_refunds");
   const followRejectedOrders = (orders) => {
-    window.dispatchEvent(new CustomEvent("fmrc:open-cancellations", {detail:{orderNo:orders.length === 1 ? orders[0].order_no : ""}}));
-  };
-  document.addEventListener('click',event=>{
-    const button=event.target.closest('[data-manual-refund-open]');if(!button)return;
+    const online = orders.filter(order => rejectedOrderWorkspace(order) === "online_refunds");
+    if (online.length) {
+      window.dispatchEvent(new CustomEvent("fmrc:open-online-refunds", {detail:{orderNo:online.length === 1 ? online[0].order_no : ""}}));
+      return;
+    }
     document.querySelector('#ordersModuleTabs [data-tab="records"]')?.click();
-    manualRefundsPanel?.scrollIntoView({behavior:'smooth',block:'start'});
-    const order=state.ordersById.get(String(button.dataset.manualRefundOpen));if(order)void openOrderDetailsModal(order);
-  });
+    (orders.some(order => rejectedOrderWorkspace(order) === "manual_refunds") ? manualRefundsPanel : document.getElementById("rejectedOrdersPanel"))?.scrollIntoView({behavior:"smooth",block:"start"});
+  };
   const rejectionResult = (order) => ({
     online_refunds: "Order rejected. Open Online refunds to issue or track the refund. No money is returned until the refund is confirmed.",
     manual_refunds: "Order rejected. Review Manual refunds and record repayment after returning the money.",
@@ -1579,7 +1533,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const getDirectoryScopeRows = () =>
     state.directory.filter((order) => {
       const ls = String(order?.lifecycle_status || "").toLowerCase();
-      return !["completed", "rejected", "cancelled"].includes(ls);
+      return ls !== "completed" && ls !== "rejected";
     });
 
   const getDirectoryRows = () => {
@@ -1711,7 +1665,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
-              ${approvalFor(order).allowed?`<button data-tooltip="${escapeHtml(approvalFor(order).label)}" aria-label="${escapeHtml(approvalFor(order).label)}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
+              ${order.order_type!=="custom"||order.custom_product?.available_actions?.start_production?`<button data-tooltip="${order.order_type==="custom"?"Start Production":"Approve Order"}" aria-label="${order.order_type==="custom"?"Start Production":"Approve Order"}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
               <button data-tooltip="Reject Order" data-order-reject="${order.id}"><i class="fa-solid fa-xmark"></i></button>
             </td>
           </tr>
@@ -2056,13 +2010,68 @@ document.addEventListener("DOMContentLoaded", () => {
   // Every row shows the full action set so the icon column never changes shape
   // between rows; the stages that are not reachable yet render inert with a
   // tooltip that says what unlocks them.
-  const renderReturnActionIcons = row => '<button type="button" class="btn-admin btn-secondary return-manage-action" data-return-view="'+row.id+'"><i class="fa-regular fa-eye" aria-hidden="true"></i>Manage return</button>';
+  const returnActionIcon = ({
+    icon,
+    label,
+    enabled,
+    attrs = "",
+    lockedHint = "",
+  }) => {
+    if (enabled) {
+      return `<button type="button" aria-label="${escapeHtml(label)}" data-tooltip="${escapeHtml(label)}" ${attrs}><i class="${icon}" aria-hidden="true"></i></button>`;
+    }
+    const tooltip = lockedHint ? `${label} — ${lockedHint}` : label;
+    return `<button type="button" class="is-disabled" aria-disabled="true" tabindex="-1" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+  };
 
-  const renderReturnSecondaryActions = (row,withoutPayment=false) => [
-    row.can_change_resolution&&canIssueOnlineRefund()?'<button type="button" class="btn-admin btn-secondary" data-return-action="'+row.id+'" data-return-mode="resolution">Change resolution</button>':'',
-    row.payment_is_automated&&!withoutPayment?'<button type="button" class="btn-admin btn-secondary" data-gateway-manage="'+row.order_id+'">Payment details</button>':'',
-    row.can_archive?'<button type="button" class="btn-admin btn-secondary" data-return-archive="'+row.id+'" data-return-label="'+escapeHtml(row.return_no_display||row.return_no||String(row.id))+'"><i class="fa-solid fa-box-archive" aria-hidden="true"></i>Archive return</button>':'',
-  ].join('');
+  const renderReturnActionIcons = (row, returnNo) => {
+    const id = row.id;
+    return [
+      returnActionIcon({
+        icon: "fa-regular fa-eye",
+        label: "View Return Details",
+        enabled: true,
+        attrs: `data-return-view="${id}"`,
+      }),
+      returnActionIcon({
+        icon: "fa-solid fa-gavel",
+        label: row.can_decide ? "Review Request" : "Change Resolution",
+        enabled: Boolean(row.can_decide || (row.can_change_resolution && canIssueOnlineRefund())),
+        attrs: `data-return-action="${id}" data-return-mode="${row.can_decide ? 'decision' : 'resolution'}"`,
+        lockedHint: "already decided",
+      }),
+      row.payment_is_automated && row.resolution === 'refund' ? returnActionIcon({
+        icon: "fa-solid fa-hand-holding-dollar",
+        label: row.requires_receipt
+          ? (canIssueOnlineRefund() ? "Receive & refund" : "Receive & request refund")
+          : (canIssueOnlineRefund() ? "Issue Online Refund" : "Request Online Refund"),
+        enabled: Boolean(row.can_refund),
+        attrs: `data-return-action="${id}" data-return-mode="refund"`,
+        lockedHint: row.online_refund_pending ? "continue with the existing request in Online refunds" : "approve this return for a refund first",
+      }) : returnActionIcon({
+        icon: "fa-solid fa-box-open",
+        label: "Confirm Item Received",
+        enabled: Boolean(row.can_receive),
+        attrs: `data-return-action="${id}" data-return-mode="received"`,
+        lockedHint: "available once the request is approved",
+      }),
+      !row.payment_is_automated ? returnActionIcon({
+        icon: "fa-solid fa-peso-sign",
+        label: row.payment_is_custom_cash ? "Record cash refund" : "Release Refund",
+        enabled: Boolean(row.can_refund),
+        attrs: `data-return-action="${id}" data-return-mode="refund"`,
+        lockedHint: row.refund_admin_only && !canIssueOnlineRefund() ? "Admin records cash already returned to the customer" : row.resolution !== 'refund' ? "approve Refund as the resolution first" : "available once the return is approved and has a refundable balance",
+      }) : '',
+      row.payment_is_automated ? returnActionIcon({icon:'fa-solid fa-credit-card',label:'Manage Online Refund',enabled:true,attrs:`data-gateway-manage="${row.order_id}"`}) : '',
+      returnActionIcon({
+        icon: "fa-solid fa-box-archive",
+        label: "Archive Return",
+        enabled: Boolean(row.can_archive),
+        attrs: `data-return-archive="${id}" data-return-label="${returnNo}"`,
+        lockedHint: "available once the return is closed",
+      }),
+    ].join("");
+  };
 
   const renderReturnsTable = () => {
     const rows = getReturnRows();
@@ -2338,7 +2347,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     setCount(
       ordersTabCountEls.records,
-      getManualRefundRows().length + state.returns.length + state.payments.length,
+      getRejectedRows().length + getManualRefundRows().length + state.returns.length + state.payments.length,
     );
     setCount(ordersTabCountEls.walkin, state.walkIn.length);
   };
@@ -2490,7 +2499,6 @@ document.addEventListener("DOMContentLoaded", () => {
       mapOrderById();
       renderAll();
       refreshOpenOrderDialogs();
-      void refreshVisibleReturn();
       const productOrderId=new URLSearchParams(location.search).get('order_id');
       if(productOrderId&&!state.productDeepLinkOpened){
         let linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
@@ -3229,7 +3237,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalTrackingUpdate.classList.add("show");
     modalTrackingUpdate.querySelector('.modal-body-scroll').scrollTop=0;
     if(notesOnlyTracking(order))void loadSavedOrder(order.id).catch(()=>{
-      if(modalTrackingUpdate.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id))document.getElementById('trackingManagedHint').textContent='Current order details could not be loaded. Your entries are kept. Use Refresh or reopen this dialog before continuing.';
+      if(modalTrackingUpdate.classList.contains('show')&&String(trackingOrderId?.value)===String(order.id))document.getElementById('trackingManagedHint').textContent='Current order details could not be loaded. Your entries are kept. Use Refresh saved updates or reopen this dialog before continuing.';
     });
   };
 
@@ -3283,7 +3291,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const returnField = (label, value, options = {}) => {
     const raw =
       value === null || value === undefined || String(value).trim() === ""
-        ? "--"
+        ? "-"
         : value;
     const safe = escapeHtml(raw);
     return `
@@ -3291,8 +3299,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <label>${escapeHtml(label)}</label>
         ${
           options.textarea
-            ? `<textarea class="textarea-field" disabled>${safe}</textarea>`
-            : `<input class="input-field" value="${safe}" disabled />`
+            ? `<textarea class="textarea-field" readonly>${safe}</textarea>`
+            : `<input class="input-field" value="${safe}" readonly />`
         }
       </div>`;
   };
@@ -3408,28 +3416,6 @@ document.addEventListener("DOMContentLoaded", () => {
       </ol>`;
   };
 
-  const renderReturnGuide = row => {
-    const closed=['refunded','rejected','cancelled'].includes(row.status);
-    const received=!!row.item_received_at||['item_received','refund_processing','refunded'].includes(row.status);
-    const step=closed?4:row.can_decide?1:!received?2:3;
-    let text='Review the request and choose the agreed resolution.',label='',kind='',gateway=false;
-    if(row.can_decide){label='Review request';kind='decision';}
-    else if(closed)text=row.status==='refunded'?'The refund is confirmed. This return is closed.':row.status==='rejected'?'The request was declined. The decision and reason remain in the history.':'The customer cancelled this request. No further return action is needed.';
-    else if(row.customer_claim_required){text='The customer needs to complete the secure refund claim in My Orders.';label='View refund details';gateway=true;}
-    else if(row.online_refund_pending){text=row.online_refund_status==='requested'?'Waiting for Admin to approve the refund.':'Waiting for the payment provider to confirm the refund.';label='View refund details';gateway=true;}
-    else if(row.payment_is_automated&&row.online_refund_status==='failed'){text='The refund needs attention. Check its details before retrying.';label='Review refund';gateway=true;}
-    else if(row.can_refund&&(row.payment_is_automated||row.payment_is_custom_cash||!row.can_receive)){
-      kind='refund';label=row.payment_is_custom_cash?'Record cash refund':canIssueOnlineRefund()?'Issue refund':'Request refund';
-      if(row.requires_receipt)label=canIssueOnlineRefund()?'Receive & refund':'Receive & request refund';
-      text=row.requires_receipt?'Confirm receipt and inspection before continuing with the refund.':'Continue with the approved refund. Only confirmed refunds count as returned money.';
-    }else if(row.can_receive){kind='received';label='Confirm item received';text='Receive and inspect the returned item, then record the result.';}
-    else if(row.resolution!=='refund')text='The item is received. Follow the agreed '+(row.resolution==='repair'?'repair or rework':'replacement')+' arrangement. Its recorded progress remains below.';
-    else if(row.refund_admin_only&&!canIssueOnlineRefund())text='Admin must record the cash already returned to the customer.';
-    else text='Review the saved resolution and payment status before continuing.';
-    const action=label?'<button type="button" class="btn-admin" '+(gateway?'data-gateway-manage="'+row.order_id+'"':'data-return-action="'+row.id+'" data-return-mode="'+kind+'"')+'>'+escapeHtml(label)+'</button>':'';
-    return '<section class="return-workflow" aria-label="Return progress"><header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-route" aria-hidden="true"></i>Return steps</h4><span class="status-pill '+returnStatusClass(row.status)+'">'+escapeHtml(returnStatusLabel(row))+'</span></header><ol class="return-workflow-steps">'+['Review request','Receive and inspect','Process resolution','Confirmed closure'].map((title,i)=>'<li class="'+(i+1<step&&!['rejected','cancelled'].includes(row.status)?'is-done':i+1===step?'is-current':'')+'" '+(i+1===step?'aria-current="step"':'')+'><span>'+((i+1<step&&!['rejected','cancelled'].includes(row.status))?'✓':i+1)+'</span>'+title+'</li>').join('')+'</ol><div class="return-next-action"><p role="status">'+escapeHtml(text)+'</p>'+action+'</div><div class="return-secondary-actions">'+renderReturnSecondaryActions(row,gateway)+'</div></section>';
-  };
-
   const renderReturnDetailsBody = (detail) => {
     const amount = resolveReturnAmount(detail);
     const shipped = detail?.return_courier_name || detail?.return_tracking_no;
@@ -3437,7 +3423,6 @@ document.addEventListener("DOMContentLoaded", () => {
       detail?.refunded_amount !== null && detail?.refunded_amount !== undefined;
 
     return `
-      ${renderReturnGuide(detail)}
       <div class="form-grid">
         ${returnField("Return No.", detail?.return_no_display)}
         ${returnField("Status", returnStatusLabel(detail))}
@@ -3554,38 +3539,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const returnDetailReads=new Map();
-  const refreshVisibleReturn = async () => {
-    const key=String(activeReturnId||'');
-    if(!key||!modalReturnDetails?.classList.contains('show'))return;
-    if(returnDetailReads.has(key))return returnDetailReads.get(key);
-    const previous=state.returnDetailsById.get(key);
-    const pending=request('/admin/returns/'+encodeURIComponent(key)).then(response=>{
-      if(String(response?.data?.id)!==key)throw Error('The saved return could not be loaded.');
-      // An action saved while this read was in flight owns the newer record.
-      if(state.returnDetailsById.get(key)!==previous)return;
+  const openReturnDetailsModal = async (returnId) => {
+    if (!modalReturnDetails || !returnDetailsBody) return;
+
+    const key = String(returnId || "");
+    if (!key) return;
+    if (activeReturnId !== key) state.returnItemsPage = 1;
+    activeReturnId = key;
+
+    const cached =
+      state.returnDetailsById.get(key) ||
+      state.returns.find((row) => String(row?.id) === key) ||
+      null;
+
+    if (returnDetailsSubtitle) {
+      returnDetailsSubtitle.textContent = cached
+        ? `${cached.return_no_display || `#${cached.return_no || key}`} · ${returnStatusLabel(cached)}`
+        : "Loading return request...";
+    }
+
+    // Paint what is already known, then let the detail request fill in the
+    // timeline and the order snapshot the summary row does not carry.
+    returnDetailsBody.innerHTML = cached
+      ? renderReturnDetailsBody(cached)
+      : `<div class="return-empty-note">Loading return details...</div>`;
+    window.AdminPageNumberInput?.upgrade(returnDetailsBody);
+    modalReturnDetails.classList.add("show");
+
+    try {
+      const response = await request(`/admin/returns/${key}`);
+      if (!response?.data) return;
       upsertReturnInState(response.data);
-      refreshOpenReturnDetails(key,response.data);
-      renderReturnsTable();
-    }).catch(error=>{
-      if(activeReturnId===key&&modalReturnDetails.classList.contains('show')){
-        let notice=returnDetailsBody.querySelector('[data-return-readback]');
-        if(!notice){notice=document.createElement('p');notice.className='order-readback-notice';notice.dataset.returnReadback='';notice.setAttribute('role','status');returnDetailsBody.prepend(notice);}
-        notice.textContent='Could not refresh this return. Saved information and your entries are kept.';
+      // A second return may have been opened while this was in flight.
+      if (activeReturnId !== key) return;
+      returnDetailsBody.innerHTML = renderReturnDetailsBody(response.data);
+      window.AdminPageNumberInput?.upgrade(returnDetailsBody);
+      if (returnDetailsSubtitle) {
+        returnDetailsSubtitle.textContent = `${response.data.return_no_display || `#${key}`} · ${returnStatusLabel(response.data)}`;
       }
-    }).finally(()=>returnDetailReads.delete(key));
-    returnDetailReads.set(key,pending);return pending;
-  };
-  const openReturnDetailsModal = async returnId => {
-    if(!modalReturnDetails||!returnDetailsBody)return;
-    const key=String(returnId||'');if(!key)return;
-    if(activeReturnId!==key){state.returnItemsPage=1;returnDetailsBody.dataset.snapshot='';returnDetailsBody.scrollTop=0;}
-    activeReturnId=key;
-    const cached=state.returnDetailsById.get(key)||state.returns.find(row=>String(row.id)===key);
-    modalReturnDetails.classList.add('show');
-    if(cached)refreshOpenReturnDetails(key,cached);
-    else {returnDetailsBody.innerHTML='<p class="return-empty-note">Loading return details…</p>';returnDetailsSubtitle.textContent='Loading return…';}
-    await refreshVisibleReturn();
+      renderReturnsTable();
+    } catch (error) {
+      if (error?.isCancelled) return;
+      if (activeReturnId !== key) return;
+      if (!cached) {
+        returnDetailsBody.innerHTML = `<div class="return-empty-note">${escapeHtml(error.message || "Unable to load this return request.")}</div>`;
+      }
+    }
   };
 
   const resolveReturnActionKind = (row) => {
@@ -3947,17 +3946,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Repaints an open Return Details modal after a mutation so the admin never
   // has to close and reopen it to see the status they just saved.
-  const refreshOpenReturnDetails = (id,record) => {
-    if(!record||!returnDetailsBody||activeReturnId!==String(id)||!modalReturnDetails?.classList.contains('show'))return;
-    const snapshot=JSON.stringify([record,state.returnItemsPage]);
-    if(returnDetailsBody.dataset.snapshot===snapshot){returnDetailsBody.querySelector('[data-return-readback]')?.remove();return;}
-    const scroll=returnDetailsBody.scrollTop;
-    const opened=[...returnDetailsBody.querySelectorAll('details')].map(node=>[node.querySelector('summary')?.textContent,node.open]);
-    returnDetailsBody.innerHTML=renderReturnDetailsBody(record);returnDetailsBody.dataset.snapshot=snapshot;
+  const refreshOpenReturnDetails = (id, record) => {
+    if (!record || !returnDetailsBody) return;
+    if (activeReturnId !== String(id)) return;
+    if (!modalReturnDetails?.classList.contains("show")) return;
+
+    returnDetailsBody.innerHTML = renderReturnDetailsBody(record);
     window.AdminPageNumberInput?.upgrade(returnDetailsBody);
-    returnDetailsBody.scrollTop=scroll;
-    for(const [title,open] of opened){const node=[...returnDetailsBody.querySelectorAll('details')].find(node=>node.querySelector('summary')?.textContent===title);if(node)node.open=open;}
-    if(returnDetailsSubtitle)returnDetailsSubtitle.textContent=(record.return_no_display||'#'+(record.return_no||id))+' · '+returnStatusLabel(record);
+    if (returnDetailsSubtitle) {
+      returnDetailsSubtitle.textContent = `${
+        record.return_no_display || `#${record.return_no || id}`
+      } · ${returnStatusLabel(record)}`;
+    }
   };
 
   const submitReturnAction = async () => {
@@ -4166,7 +4166,7 @@ document.addEventListener("DOMContentLoaded", () => {
         path: `/admin/orders/${orderId}/approve`,
         method: "POST",
         title: "Approve Incoming Order",
-        message: "Approve this order for preparation? Cash-on-pickup customers pay when collecting their order.",
+        message: "Approve this Incoming Order and move it to Orders Directory? Payment verification remains a separate step if payment has not been confirmed.",
         confirmText: "Approve",
         loadingText: "Approving...",
         success: "Order approved and moved to Orders Directory.",
@@ -4183,7 +4183,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const config = actionMap[action];
     if (!config) return;
-    if(action==='approve'&&!approvalFor(state.ordersById.get(String(orderId))).allowed){showPopup(approvalFor(state.ordersById.get(String(orderId))).reason,{title:'Approval unavailable'});return;}
     if(action==='approve' && state.ordersById.get(String(orderId))?.order_type==='custom')Object.assign(config,{
       title:'Start Production',message:'Start production of this approved custom product? Full payment must be confirmed first.',
       confirmText:'Start Production',loadingText:'Starting production...',success:'Custom-product production started.'});

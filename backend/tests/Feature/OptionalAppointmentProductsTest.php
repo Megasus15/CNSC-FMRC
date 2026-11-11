@@ -1296,10 +1296,7 @@ return Http::response(['data' => $s]);
         $o = $this->accept($j, $q);
         Sanctum::actingAs($this->staff);
         $this->postJson('/api/admin/orders/'.$o->id.'/approve')->assertUnprocessable();
-        $this->postJson('/api/admin/orders/approve-bulk', ['ids' => [$o->id]])->assertOk()
-            ->assertJsonPath('processed_count', 0)->assertJsonPath('skipped_ids.0', $o->id);
-        $this->assertSame('incoming', $o->fresh()->lifecycle_status);
-        $this->assertSame('pending', $o->payment->fresh()->status);
+        $this->postJson('/api/admin/orders/approve-bulk', ['ids' => [$o->id]])->assertUnprocessable();
         $this->postJson('/api/admin/orders/'.$o->id.'/complete')->assertUnprocessable();
         $this->act($o, 'ready')->assertUnprocessable();
         $this->act($o, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'GUARD', 'confirmed_received' => true])->assertOk();

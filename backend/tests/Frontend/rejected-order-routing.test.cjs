@@ -23,10 +23,10 @@ function harness(rows = []) {
     manualRefundsPanel: panel, manualRefundsTbody: {}, manualRefundsFooter: {},
     rejectedOrdersTbody: {}, rejectedOrdersFooter: {}, rejectedBulkController: { sync() {} }, PAGE_SIZE: 10,
     escapeHtml: value => String(value ?? '').replaceAll('<', '&lt;'),
-    formatDateShort: () => 'Oct 17, 2026', formatMoney: value => 'PHP ' + Number(value || 0).toFixed(2),formatTableMoney:value=>'PHP '+Number(value||0).toFixed(2),
+    formatDateShort: () => 'Oct 17, 2026', formatMoney: value => 'PHP ' + Number(value || 0).toFixed(2),
     renderPagedRows(config) { rendered.push({ rows: config.rows, html: config.rows.map(config.renderRow).join('') }); return 1; },
-    window: { dispatchEvent: event => events.push(event), AdminTableValue:{html:value=>String(value??'--')} },
-    document: { addEventListener() {}, querySelector: () => ({ click() { recordsClicks++; } }), getElementById: () => ({ scrollIntoView() { scrolls.push('rejected'); } }) },
+    window: { dispatchEvent: event => events.push(event) },
+    document: { querySelector: () => ({ click() { recordsClicks++; } }), getElementById: () => ({ scrollIntoView() { scrolls.push('rejected'); } }) },
     CustomEvent: class { constructor(type, { detail }) { this.type = type; this.detail = detail; } },
   });
   vm.runInContext(helpers + cells + renderers + '\nObject.assign(globalThis,{rejectedOrderWorkspace,getRejectedRows,getManualRefundRows,followRejectedOrders,renderRejectedTable,renderManualRefundsTable,renderPaymentMethodCell});', context);
@@ -64,14 +64,15 @@ test('provider refund requests stay out of rejected rows through failure, proces
   const h = harness(); h.context.renderManualRefundsTable(); assert.equal(h.panel.hidden, true);
 });
 
-test('rejection opens unified closure history while refunds remain separate', () => {
-  const h=harness();
-  h.context.followRejectedOrders([order(3)]);
-  assert.equal(h.events[0].type,'fmrc:open-cancellations');
-  assert.equal(h.events[0].detail.orderNo,'ORDER-3');
-  h.context.followRejectedOrders([order(4),order(5)]);
-  assert.equal(h.events[1].detail.orderNo,'');
-  assert.equal(h.recordsClicks(),0);
+test('rejection follows the appropriate queue without issuing a refund', () => {
+  const h = harness();
+  const paid = order(1, { payment_status: 'paid', payment_is_automated: true });
+  h.context.followRejectedOrders([paid]);
+  assert.equal(h.events[0].type, 'fmrc:open-online-refunds'); assert.equal(h.events[0].detail.orderNo, 'ORDER-1');
+  h.context.followRejectedOrders([paid, { ...paid, id: 2 }]); assert.equal(h.events[1].detail.orderNo, '');
+  h.context.followRejectedOrders([order(3, { payment_status: 'paid' })]);
+  h.context.followRejectedOrders([order(4)]);
+  assert.equal(h.recordsClicks(), 2); assert.deepEqual(h.scrolls, ['manual', 'rejected']);
 });
 
 test('rejected unpaid orders never invite a new payment', () => {

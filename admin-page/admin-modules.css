@@ -5969,7 +5969,7 @@ html.report-modal-open-root {
 .order-item-list li span { color:var(--text-muted);font-size:.78rem; }
 
 /* Order workspaces share one scroll region and consistent operational cards. */
-.order-dialog .modal-body-scroll { display:block; overscroll-behavior:contain; overflow-anchor:none; }
+.order-dialog .modal-body-scroll { display:block; overscroll-behavior:contain; }
 .order-dialog .order-dialog-section { margin:0 0 20px; padding:20px; border:1px solid var(--border-color,#dfe5ed); border-radius:12px; background:var(--surface,#fdfaf6); min-width:0; }
 .order-dialog .order-dialog-section > .order-section-title { margin:0 0 18px; padding:0 0 14px; }
 .order-dialog .order-dialog-section > .form-grid { margin:0; grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -6019,50 +6019,6 @@ html.report-modal-open-root {
 
 /* Align every J&T card action with the shared right-aligned dialog actions. */
 :is(#modalOrderDetails,#modalTrackingUpdate) .shipment-control-card .shipment-actions { justify-content:flex-end; }
-
-/* Shared Orders workspaces: readable sections and compact, explicit actions. */
-#rejectedOrdersPanel[hidden] { display:none !important; }
-.order-dialog [data-order-section="fulfillment"] .form-grid > :is(.shipment-control-card,.order-fulfillment-summary) { grid-column:1 / -1; width:100%; min-width:0; }
-.order-fulfillment-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:0; padding:16px 18px; border-radius:10px; background:var(--bg-light); border:1px solid var(--border-color); }
-.order-fulfillment-summary dt { color:var(--text-muted); font-size:.78rem; margin-bottom:6px; }
-.order-fulfillment-summary dd { margin:0; font-weight:600; font-size:.88rem; overflow-wrap:anywhere; }
-.order-policy-card { border-left:1px solid var(--border-color); }
-.order-policy-card > .field-hint { margin:0 0 18px; }
-.order-policy-actions,.return-secondary-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
-.order-policy-actions .btn-admin { gap:10px; text-decoration:none; }
-.order-dialog .shipment-control-card { margin:0; padding:20px; border-radius:12px; background:var(--bg-light); }
-.order-dialog .shipment-control-card > .shipment-heading { align-items:center; gap:12px; }
-.order-dialog .shipment-control-card .shipment-note { margin:14px 0; line-height:1.65; }
-.order-dialog .shipment-control-card .shipment-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px; }
-.order-dialog .shipment-primary-actions { padding-top:16px; border-top:1px solid var(--border-color); }
-.order-dialog .shipment-control-card .shipment-actions .btn-admin { width:auto; min-height:44px; padding:10px 16px; margin:0; }
-.order-dialog .shipment-control-card [data-jnt-form] fieldset { margin:0; padding:0; border:0; min-width:0; }
-.order-dialog .shipment-control-card :is(input,select,textarea):disabled { background:var(--input-disabled-bg,#e9edf2); color:var(--text-muted); cursor:not-allowed; opacity:1; }
-.order-dialog [data-tracking-test-controls] { border-style:dashed; }
-.order-dialog [data-tracking-test-controls] details { margin:0; }
-.order-dialog [data-tracking-test-controls] summary { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.order-dialog [data-tracking-test-controls] .status-pill { margin-left:auto; }
-.return-manage-action.btn-admin { display:inline-flex; width:auto !important; height:auto !important; min-height:40px; padding:9px 13px !important; border-radius:8px !important; gap:8px; white-space:nowrap; font-size:.8rem; }
-.return-workflow { margin-bottom:24px; padding:20px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-light); }
-.return-workflow .order-section-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
-.return-workflow-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; list-style:none; padding:0; margin:0; }
-.return-workflow-steps li { display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--border-color); border-radius:10px; font-size:.8rem; line-height:1.5; color:var(--text-muted); }
-.return-workflow-steps li > span { display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--border-color); border-radius:50%; font-weight:700; }
-.return-workflow-steps .is-current { border:2px solid var(--primary-color); color:var(--primary-color); font-weight:700; padding:13px; }
-.return-workflow-steps .is-current > span { color:#fff; background:var(--primary-color); border-color:var(--primary-color); }
-.return-workflow-steps .is-done > span { background:#e1f2e6; color:#247541; border-color:#c5e7ce; }
-.return-next-action { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding-top:20px; margin-top:20px; border-top:1px solid var(--border-color); }
-.return-next-action p { flex:1 1 240px; margin:0; color:var(--text-muted); font-size:.86rem; line-height:1.65; }
-.return-next-action .btn-admin { flex:0 1 auto; }
-.return-secondary-actions:not(:empty) { margin-top:16px; }
-@media(max-width:620px) {
-  .order-dialog .shipment-control-card,.return-workflow { padding:16px; }
-  .order-fulfillment-summary { padding:14px; gap:12px; }
-  .order-dialog .shipment-control-card .shipment-actions .btn-admin { flex:1 1 130px; text-align:center; justify-content:center; }
-  .return-workflow-steps { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .order-policy-actions .btn-admin,.return-secondary-actions .btn-admin { flex:1 1 140px; justify-content:center; text-align:center; }
-  .return-next-action .btn-admin { flex:1 1 100%; }
-}
 
 /* Author display rules must not expose hidden fields or obsolete headings. */
 :is(#modalOrderDetails,#modalTrackingUpdate) [hidden] { display:none!important; }

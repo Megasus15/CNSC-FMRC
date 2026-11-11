@@ -22,7 +22,7 @@ class GatewayManagementController extends Controller
             ->when($r->filled('refund_status'),fn($q)=>$q->whereExists(fn($f)=>$f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id')
                 ->whereIn('payment_refunds.status', $filter['refund_status'] === 'processing' ? ['submitting','pending','unknown'] : [$filter['refund_status']])))
             ->when($r->filled('order_id'),fn($q)=>$q->where('orders.id',$filter['order_id']))
-            ->orderByDesc('payments.id')->paginate(10);
+            ->orderByDesc('payments.id')->paginate(20);
         return $this->paymentData($r, $provider, $gateway, $rows);
     }
 

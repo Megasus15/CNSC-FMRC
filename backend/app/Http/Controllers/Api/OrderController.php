@@ -21,7 +21,6 @@ use App\Services\NinjaVanShipping;
 use App\Services\ShipmentTracking;
 use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
-use App\Support\OrderApproval;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
 use App\Support\CustomerOrderHistory;
@@ -1635,7 +1634,6 @@ class OrderController extends Controller
                 'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
                 'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
-                'historyClosureEvents.actor:id,role',
                 ...ShipmentTracking::relations(),
             ])
             ->where('is_archived', false)
@@ -1720,7 +1718,6 @@ class OrderController extends Controller
         $order->load([
             'items',
             'payment',
-            'historyClosureEvents.actor:id,role',
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
@@ -1746,10 +1743,7 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-            $processed = [];
             foreach ($orders as $order) {
-                $order->setRelation('payment', Payment::where('order_id', $order->id)->lockForUpdate()->first());
-                if (! OrderApproval::state($order)['allowed']) continue;
                 AppointmentProducts::assertProduction($order);
                 if (AppointmentProducts::custom($order)) { $order->appointment_production_status='in_production';$order->production_revision++; }
                 $paymentStatus = $order->payment?->status;
@@ -1762,7 +1756,6 @@ class OrderController extends Controller
                 $order->customer_stage = $nextCustomerStage;
                 $order->approved_at = Carbon::now();
                 $order->save();
-                $processed[] = (int) $order->id;
 
                 $this->createTrackingEvent($order, [
                     'created_by_user_id' => $request->user()?->id,
@@ -1792,8 +1785,12 @@ class OrderController extends Controller
                 $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
             }
 
-            return $processed;
+            return $orders->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
         });
+
+        if (!$processedIds) {
+            return response()->json(['message' => 'No incoming orders were found to approve.'], 404);
+        }
 
         return $this->bulkActionResponse('approve', 'incoming_orders', $ids, $processedIds);
     }
@@ -1893,30 +1890,40 @@ class OrderController extends Controller
             return $denied;
         }
 
-        DB::transaction(function () use ($order, $request): void {
-            $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $fresh->setRelation('payment', Payment::where('order_id', $fresh->id)->lockForUpdate()->first());
-            $approval = OrderApproval::state($fresh);
-            abort_unless($approval['allowed'], 422, $approval['reason'] ?? 'This order cannot be approved.');
-            $stage = $fresh->payment?->status === 'paid' ? 'to_ship' : $fresh->customer_stage;
-            $fresh->lifecycle_status = 'pending';
-            $fresh->customer_stage = in_array($stage, self::ALLOWED_CUSTOMER_STAGES, true) ? $stage : 'to_pay';
-            $fresh->approved_at = now();
-            $fresh->save();
-            $order->setRawAttributes($fresh->getAttributes(), true);
-            $order->setRelation('payment', $fresh->payment);
-            $this->createTrackingEvent($order, [
-                'created_by_user_id' => $request->user()?->id,
-                'stage' => $order->customer_stage,
-                'event_type' => 'admin_update',
-                'title' => 'Order approved',
-                'description' => $this->approvalEventDescription($order),
-                'occurred_at' => now(),
-                'metadata' => [
-                    'lifecycle_status' => 'pending',
-                ],
-            ]);
-        });
+        if ($order->lifecycle_status !== 'incoming') {
+            return response()->json([
+                'message' => 'Only incoming orders can be approved.',
+            ], 422);
+        }
+        if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before approving this order.'],422);
+
+        $paymentStatus = $order->payment?->status;
+        $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
+
+        if (!in_array($nextCustomerStage, self::ALLOWED_CUSTOMER_STAGES, true)) {
+            $nextCustomerStage = 'to_pay';
+        }
+
+        $order->lifecycle_status = 'pending';
+        $order->customer_stage = $nextCustomerStage;
+        $order->approved_at = Carbon::now();
+        $updated=Order::whereKey($order->id)->where('lifecycle_status','incoming')
+            ->where(fn($q)=>$q->whereNull('cancel_state')->orWhere('cancel_state','!=','requested'))
+            ->update(['lifecycle_status'=>$order->lifecycle_status,'customer_stage'=>$order->customer_stage,'approved_at'=>$order->approved_at]);
+        if(!$updated) return response()->json(['message'=>'This order changed. Review its cancellation or current status before continuing.'],422);
+        $order->refresh();
+
+        $this->createTrackingEvent($order, [
+            'created_by_user_id' => $request->user()?->id,
+            'stage' => $order->customer_stage,
+            'event_type' => 'admin_update',
+            'title' => 'Order approved',
+            'description' => $this->approvalEventDescription($order),
+            'occurred_at' => now(),
+            'metadata' => [
+                'lifecycle_status' => 'pending',
+            ],
+        ]);
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
@@ -2573,10 +2580,7 @@ class OrderController extends Controller
             'processed_ids' => array_values($processedIds),
             'processed_count' => count($processedIds),
             'skipped_ids' => array_values(array_diff($requestedIds, $processedIds)),
-            'message' => $action === 'approve'
-                ? count($processedIds) . " order(s) {$pastTense}."
-                    . (count($requestedIds) > count($processedIds) ? ' ' . count(array_diff($requestedIds, $processedIds)) . ' skipped because they are no longer eligible.' : '')
-                : count($processedIds) . " order(s) {$pastTense} successfully.",
+            'message' => count($processedIds) . " order(s) {$pastTense} successfully.",
         ]);
     }
 
@@ -3182,33 +3186,6 @@ class OrderController extends Controller
         ];
     }
 
-    /** Presentation of recorded closure evidence; never changes cancellation state. */
-    private function cancellationRecord(Order $order): ?array
-    {
-        $closed = in_array($order->lifecycle_status, ['cancelled', 'rejected'], true);
-        $requested = ! empty($order->cancel_state) && $order->cancel_state !== 'none';
-        if (! $closed && ! $requested) return null;
-        $events = $order->relationLoaded('historyClosureEvents')
-            ? $order->historyClosureEvents
-            : $order->historyClosureEvents()->with('actor:id,role')->get();
-        $event = $events->first(fn ($event) => in_array($event->title, ['Order cancelled', 'Order rejected'], true));
-        $role = $event?->actor?->role;
-        $source = match (true) {
-            ($event?->metadata['source'] ?? null) === 'customer_cancellation', $role === 'customer' => 'customer',
-            in_array($role, ['admin', 'staff'], true) => 'team',
-            $event !== null && $event->event_type === 'system' && $event->created_by_user_id === null => 'system',
-            $requested => 'customer',
-            default => 'unknown',
-        };
-        return [
-            'source' => $source,
-            'source_label' => ['customer' => 'Customer', 'team' => 'FMRC team', 'system' => 'System', 'unknown' => 'Not recorded'][$source],
-            'status' => $closed ? $order->lifecycle_status : ($order->cancel_state === 'requested' ? 'requested' : 'declined'),
-            'reason' => $order->cancelReasonLabel() ?: $event?->description,
-            'recorded_at' => $this->formatPhilippineIso($order->cancel_requested_at ?? $order->cancelled_at ?? $order->rejected_at ?? $event?->occurred_at),
-        ];
-    }
-
     /** The cancel sheet's radio list, in display order. */
     private function cancelReasonOptions(): array
     {
@@ -3760,10 +3737,6 @@ class OrderController extends Controller
         }
 
         $summary = array_merge($summary, AppointmentProducts::orderData($order));
-        if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true)) {
-            $summary['approval'] = OrderApproval::state($order);
-            $summary['cancellation_record'] = $this->cancellationRecord($order);
-        }
         if (AppointmentProducts::custom($order)) {
             $summary['customer_stage_label']=$summary['custom_product']['stage'];
             $summary['rating_total_items']=0;

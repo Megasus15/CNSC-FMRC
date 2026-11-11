@@ -28,15 +28,13 @@ function setup(admin = true) {
   const context = vm.createContext({
     ...fields, modalReturnAction: modal, crypto: { randomUUID: () => 'test-request-key' },
     canIssueOnlineRefund: () => admin, showPopup() {}, returnActionDiscardGuard: { capture() {} },
-    returnStatusClass: ()=>'status-blue', returnStatusLabel: row=>row.status,
     formatMoney: amount => `PHP ${amount.toFixed(2)}`, escapeHtml: value => String(value),
   });
   vm.runInContext([
-    section('  const renderReturnActionIcons =', '  const renderReturnsTable ='),
-    section('  const renderReturnGuide =', '  const renderReturnDetailsBody ='),
+    section('  const returnActionIcon =', '  const renderReturnsTable ='),
     section('  const resolveReturnActionKind =', '  const closeReturnActionModal ='),
     section('  const RETURN_ACTION_COPY =', '  // Repaints an open Return Details modal'),
-    'globalThis.flow = { openReturnActionModal, buildReturnActionRequest, renderReturnActionIcons, renderReturnGuide };',
+    'globalThis.flow = { openReturnActionModal, buildReturnActionRequest, renderReturnActionIcons };',
   ].join('\n'), context);
   return { fields, modal, flow: context.flow };
 }
@@ -45,7 +43,7 @@ const row = { id: 32, order_id: 80, resolution: 'replacement', status: 'item_rec
 
 test('Admin can open resolution review for an inspected replacement without offering a refund action', () => {
   const { flow, fields } = setup();
-  const icons = flow.renderReturnGuide(row);
+  const icons = flow.renderReturnActionIcons(row, 'RTN-32');
   assert.match(icons, /data-return-mode="resolution"/);
   assert.doesNotMatch(icons, /data-return-mode="refund"/);
   flow.openReturnActionModal(row, 'resolution');
@@ -66,7 +64,7 @@ test('Admin can open resolution review for an inspected replacement without offe
 });
 
 test('Staff cannot open correction; initial review restores fields and submits chosen resolution', () => {
-  assert.doesNotMatch(setup(false).flow.renderReturnGuide(row), /data-return-mode="resolution"/);
+  assert.doesNotMatch(setup(false).flow.renderReturnActionIcons(row, 'RTN-32'), /data-return-mode="resolution"/);
   const { flow, fields } = setup();
   flow.openReturnActionModal(row, 'resolution');
   flow.openReturnActionModal({ ...row, can_decide: true, status: 'requested' }, 'decision');
@@ -81,14 +79,14 @@ test('Staff cannot open correction; initial review restores fields and submits c
 
 test('Only an approved refund resolution enables the provider action', () => {
   const { flow } = setup();
-  assert.match(flow.renderReturnGuide({ ...row, resolution: 'refund', can_refund: true }), /data-return-mode="refund"/);
+  assert.match(flow.renderReturnActionIcons({ ...row, resolution: 'refund', can_refund: true }, 'RTN-32'), /data-return-mode="refund"/);
 });
 
 for (const admin of [true, false]) {
   test(`${admin ? 'Admin issues' : 'Staff requests'} receipt and refund through one action and one request`, () => {
     const { flow, fields, modal } = setup(admin);
     const combined = { ...row, resolution: 'refund', status: 'item_in_transit', can_receive: true, can_refund: true, requires_receipt: true, refund_available_amount: 1 };
-    const icons = flow.renderReturnGuide(combined);
+    const icons = flow.renderReturnActionIcons(combined, 'RTN-32');
     assert.equal((icons.match(/data-return-mode="refund"/g) || []).length, 1);
     assert.doesNotMatch(icons, /data-return-mode="received"/);
     flow.openReturnActionModal(combined, 'received'); // Stale separate receipt action resolves to the combined form.
@@ -131,10 +129,10 @@ test('Received items need no second receipt; partial refunds use only the remain
 
 test('An existing online refund has no second receive or refund action', () => {
   const { flow } = setup();
-  const icons = flow.renderReturnGuide({ ...row, resolution: 'refund', status: 'refund_processing', can_refund: false, online_refund_pending: true });
+  const icons = flow.renderReturnActionIcons({ ...row, resolution: 'refund', status: 'refund_processing', can_refund: false, online_refund_pending: true }, 'RTN-32');
   assert.doesNotMatch(icons, /data-return-mode="(?:received|refund)"/);
   assert.match(icons, /data-gateway-manage="80"/);
-  assert.match(icons, /Waiting for the payment provider/);
+  assert.match(icons, /existing request in Online refunds/);
 });
 
 test('Both portals provide the shared combined action confirmation field and current script', () => {
@@ -143,21 +141,5 @@ test('Both portals provide the shared combined action confirmation field and cur
     assert.equal((html.match(/id="returnConfirmReceived"/g) || []).length, 1);
     assert.match(html, /data-return-section="receipt"/);
     assert.match(html, /orders\.js\?v=\d/);
-  }
-});
-
-test('Return table has one clear entry point; the guide preserves repair, claim, failure and closed branches', () => {
-  const {flow}=setup();
-  const table=flow.renderReturnActionIcons(row);
-  assert.match(table,/Manage return/);assert.doesNotMatch(table,/data-return-mode/);
-  const repaired=flow.renderReturnGuide({...row,resolution:'repair',status:'item_received'});
-  assert.match(repaired,/agreed repair or rework/);assert.doesNotMatch(repaired,/data-return-mode="refund"/);
-  const claim=flow.renderReturnGuide({...row,resolution:'refund',online_refund_pending:true,customer_claim_required:true});
-  assert.match(claim,/secure refund claim/);assert.equal((claim.match(/data-gateway-manage/g)||[]).length,1);
-  const failed=flow.renderReturnGuide({...row,resolution:'refund',online_refund_status:'failed',can_refund:true});
-  assert.match(failed,/Review refund/);assert.doesNotMatch(failed,/data-return-mode="refund"/);
-  for(const status of ['rejected','cancelled','refunded']){
-    const closed=flow.renderReturnGuide({...row,status,can_change_resolution:false,can_refund:false,can_archive:true});
-    assert.match(closed,/Archive return/);assert.doesNotMatch(closed,/data-return-mode/);
   }
 });

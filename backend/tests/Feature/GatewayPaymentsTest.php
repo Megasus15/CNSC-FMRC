@@ -257,10 +257,9 @@ class GatewayPaymentsTest extends TestCase {
             if($i<21) $gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid());
         }
         Sanctum::actingAs($admin);
-        $first=$this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',21)->assertJsonPath('payments.last_page',3)->assertJsonCount(10,'payments.data');
-        $second=$this->getJson('/api/admin/gateway-payments?page=2')->assertOk()->assertJsonPath('payments.total',21)->assertJsonCount(10,'payments.data');
-        $third=$this->getJson('/api/admin/gateway-payments?page=3')->assertOk()->assertJsonPath('payments.total',21)->assertJsonCount(1,'payments.data');
-        $this->assertCount(21,array_unique(array_merge(array_column($first->json('payments.data'),'id'),array_column($second->json('payments.data'),'id'),array_column($third->json('payments.data'),'id'))));
+        $first=$this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',21)->assertJsonPath('payments.last_page',2)->assertJsonCount(20,'payments.data');
+        $second=$this->getJson('/api/admin/gateway-payments?page=2')->assertOk()->assertJsonPath('payments.total',21)->assertJsonCount(1,'payments.data');
+        $this->assertCount(21,array_unique(array_merge(array_column($first->json('payments.data'),'id'),array_column($second->json('payments.data'),'id'))));
         Http::assertNothingSent();
     }
 
