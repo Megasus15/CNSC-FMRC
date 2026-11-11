@@ -138,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.dispatchEvent(new CustomEvent('fmrc:cancellation-archived',{detail:result.data}));
         window.dispatchEvent(new CustomEvent('fmrc:archives-updated',{detail:{module:'cancellation',action:'archive'}}));
         feedback.textContent=result.message;
+        window.showAdminPopup?.('Cancellation archived.',{type:'success'});
       }catch(error){feedback.textContent=error.message;}finally{archivingCancellations.delete(key);feedback.hidden=false;renderCancellations();}
     }});
   };
