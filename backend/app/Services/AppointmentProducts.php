@@ -449,7 +449,14 @@ final class AppointmentProducts
             'requirements' => self::customerBriefView($job->requirements ?? [], $job->booking['aptDesc'] ?? null, $job->appointment?->additional_notes), 'booking' => $job->booking,
             'next_action' => $next, 'outcome_note' => $job->outcome_note, 'discussed_at' => $job->discussed_at?->toIso8601String(),
             'files' => DB::table('appointment_product_files')->where('job_id', $job->id)->get(['id', 'name', 'size', 'message_id'])->all(),
-            'messages' => DB::table('appointment_product_messages')->where('job_id', $job->id)->orderBy('id')->get(['id', 'sender_name', 'sender_role', 'body', 'created_at'])->all(),
+            'messages' => DB::table('appointment_product_messages')->where('job_id', $job->id)->orderBy('id')
+                ->get(['id', 'sender_id', 'sender_name', 'sender_role', 'body', 'request_key', 'created_at'])
+                ->map(function ($message) {
+                    $message->client_request_key = (int) $message->sender_id === (int) auth()->id() ? $message->request_key : null;
+                    unset($message->request_key);
+
+                    return $message;
+                })->all(),
             'quotations' => $quotes->map(fn ($q) => ['id' => $q->id, 'version' => $q->version, 'state' => $q->state, 'agreement' => $q->agreement,
                 'expires_at' => $q->expires_at->toIso8601String(), 'accepted_at' => $q->accepted_at?->toIso8601String(), 'sent_at' => $q->sent_at->toIso8601String()])->all(),
             'orders' => $orders->map(fn ($o) => ['id' => $o->id, 'order_no' => $o->order_no, 'lifecycle_status' => $o->lifecycle_status,

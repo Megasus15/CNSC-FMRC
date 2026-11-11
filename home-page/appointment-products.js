@@ -412,6 +412,173 @@
     const href=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=href;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(href),1000);
   };
   const fileList = (files=[],empty='No design files yet. Files can be attached in Conversation.') => files.length ? '<ul class="ap-files">'+files.map(f=>`<li>${button(esc(f.name),`data-ap-file="${f.id}"`,true)}<small>${Math.ceil(Number(f.size)/1024)} KB</small></li>`).join('')+'</ul>' : `<p class="ap-help">${esc(empty)}</p>`;
+  const chatAccept='.jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg';
+  const chatIcon = name => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">'+({
+    chat:'<path d="M21 11a8 8 0 0 1-8 8H6l-4 3V11a9 9 0 0 1 19 0Z"/><path d="M7 10h10M7 14h6"/>',
+    attach:'<path d="m8 12 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9"/>',
+    file:'<path d="M14 2H5v20h14V7l-5-5Z"/><path d="M14 2v6h5M8 13h8M8 17h6"/>',
+    send:'<path d="m22 2-7 20-4-9-9-4 20-7ZM11 13 22 2"/>',
+    close:'<path d="m6 6 12 12M18 6 6 18"/>',
+    down:'<path d="M12 4v16m-6-6 6 6 6-6"/>'
+  })[name]+'</svg>';
+  const chatSize = size => Number(size)>=1048576?(Number(size)/1048576).toFixed(1)+' MB':Math.max(1,Math.ceil(Number(size)/1024))+' KB';
+  const chatDate = value => value?new Date(/^\d{4}-\d{2}-\d{2} \d{2}:/.test(value)?value.replace(' ','T')+'Z':value):new Date(NaN);
+  const chatDay = value => {const d=chatDate(value);return Number.isNaN(d.getTime())?'unknown':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);};
+  const chatDayLabel = value => {const d=chatDate(value);if(Number.isNaN(d.getTime()))return 'Earlier messages';return chatDay(value)===chatDay(new Date().toISOString())?'Today':new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',month:'short',day:'numeric',year:'numeric'}).format(d);};
+  const chatTime = value => {const d=chatDate(value);return Number.isNaN(d.getTime())?'Time unavailable':new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit'}).format(d);};
+  const chatCompare = (a,b) => {const x=chatDate(a.created_at).getTime(),y=chatDate(b.created_at).getTime();return (Number.isNaN(x)?Number.isNaN(y)?0:-1:Number.isNaN(y)?1:x-y)||Number(a.id)-Number(b.id);};
+  const chatAuthor = m => String(m.sender_id??m.sender_name??m.sender_role);
+  const chatMarkup = ctx => `<div class="ap-chat" data-ap-chat><header class="ap-chat-head"><span class="ap-chat-symbol">${chatIcon('chat')}</span><div><h4 id="ap-chat-title-${ctx.key}">Conversation</h4><p>Discuss your request and share design files here.</p></div></header><p class="ap-chat-notice">${ctx.admin?'For paid-order changes, use the cancellation and refund actions in Orders.':'For changes to a paid order, request help in My Orders.'}</p><div class="ap-chat-history"><div class="ap-chat-log" data-ap-chat-log role="log" aria-labelledby="ap-chat-title-${ctx.key}" aria-relevant="additions" tabindex="0"><div class="ap-chat-empty" data-ap-chat-empty>${chatIcon('chat')}<strong>Start the conversation</strong><p>Send a message or share a design file.</p></div></div><button type="button" class="ap-chat-latest" data-ap-chat-latest hidden>${chatIcon('down')}<span>New messages</span></button></div><form class="ap-chat-composer" data-ap-form="messages" novalidate><ul class="ap-chat-selected" data-ap-chat-selected aria-label="Files to send" hidden></ul><label class="ap-chat-label" for="ap-chat-message-${ctx.key}">Message</label><textarea id="ap-chat-message-${ctx.key}" name="body" rows="2" maxlength="5000" placeholder="Write a message…" aria-describedby="ap-chat-feedback-${ctx.key} ap-chat-limit-${ctx.key}"></textarea><div class="ap-chat-compose-actions"><div><input class="ap-chat-upload" type="file" id="ap-chat-files-${ctx.key}" name="attachments" multiple accept="${chatAccept}"><button type="button" class="ap-chat-attach" data-ap-chat-attach>${chatIcon('attach')}Attach files</button><span class="ap-chat-counter" data-ap-chat-counter aria-label="Message characters">0 / 5,000</span></div><button type="submit" class="ap-btn ap-chat-send" disabled>${chatIcon('send')}<span>Send</span></button></div><small id="ap-chat-limit-${ctx.key}" class="ap-chat-limit">Up to 5 files · 50 MB total. Images, PDF, Word, or CAD files.</small><p id="ap-chat-feedback-${ctx.key}" class="ap-chat-feedback" data-ap-chat-feedback role="status" aria-live="polite"></p><p class="ap-chat-connection" data-ap-chat-connection role="status" hidden></p></form></div>`;
+
+  // This surface survives surrounding form refreshes. Only new message nodes are inserted.
+  function syncChat(ctx, snapshot=ctx.job) {
+    const chat=ctx.root.querySelector('[data-ap-chat]');if(!chat)return;
+    const state=ctx.chat||(ctx.chat={messages:new Map(),files:new Map(),unseen:new Set(),selected:[]});
+    for(const m of snapshot.messages||[])state.messages.set(String(m.id),m);
+    for(const f of snapshot.files||[])if(f.message_id)state.files.set(String(f.id),f);
+    const log=chat.querySelector('[data-ap-chat-log]'),nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
+    const wasVisible=ctx.tab===2&&!!log.getClientRects().length;
+    const anchor=wasVisible&&!nearBottom?[...log.querySelectorAll('[data-chat-message]')].find(n=>n.getBoundingClientRect().bottom>log.getBoundingClientRect().top):null,anchorTop=anchor?.getBoundingClientRect().top;
+    const messages=[...state.messages.values()].sort(chatCompare);
+    let added=0,previous=null;
+    for(const m of messages){
+      const day=chatDay(m.created_at),own=ctx.admin?m.sender_role!=='customer':m.sender_role==='customer';
+      let group=log.querySelector(`[data-chat-day="${CSS.escape(day)}"]`);
+      if(!group){group=document.createElement('section');group.className='ap-chat-day';group.dataset.chatDay=day;group.innerHTML=`<h5>${esc(chatDayLabel(m.created_at))}<span class="ap-chat-sr"> · Philippine time</span></h5>`;log.append(group);}
+      let row=log.querySelector(`[data-chat-message="${CSS.escape(String(m.id))}"]`);
+      if(!row){
+        row=document.createElement('article');row.className='ap-chat-message';row.dataset.chatMessage=m.id;
+        const name=m.sender_name||(m.sender_role==='customer'?'Customer':'FMRC team');
+        const initials=name.trim().split(/\s+/).slice(0,2).map(s=>[...s][0]).join('').toLocaleUpperCase();
+        row.innerHTML=`<span class="ap-chat-avatar" aria-hidden="true">${esc(initials)}</span><div class="ap-chat-bubble"><div class="ap-chat-sender">${esc(name)}${m.sender_role!=='customer'?'<span>FMRC team</span>':''}</div>${m.body?`<p class="ap-chat-text">${esc(m.body)}</p>`:''}<ul class="ap-chat-files" data-ap-chat-files hidden></ul><time title="${esc(date(m.created_at))} · Philippine time">${esc(chatTime(m.created_at))}</time></div>`;
+        if(!Number.isNaN(chatDate(m.created_at).getTime()))row.querySelector('time').dateTime=chatDate(m.created_at).toISOString();
+        const next=[...group.querySelectorAll('[data-chat-message]')].find(n=>chatCompare(state.messages.get(n.dataset.chatMessage),m)>0);group.insertBefore(row,next||null);
+        added++;if(state.initialized&&(!wasVisible||!nearBottom))state.unseen.add(String(m.id));
+      }
+      row.classList.toggle('is-own',own);
+      row.classList.toggle('is-continuation',!!previous&&chatAuthor(previous)===chatAuthor(m)&&previous.sender_role===m.sender_role&&chatDay(previous.created_at)===day&&Math.abs(chatDate(m.created_at)-chatDate(previous.created_at))<=300000);
+      const files=row.querySelector('[data-ap-chat-files]');
+      for(const f of state.files.values())if(String(f.message_id)===String(m.id)&&!files.querySelector(`[data-ap-file="${CSS.escape(String(f.id))}"]`)){
+        const li=document.createElement('li');li.innerHTML=`<button type="button" class="ap-chat-file" data-ap-file="${esc(f.id)}" aria-label="Download ${esc(f.name)}">${chatIcon('file')}<span><strong>${esc(f.name)}</strong><small>${esc(chatSize(f.size))} · Download</small></span></button>`;files.append(li);
+      }
+      files.hidden=!files.children.length;previous=m;
+    }
+    // Late snapshots may include older history; keep its actual date and reading anchor.
+    const groups=[...log.querySelectorAll('[data-chat-day]')];groups.sort((a,b)=>a.dataset.chatDay==='unknown'?-1:b.dataset.chatDay==='unknown'?1:a.dataset.chatDay.localeCompare(b.dataset.chatDay));
+    groups.forEach((group,i)=>{if(log.querySelectorAll('[data-chat-day]')[i]!==group)log.insertBefore(group,log.querySelectorAll('[data-chat-day]')[i]||null);});
+    log.querySelector('[data-ap-chat-empty]').hidden=messages.length>0;
+    if(wasVisible&&(!state.initialized||nearBottom)&&added){log.scrollTop=log.scrollHeight;state.unseen.clear();}
+    else if(anchor)log.scrollTop+=anchor.getBoundingClientRect().top-anchorTop;
+    state.initialized=true;
+    chat.querySelector('[data-ap-chat-latest]').hidden=!state.unseen.size;
+    chat.querySelector('[data-ap-chat-latest] span').textContent=state.unseen.size?'New messages ('+state.unseen.size+')':'New messages';
+  }
+  function chatConnection(ctx,failed) {
+    const node=ctx.root.querySelector('[data-ap-chat-connection]');if(!node)return;
+    node.hidden=!failed;node.textContent=failed?'Updates paused. Reconnecting…':'';
+  }
+  function openChat(ctx,reveal=false) {
+    const log=ctx.root.querySelector('[data-ap-chat-log]');if(!log)return;
+    fitChat(ctx);
+    const state=ctx.chat;if(!state.opened){log.scrollTop=log.scrollHeight;state.opened=true;state.unseen.clear();ctx.root.querySelector('[data-ap-chat-latest]').hidden=true;}
+    if(reveal){const chat=log.closest('[data-ap-chat]'),host=scrollContainer(chat);if(host)host.scrollTop+=chat.getBoundingClientRect().top-host.getBoundingClientRect().top-12;}
+  }
+  function fitChat(ctx) {
+    const chat=ctx.root.querySelector('[data-ap-chat]');if(ctx.tab!==2||!chat?.getClientRects().length)return;
+    const log=chat.querySelector('[data-ap-chat-log]'),host=scrollContainer(chat),nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
+    const available=Math.min(host?.clientHeight||innerHeight-80,window.visualViewport?.height||innerHeight)-24;
+    const fixed=chat.getBoundingClientRect().height-log.getBoundingClientRect().height;
+    log.style.height=Math.max(80,Math.min(430,available-fixed))+'px';
+    if(nearBottom)log.scrollTop=log.scrollHeight;
+  }
+  const fitVisibleChats=()=>{for(const ctx of contexts.values())if(ctx.root.isConnected){fitChat(ctx);const form=ctx.root.querySelector('[data-ap-form="messages"]');if(form?.contains(document.activeElement)){const host=scrollContainer(form),bottom=Math.min(host?.getBoundingClientRect().bottom||innerHeight,(window.visualViewport?.offsetTop||0)+(window.visualViewport?.height||innerHeight));if(host&&form.getBoundingClientRect().bottom>bottom)host.scrollTop+=form.getBoundingClientRect().bottom-bottom+12;}}};
+  window.addEventListener('resize',fitVisibleChats,{passive:true});
+  window.visualViewport?.addEventListener('resize',fitVisibleChats,{passive:true});
+  function bindChat(ctx) {
+    const chat=ctx.root.querySelector('[data-ap-chat]');if(chat.dataset.bound)return;
+    chat.dataset.bound='true';syncChat(ctx);
+    const state=ctx.chat,form=chat.querySelector('form'),input=form.elements.body,upload=form.elements.attachments,send=form.querySelector('[type=submit]');
+    const feedback=(text,error=false)=>{const n=chat.querySelector('[data-ap-chat-feedback]');n.textContent=text;n.classList.toggle('is-error',error);};
+    const setFiles=files=>{const transfer=new DataTransfer();for(const file of files)transfer.items.add(file);upload.files=transfer.files;state.selected=files;};
+    const update=()=>{
+      input.setCustomValidity('');form.dataset.dirty=String(!!input.value||state.selected.length>0||!!state.pending);
+      send.disabled=!!state.sending||(!state.pending&&!input.value.trim()&&!state.selected.length);
+      send.querySelector('span').textContent=state.sending?'Sending…':state.pending?'Retry':'Send';
+      chat.querySelector('[data-ap-chat-counter]').textContent=input.value.length.toLocaleString('en-PH')+' / 5,000';
+      let recovery=chat.querySelector('[data-ap-chat-recovery]');
+      if(!recovery){recovery=document.createElement('div');recovery.className='ap-chat-recovery';recovery.dataset.apChatRecovery='';form.prepend(recovery);}
+      recovery.hidden=!state.pending||state.sending;
+      if(!recovery.hidden){const text=state.pending.body||state.pending.files.map(f=>f.name).join(', ');recovery.innerHTML=`<strong>Message not confirmed</strong><p>${esc(text.slice(0,160))}${text.length>160?'…':''}</p><small>Retry checks this message first. Your current draft is kept.</small>`;}
+      input.style.height='auto';input.style.height=Math.min(130,Math.max(64,input.scrollHeight))+'px';
+      fitChat(ctx);
+    };
+    const showFiles=()=>{
+      const list=chat.querySelector('[data-ap-chat-selected]');list.hidden=!state.selected.length;
+      list.innerHTML=state.selected.map((f,i)=>`<li>${chatIcon('file')}<span><strong>${esc(f.name)}</strong><small>${chatSize(f.size)}</small></span><button type="button" data-chat-remove="${i}" aria-label="Remove ${esc(f.name)}">${chatIcon('close')}</button></li>`).join('');update();
+    };
+    state.update=update;state.feedback=feedback;state.setFiles=setFiles;state.showFiles=showFiles;
+    input.addEventListener('input',()=>{feedback('');update();});
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229&&!matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints===0){e.preventDefault();if(!send.disabled)form.requestSubmit();}});
+    upload.addEventListener('change',()=>{
+      const files=[...state.selected];for(const f of upload.files)if(!files.some(x=>x.name===f.name&&x.size===f.size&&x.lastModified===f.lastModified))files.push(f);
+      const bad=files.find(f=>!chatAccept.split(',').includes('.'+f.name.split('.').pop().toLowerCase()));
+      if(files.length>5||files.reduce((sum,f)=>sum+f.size,0)>50*1024*1024||bad){setFiles(state.selected);feedback(bad?'Choose an image, PDF, Word, or supported CAD file.':'Choose up to 5 files, totaling 50 MB or less.',true);update();return;}
+      setFiles(files);feedback('');showFiles();
+    });
+    chat.addEventListener('click',e=>{
+      if(e.target.closest('[data-ap-chat-attach]'))upload.click();
+      const remove=e.target.closest('[data-chat-remove]');if(remove){setFiles(state.selected.filter((_,i)=>i!==Number(remove.dataset.chatRemove)));showFiles();}
+      if(e.target.closest('[data-ap-chat-latest]')){const log=chat.querySelector('[data-ap-chat-log]');log.scrollTo({top:log.scrollHeight,behavior:'instant'});state.unseen.clear();chat.querySelector('[data-ap-chat-latest]').hidden=true;}
+    });
+    chat.querySelector('[data-ap-chat-log]').addEventListener('scroll',()=>{const log=chat.querySelector('[data-ap-chat-log]');if(log.scrollHeight-log.scrollTop-log.clientHeight<64){state.unseen.clear();chat.querySelector('[data-ap-chat-latest]').hidden=true;}});
+    update();
+  }
+  const nonChatState = job => JSON.stringify({...job,messages:[],activity:(job.activity||[]).filter(a=>a.action!=='message')});
+  function receiveSnapshot(ctx,snapshot) {
+    if(!ctx.root.isConnected||contexts.get(ctx.root)!==ctx||Number(snapshot?.id)!==Number(ctx.job.id))return;
+    syncChat(ctx,snapshot);chatConnection(ctx,false);
+    if(older(snapshot,ctx.job)||older(snapshot,ctx.latest))return;
+    if(ctx.chat)snapshot={...snapshot,messages:[...ctx.chat.messages.values()].sort(chatCompare),files:[...(snapshot.files||[]).filter(f=>!f.message_id),...ctx.chat.files.values()]};
+    if(nonChatState(snapshot)===nonChatState(ctx.job)){
+      ctx.job={...ctx.job,messages:snapshot.messages,files:snapshot.files,activity:snapshot.activity};return;
+    }
+    if(ctx.busy||dirty(ctx.root)){ctx.latest=snapshot;ctx.root.querySelector('[data-ap-update]').hidden=false;return;}
+    ctx.job=snapshot;return paint(ctx);
+  }
+  async function sendChat(ctx,form) {
+    const state=ctx.chat;if(ctx.busy||state.sending)return;
+    const text=form.elements.body.value.trim(),files=[...state.selected];
+    if(!state.pending&&!text&&!files.length){state.feedback('Write a message or attach a file.',true);return;}
+    if(!state.pending&&(text.length>5000||!form.reportValidity())){state.feedback('Keep your message within 5,000 characters.',true);return;}
+    // Keep a retry's exact payload and key, even if a newer draft is being composed.
+    const attempt=state.pending||{key:uid(),body:text,files,draft:form.elements.body.value};state.pending=attempt;state.sending=true;ctx.busy=true;state.update();state.feedback('');
+    let completed=false;
+    try {
+      let result;
+      if(attempt.tried){
+        const check=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}`);
+        await receiveSnapshot(ctx,check.data);
+        const saved=check.data.messages?.find(m=>m.client_request_key===attempt.key);
+        if(saved)result={...check,message_id:saved.id};
+      }
+      if(!result){
+        attempt.tried=true;const fd=new FormData();fd.append('body',attempt.body);fd.append('request_key',attempt.key);for(const file of attempt.files)fd.append('attachments[]',file);
+        result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}/messages`,{method:'POST',body:fd});
+      }
+      if(!result.message_id||!result.data?.messages?.some(m=>String(m.id)===String(result.message_id)))throw Error('The message could not be confirmed. Retry to check its status.');
+      completed=true;state.pending=null;
+      if(form.elements.body.value===attempt.draft)form.elements.body.value='';
+      state.setFiles(state.selected.filter(f=>!attempt.files.includes(f)));state.showFiles();
+      await receiveSnapshot(ctx,result.data);state.feedback('');
+      const log=ctx.root.querySelector('[data-ap-chat-log]');if(ctx.tab===2&&log){log.scrollTop=log.scrollHeight;state.unseen.clear();ctx.root.querySelector('[data-ap-chat-latest]').hidden=true;}
+    }catch(error){
+      if(error.status&&error.status<500&&error.status!==408&&error.status!==429)state.pending=null;
+      state.feedback(state.pending?'Message not confirmed. Retry checks before sending again.':error.message,true);
+    }finally{
+      state.sending=false;ctx.busy=false;state.update();
+      if(completed&&ctx.tab===2&&form.contains(document.activeElement))form.elements.body.focus({preventScroll:true});
+    }
+  }
   // Instructions describe the reader's next step; workflow state stays server-owned.
   const nextAction = ({job,appointment,admin}) => {
     const order=job.orders[0];
@@ -497,6 +664,7 @@
     const focusName=focused?.getAttribute('name'),focusKey=focused?.dataset.apFocusKey,focusTab=focused?.getAttribute('data-ap-tab'),focusForm=focused?.closest('[data-ap-form]')?.dataset.apForm;
     const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd]:null;
     const scrollHost=root.closest('.modal-body-scroll,.appointment-content'),scrollTop=scrollHost?.scrollTop;
+    const conversation=ctx.chat?root.querySelector('[data-ap-pane="2"]:has([data-ap-chat])'):null;
     ctx.places?.dispose();
 
     const current=job.quotations.find(q=>['sent','accepted','closing'].includes(q.state));
@@ -525,9 +693,11 @@
           <fieldset class="ap-form-section" data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${field('delivery_recipient_name','Recipient name',current?.agreement.delivery?.delivery_recipient_name,'text',true)}${field('delivery_contact_no','Contact number',current?.agreement.delivery?.delivery_contact_no,'tel',true)}${field('delivery_street','Street / building',current?.agreement.delivery?.delivery_street,'text',true,true)}${placeField('province','Province / Metro Manila',current?.agreement.delivery?.delivery_province,'ap-'+ctx.key+'-province')}${placeField('city','City / municipality',current?.agreement.delivery?.delivery_city,'ap-'+ctx.key+'-city')}${placeField('barangay','Barangay',current?.agreement.delivery?.delivery_barangay,'ap-'+ctx.key+'-barangay')}${field('delivery_postal_code','Postal code',current?.agreement.delivery?.delivery_postal_code,'text',true)}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
           ${job.files.length?`<fieldset class="ap-form-section"><legend>Design proofs included in the quotation</legend><div class="ap-proof-options">${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</div></fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
       </section>
-      <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}><p class="ap-help">${admin?'Private conversation with the customer. Agree any changes before sending a revised quotation. Manage paid-order changes through the cancellation and refund process in Orders.':'Private conversation with the FMRC team. Ask questions and share design files here. Discuss changes before payment; for a paid order, request help in My Orders.'}</p>${job.messages.map(m=>`<article class="ap-message"><strong>${esc(m.sender_name)} · ${esc(m.sender_role==='customer'?'Customer':'FMRC team')}</strong><p>${esc(m.body)}</p><small>${esc(date(m.created_at))}</small>${fileList(job.files.filter(f=>f.message_id===m.id))}</article>`).join('')||'<p class="ap-help">No messages yet.</p>'}<form data-ap-form="messages">${field('body','Message','','textarea',true,true)}<label class="ap-field"><span>Attach designs (optional)</span><input type="file" name="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"><small>Up to five files, 50 MB combined.</small></label><div class="ap-actions"><button type="submit" class="ap-btn">Send Message</button></div></form></section>`;
+      <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}>${chatMarkup(ctx)}</section>`;
+    if(conversation){root.querySelector('[data-ap-pane="2"]').replaceWith(conversation);conversation.hidden=ctx.tab!==2;}
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
-    for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true');if(form.dataset.apForm==='requirements')form.elements.instructions?.addEventListener('input',()=>form.elements.instructions.setCustomValidity('')); }
+    for(const form of root.querySelectorAll('form:not([data-ap-form="messages"])')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true');if(form.dataset.apForm==='requirements')form.elements.instructions?.addEventListener('input',()=>form.elements.instructions.setCustomValidity('')); }
+    bindChat(ctx);syncChat(ctx);
     bindNumberFields(root);
     root.querySelectorAll('form').forEach(bindBriefFields);
     const quotationForm=root.querySelector('[data-ap-form="quotation"]');
@@ -540,12 +710,12 @@
       if(event.target.closest('[data-ap-go-conversation]')){root.querySelector('[data-ap-tab="2"]').click();return;}
       if(event.target.closest('[data-ap-go-outcome]')){root.querySelector('[data-ap-tab="0"]').click();const section=root.querySelector('[data-ap-outcome]');if(section){section.open=true;revealSection(root,section.querySelector('summary'));}return;}
       const quotationAction=event.target.closest('[data-ap-go-quote]');if(quotationAction){revealQuotation(ctx,quotationAction.dataset.apGoQuote||'view');return;}
-      const tab=event.target.closest('[data-ap-tab]');if(tab){ctx.tab=Number(tab.dataset.apTab);root.querySelectorAll('[data-ap-tab]').forEach(b=>{b.setAttribute('aria-selected',String(Number(b.dataset.apTab)===ctx.tab));b.tabIndex=Number(b.dataset.apTab)===ctx.tab?0:-1;b.classList.toggle('is-secondary',Number(b.dataset.apTab)!==ctx.tab);});root.querySelectorAll('[data-ap-pane]').forEach(p=>p.hidden=Number(p.dataset.apPane)!==ctx.tab);return;}
-      const file=event.target.closest('[data-ap-file]');if(file){file.disabled=true;try{await download(job.id,job.files.find(f=>f.id===Number(file.dataset.apFile)),admin);}catch(e){await popup(e.message,'File unavailable');}finally{file.disabled=false;}return;}
+      const tab=event.target.closest('[data-ap-tab]');if(tab){ctx.tab=Number(tab.dataset.apTab);root.querySelectorAll('[data-ap-tab]').forEach(b=>{b.setAttribute('aria-selected',String(Number(b.dataset.apTab)===ctx.tab));b.tabIndex=Number(b.dataset.apTab)===ctx.tab?0:-1;b.classList.toggle('is-secondary',Number(b.dataset.apTab)!==ctx.tab);});root.querySelectorAll('[data-ap-pane]').forEach(p=>p.hidden=Number(p.dataset.apPane)!==ctx.tab);if(ctx.tab===2)openChat(ctx,true);return;}
+      const file=event.target.closest('[data-ap-file]');if(file){file.disabled=true;try{await download(job.id,ctx.chat?.files.get(file.dataset.apFile)||ctx.job.files.find(f=>String(f.id)===file.dataset.apFile),admin);}catch(e){await popup(e.message,'File unavailable');}finally{file.disabled=false;}return;}
       if(event.target.closest('[data-ap-latest]')&&await allowLeave(root)){ctx.job=ctx.latest||ctx.job;ctx.latest=null;await paint(ctx);}
     };
     root.onkeydown=event=>{const tab=event.target.closest('[data-ap-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?2:(Number(tab.dataset.apTab)+(event.key==='ArrowRight'?1:2))%3;const button=root.querySelector('[data-ap-tab="'+next+'"]');button.click();button.focus();};
-    root.onsubmit=event=>{const form=event.target.closest('[data-ap-form]');if(form){event.preventDefault();void submit(ctx,form);}};
+    root.onsubmit=event=>{const form=event.target.closest('[data-ap-form]');if(form){event.preventDefault();void(form.dataset.apForm==='messages'?sendChat(ctx,form):submit(ctx,form));}};
     const outcomeForm=root.querySelector('[data-ap-form="outcome"]');
     const syncOutcome=()=>{if(!outcomeForm)return;const ready=outcomeForm.elements.outcome.value==='ready_for_quote';const checked=outcomeForm.elements.discussion_confirmed;checked.required=ready;outcomeForm.querySelector('[type=submit]').textContent=checked.checked?'Confirm consultation and save':'Save outcome';outcomeForm.querySelector('[data-ap-outcome-help]').textContent=checked.checked?'This consultation will be marked Done when you save.':ready?'Confirm that the consultation took place before preparing a quotation.':'Leave attendance unchecked if this update does not complete a consultation.';};
     if(outcomeForm){outcomeForm.addEventListener('change',syncOutcome);syncOutcome();}
@@ -560,6 +730,7 @@
       }catch(e){form.querySelector('[data-ap-policy]').textContent=e.message;}
     }
     if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusKey?node.dataset.apFocusKey===focusKey&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);const target=replacement||root.querySelector('[data-ap-tab][aria-selected=true]');target?.focus({preventScroll:true});if(selection&&replacement?.setSelectionRange)replacement.setSelectionRange(...selection);}
+    if(ctx.tab===2)openChat(ctx);
     if(scrollHost)scrollHost.scrollTop=scrollTop;
   }
   const rootFocus=root=>root.querySelector('[data-ap-tab][aria-selected=true]')?.focus({preventScroll:true});
@@ -591,7 +762,6 @@
       if(action==='quotation'){body.specifications=requirements(form,'spec_');body.specifications.needs_advice=false;body.proof_file_ids=[...form.querySelectorAll('[name=proof_file_ids]:checked')].map(x=>Number(x.value));body.delivery_eligible=!!form.elements.delivery_eligible.checked;
         body.delivery=Object.fromEntries(Object.entries(values).filter(([k])=>k.startsWith('delivery_')&&k!=='delivery_eligible'));}
       if(action==='accept'){body.specifications_accepted=form.elements.specifications_accepted.checked;body.policy_accepted=form.elements.policy_accepted.checked;body.policy_version=form.dataset.policy;}
-      if(action==='messages'){const fd=new FormData();fd.append('body',values.body);fd.append('request_key',form.dataset.key);for(const f of form.elements.attachments.files)fd.append('attachments[]',f);body=fd;}
       const suffix=action==='accept'?`quotations/${form.dataset.quote}/accept`:action==='quotation'?'quotations':action;
       const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}/${suffix}`,{method,body:body instanceof FormData?body:JSON.stringify(body)});
       if(action==='outcome'&&(!result.data||result.data.state!==values.outcome||Number(result.data.revision)<=Number(body.expected_revision)||(values.outcome==='ready_for_quote'&&!result.data.discussed_at)))throw Error('The consultation outcome could not be confirmed. Your entries are still here. Use Refresh to check the saved status before trying again.');
@@ -613,8 +783,8 @@
       try{const result=await request(`/${ctx.admin?'admin':'customer'}/appointment-products/${ctx.job.id}`);ctx.failures=0;
         if(!ctx.root.isConnected||contexts.get(ctx.root)!==ctx)return;
         if(ctx.busy||ctx.job!==before||older(result.data,ctx.job)||older(result.data,ctx.latest)){poll(ctx);return;}
-        if(JSON.stringify(result.data)!==JSON.stringify(ctx.job)){if(dirty(ctx.root)){ctx.latest=result.data;ctx.root.querySelector('[data-ap-update]').hidden=false;}else{ctx.job=result.data;await paint(ctx);}}
-      }catch{ctx.failures=Math.min(3,(ctx.failures||0)+1);}poll(ctx);
+        await receiveSnapshot(ctx,result.data);
+      }catch{ctx.failures=Math.min(3,(ctx.failures||0)+1);chatConnection(ctx,true);}poll(ctx);
     },Math.min(30000,5000*2**(ctx.failures||0)));
   }
   function mount(root,job,appointment,admin) {
@@ -624,8 +794,7 @@
       old.appointment=appointment;
       if(older(job,old.job)||older(job,old.latest))return;
       if(JSON.stringify(old.job)===JSON.stringify(job))return;
-      if(old.busy||dirty(root)){old.latest=job;root.querySelector('[data-ap-update]').hidden=false;return;}
-      old.job=job;return paint(old);
+      return receiveSnapshot(old,job);
     }
     if(old){clearTimeout(old.timer);old.places?.dispose();}
     const ctx={root,job,appointment,admin,key:old?.key||uid(),tab:old?.tab||((job.quotations||[]).some(q=>q.state==='sent')&&!admin?1:0)};contexts.set(root,ctx);const ready=paint(ctx);poll(ctx);return ready;

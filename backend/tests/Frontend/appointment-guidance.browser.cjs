@@ -135,11 +135,11 @@ for(const portal of ['admin','staff'])test(portal+' reuses guidance and retains 
   await h.run(`document.documentElement.dataset.theme='dark';document.querySelector('[data-ap-form=quotation] [data-ap-measurements]').scrollIntoView({block:'center',behavior:'instant'})`);
   const layout=await h.run(`(()=>{const r=document.querySelector('[data-ap-form=quotation] [data-ap-measurements]').getBoundingClientRect();return {fits:r.left>=0&&r.right<=innerWidth,overflow:document.querySelector('#modalViewAppointment .modal-body-scroll').scrollWidth>document.querySelector('#modalViewAppointment .modal-body-scroll').clientWidth+1}})()`);
   assert.deepEqual(layout,{fits:true,overflow:false});await h.pause(4500);await h.shot(portal+'-guided-quotation-dark-390');
-  await h.run(`document.querySelector('[data-ap-tab="2"]').click();(()=>{const input=document.querySelector('[data-ap-form=messages] input[type=file]'),files=new DataTransfer();files.items.add(new File(['drawing'],'Custom-design-'.repeat(12)+'.pdf',{type:'application/pdf'}));input.files=files.files;})()`);
+  await h.run(`document.querySelector('[data-ap-tab="2"]').click();(()=>{const input=document.querySelector('[data-ap-form=messages] input[type=file]'),files=new DataTransfer();files.items.add(new File(['drawing'],'Custom-design-'.repeat(12)+'.pdf',{type:'application/pdf'}));input.files=files.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   for(const width of [390,1440]){
     await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-    const fit=await h.run(`(()=>{const input=document.querySelector('[data-ap-form=messages] input[type=file]'),r=input.getBoundingClientRect(),p=input.closest('.ap-field').getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&input.scrollWidth<=input.clientWidth+1;})()`);
-    assert.equal(fit,true,portal+' native file control fits at '+width);
+    const fit=await h.run(`(()=>{const form=document.querySelector('[data-ap-form=messages]'),file=form.querySelector('[data-ap-chat-selected] li'),r=file.getBoundingClientRect(),p=form.getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&file.scrollWidth<=file.clientWidth+1;})()`);
+    assert.equal(fit,true,portal+' selected chat file fits at '+width);
   }
 
   assert.deepEqual(await h.run('fixtureErrors'),[]);
@@ -176,8 +176,8 @@ for(const route of ['/home-page/','/apps/customer/home-page/'])test('Customer re
   await h.until(`!!document.querySelector('#customerSystemPopup.show')`);await h.run(`document.getElementById('customerSystemPopupOk').click();document.querySelector('#customerAppointmentsModal [data-ap-tab="2"]').click()`);
   for(const width of [390,1440]){
     await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-    const fit=await h.run(`(()=>{const input=document.querySelector('#customerAppointmentsModal [data-ap-form=messages] input[type=file]'),r=input.getBoundingClientRect(),p=input.closest('.ap-field').getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&input.scrollWidth<=input.clientWidth+1;})()`);
-    assert.equal(fit,true,'Customer native file control fits at '+width);
+    const fit=await h.run(`(()=>{const form=document.querySelector('#customerAppointmentsModal [data-ap-form=messages]'),button=form.querySelector('[data-ap-chat-attach]'),r=button.getBoundingClientRect(),p=form.getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&form.scrollWidth<=form.clientWidth+1;})()`);
+    assert.equal(fit,true,'Customer chat attachment button fits at '+width);
   }
 
   assert.deepEqual(await h.run('fixtureErrors'),[]);

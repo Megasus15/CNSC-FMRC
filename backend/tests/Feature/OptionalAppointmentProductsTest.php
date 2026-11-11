@@ -452,6 +452,71 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->assertSame('sent', $j->quotes()->first()->state);
     }
 
+    public function test_conversation_accepts_files_only_and_confirms_retries_without_duplicate_files_or_activity(): void
+    {
+        $job = $this->booked();
+        $url = '/api/customer/appointment-products/'.$job->id.'/messages';
+        $key = (string) Str::uuid();
+        $first = $this->post($url, ['body' => '   ', 'request_key' => $key,
+            'attachments' => [UploadedFile::fake()->create('model.step', 2, 'application/octet-stream')]], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.messages.0.body', '')
+            ->assertJsonPath('data.messages.0.sender_id', $this->customer->id)
+            ->assertJsonPath('data.messages.0.client_request_key', $key);
+        $id = $first->json('message_id');
+        $this->assertNotNull($id);
+        // A response lost after commit can be read back or retried without re-uploading.
+        $this->getJson('/api/customer/appointment-products/'.$job->id)->assertOk()->assertJsonPath('data.messages.0.client_request_key', $key);
+        $this->postJson($url, ['body' => '', 'request_key' => $key])->assertOk()->assertJsonPath('message_id', $id);
+        $this->assertDatabaseCount('appointment_product_messages', 1);
+        $this->assertDatabaseCount('appointment_product_files', 1);
+        $this->assertSame(1, DB::table('appointment_product_events')->where('job_id', $job->id)->where('action', 'message')->count());
+        $this->assertSame('awaiting_consultation', $job->fresh()->state);
+        $this->assertDatabaseCount('orders', 0);
+        Sanctum::actingAs($this->staff);
+        $this->getJson('/api/admin/appointment-products/'.$job->id)->assertOk()->assertJsonPath('data.messages.0.client_request_key', null);
+    }
+
+    public function test_conversation_validates_content_limits_and_keeps_other_customers_out(): void
+    {
+        $job = $this->booked();
+        $url = '/api/customer/appointment-products/'.$job->id.'/messages';
+        foreach ([null, '', " \n\t ", str_repeat('x', 5001), ['invalid']] as $body) {
+            $this->postJson($url, ['body' => $body, 'request_key' => (string) Str::uuid()])->assertUnprocessable();
+        }
+        foreach ([
+            [UploadedFile::fake()->create('bad.exe', 1)],
+            array_map(fn ($i) => UploadedFile::fake()->create('file'.$i.'.pdf', 1), range(1, 6)),
+            [UploadedFile::fake()->create('large.pdf', 51201)],
+        ] as $files) {
+            $this->post($url, ['request_key' => (string) Str::uuid(), 'attachments' => $files], ['Accept' => 'application/json'])->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('appointment_product_messages', 0);
+        $this->assertDatabaseCount('appointment_product_files', 0);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+        $this->postJson($url, ['body' => str_repeat('x', 5000), 'request_key' => (string) Str::uuid()])->assertOk();
+        Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
+        $this->postJson($url, ['body' => 'Not my request', 'request_key' => (string) Str::uuid()])->assertNotFound();
+    }
+
+    public function test_conversation_identifies_each_operator_and_preserves_existing_quotation_and_order_state(): void
+    {
+        $job = $this->booked();
+        $quote = $this->quote($job);
+        $before = $job->fresh()->getAttributes();
+        $agreement = $quote->fresh()->agreement;
+        $key = (string) Str::uuid();
+        foreach ([$this->admin, $this->staff] as $operator) {
+            Sanctum::actingAs($operator);
+            $response = $this->postJson('/api/admin/appointment-products/'.$job->id.'/messages', ['body' => 'Design reply from '.$operator->name, 'request_key' => $key])->assertOk();
+            $this->assertContains($operator->id, array_column($response->json('data.messages'), 'sender_id'));
+        }
+        $this->assertDatabaseCount('appointment_product_messages', 2);
+        $this->assertSame($before, $job->fresh()->getAttributes());
+        $this->assertSame($agreement, $quote->fresh()->agreement);
+        $this->assertSame('sent', $quote->fresh()->state);
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_quotation_numbers_remain_validated_on_the_server_for_both_operators(): void
     {
         $job = $this->booked();

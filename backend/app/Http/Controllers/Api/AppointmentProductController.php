@@ -213,7 +213,7 @@ class AppointmentProductController extends Controller
     {
         $this->authorizeJob($r, $job);
         $key = $this->key($r);
-        $body = $r->validate(['body' => 'required|string|max:5000'])['body'];
+        $body = trim($r->validate(['body' => 'nullable|string|max:5000'])['body'] ?? '');
         $stored = [];
         try {
             DB::transaction(function () use ($r, $job, $key, $body, &$stored) {
@@ -221,7 +221,11 @@ class AppointmentProductController extends Controller
                 if (DB::table('appointment_product_messages')->where(['job_id' => $j->id, 'sender_id' => $r->user()->id, 'request_key' => $key])->exists()) {
                     return;
                 }
-                $stored = AppointmentFiles::store(AppointmentFiles::validate($r, true));
+                $files = AppointmentFiles::validate($r, true);
+                if ($body === '' && ! $files) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['body' => 'Write a message or attach a file.']);
+                }
+                $stored = AppointmentFiles::store($files);
                 $id = DB::table('appointment_product_messages')->insertGetId(['job_id' => $j->id, 'sender_id' => $r->user()->id, 'sender_role' => $r->user()->role,
                     'sender_name' => $r->user()->name, 'body' => $body, 'request_key' => $key, 'created_at' => now(), 'updated_at' => now()]);
                 Products::files($j, $stored, $id);
@@ -232,7 +236,9 @@ class AppointmentProductController extends Controller
             throw $e;
         }
 
-        return $this->result($job, 'Message sent.');
+        return response()->json(['message' => 'Message sent.', 'data' => Products::present($job->fresh()),
+            'message_id' => DB::table('appointment_product_messages')
+                ->where(['job_id' => $job->id, 'sender_id' => $r->user()->id, 'request_key' => $key])->value('id')]);
     }
 
     public function file(Request $r, AppointmentProductJob $job, int $file)
