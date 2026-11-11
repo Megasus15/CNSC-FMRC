@@ -67,7 +67,7 @@ class AppointmentProductController extends Controller
     public function availability()
     {
         return response()->json(['data' => ['enabled' => Products::enabled(), 'schema_ready' => Products::installed(),
-            'services' => Products::enabled() ? Service::where('accepts_appointment_products', true)->orderBy('sort_order')->get(['id', 'title'])->all() : []]]);
+            'services' => Products::enabled() ? Service::where('accepts_appointment_products', true)->orderBy('sort_order')->get(['id', 'title', 'modal_materials', 'modal_best_for'])->all() : []]]);
     }
 
     public function drafts(Request $r)

@@ -35,3 +35,19 @@
   #appointmentFlow .cal-legend { gap: 10px 14px; }
   #appointmentFlow .ticket-no { font-size: 18px; }
 }
+
+/* Step 2 follows the same required markers and chevrons as Services. */
+#appointmentFlow .apt-required { color:var(--customer-wine,#800000); font-weight:700; }
+#appointmentFlow .apt-required[hidden] { display:none; }
+#aptStep2 select.c-input { appearance:none; -webkit-appearance:none; padding-right:42px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 1.5 5 5 5-5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; background-size:12px 8px; }
+#aptStep2 select.c-input:open { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 6.5 5-5 5 5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+#appointmentFlow #aptStep2 .apt-footer-actions { display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-end; align-items:stretch; gap:12px; padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
+#appointmentFlow #aptStep2 .apt-footer-actions .apt-btn { flex:0 1 auto; width:auto; min-width:0; min-height:48px; margin:0; padding:12px 22px; font-size:14px; line-height:1.5; white-space:normal; }
+#appointmentFlow #aptStep2 .apt-footer-actions .apt-btn[hidden] { display:none!important; }
+@media(max-width:640px) {
+  #appointmentFlow #aptStep2 .apt-footer-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  #appointmentFlow #aptStep2 .apt-footer-actions .apt-btn { width:100%; padding:12px 14px; }
+  #appointmentFlow #aptStep2 #btnGoToStep3 { grid-column:1 / -1; }
+  #appointmentFlow #aptStep2 .apt-footer-actions:not(:has(#aptSaveCustomDraft:not([hidden]))) #btnCancelTo1 { grid-column:1 / -1; }
+  #appointmentFlow #aptStep2 :is(input.c-input,select.c-input,textarea.c-input) { font-size:16px; }
+}

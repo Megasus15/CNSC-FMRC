@@ -63,6 +63,31 @@ class OptionalAppointmentProductsTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_availability_exposes_public_examples_only_for_eligible_services(): void
+    {
+        $this->service->update(['modal_materials' => ['PLA', 'Resin'], 'modal_best_for' => ['Scale model', 'Custom part']]);
+        Service::create(['title' => 'Not accepting requests', 'category' => 'Other', 'accepts_appointment_products' => false,
+            'modal_materials' => ['Unlisted example']]);
+        $services = $this->getJson('/api/appointment-products/availability')->assertOk()->json('data.services');
+        $this->assertCount(1, $services);
+        $this->assertSame($this->service->id, $services[0]['id']);
+        $this->assertSame(['PLA', 'Resin'], $services[0]['modal_materials']);
+        $this->assertSame(['Scale model', 'Custom part'], $services[0]['modal_best_for']);
+    }
+
+    public function test_incomplete_measurement_editor_state_survives_a_draft_without_changing_requirements(): void
+    {
+        $editor = ['version' => 1, 'mode' => 'rectangular', 'unit' => 'cm', 'length' => '12.5', 'width' => '', 'height' => '', 'custom' => '', 'raw' => ''];
+        $body = ['requirements' => json_encode(array_replace($this->brief(), ['dimensions' => ''])),
+            'booking' => json_encode(['custom_measurements' => $editor]), 'request_key' => (string) Str::uuid()];
+        $draft = $this->postJson('/api/customer/appointment-products/drafts', $body)->assertOk()->json('data');
+        $this->assertSame($editor, $draft['booking']['custom_measurements']);
+        $this->assertEmpty($draft['requirements']['dimensions']);
+        $this->getJson('/api/customer/appointment-products/'.$draft['id'])->assertOk()
+            ->assertJsonPath('data.booking.custom_measurements.length', '12.5')
+            ->assertJsonPath('data.booking.custom_measurements.width', '');
+    }
+
     private function brief(): array
     {
         return ['service_id' => $this->service->id, 'name' => 'Desk sign', 'description' => 'One agreed desk sign design', 'quantity' => 5, 'dimensions' => '20 x 8 cm', 'material' => 'PLA', 'colors' => 'Maroon', 'finish' => 'Matte'];

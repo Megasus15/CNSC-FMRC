@@ -14,10 +14,13 @@
   const orderActionLocks = new Set();
   let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), bookingFinish = '', uploaded = new Set(), draftBusy = false, signingIn = false;
   const numberLimits = {quantity:[1,100000,1],unit_price:[0.01,100000,0.01],shipping_fee:[0,100000,0.01],budget:[0,10000000,0.01]};
-  const field = (name,label,value='',type='text',required=false,wide=false) => {
+  let fieldSequence = 0;
+  const requiredMark = '<span class="ap-required" aria-hidden="true">*</span>';
+  const field = (name,label,value='',type='text',required=false,wide=false,help='',placeholder='') => {
     const limits=numberLimits[name.replace(/^spec_/,'')];
     const attributes=type==='number'?`min="${limits?.[0]??0}" max="${limits?.[1]??100000}" step="${limits?.[2]??1}" inputmode="${limits?.[2]===0.01?'decimal':'numeric'}" data-ap-number="${limits?.[2]===0.01?'decimal':'integer'}"`:name==='delivery_postal_code'?'inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" data-ap-number="integer"':name==='delivery_contact_no'?'inputmode="tel" autocomplete="tel" maxlength="16" pattern="[+]?[0-9]{7,15}" placeholder="e.g. 09171234567"':name==='receipt_reference'?'maxlength="100"':name==='pickup_code'?'maxlength="20" autocomplete="off"':name==='lead_time'?'maxlength="300" placeholder="e.g. 5 working days after full payment"':`maxlength="${name.includes('name')?'160':name.startsWith('delivery_')?'200':'400'}"`;
-    return `<label class="ap-field${wide?' is-wide':''}"><span>${esc(label)}${required?' *':''}</span>${type==='textarea'?`<textarea name="${esc(name)}" maxlength="2000" ${required?'required':''}>${esc(value)}</textarea>`:`<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${attributes} ${required?'required':''}>`}</label>`;
+    const id='ap-field-'+(++fieldSequence),hint=help?` aria-describedby="${id}-help"`:'';
+    return `<label class="ap-field${wide?' is-wide':''}" for="${id}"><span>${esc(label)}${required?' '+requiredMark:''}</span>${type==='textarea'?`<textarea id="${id}" name="${esc(name)}" maxlength="2000" placeholder="${esc(placeholder)}"${hint} ${required?'required':''}>${esc(value)}</textarea>`:`<input id="${id}" name="${esc(name)}" type="${type}" value="${esc(value)}" placeholder="${esc(placeholder)}"${hint} ${attributes} ${required?'required':''}>`}${help?`<small id="${id}-help">${esc(help)}</small>`:''}</label>`;
   };
   function bindNumberFields(root) {
     root.querySelectorAll('[data-ap-number]').forEach(input=>{
@@ -161,6 +164,137 @@
     return availabilityPending;
   };
   const older = (incoming,current) => incoming?.id===current?.id&&Number(incoming.revision)<Number(current.revision);
+  const suggestField = (name,label,value,kind,required,help,placeholder) => {
+    const id='ap-suggest-'+(++fieldSequence),limit=kind==='name'?160:300;
+    return `<div class="ap-field"><label for="${id}">${esc(label)}${required?' '+requiredMark:''}</label><div class="ap-suggest" data-ap-suggest="${kind}"><input id="${id}" name="${esc(name)}" value="${esc(value)}" maxlength="${limit}" placeholder="${esc(placeholder)}" ${required?'required':''} role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-list" aria-describedby="${id}-help" autocomplete="off"><button type="button" data-ap-suggest-toggle aria-label="Show ${esc(label.toLowerCase())} examples" aria-controls="${id}-list" aria-expanded="false"><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1 1.5 5 5 5-5"/></svg></button><ul id="${id}-list" role="listbox" aria-label="${esc(label)} examples" hidden></ul></div><small id="${id}-help">${esc(help)}</small></div>`;
+  };
+  const measurementField = (prefix,value='',final=false) => {
+    const id='ap-size-'+(++fieldSequence);
+    const number=(key,label)=>`<label class="ap-field" data-size-axis="${key}"><span>${label} <span data-size-required>${requiredMark}</span></span><input id="${id}-${key}" type="number" inputmode="decimal" min="0" step="any" data-size-value="${key}" data-ap-focus-key="${prefix}size-${key}" aria-label="${label}" placeholder="e.g. 10" disabled></label>`;
+    return `<div class="ap-field is-wide ap-dimensions" data-ap-measurements data-size-final="${final}" role="group" aria-labelledby="${id}-label"><span id="${id}-label" class="ap-dimensions-label">Dimensions or size${final?' '+requiredMark:''}</span><input type="hidden" name="${esc(prefix)}dimensions" value="${esc(value)}"><div class="ap-measurement-controls"><label class="ap-field" for="${id}-mode"><span>Size entry${final?' '+requiredMark:''}</span><select id="${id}-mode" data-size-mode data-ap-focus-key="${prefix}size-mode" ${final?'required':''}><option value="">Choose size format</option><option value="rectangular">Rectangular</option><option value="round">Round</option><option value="custom">Describe another size</option>${!final?'<option value="advice">I need advice</option>':''}</select></label><label class="ap-field" data-size-unit-field for="${id}-unit" hidden><span>Unit ${requiredMark}</span><select id="${id}-unit" data-size-unit data-ap-focus-key="${prefix}size-unit" disabled><option value="">Choose a unit</option><option value="mm">Millimeters (mm)</option><option value="cm">Centimeters (cm)</option><option value="in">Inches (in)</option></select></label></div><div class="ap-measurement-values" data-size-values hidden>${number('length','Length')}${number('width','Width')}${number('diameter','Diameter')}${number('height','Height (optional)')}</div><label class="ap-field" data-size-custom-field for="${id}-custom" hidden><span>Describe the size ${requiredMark}</span><input id="${id}-custom" type="text" data-size-custom data-ap-focus-key="${prefix}size-custom" maxlength="400" placeholder="e.g. Shirt size M, or the same size as my attached design" disabled></label><small data-size-help>Use the unit you know. For example, 10 cm is 100 mm. You can ask FMRC for help.</small><output class="ap-size-preview" data-size-preview aria-live="polite" hidden></output></div>`;
+  };
+  function bindBriefFields(form) {
+    if(!form)return;
+    for(const grid of form.querySelectorAll('[data-ap-brief-fields]')) {
+      if(grid.dataset.bound)continue;
+      grid.dataset.bound='true';
+      const prefix=grid.dataset.prefix||'',final=grid.dataset.final==='true',service=form.elements[prefix+'service_id'];
+      const services=JSON.parse(grid.dataset.services||'[]');
+      const advice=()=>{const box=form.elements[prefix+'needs_advice'];if(box&&!box.checked){box.checked=true;box.dispatchEvent(new Event('input',{bubbles:true}));}};
+      const source=kind=>{
+        const current=(availability?.services||[]).find(s=>String(s.id)===service?.value)||services.find(s=>String(s.id)===service?.value)||{};
+        const examples=kind==='name'?current.modal_best_for:kind==='material'?current.modal_materials:['Maroon','White','Black','Blue','Red','Green','Yellow','Gray','Natural / unpainted'];
+        const items=(Array.isArray(examples)?examples:[]).filter(v=>typeof v==='string'&&v.trim()&&!/^(n\/?a|none|--?)$/i.test(v.trim())).map(v=>v.trim());
+        if(kind==='material'&&!final)items.push('I need advice');
+        return [...new Set(items)];
+      };
+      for(const wrap of grid.querySelectorAll('[data-ap-suggest]')) {
+        const input=wrap.querySelector('input'),toggle=wrap.querySelector('button'),list=wrap.querySelector('[role=listbox]');let active=-1;
+        const close=()=>{list.hidden=true;wrap.classList.remove('is-open');input.setAttribute('aria-expanded','false');toggle.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;};
+        const position=()=>{
+          const rect=input.getBoundingClientRect(),scroll=wrap.closest('.modal-body-scroll,.appointment-content,.apt-overlay'),bounds=scroll?.getBoundingClientRect()||{top:0,bottom:innerHeight};
+          const viewport=window.visualViewport,bottom=Math.min(bounds.bottom,viewport?viewport.offsetTop+viewport.height:innerHeight),top=Math.max(bounds.top,viewport?.offsetTop||0);
+          const below=bottom-rect.bottom-8,above=rect.top-top-8,up=below<180&&above>below;
+          wrap.classList.toggle('is-above',up);list.style.maxHeight=Math.max(44,Math.min(232,up?above:below))+'px';
+        };
+        const activate=index=>{const options=[...list.querySelectorAll('[role=option]')];active=options.length?(index+options.length)%options.length:-1;options.forEach((o,i)=>o.classList.toggle('is-active',i===active));if(active>=0){input.setAttribute('aria-activedescendant',options[active].id);options[active].scrollIntoView({block:'nearest'});}else input.removeAttribute('aria-activedescendant');};
+        const choose=value=>{input.value=value;if(value==='I need advice')advice();close();input.dispatchEvent(new Event('input',{bubbles:true}));close();input.dispatchEvent(new Event('change',{bubbles:true}));input.focus({preventScroll:true});};
+        const open=(queryText=input.value)=>{
+          if(input.disabled)return;
+          document.querySelectorAll('.ap-suggest.is-open').forEach(other=>{if(other!==wrap)other.apSuggestion?.close();});
+          const query=queryText.trim().toLocaleLowerCase('en-PH'),items=source(wrap.dataset.apSuggest),matches=items.filter(item=>item.toLocaleLowerCase('en-PH').includes(query));
+          list.replaceChildren();
+          for(const [i,value] of matches.entries()){const option=document.createElement('li');option.id=input.id+'-option-'+i;option.setAttribute('role','option');option.setAttribute('aria-selected',String(input.value===value));option.textContent=value;option.dataset.value=value;list.append(option);}
+          if(!matches.length){const empty=document.createElement('li');empty.className='ap-suggest-empty';empty.setAttribute('role','presentation');empty.textContent=query?'No matching example. You can use your own text.':'No examples for this service yet. Type your own idea.';list.append(empty);}
+          active=-1;input.removeAttribute('aria-activedescendant');list.hidden=false;wrap.classList.add('is-open');input.setAttribute('aria-expanded','true');toggle.setAttribute('aria-expanded','true');position();
+        };
+        wrap.apSuggestion={close,position,refresh:()=>{if(!list.hidden)open('');}};
+        toggle.addEventListener('click',()=>{if(list.hidden){input.focus({preventScroll:true});open('');}else close();});
+        input.addEventListener('input',()=>{input.setCustomValidity('');open();});
+        input.addEventListener('click',()=>open(''));
+        input.addEventListener('keydown',event=>{
+          if(event.isComposing)return;
+          if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();if(list.hidden)open('');activate(active<0?(event.key==='ArrowDown'?0:-1):active+(event.key==='ArrowDown'?1:-1));}
+          else if(['Home','End'].includes(event.key)&&!list.hidden){event.preventDefault();activate(event.key==='Home'?0:-1);}
+          else if(event.key==='Enter'&&!list.hidden){event.preventDefault();if(active>=0)choose(list.querySelectorAll('[role=option]')[active].dataset.value);else close();}
+          else if(event.key==='Escape'&&!list.hidden){event.preventDefault();event.stopPropagation();close();}
+          else if(event.key==='Tab')close();
+        });
+        wrap.addEventListener('focusout',()=>queueMicrotask(()=>{if(!wrap.contains(document.activeElement))close();}));
+        list.addEventListener('pointerdown',event=>{if(event.target.closest('[role=option]'))event.preventDefault();});
+        list.addEventListener('click',event=>{const option=event.target.closest('[role=option]');if(option)choose(option.dataset.value);});
+      }
+      service?.addEventListener('change',()=>grid.querySelectorAll('[data-ap-suggest]').forEach(wrap=>wrap.apSuggestion.refresh()));
+      for(const root of grid.querySelectorAll('[data-ap-measurements]')) {
+        const mode=root.querySelector('[data-size-mode]'),unit=root.querySelector('[data-size-unit]'),custom=root.querySelector('[data-size-custom]'),value=root.querySelector('input[type=hidden]'),preview=root.querySelector('[data-size-preview]'),inputs=Object.fromEntries([...root.querySelectorAll('[data-size-value]')].map(input=>[input.dataset.sizeValue,input]));
+        let lastValue=value.value;
+        const state=()=>({version:1,mode:mode.value,unit:unit.value,custom:custom.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.value])),raw:value.value});
+        const positive=input=>input.value!==''&&/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(input.value)&&Number.isFinite(Number(input.value))&&Number(input.value)>0;
+        const sync=(commit=true)=>{
+          const geometric=['rectangular','round'].includes(mode.value);
+          root.querySelector('[data-size-unit-field]').hidden=!geometric;unit.disabled=!geometric;unit.required=geometric;
+          root.querySelector('[data-size-values]').hidden=!geometric;
+          for(const [key,input]of Object.entries(inputs)){const on=geometric&&(key==='height'||mode.value==='round'&&key==='diameter'||mode.value==='rectangular'&&['length','width'].includes(key));input.closest('[data-size-axis]').hidden=!on;input.disabled=!on;input.required=on&&key!=='height';input.closest('label').querySelector('[data-size-required]').hidden=key==='height';input.setCustomValidity('');}
+          custom.closest('[data-size-custom-field]').hidden=mode.value!=='custom';custom.disabled=mode.value!=='custom';custom.required=mode.value==='custom';
+          mode.setCustomValidity('');unit.setCustomValidity('');custom.setCustomValidity('');
+          const size=mode.value==='rectangular'?[inputs.length.value,inputs.width.value,...(inputs.height.value?[inputs.height.value]:[])].filter(Boolean).join(' × '):mode.value==='round'?'Diameter '+inputs.diameter.value+(inputs.height.value?' × Height '+inputs.height.value:''):custom.value.trim();
+          const complete=geometric&&unit.value&&(mode.value==='round'?positive(inputs.diameter):positive(inputs.length)&&positive(inputs.width))&&(!inputs.height.value||positive(inputs.height));
+          const text=complete?size+' '+unit.value:mode.value==='custom'?custom.value.trim():mode.value==='advice'?'I need advice':'';
+          if(commit){value.value=text;lastValue=text;}
+          preview.hidden=!complete;preview.textContent=complete?'Size: '+text:'';
+          root.querySelector('[data-size-help]').textContent=mode.value==='advice'?'FMRC will help you choose the size during your consultation.':'Use the unit you know. For example, 10 cm is 100 mm. You can ask FMRC for help.';
+          if(mode.value==='advice')advice();
+        };
+        const restore=saved=>{
+          if(!saved||saved.version!==1)return false;
+          mode.value=saved.mode||'';unit.value=saved.unit||'';custom.value=String(saved.custom||'');for(const [key,input]of Object.entries(inputs))input.value=String(saved[key]||'');
+          value.value=String(saved.raw||'');lastValue=value.value;sync(false);return true;
+        };
+        const read=raw=>{
+          mode.value='';unit.value='';custom.value='';Object.values(inputs).forEach(input=>input.value='');
+          const n='(\\d+(?:\\.\\d+)?|\\.\\d+)',rect=new RegExp('^'+n+'\\s*[×x]\\s*'+n+'(?:\\s*[×x]\\s*'+n+')?\\s*(mm|cm|in)$','i'),round=new RegExp('^Diameter\\s+'+n+'(?:\\s*[×x]\\s*Height\\s+'+n+')?\\s*(mm|cm|in)$','i');
+          let match=raw.trim().match(rect);
+          if(match){mode.value='rectangular';inputs.length.value=match[1];inputs.width.value=match[2];inputs.height.value=match[3]||'';unit.value=match[4].toLowerCase();}
+          else if((match=raw.trim().match(round))){mode.value='round';inputs.diameter.value=match[1];inputs.height.value=match[2]||'';unit.value=match[3].toLowerCase();}
+          else if(raw.trim()){mode.value=raw==='I need advice'&&!final?'advice':'custom';custom.value=raw;}
+          value.value=raw;lastValue=raw;sync(false);
+        };
+        const validate=()=>{
+          if(value.value!==lastValue)read(value.value);
+          sync(false);
+          if(['rectangular','round'].includes(mode.value)){
+            for(const input of Object.values(inputs))if(!input.disabled&&(input.required||input.value)&&!positive(input))input.setCustomValidity('Enter a measurement greater than zero.');
+          }
+          if(final&&(!mode.value||mode.value==='advice'||value.value==='I need advice'))mode.setCustomValidity('Confirm the product dimensions before sending the quotation.');
+          if(mode.value==='custom'&&!custom.value.trim())custom.setCustomValidity('Describe the size, or choose I need advice.');
+          return [mode,unit,custom,...Object.values(inputs)].every(input=>input.disabled||input.checkValidity());
+        };
+        root.apMeasurements={state,restore,validate,reset:()=>read('')};
+        root.addEventListener('input',event=>{if(event.target!==value)sync();});
+        root.addEventListener('change',event=>{if(event.target!==value){sync();form.dataset.dirty='true';}});
+        read(value.value);
+      }
+      form.addEventListener('reset',()=>queueMicrotask(()=>grid.querySelectorAll('[data-ap-measurements]').forEach(root=>root.apMeasurements.reset())));
+    }
+  }
+  function validateBriefFields(form) {
+    bindBriefFields(form);
+    let valid=true;
+    form.querySelectorAll('[data-ap-measurements]').forEach(root=>{if(!root.apMeasurements.validate())valid=false;});
+    for(const grid of form.querySelectorAll('[data-ap-brief-fields][data-final="true"]')){
+      const material=form.elements[(grid.dataset.prefix||'')+'material'];
+      material.setCustomValidity(material.value==='I need advice'?'Confirm the material before sending the quotation.':'');
+      if(!material.checkValidity())valid=false;
+    }
+    if(!valid)form.reportValidity();
+    return valid;
+  }
+  document.addEventListener('pointerdown',event=>document.querySelectorAll('.ap-suggest.is-open').forEach(wrap=>{if(!wrap.contains(event.target))wrap.apSuggestion?.close();}));
+  const positionSuggestions=()=>document.querySelectorAll('.ap-suggest.is-open').forEach(wrap=>wrap.apSuggestion?.position());
+  window.addEventListener('resize',positionSuggestions);
+  window.visualViewport?.addEventListener('resize',positionSuggestions);
+  window.visualViewport?.addEventListener('scroll',positionSuggestions);
+  document.addEventListener('scroll',positionSuggestions,true);
   const requirements = (form,prefix='') => {
     const get = name => form.elements[prefix+name]?.value?.trim() || '';
     const keys=['name','description','dimensions','material','colors','instructions'];
@@ -175,15 +309,20 @@
     if(get('budget'))out.budget=Number(get('budget')); if(get('preferred_date'))out.preferred_date=get('preferred_date');
     return out;
   };
-  const briefFields = (data={},services=[],prefix='',final=false,operator=false,booking=false) => {data=customerRequest(data);return `<div class="ap-grid">
-    <label class="ap-field is-wide"><span>FMRC service *</span><select name="${prefix}service_id" required ${final?'disabled':''}>${services.map(s=>`<option value="${s.id}" ${Number(data.service_id)===Number(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select>${final?'<small>To change the service, save the product details and confirm the consultation outcome first.</small>':''}</label>
-    ${field(prefix+'name','Product idea',data.name,'text',true)}${field(prefix+'quantity','Quantity',data.quantity||1,'number',true)}
-    ${field(prefix+'description','Describe the product',data.description,'textarea',true,true)}
-    ${field(prefix+'dimensions','Dimensions or size',data.dimensions,'text',final)}${field(prefix+'material','Material',data.material,'text',final)}
-    ${field(prefix+'colors','Colors',data.colors,'text',final)}
-    ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'number')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date')}
+  const briefFields = (data={},services=[],prefix='',final=false,operator=false,booking=false) => {
+    data=customerRequest(data);
+    return `<div class="ap-grid" data-ap-brief-fields data-prefix="${esc(prefix)}" data-final="${final}" data-services="${esc(JSON.stringify(services))}">
+    <label class="ap-field is-wide"><span>FMRC service ${requiredMark}</span><select name="${prefix}service_id" required ${final?'disabled':''}>${services.map(s=>`<option value="${s.id}" ${Number(data.service_id)===Number(s.id)?'selected':''}>${esc(s.title)}</option>`).join('')}</select><small>${final?'To change the service, save the product details and confirm the consultation outcome first.':'Choose the FMRC service that best fits your idea.'}</small></label>
+    <p class="ap-help ap-brief-guidance">Choose an example or type your own. FMRC will confirm the specifications during your consultation.</p>
+    ${suggestField(prefix+'name','Product idea',data.name,'name',true,'Search examples or name the product you want made.','e.g. Personalized desk sign')}
+    ${field(prefix+'quantity','Quantity',data.quantity||1,'number',true,false,'How many pieces would you like?')}
+    ${field(prefix+'description','Describe the product',data.description,'textarea',true,true,'Tell us what you want made, its purpose, and any important design details.','Describe your idea in your own words.')}
+    ${measurementField(prefix,data.dimensions,final)}
+    ${suggestField(prefix+'material','Material',data.material,'material',final,final?'Confirm the material agreed with the customer.':'Choose an example, type another material, or ask FMRC for advice.','Search or type a material')}
+    ${suggestField(prefix+'colors','Colors',data.colors,'colors',final,'Choose a color or describe a combination.','e.g. Maroon and white')}
+    ${!final?`${field(prefix+'budget','Budget (optional)',data.budget,'number',false,false,'Your estimated budget for the whole request, in pesos.','e.g. 500')}${field(prefix+'preferred_date','Preferred completion date',data.preferred_date,'date',false,false,'Your target date. FMRC will confirm the production schedule.')}
       <label class="ap-check"><input type="checkbox" name="${prefix}needs_advice" ${data.needs_advice?'checked':''}><span>${operator?'The customer needs advice on some specifications.':'I need advice from the FMRC team on some specifications.'}</span></label>`:''}
-    ${booking?'':field(prefix+'instructions','Additional notes (optional)',data.instructions,'textarea',false,true)}
+    ${booking?'':field(prefix+'instructions','Additional notes (optional)',data.instructions,'textarea',false,true,'Add exact lettering, personalization, or other details FMRC should know.','e.g. Print “FMRC” on the front.')}
   </div>`;};
   const specs = (data,omit=[],service='') => {
     const d=customerRequest(data||{});
@@ -317,7 +456,7 @@
     if(!root.isConnected)return;
     const openDetails=new Map([...root.querySelectorAll('details')].map(d=>[d.querySelector('summary')?.textContent,d.open]));
     const focused=root.contains(document.activeElement)?document.activeElement:null;
-    const focusName=focused?.getAttribute('name'),focusTab=focused?.getAttribute('data-ap-tab'),focusForm=focused?.closest('[data-ap-form]')?.dataset.apForm;
+    const focusName=focused?.getAttribute('name'),focusKey=focused?.dataset.apFocusKey,focusTab=focused?.getAttribute('data-ap-tab'),focusForm=focused?.closest('[data-ap-form]')?.dataset.apForm;
     const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd]:null;
     const scrollHost=root.closest('.modal-body-scroll,.appointment-content'),scrollTop=scrollHost?.scrollTop;
     ctx.places?.dispose();
@@ -352,6 +491,7 @@
     root.querySelectorAll('details').forEach(d=>{const name=d.querySelector('summary')?.textContent;if(openDetails.has(name))d.open=openDetails.get(name);});
     for(const form of root.querySelectorAll('form')) { form.dataset.key=uid();for(const type of ['input','change'])form.addEventListener(type,()=>form.dataset.dirty='true');if(form.dataset.apForm==='requirements')form.elements.instructions?.addEventListener('input',()=>form.elements.instructions.setCustomValidity('')); }
     bindNumberFields(root);
+    root.querySelectorAll('form').forEach(bindBriefFields);
     const quotationForm=root.querySelector('[data-ap-form="quotation"]');
     ctx.places=quotationForm?quotationPlaces(quotationForm,()=>!!ctx.busy):null;
     const serviceSelect=root.querySelector('[data-ap-form="requirements"] [name="service_id"]');
@@ -381,7 +521,7 @@
         form.querySelector('[type=submit]').disabled=false;
       }catch(e){form.querySelector('[data-ap-policy]').textContent=e.message;}
     }
-    if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);const target=replacement||root.querySelector('[data-ap-tab][aria-selected=true]');target?.focus({preventScroll:true});if(selection&&replacement?.setSelectionRange)replacement.setSelectionRange(...selection);}
+    if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusKey?node.dataset.apFocusKey===focusKey&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);const target=replacement||root.querySelector('[data-ap-tab][aria-selected=true]');target?.focus({preventScroll:true});if(selection&&replacement?.setSelectionRange)replacement.setSelectionRange(...selection);}
     if(scrollHost)scrollHost.scrollTop=scrollTop;
   }
   const rootFocus=root=>root.querySelector('[data-ap-tab][aria-selected=true]')?.focus({preventScroll:true});
@@ -394,7 +534,7 @@
   async function submit(ctx,form) {
     if(ctx.busy)return;
     if(form.dataset.apForm==='quotation'&&ctx.places&&!ctx.places.validate())return;
-    if(['requirements','quotation'].includes(form.dataset.apForm)&&!validateCustomerNotes(form,form.dataset.apForm==='quotation'?'spec_':''))return;
+    if(['requirements','quotation'].includes(form.dataset.apForm)&&(!validateCustomerNotes(form,form.dataset.apForm==='quotation'?'spec_':'')||!validateBriefFields(form)))return;
     if(!form.reportValidity())return;
     const action=form.dataset.apForm;
     ctx.busy=true;
@@ -457,13 +597,13 @@
     root.closest('.appointment-modal')?.classList.remove('has-custom-product');if(!appointment.custom_products_available){root.remove();return;}
     root.className='ap-panel';root.innerHTML=`<div class="ap-head"><div><h3>${icon}Have a custom-product idea?</h3><p>Add a request to discuss with the FMRC team. Your appointment schedule stays the same.</p></div></div>${button('Request a Custom Product','data-ap-opt-in',true)}`;
     root.querySelector('[data-ap-opt-in]').onclick=async()=>{try{const available=await loadAvailability();if(!available.services.length)return popup('The FMRC team is not accepting new custom-product consultations at the moment. Your appointment is unchanged.');root.innerHTML=`<h3>Custom Product</h3><form>${briefFields(customerRequest({instructions:appointment.additional_notes||'',customer_notes_version:1}),available.services)}<div class="ap-actions"><button type="submit" class="ap-btn">Add to Appointment</button></div></form>`;
-      const form=root.querySelector('form');form.oninput=e=>{form.dataset.dirty='true';if(e.target.name==='instructions')e.target.setCustomValidity('');};let busy=false;const key=uid();form.onsubmit=async e=>{e.preventDefault();if(busy||!validateCustomerNotes(form)||!form.reportValidity())return;busy=true;form.querySelector('button').disabled=true;try{const result=await request(`/customer/appointments/${appointment.id}/product`,{method:'POST',body:JSON.stringify({requirements:requirements(form),request_key:key})});form.dataset.dirty='false';mount(root,result.data,appointment,false);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));}catch(error){await popup(error.message);}finally{busy=false;if(form.isConnected)form.querySelector('button').disabled=false;}};
+      const form=root.querySelector('form');bindBriefFields(form);form.oninput=e=>{form.dataset.dirty='true';if(e.target.name==='instructions')e.target.setCustomValidity('');};let busy=false;const key=uid();form.onsubmit=async e=>{e.preventDefault();if(busy||!validateCustomerNotes(form)||!validateBriefFields(form)||!form.reportValidity())return;busy=true;form.querySelector('[type=submit]').disabled=true;try{const result=await request(`/customer/appointments/${appointment.id}/product`,{method:'POST',body:JSON.stringify({requirements:requirements(form),request_key:key})});form.dataset.dirty='false';mount(root,result.data,appointment,false);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));}catch(error){await popup(error.message);}finally{busy=false;if(form.isConnected)form.querySelector('[type=submit]').disabled=false;}};
     }catch(e){await popup(e.message);}};
   }
 
   // Booking fields remain owned by the existing five-step form.
   const bookingIds=['aptLName','aptFName','aptMI','aptPhone','aptEmail','aptRole','aptRoleOther','aptCountry','aptRegion','aptProvince','aptMunicipality','aptAddress','aptIntlAddress','aptMethod','aptPurpose','aptDesc'];
-  const bookingValues=()=>Object.fromEntries(bookingIds.map(id=>[id,document.getElementById(id)?.value||'']));
+  const bookingValues=()=>({...Object.fromEntries(bookingIds.map(id=>[id,document.getElementById(id)?.value||''])),custom_measurements:document.querySelector('#aptCustomFields [data-ap-measurements]')?.apMeasurements?.state()});
   const selected=()=>!!document.getElementById('aptCustomProduct')?.checked;
   const bookingPurpose=()=>document.querySelector('#aptCustomFields [name="service_id"]')?.selectedOptions[0]?.textContent.trim()||'';
   function syncBookingFields() {
@@ -472,6 +612,7 @@
     const client=document.getElementById('aptClientTypeField');if(client)client.style.gridColumn=active?'span 3':'';
     const save=document.getElementById('aptSaveCustomDraft');if(save)save.hidden=!active;
     const brief=document.querySelector('[data-ap-brief]');if(brief)brief.hidden=!active;
+    window.dispatchEvent(new Event('fmrc:appointment-required'));
   }
   // Older drafts may hold different notes in each field. Keep every distinct block.
   const mergeBookingNotes=(...values)=>values.map(v=>String(v||'').trim()).filter(Boolean).reduce((parts,note)=>{
@@ -498,11 +639,12 @@
     if(draftBusy)return; if(!token())return signIn(); const form=document.getElementById('aptCustomFields');
     if(!Number(form.elements.service_id.value))return popup('Choose an eligible FMRC service first.');
     if(!validateBookingNotes())return;
+    const snapshot=()=>JSON.stringify({requirements:requirements(form),booking:bookingValues(),files:(window.FMRCAppointmentBooking?.files()||[]).map(fileKey)}),savedSnapshot=snapshot();
     draftBusy=true;const btn=document.getElementById('aptSaveCustomDraft');btn.disabled=true;
     try{const fd=new FormData();fd.append('requirements',JSON.stringify(requirements(form)));fd.append('booking',JSON.stringify(bookingValues()));fd.append('request_key',bookingKey);
       if(bookingDraft){fd.append('draft_id',bookingDraft.id);fd.append('expected_revision',bookingDraft.revision);}
       const files=window.FMRCAppointmentBooking?.files()||[];for(const f of newFiles(files))fd.append('attachments[]',f);
-      const result=await request('/customer/appointment-products/drafts',{method:'POST',body:fd});bookingDraft=result.data;files.filter(f=>(bookingDraft.files||[]).some(saved=>saved.name===f.name&&Number(saved.size)===f.size)).forEach(f=>uploaded.add(fileKey(f)));showSavedFiles();await popup(result.message,'Draft saved');
+      const result=await request('/customer/appointment-products/drafts',{method:'POST',body:fd});bookingDraft=result.data;files.filter(f=>(bookingDraft.files||[]).some(saved=>saved.name===f.name&&Number(saved.size)===f.size)).forEach(f=>uploaded.add(fileKey(f)));showSavedFiles();if(snapshot()===savedSnapshot)form.dataset.dirty='false';await popup(result.message,'Draft saved');
     }catch(e){await popup(e.message,'Draft not saved');
       if(e.status===409&&bookingDraft)void request('/customer/appointment-products/'+bookingDraft.id).then(latest=>{
         const host=document.querySelector('[data-ap-saved-files]');let notice=host.querySelector('[data-ap-draft-conflict]');if(!notice){notice=document.createElement('details');notice.dataset.apDraftConflict='';host.prepend(notice);}
@@ -530,14 +672,14 @@
     bookingDraft=data.draft||null;bookingKey=data.key||bookingDraft?.request_key||uid();uploaded.clear();
     const custom=customerRequest(data.custom||bookingDraft?.requirements||{},data.booking?.aptDesc);bookingFinish=custom.finish||'';
     const notes=document.getElementById('aptDesc');if(notes){notes.value=custom.instructions;notes.setCustomValidity('');}
-    const checkbox=document.getElementById('aptCustomProduct');if(checkbox){checkbox.checked=true;document.getElementById('aptCustomFields').innerHTML=briefFields(custom,availability.services,'',false,false,true);syncBookingFields();}
+    const checkbox=document.getElementById('aptCustomProduct');if(checkbox){checkbox.checked=true;document.getElementById('aptCustomFields').innerHTML=briefFields(custom,availability.services,'',false,false,true);bindBriefFields(document.getElementById('aptCustomFields'));document.querySelector('#aptCustomFields [data-ap-measurements]')?.apMeasurements.restore(data.booking?.custom_measurements);syncBookingFields();}
     showSavedFiles();
   }
   async function bookingInit() {
     const anchor=document.getElementById('aptDesc')?.closest('.apt-input-group');if(!anchor)return;
     try{const available=await loadAvailability();if(!available.enabled)return;
       const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">The FMRC team is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services,'',false,false,true)}</form><p class="ap-help">Use Design Files to attach private designs and Additional notes for other instructions. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
-      anchor.before(section);section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=syncBookingFields;
+      anchor.before(section);bindBriefFields(section.querySelector('form'));section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=syncBookingFields;
       document.getElementById('aptDesc')?.addEventListener('input',()=>{document.getElementById('aptDesc').setCustomValidity('');if(selected())section.querySelector('form').dataset.dirty='true';});
       section.querySelector('[data-ap-sign-in]')?.addEventListener('click',signIn);
       const save=document.createElement('button');save.type='button';save.className='apt-btn apt-btn-back';save.id='aptSaveCustomDraft';save.textContent='Save Draft';save.hidden=true;save.onclick=saveDraft;document.getElementById('btnGoToStep3')?.before(save);
@@ -586,7 +728,7 @@
     };
   }
   window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,orderBusy:id=>orderActionLocks.has(String(id)),mountMeetingRemoval,draftList,allowLeave,isDirty:dirty,append,newFiles,selected,bookingPurpose,isSigningIn:()=>signingIn,
-    validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return form.reportValidity()&&validateBookingNotes();},
+    validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return validateBriefFields(form)&&form.reportValidity()&&validateBookingNotes();},
     review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">The FMRC team will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+customerSpecs(requirements(document.getElementById('aptCustomFields')),bookingPurpose(),['Additional notes (optional)']);},
     reset:()=>{bookingDraft=null;bookingKey=uid();bookingFinish='';uploaded.clear();document.getElementById('aptDesc')?.setCustomValidity('');document.getElementById('aptCustomFields')?.reset();document.querySelector('[data-ap-saved-files]')?.replaceChildren();document.querySelector('[data-ap-booking-review]')?.remove();const c=document.getElementById('aptCustomProduct');if(c){c.checked=false;c.dispatchEvent(new Event('change'));}},
     booked:()=>{sessionStorage.removeItem('fmrc-appointment-product-resume');void localFiles([]).catch(()=>{});},

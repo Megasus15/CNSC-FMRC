@@ -6092,6 +6092,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const isOtherClientType = () =>
     (document.getElementById("aptRole")?.value || "").trim() === "Others";
 
+  // Mark the same fields that Step 2 validates, including conditional address fields.
+  const syncAppointmentRequiredFields = () => {
+    const ph=(document.getElementById('aptCountry')?.value||'Philippines')==='Philippines';
+    const custom=!!document.getElementById('aptCustomProduct')?.checked;
+    const fields={aptLName:true,aptFName:true,aptPhone:true,aptEmail:true,aptCountry:true,aptMethod:true,aptRole:true,aptPurpose:!custom,aptRoleOther:isOtherClientType(),aptRegion:ph,aptProvince:ph,aptMunicipality:ph,aptAddress:ph,aptIntlAddress:!ph};
+    for(const [id,required] of Object.entries(fields)){
+      const input=document.getElementById(id),label=input?.closest('.apt-input-group')?.querySelector('label');
+      if(!input||!label)continue;
+      input.required=required;label.htmlFor=id;
+      let mark=label.querySelector('.apt-required');
+      if(required&&!mark){mark=document.createElement('span');mark.className='apt-required';mark.setAttribute('aria-hidden','true');mark.textContent='*';label.append(' ',mark);}
+      if(mark)mark.hidden=!required;
+    }
+  };
+  window.addEventListener('fmrc:appointment-required',syncAppointmentRequiredFields);
+  document.addEventListener('change',event=>{if(event.target.closest?.('#aptStep2'))syncAppointmentRequiredFields();});
+  syncAppointmentRequiredFields();
+
   const syncAptRoleOtherField = () => {
     const wrapper = document.getElementById("aptRoleOtherField");
     const input = document.getElementById("aptRoleOther");
@@ -7091,6 +7109,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aptIntlAddressField)
       aptIntlAddressField.style.display = isPh ? "none" : "block";
     if (aptIntlAddress) aptIntlAddress.required = !isPh;
+    syncAppointmentRequiredFields();
   };
 
   // â”€â”€ Loader functions (each cascades to the next) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

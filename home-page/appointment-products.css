@@ -168,3 +168,35 @@ html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }
 #customerAppointmentsModal .ap-btn.is-secondary:hover:not(:disabled) { background:color-mix(in srgb,var(--ap-wine) 8%,var(--ap-paper)); color:var(--ap-wine); border-color:var(--ap-wine); }
 @media(max-width:850px) { .ap-workflow ol { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 @media(max-width:700px) { .ap-workflow,.ap-policy-card { padding:16px; } .ap-workflow ol { grid-template-columns:1fr; gap:7px; } .ap-workflow li { flex-direction:row; align-items:center; font-size:12px; padding:8px 10px; } .ap-policy-documents { grid-template-columns:1fr; } .ap-next-action .ap-btn { width:100%; } }
+
+/* Shared, editable guidance for booking, requirements and quotation forms. */
+.ap-panel .ap-required { color:var(--ap-wine,#800000); font-weight:700; }
+.ap-field > label { margin:0; font:inherit; color:inherit; }
+.ap-field > small { font-weight:400; }
+.ap-panel .ap-brief-guidance { margin:0; padding:12px 14px; border-left:3px solid var(--ap-wine); border-radius:0 7px 7px 0; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); }
+.ap-panel select { appearance:none; -webkit-appearance:none; padding-right:40px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 1.5 5 5 5-5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 15px center; background-size:12px 8px; }
+.ap-panel select:open { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 6.5 5-5 5 5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.ap-suggest { position:relative; min-width:0; }
+.ap-panel .ap-suggest input { padding-right:46px; }
+.ap-panel .ap-suggest > button { position:absolute; inset:0 0 0 auto; display:grid; place-items:center; width:44px; min-height:44px; padding:0; border:0; border-radius:0 8px 8px 0; background:transparent; color:var(--ap-wine); cursor:pointer; }
+.ap-suggest > button svg { width:12px; height:8px; transition:transform .15s ease; }
+.ap-suggest.is-open > button svg { transform:rotate(180deg); }
+.ap-panel .ap-suggest:focus-within { border-radius:9px; outline:2px solid var(--ap-wine); outline-offset:3px; }
+.ap-panel .ap-suggest input:focus { box-shadow:none; }
+.ap-suggest > [role=listbox] { position:absolute; top:calc(100% + 7px); left:0; right:0; z-index:40; max-height:232px; overflow-y:auto; overscroll-behavior:contain; margin:0; padding:5px; list-style:none; border:1px solid var(--ap-line); border-radius:9px; background:var(--ap-paper); box-shadow:0 8px 24px rgb(40 15 20 / 12%); }
+.ap-suggest.is-above > [role=listbox] { top:auto; bottom:calc(100% + 7px); }
+.ap-suggest li { display:flex; align-items:center; min-height:44px; padding:10px; border-radius:5px; font-size:13px; line-height:1.5; font-weight:400; overflow-wrap:anywhere; cursor:pointer; }
+.ap-suggest li:is(:hover,.is-active) { background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); color:var(--ap-wine); }
+.ap-suggest li[aria-selected=true] { font-weight:600; }
+.ap-suggest li.ap-suggest-empty { color:var(--ap-muted); cursor:default; }
+.ap-panel .ap-dimensions { padding:18px; border:1px solid var(--ap-line); border-radius:9px; background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); gap:14px; }
+.ap-dimensions-label { font-weight:700; }
+.ap-measurement-controls { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:14px; }
+.ap-measurement-controls:not(:has([data-size-unit-field]:not([hidden]))) { grid-template-columns:1fr; }
+.ap-measurement-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.ap-size-preview { display:block; padding:10px 12px; border-radius:7px; background:var(--ap-paper); color:var(--ap-wine); font-size:13px; font-weight:600; overflow-wrap:anywhere; }
+@media(max-width:640px) {
+  .ap-measurement-controls,.ap-measurement-values { grid-template-columns:1fr; }
+  .ap-panel .ap-dimensions { padding:14px; }
+  #appointmentFlow .ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea),#customerAppointmentsModal .ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { font-size:16px; }
+}

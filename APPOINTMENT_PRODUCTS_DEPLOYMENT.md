@@ -222,3 +222,35 @@ Checked locally on Windows with PHP 8.3 and isolated MySQL 8.4.3 (not the Hostin
 Staging smoke checks: **not performed in this workspace**. Hostinger migration/flag activation, real SMTP ownership mail, real PayMongo payments/refunds and real courier verification remain rollout steps, not local test results.
 
 The earlier sandboxed Apache attempt rejected temporary paths. During the 2026.1107.1 repair, the authorized isolated local Apache run passed, including the new Home redirects, retained query strings, Customer/Team aliases and scope restrictions. Hostinger verification still follows deployment.
+
+
+## Guided request fields (2026.1111.2)
+
+Deploy the shared appointment-product JavaScript/CSS, Step 2 markup/styles,
+Customer main script, versioned portal HTML consumers, and the additive service
+availability response together. No new migration or feature-flag change is required.
+The Customer and Team PWA routes serve these same canonical assets; their worker
+caches only the offline shell, so it does not need a new application cache.
+
+Measurements are still saved in the existing dimensions text field. Unfinished
+booking measurements use booking.custom_measurements solely to restore the draft
+editor. Existing custom text and approved agreements remain readable. Service
+material/use examples are guidance, not stock or manufacturing guarantees.
+
+After deployment, check booking, saved draft recovery, Customer requirement edits,
+and Admin/Staff quotations with one owned request. Confirm the three phone actions
+show Back and Save Draft above Continue to Schedule. Local fixture checks do not
+verify the deployed site or create a real payment, refund, or courier delivery.
+
+Local verification for this change: 206 backend tests / 2,612 assertions passed
+(appointments, custom products, gateway payments, payment verification, and
+17TRACK), and 23 focused frontend checks passed, including five new browser
+scenarios for booking, Customer/PWA edits, and Admin/Staff quotations. Existing
+ordinary and optional appointment browser suites also passed. Phone layout checks
+used 375/390/393/402/414/430/440 px plus breakpoint, landscape, tablet, and desktop
+viewports in Chromium; these are not physical iPhone/Safari tests.
+
+One existing Staff archived-order test still reports two detail reads where its
+assertion expects one. The same failure was reproduced while serving the original
+committed appointment-product script. Orders lookup behavior was not modified by
+this form-guidance change.
