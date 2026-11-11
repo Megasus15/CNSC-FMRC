@@ -139,10 +139,10 @@
     </script>
       <link rel="stylesheet" href="customer-scroll.css?v=1.2" />
     <script defer src="customer-scroll.js?v=1.0"></script>
-  <link rel="stylesheet" href="appointment-flow.css?v=2026.1111.2" />
+  <link rel="stylesheet" href="appointment-flow.css?v=2026.1111.3" />
   <link rel="stylesheet" href="../home-page/my-appointments.css?v=2026.1109.1">
 
-      <link rel="stylesheet" href="appointment-products.css?v=2026.1111.2">
+      <link rel="stylesheet" href="appointment-products.css?v=2026.1111.3">
 </head>
   <body class="home-editorial-page">
     <!-- The boot curtain. Static markup, so it can paint on the very first
@@ -1078,12 +1078,12 @@
 
               <div class="apt-input-group apt-design-files" style="grid-column: span 3">
                 <div class="file-upload-wrapper file-upload-field">
-                  <div class="file-upload-icon">+</div>
+                  <div class="file-upload-icon" aria-hidden="true">+</div>
                   <span class="file-upload-text" id="aptFileLabel">Attach Design Files (Optional)</span>
-                  <small>Attach a sketch, photo, or design to explain your idea.</small>
-                  <small>Up to 5 files, 50 MB total. Images, PDF, Word, STL, OBJ, STEP/STP, IGES/IGS, DXF, DWG.</small>
+                  <small id="aptFileHelp">Attach a sketch, photo, or design to explain your idea.</small>
+                  <small id="aptFileLimits">Up to 5 files, 50 MB total. Images, PDF, Word, STL, OBJ, STEP/STP, IGES/IGS, DXF, DWG.</small>
                   <small id="aptFileName" class="file-upload-name">No file selected</small>
-                  <input type="file" id="aptFile" class="file-upload-input" multiple
+                  <input type="file" id="aptFile" class="file-upload-input" multiple aria-labelledby="aptFileLabel" aria-describedby="aptFileHelp aptFileLimits aptFileName"
                     accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg" />
                 </div>
               </div>

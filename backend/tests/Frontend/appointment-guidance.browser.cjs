@@ -32,6 +32,7 @@ test('guided measurements, searchable examples, required markers and phone actio
   assert.equal(await h.run(`document.getElementById('aptIntlAddress').required&&!document.getElementById('aptRegion').required&&document.getElementById('aptRoleOther').required`),true);
   await h.run(`document.getElementById('aptCustomProduct').click()`);
   assert.equal(await h.run(`document.getElementById('aptPurpose').required`),false);
+  for(const selector of ['#aptCustomFields [name=service_id]','#aptCustomFields [data-size-mode]'])assert.notEqual(await h.run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundImage`),'none','A visible dropdown arrow is present on '+selector);
   await set(book+'[name=name]','Unique desk sign');await set(book+'[name=description]','A sign for the reception desk.');
   await set(book+'[name=material]','P');
   await h.run(`document.querySelector('#aptCustomFields [name=material]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));document.querySelector('#aptCustomFields [name=material]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`);
@@ -74,14 +75,23 @@ test('guided measurements, searchable examples, required markers and phone actio
     const layout=await h.run(`(()=>{const b=document.getElementById('btnCancelTo1').getBoundingClientRect(),s=document.getElementById('aptSaveCustomDraft').getBoundingClientRect(),c=document.getElementById('btnGoToStep3').getBoundingClientRect(),flow=document.getElementById('appointmentFlow');return {b:{x:b.x,y:b.y,w:b.width,h:b.height},s:{x:s.x,y:s.y,w:s.width,h:s.height},c:{x:c.x,y:c.y,w:c.width,h:c.height},overflow:flow.scrollWidth>flow.clientWidth+1}})()`);
     assert.equal(layout.overflow,false,'No overflow at '+width);assert(layout.c.h>=48);
     if(width<=640){assert(Math.abs(layout.b.y-layout.s.y)<1);assert(Math.abs(layout.b.w-layout.s.w)<1);assert(layout.c.y>=layout.b.y+layout.b.h+10);assert(Math.abs(layout.c.w-layout.b.w-layout.s.w-12)<2);}
-    else assert(Math.abs(layout.b.y-layout.c.y)<1,'One desktop action row');
-    if([390,1440].includes(width)){await h.until(`[...document.querySelectorAll('.fmrc-load-veil,.fmrc-load-boot')].every(n=>Number(getComputedStyle(n).opacity)<0.01)`);await h.shot('guided-booking-'+width);}
+    else {assert(Math.abs(layout.b.y-layout.c.y)<1,'One desktop action row');const centered=await h.run(`(()=>{const row=document.querySelector('#aptStep2 .apt-footer-actions').getBoundingClientRect(),a=document.getElementById('btnCancelTo1').getBoundingClientRect(),b=document.getElementById('btnGoToStep3').getBoundingClientRect();return Math.abs((a.left+b.right)/2-(row.left+row.right)/2)<1;})()`);assert.equal(centered,true,'Booking actions are centered at '+width);}
+    if([390,1440].includes(width)){await h.until(`[...document.querySelectorAll('.fmrc-load-veil,.fmrc-load-boot')].every(n=>Number(getComputedStyle(n).opacity)<0.01)`);await h.run(`Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot('guided-booking-'+width);}
   }
   await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
   await h.run(`document.getElementById('aptCustomProduct').click()`);
   assert.equal(await h.run(`document.getElementById('aptPurpose').required`),true);
   const plain=await h.run(`(()=>{const b=document.getElementById('btnCancelTo1').getBoundingClientRect(),c=document.getElementById('btnGoToStep3').getBoundingClientRect();return {equal:Math.abs(b.width-c.width)<1,below:c.y>b.y,saveHidden:!document.getElementById('aptSaveCustomDraft').getClientRects().length}})()`);
   assert.deepEqual(plain,{equal:true,below:true,saveHidden:true});
+  await h.run(`(()=>{const files=new DataTransfer();files.items.add(new File(['solid example'],'Custom-part-'.repeat(16)+'.stl',{type:'text/plain'}));const input=document.getElementById('aptFile');input.files=files.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  for(const width of [375,390,640,844,1440]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    await h.run(`document.querySelector('#aptStep2 .file-upload-wrapper').scrollIntoView({block:'center',behavior:'instant'});new Promise(r=>requestAnimationFrame(r))`);
+    const upload=await h.run(`(()=>{const box=document.querySelector('#aptStep2 .file-upload-wrapper'),r=box.getBoundingClientRect();return {inside:[...box.children].filter(n=>n.type!=='file').every(n=>{const c=n.getBoundingClientRect();return c.left>=r.left+1&&c.right<=r.right-1&&c.top>=r.top+1&&c.bottom<=r.bottom-1;}),width:box.scrollWidth<=box.clientWidth+1};})()`);
+    assert.deepEqual(upload,{inside:true,width:true},'Upload instructions and long file names fit at '+width);
+    if([390,1440].includes(width)){await h.run(`Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot('upload-contained-'+width);}
+  }
+
   assert.deepEqual(await h.run('fixtureErrors'),[]);
 });
 
@@ -116,12 +126,22 @@ for(const portal of ['admin','staff'])test(portal+' reuses guidance and retains 
   await h.run(`document.querySelector('#adminSystemPopupOk')?.click();document.querySelector('[data-ap-go-quote]').click()`);
   await h.until(`document.querySelector('[data-ap-form=quotation] [data-size-mode]')?.getClientRects().length`);
   assert.equal(await h.run(`document.querySelector('[data-ap-form=quotation] [name=spec_service_id]').disabled`),true);
+  const arrows=await h.run(`[...document.querySelectorAll('[data-ap-form=quotation] select[name=spec_service_id],[data-ap-form=quotation] [data-size-mode],[data-ap-form=quotation] [data-size-unit]')].every(select=>{const arrow=select.closest('.admin-select-wrap')?.querySelector('.admin-select-chevron');return arrow?arrow.getBoundingClientRect().width>0:getComputedStyle(select).backgroundImage!=='none';})`);
+  assert.equal(arrows,true,portal+' shows service, size and unit chevrons');
+
   assert.equal(await h.run(`!!document.querySelector('[data-ap-form=quotation] [name=spec_finish],[data-ap-form=quotation] [name=spec_personalization]')`),false);
   assert.equal(await h.run(`document.querySelector('[data-ap-form=quotation] [data-size-mode] option[value=advice]')===null`),true);
   await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
   await h.run(`document.documentElement.dataset.theme='dark';document.querySelector('[data-ap-form=quotation] [data-ap-measurements]').scrollIntoView({block:'center',behavior:'instant'})`);
   const layout=await h.run(`(()=>{const r=document.querySelector('[data-ap-form=quotation] [data-ap-measurements]').getBoundingClientRect();return {fits:r.left>=0&&r.right<=innerWidth,overflow:document.querySelector('#modalViewAppointment .modal-body-scroll').scrollWidth>document.querySelector('#modalViewAppointment .modal-body-scroll').clientWidth+1}})()`);
   assert.deepEqual(layout,{fits:true,overflow:false});await h.pause(4500);await h.shot(portal+'-guided-quotation-dark-390');
+  await h.run(`document.querySelector('[data-ap-tab="2"]').click();(()=>{const input=document.querySelector('[data-ap-form=messages] input[type=file]'),files=new DataTransfer();files.items.add(new File(['drawing'],'Custom-design-'.repeat(12)+'.pdf',{type:'application/pdf'}));input.files=files.files;})()`);
+  for(const width of [390,1440]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    const fit=await h.run(`(()=>{const input=document.querySelector('[data-ap-form=messages] input[type=file]'),r=input.getBoundingClientRect(),p=input.closest('.ap-field').getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&input.scrollWidth<=input.clientWidth+1;})()`);
+    assert.equal(fit,true,portal+' native file control fits at '+width);
+  }
+
   assert.deepEqual(await h.run('fixtureErrors'),[]);
 });
 
@@ -152,5 +172,13 @@ for(const route of ['/home-page/','/apps/customer/home-page/'])test('Customer re
   assert.equal(saved.requirements.dimensions,'Diameter 32.5 × Height 8 mm');assert.equal(saved.requirements.instructions,'Exact text');
   assert.equal(await h.run(`document.querySelector('#customerAppointmentsModal [data-size-mode]').value`),'round');
   assert.equal(await h.run(`document.querySelector('#customerAppointmentsModal [data-size-value=diameter]').value`),'32.5');
+  for(const selector of ['[name=service_id]','[data-size-mode]','[data-size-unit]'])assert.notEqual(await h.run(`getComputedStyle(document.querySelector('#customerAppointmentsModal [data-ap-form=requirements] '+${JSON.stringify(selector)})).backgroundImage`),'none','Customer form chevron survives shared field styles');
+  await h.until(`!!document.querySelector('#customerSystemPopup.show')`);await h.run(`document.getElementById('customerSystemPopupOk').click();document.querySelector('#customerAppointmentsModal [data-ap-tab="2"]').click()`);
+  for(const width of [390,1440]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    const fit=await h.run(`(()=>{const input=document.querySelector('#customerAppointmentsModal [data-ap-form=messages] input[type=file]'),r=input.getBoundingClientRect(),p=input.closest('.ap-field').getBoundingClientRect();return r.left>=p.left-1&&r.right<=p.right+1&&input.scrollWidth<=input.clientWidth+1;})()`);
+    assert.equal(fit,true,'Customer native file control fits at '+width);
+  }
+
   assert.deepEqual(await h.run('fixtureErrors'),[]);
 });

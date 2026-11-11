@@ -15,7 +15,7 @@
 .ap-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 22px; margin-block:18px; }
 .ap-field { display:grid; align-content:start; gap:7px; font-size:13px; line-height:1.5; font-weight:600; min-width:0; margin:0; }
 .ap-field.is-wide, .ap-grid > .ap-check, .ap-grid > .ap-help { grid-column:1 / -1; }
-.ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { width:100%; min-width:0; min-height:46px; border:1px solid var(--ap-line); border-radius:9px; background:var(--ap-paper); color:var(--ap-ink); padding:11px 13px; font-size:13px; line-height:1.6; font-weight:400; }
+.ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { width:100%; min-width:0; min-height:46px; border:1px solid var(--ap-line); border-radius:9px; background-color:var(--ap-paper); color:var(--ap-ink); padding:11px 13px; font-size:13px; line-height:1.6; font-weight:400; }
 .ap-panel textarea { resize:vertical; min-height:92px; }
 .ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus { border:1px solid var(--ap-wine); outline:0; box-shadow:0 0 0 3px rgba(128,0,0,.1); }
 .ap-panel :is(input,select,textarea):disabled { opacity:.65; cursor:not-allowed; }
@@ -163,7 +163,7 @@ html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }
 .ap-policy-card .ap-approval-check { margin-bottom:0; }
 .ap-preferences { margin:20px 0; }
 .ap-preferences .ap-summary { margin:10px 0 0; }
-.ap-panel :is(input,select,textarea):disabled { background:var(--surface-alt,var(--customer-paper-sink,#f1ece7)); color:var(--ap-muted); opacity:1; cursor:default; }
+.ap-panel :is(input,select,textarea):disabled { background-color:var(--surface-alt,var(--customer-paper-sink,#f1ece7)); color:var(--ap-muted); opacity:1; cursor:default; }
 #customerAppointmentsModal .ap-btn:hover:not(:disabled):not(.is-secondary) { background:color-mix(in srgb,var(--ap-solid),#000 18%); color:#fff; border-color:color-mix(in srgb,var(--ap-solid),#000 18%); }
 #customerAppointmentsModal .ap-btn.is-secondary:hover:not(:disabled) { background:color-mix(in srgb,var(--ap-wine) 8%,var(--ap-paper)); color:var(--ap-wine); border-color:var(--ap-wine); }
 @media(max-width:850px) { .ap-workflow ol { grid-template-columns:repeat(4,minmax(0,1fr)); } }
@@ -200,3 +200,8 @@ html[data-theme="dark"] .ap-panel { --ap-solid:var(--portal-action,#94344a); }
   .ap-panel .ap-dimensions { padding:14px; }
   #appointmentFlow .ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea),#customerAppointmentsModal .ap-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { font-size:16px; }
 }
+
+/* Keep native attachment controls inside the shared request/message field. */
+.ap-panel input[type=file] { display:block; max-width:100%; width:100%; min-width:0; height:auto; padding:10px 12px; overflow:hidden; line-height:1.5; }
+.ap-panel input[type=file]::file-selector-button { max-width:100%; min-height:36px; margin:0 12px 0 0; padding:7px 12px; border:1px solid var(--ap-line); border-radius:6px; background:var(--ap-paper); color:var(--ap-wine); font:inherit; cursor:pointer; }
+.ap-panel input[type=file]::file-selector-button:hover { background:var(--surface-alt,var(--customer-paper-sink,#f7f2ec)); border-color:var(--ap-wine); }
