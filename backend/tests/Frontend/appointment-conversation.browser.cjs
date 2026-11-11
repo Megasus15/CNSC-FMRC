@@ -28,8 +28,9 @@ test('conversation orders actual timestamps, escapes text, preserves backfill an
   await h.run(`document.querySelector('[data-ap-tab="2"]').click()`);
   assert.deepEqual(await h.run(`Array.from(document.querySelectorAll('[data-chat-message]'),n=>Number(n.dataset.chatMessage))`),[4,1,2,3]);
   assert.equal(await h.run(`document.querySelector('[data-chat-message="4"] time').textContent`),'Time unavailable');
-  assert.equal(await h.run(`document.querySelector('[data-chat-message="3"] img')===null&&!window.injected`),true,'Message HTML remains literal text');
-  assert.match(await h.run(`document.querySelector('[data-chat-message="3"]').textContent`),/Jamie Cruz/);
+  assert.equal(await h.run(`document.querySelector('[data-chat-message="3"] .ap-chat-text img')===null&&!window.injected`),true,'Message HTML remains literal text');
+  assert.match(await h.run(`document.querySelector('[data-chat-message="3"]').textContent`),/FMRC team/);
+  assert.doesNotMatch(await h.run(`document.querySelector('[data-ap-chat-log]').textContent`),/Alex Reyes|Jamie Cruz/);
   assert.match(await h.run(`document.querySelector('[data-chat-message="2"] time').textContent`),/9:00/,'Times are displayed in the Philippines');
   for(let i=5;i<35;i++)job.messages.push({id:i,sender_id:33,sender_role:'customer',sender_name:'Maria Santos',body:'Design detail '+i+' '.repeat(2)+'A long line for reading and wrapping. '.repeat(4),created_at:`2026-11-11T03:${String(i).padStart(2,'0')}:00Z`});
   await h.run(`FMRCAppointmentProducts.mountCustomer(document.querySelector('[data-appointment-content]'),${JSON.stringify(appointment)})`);

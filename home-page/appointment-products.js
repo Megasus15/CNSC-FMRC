@@ -427,36 +427,41 @@
   const chatDayLabel = value => {const d=chatDate(value);if(Number.isNaN(d.getTime()))return 'Earlier messages';return chatDay(value)===chatDay(new Date().toISOString())?'Today':new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',month:'short',day:'numeric',year:'numeric'}).format(d);};
   const chatTime = value => {const d=chatDate(value);return Number.isNaN(d.getTime())?'Time unavailable':new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit'}).format(d);};
   const chatCompare = (a,b) => {const x=chatDate(a.created_at).getTime(),y=chatDate(b.created_at).getTime();return (Number.isNaN(x)?Number.isNaN(y)?0:-1:Number.isNaN(y)?1:x-y)||Number(a.id)-Number(b.id);};
-  const chatAuthor = m => String(m.sender_id??m.sender_name??m.sender_role);
+  const chatAuthor = m => m.sender_role==='customer'?'customer:'+String(m.sender_id??m.sender_name):'fmrc-team';
+  const sameChatGroup = (a,b) => !!a&&!!b&&chatAuthor(a)===chatAuthor(b)&&chatDay(a.created_at)===chatDay(b.created_at)&&Math.abs(chatDate(a.created_at)-chatDate(b.created_at))<=300000;
   const chatMarkup = ctx => `<div class="ap-chat" data-ap-chat><header class="ap-chat-head"><span class="ap-chat-symbol">${chatIcon('chat')}</span><div><h4 id="ap-chat-title-${ctx.key}">Conversation</h4><p>Discuss your request and share design files here.</p></div></header><p class="ap-chat-notice">${ctx.admin?'For paid-order changes, use the cancellation and refund actions in Orders.':'For changes to a paid order, request help in My Orders.'}</p><div class="ap-chat-history"><div class="ap-chat-log" data-ap-chat-log role="log" aria-labelledby="ap-chat-title-${ctx.key}" aria-relevant="additions" tabindex="0"><div class="ap-chat-empty" data-ap-chat-empty>${chatIcon('chat')}<strong>Start the conversation</strong><p>Send a message or share a design file.</p></div></div><button type="button" class="ap-chat-latest" data-ap-chat-latest hidden>${chatIcon('down')}<span>New messages</span></button></div><form class="ap-chat-composer" data-ap-form="messages" novalidate><ul class="ap-chat-selected" data-ap-chat-selected aria-label="Files to send" hidden></ul><label class="ap-chat-label" for="ap-chat-message-${ctx.key}">Message</label><textarea id="ap-chat-message-${ctx.key}" name="body" rows="2" maxlength="5000" placeholder="Write a message…" aria-describedby="ap-chat-feedback-${ctx.key} ap-chat-limit-${ctx.key}"></textarea><div class="ap-chat-compose-actions"><div><input class="ap-chat-upload" type="file" id="ap-chat-files-${ctx.key}" name="attachments" multiple accept="${chatAccept}"><button type="button" class="ap-chat-attach" data-ap-chat-attach>${chatIcon('attach')}Attach files</button><span class="ap-chat-counter" data-ap-chat-counter aria-label="Message characters">0 / 5,000</span></div><button type="submit" class="ap-btn ap-chat-send" disabled>${chatIcon('send')}<span>Send</span></button></div><small id="ap-chat-limit-${ctx.key}" class="ap-chat-limit">Up to 5 files · 50 MB total. Images, PDF, Word, or CAD files.</small><p id="ap-chat-feedback-${ctx.key}" class="ap-chat-feedback" data-ap-chat-feedback role="status" aria-live="polite"></p><p class="ap-chat-connection" data-ap-chat-connection role="status" hidden></p></form></div>`;
 
   // This surface survives surrounding form refreshes. Only new message nodes are inserted.
   function syncChat(ctx, snapshot=ctx.job) {
     const chat=ctx.root.querySelector('[data-ap-chat]');if(!chat)return;
     const state=ctx.chat||(ctx.chat={messages:new Map(),files:new Map(),unseen:new Set(),selected:[]});
-    for(const m of snapshot.messages||[])state.messages.set(String(m.id),m);
-    for(const f of snapshot.files||[])if(f.message_id)state.files.set(String(f.id),f);
+    let changed=!state.initialized;
+    for(const m of snapshot.messages||[]){if(!state.messages.has(String(m.id)))changed=true;state.messages.set(String(m.id),m);}
+    for(const f of snapshot.files||[])if(f.message_id){if(!state.files.has(String(f.id)))changed=true;state.files.set(String(f.id),f);}
+    // An unchanged poll must not touch the DOM or either scroll container.
+    if(!changed)return;
     const log=chat.querySelector('[data-ap-chat-log]'),nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
     const wasVisible=ctx.tab===2&&!!log.getClientRects().length;
     const anchor=wasVisible&&!nearBottom?[...log.querySelectorAll('[data-chat-message]')].find(n=>n.getBoundingClientRect().bottom>log.getBoundingClientRect().top):null,anchorTop=anchor?.getBoundingClientRect().top;
     const messages=[...state.messages.values()].sort(chatCompare);
     let added=0,previous=null;
-    for(const m of messages){
+    for(const [index,m] of messages.entries()){
       const day=chatDay(m.created_at),own=ctx.admin?m.sender_role!=='customer':m.sender_role==='customer';
       let group=log.querySelector(`[data-chat-day="${CSS.escape(day)}"]`);
       if(!group){group=document.createElement('section');group.className='ap-chat-day';group.dataset.chatDay=day;group.innerHTML=`<h5>${esc(chatDayLabel(m.created_at))}<span class="ap-chat-sr"> · Philippine time</span></h5>`;log.append(group);}
       let row=log.querySelector(`[data-chat-message="${CSS.escape(String(m.id))}"]`);
       if(!row){
         row=document.createElement('article');row.className='ap-chat-message';row.dataset.chatMessage=m.id;
-        const name=m.sender_name||(m.sender_role==='customer'?'Customer':'FMRC team');
+        const customer=m.sender_role==='customer',name=customer?(m.sender_name||'Customer'):'FMRC team';
         const initials=name.trim().split(/\s+/).slice(0,2).map(s=>[...s][0]).join('').toLocaleUpperCase();
-        row.innerHTML=`<span class="ap-chat-avatar" aria-hidden="true">${esc(initials)}</span><div class="ap-chat-bubble"><div class="ap-chat-sender">${esc(name)}${m.sender_role!=='customer'?'<span>FMRC team</span>':''}</div>${m.body?`<p class="ap-chat-text">${esc(m.body)}</p>`:''}<ul class="ap-chat-files" data-ap-chat-files hidden></ul><time title="${esc(date(m.created_at))} · Philippine time">${esc(chatTime(m.created_at))}</time></div>`;
+        row.innerHTML=`<span class="ap-chat-avatar${customer?'':' is-team'}" aria-hidden="true">${customer?esc(initials):`<img src="${esc(link('/images/FMRC%20Logo.png'))}" alt="" width="25" height="25">`}</span><div class="ap-chat-bubble"><div class="ap-chat-sender">${esc(name)}</div>${m.body?`<p class="ap-chat-text">${esc(m.body)}</p>`:''}<ul class="ap-chat-files" data-ap-chat-files hidden></ul><time title="${esc(date(m.created_at))} · Philippine time">${esc(chatTime(m.created_at))}</time></div>`;
         if(!Number.isNaN(chatDate(m.created_at).getTime()))row.querySelector('time').dateTime=chatDate(m.created_at).toISOString();
         const next=[...group.querySelectorAll('[data-chat-message]')].find(n=>chatCompare(state.messages.get(n.dataset.chatMessage),m)>0);group.insertBefore(row,next||null);
         added++;if(state.initialized&&(!wasVisible||!nearBottom))state.unseen.add(String(m.id));
       }
       row.classList.toggle('is-own',own);
-      row.classList.toggle('is-continuation',!!previous&&chatAuthor(previous)===chatAuthor(m)&&previous.sender_role===m.sender_role&&chatDay(previous.created_at)===day&&Math.abs(chatDate(m.created_at)-chatDate(previous.created_at))<=300000);
+      row.classList.toggle('is-continuation',sameChatGroup(previous,m));
+      row.classList.toggle('is-group-end',!sameChatGroup(m,messages[index+1]));
       const files=row.querySelector('[data-ap-chat-files]');
       for(const f of state.files.values())if(String(f.message_id)===String(m.id)&&!files.querySelector(`[data-ap-file="${CSS.escape(String(f.id))}"]`)){
         const li=document.createElement('li');li.innerHTML=`<button type="button" class="ap-chat-file" data-ap-file="${esc(f.id)}" aria-label="Download ${esc(f.name)}">${chatIcon('file')}<span><strong>${esc(f.name)}</strong><small>${esc(chatSize(f.size))} · Download</small></span></button>`;files.append(li);
@@ -488,8 +493,8 @@
     const log=chat.querySelector('[data-ap-chat-log]'),host=scrollContainer(chat),nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
     const available=Math.min(host?.clientHeight||innerHeight-80,window.visualViewport?.height||innerHeight)-24;
     const fixed=chat.getBoundingClientRect().height-log.getBoundingClientRect().height;
-    log.style.height=Math.max(80,Math.min(430,available-fixed))+'px';
-    if(nearBottom)log.scrollTop=log.scrollHeight;
+    const height=Math.max(80,Math.min(430,available-fixed));
+    if(Math.abs(log.getBoundingClientRect().height-height)>1){log.style.height=height+'px';if(nearBottom)log.scrollTop=log.scrollHeight;}
   }
   const fitVisibleChats=()=>{for(const ctx of contexts.values())if(ctx.root.isConnected){fitChat(ctx);const form=ctx.root.querySelector('[data-ap-form="messages"]');if(form?.contains(document.activeElement)){const host=scrollContainer(form),bottom=Math.min(host?.getBoundingClientRect().bottom||innerHeight,(window.visualViewport?.offsetTop||0)+(window.visualViewport?.height||innerHeight));if(host&&form.getBoundingClientRect().bottom>bottom)host.scrollTop+=form.getBoundingClientRect().bottom-bottom+12;}}};
   window.addEventListener('resize',fitVisibleChats,{passive:true});
@@ -665,6 +670,8 @@
     const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd]:null;
     const scrollHost=root.closest('.modal-body-scroll,.appointment-content'),scrollTop=scrollHost?.scrollTop;
     const conversation=ctx.chat?root.querySelector('[data-ap-pane="2"]:has([data-ap-chat])'):null;
+    const conversationLog=conversation?.querySelector('[data-ap-chat-log]'),conversationTop=conversationLog?.scrollTop;
+    const conversationAtBottom=conversationLog&&conversationLog.scrollHeight-conversationLog.clientHeight-conversationTop<64;
     ctx.places?.dispose();
 
     const current=job.quotations.find(q=>['sent','accepted','closing'].includes(q.state));
@@ -731,6 +738,7 @@
     }
     if(focused){const replacement=[...root.querySelectorAll('input,textarea,select,button')].find(node=>focusKey?node.dataset.apFocusKey===focusKey&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusName?node.getAttribute('name')===focusName&&node.closest('[data-ap-form]')?.dataset.apForm===focusForm:focusTab!==null&&focusTab!==undefined?node.getAttribute('data-ap-tab')===focusTab:node.textContent===focused.textContent);const target=replacement||root.querySelector('[data-ap-tab][aria-selected=true]');target?.focus({preventScroll:true});if(selection&&replacement?.setSelectionRange)replacement.setSelectionRange(...selection);}
     if(ctx.tab===2)openChat(ctx);
+    if(conversationLog)conversationLog.scrollTo({top:conversationAtBottom?conversationLog.scrollHeight:conversationTop,behavior:'instant'});
     if(scrollHost)scrollHost.scrollTop=scrollTop;
   }
   const rootFocus=root=>root.querySelector('[data-ap-tab][aria-selected=true]')?.focus({preventScroll:true});

@@ -6,11 +6,11 @@ Conversation uses the existing authenticated message and file endpoints. Message
 
 On an owned custom-product appointment, verify Customer, Admin, and Staff readback:
 
-1. Open Conversation. Names, Philippine timestamps, date dividers, opposite-side message bubbles, and private downloads should be readable on phone and desktop.
+1. Open Conversation. Customer names, the shared **FMRC team** label and official logo, Philippine timestamps, date dividers, opposite-side message bubbles, and private downloads should be readable on phone and desktop. Avatars belong beside the last bubble in each consecutive group; operator audit identities remain stored unchanged.
 2. Send a message, then a file without text. Desktop Enter sends; Shift+Enter and phone keyboards add a line. No success popup should interrupt chatting.
 3. Keep text and a selected attachment in the composer while another account replies. The reply appears without clearing the draft, moving keyboard focus, or replacing the form.
 4. Read earlier messages while another account replies. The view stays in place and **New messages** returns to the latest reply.
 5. Disconnect while sending. Entries remain. **Retry** checks whether the original request was stored before resending its exact payload/key. A newer draft is retained. Connection failures show **Updates paused. Reconnecting…**.
-6. Switch between Overview, Quotation, and Conversation and resize the screen. The composer and existing appointment controls remain usable without background-page scrolling.
+6. Switch between Overview, Quotation, and Conversation and resize the screen. The composer and existing appointment controls remain usable without background-page scrolling. Leave a conversation at an earlier message through repeated polls and surrounding appointment updates: the inner chat and outer modal must keep their positions. Customer Refresh must preserve that position too.
 
 Quotation cards and workflows are unchanged. Message callbacks do not perform quotation approval, order, payment, refund, production, or courier actions. Local browser fixtures and backend regressions do not establish hosted account-to-account readback; complete the checks above after deployment.

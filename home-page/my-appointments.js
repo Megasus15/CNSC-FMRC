@@ -110,6 +110,8 @@
     if(busy)return;
     const item=active,version=++loadVersion,body=overlay.querySelector('[data-appointment-content]'),scroll=body.scrollTop;
     const tab=body.querySelector('[data-ap-tab][aria-selected="true"]')?.dataset.apTab;
+    const conversation=body.querySelector('[data-ap-chat-log]'),conversationTop=conversation?.scrollTop;
+    const conversationAtBottom=conversation&&conversation.scrollHeight-conversation.clientHeight-conversationTop<64;
     const expanded=new Map([...body.querySelectorAll('details')].map(node=>[node.querySelector('summary')?.textContent,node.open]));
     busy=true;controls();message('Refreshing appointment details…');
     try{
@@ -118,6 +120,7 @@
       calendar=availability;await detail(json.data);
       if(tab!==undefined)body.querySelector('[data-ap-tab="'+tab+'"]')?.click();
       body.querySelectorAll('details').forEach(node=>{const name=node.querySelector('summary')?.textContent;if(expanded.has(name))node.open=expanded.get(name);});
+      const log=body.querySelector('[data-ap-chat-log]');if(log&&conversationTop!==undefined)log.scrollTo({top:conversationAtBottom?log.scrollHeight:conversationTop,behavior:'instant'});
     }catch(error){message(error.message,true);}
     finally{busy=false;controls();body.scrollTop=scroll;overlay.querySelector('[data-appointments-refresh]').focus({preventScroll:true});}
   };

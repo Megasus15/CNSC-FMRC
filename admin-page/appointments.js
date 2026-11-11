@@ -1138,6 +1138,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if(sameAppointment && window.FMRCAppointmentProducts?.isDirty(body))return;
     if(sameAppointment && JSON.stringify(viewingAppointment)===JSON.stringify(appt))return;
     const productPanel = sameAppointment ? body?.querySelector("[data-ap-appointment]") : null;
+    const conversationLog = productPanel?.querySelector('[data-ap-chat-log]');
+    const conversationTop = conversationLog?.scrollTop;
+    const conversationAtBottom = conversationLog && conversationLog.scrollHeight-conversationLog.clientHeight-conversationTop<64;
     const scrollTop = sameAppointment ? body?.scrollTop || 0 : 0;
     const focused = sameAppointment && body?.contains(document.activeElement) ? document.activeElement : null;
     const focusForm = focused?.closest("[data-ap-form]")?.dataset.apForm;
@@ -1233,6 +1236,7 @@ document.addEventListener("DOMContentLoaded", () => {
       target?.focus({preventScroll:true});
       if(target && selection && typeof target.setSelectionRange === "function")target.setSelectionRange(...selection);
       body.scrollTop=scrollTop;
+      if(conversationLog?.isConnected)conversationLog.scrollTo({top:conversationAtBottom?conversationLog.scrollHeight:conversationTop,behavior:'instant'});
     }
   };
 
