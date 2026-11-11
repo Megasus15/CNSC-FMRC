@@ -118,6 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let editingSlotId = null;
   let activeTimePickerContext = null;
   let viewingAppointment = null;
+  let completingAppointment = null;
+  let consultationRequestPending = false;
   let archivingAppointmentId = null;
   let archiveRequestPending = false;
   let appointmentReadVersion = 0;
@@ -428,8 +430,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return "status-yellow";
   };
 
-  const isAppointmentCompleted = (appointment) =>
-    String(appointment?.status || "").trim().toLowerCase() === "completed";
+  const appointmentIsArchiveEligible = (appointment) => appointment?.can_archive === true;
+  const archiveReason = (appointment) => appointment?.archive_blocked_reason || "Finish the appointment work first.";
+  const sortAppointments = (appointments) => [...appointments].sort((a, b) => {
+    const closed = item => item.list_group === 'closed';
+    const group = Number(closed(a)) - Number(closed(b));
+    if (group) return group;
+    const stamp = item => toTimestamp((closed(item) && item.work_closed_at) || item.created_at || item.created_at_label);
+    return stamp(b) - stamp(a) || toNumericId(b.id || b.reference_no) - toNumericId(a.id || a.reference_no);
+  });
 
   const getDateKey = (year, month, day) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -524,25 +533,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const saved = savedAppointment?.custom_product;
       const incoming = appointment.custom_product;
       // A list request may have started before an outcome or quotation was saved.
-      const next = saved && incoming?.id === saved.id && Number(incoming.revision) < Number(saved.revision)
-        ? { ...appointment, custom_product: saved } : appointment;
+      const olderJob = saved && incoming?.id === saved.id && Number(incoming.revision) < Number(saved.revision);
+      const next = olderJob ? { ...appointment, custom_product: saved } : appointment;
+      if (olderJob) for (const key of ['list_group', 'work_closed_at', 'can_archive', 'archive_blocked_reason', 'can_confirm_consultation']) next[key] = savedAppointment[key];
       // A delayed list read must not restore a removed link or an older schedule.
       if (savedAppointment && Number(appointment.schedule_version) < Number(savedAppointment.schedule_version)) {
         for (const key of ['appointment_method', 'appointment_date', 'appointment_time', 'meeting_platform', 'meeting_url', 'meeting_status', 'schedule_version', 'can_edit_meeting_link', 'can_remove_meeting_link', 'can_reschedule', 'schedule_history']) next[key] = savedAppointment[key];
       }
       return next;
     });
-    // Sort: Completed appointments always at bottom, everything else newest-first
-    state.appointments = [...appointments].sort((a, b) => {
-      const aCompleted = String(a?.status || "").toLowerCase() === "completed" ? 1 : 0;
-      const bCompleted = String(b?.status || "").toLowerCase() === "completed" ? 1 : 0;
-      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
-      // Within same group: newest first (DESC by created_at)
-      const tsA = toTimestamp(a?.created_at || a?.created_at_label);
-      const tsB = toTimestamp(b?.created_at || b?.created_at_label);
-      if (tsA !== tsB) return tsB - tsA;
-      return toNumericId(b?.id || b?.reference_no) - toNumericId(a?.id || a?.reference_no);
-    });
+    // A completed consultation can still have active quotation/product work.
+    state.appointments = sortAppointments(appointments);
   };
 
   const fetchCalendar = async () => {
@@ -690,10 +691,10 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((item) => {
         const fileCell = attachmentHtml(item);
 
-        const canArchive = isAppointmentCompleted(item);
+        const canArchive = appointmentIsArchiveEligible(item);
         const archiveTitle = canArchive
           ? "Archive Appointment"
-          : "Mark appointment as Done before archiving";
+          : escapeAttribute(archiveReason(item));
         const archiveButton = `<button
               type="button"
               class="${canArchive ? "" : "is-disabled"}"
@@ -718,7 +719,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><span class="status-pill ${statusClass(item.status)}">${item.custom_product?'Consultation: ':''}${window.AdminTableValue.html(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
-            ${["completed", "cancelled", "archived"].includes(String(item.status || "").toLowerCase()) ? "" : `<button type="button" class="appointment-complete-action" data-tooltip="Mark as Done" data-complete-id="${item.id}"><i class="fa-solid fa-circle-check"></i></button>`}
             ${archiveButton}
           </td>
         </tr>`;
@@ -741,8 +741,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
     appointmentBulkController?.sync();
   };
-
-  const appointmentIsArchiveEligible = (item) => isAppointmentCompleted(item);
 
   const setupAppointmentBulkSelection = () => {
     appointmentBulkController = window.AdminBulkSelection?.create({
@@ -1106,6 +1104,32 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Appointment View Modal ─────────────────────────────────────────────────
+  // A nested confirmation must not unlock the page beneath Appointment details.
+  let lockedPagePosition = null;
+  const syncAppointmentScrollLock = () => {
+    const detailsOpen = document.getElementById('modalViewAppointment')?.classList.contains('show');
+    const nestedOpen = ['modalCompleteAppointment', 'modalArchiveAppointment'].some(id => document.getElementById(id)?.classList.contains('show'));
+    if (detailsOpen && !lockedPagePosition) {
+      lockedPagePosition = { x: window.scrollX, y: window.scrollY };
+      document.documentElement.classList.add('appointment-details-open');
+    } else if (lockedPagePosition && !detailsOpen && !nestedOpen) {
+      const position = lockedPagePosition;
+      lockedPagePosition = null;
+      document.documentElement.classList.remove('appointment-details-open');
+      window.scrollTo({ left: position.x, top: position.y, behavior: 'instant' });
+    }
+  };
+  const appointmentScrollObserver = new MutationObserver(syncAppointmentScrollLock);
+  for (const id of ['modalViewAppointment', 'modalCompleteAppointment', 'modalArchiveAppointment']) {
+    const overlay = document.getElementById(id);
+    if (overlay) appointmentScrollObserver.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  }
+  window.addEventListener('scroll', () => {
+    if (lockedPagePosition && (window.scrollX !== lockedPagePosition.x || window.scrollY !== lockedPagePosition.y)) {
+      window.scrollTo({ left: lockedPagePosition.x, top: lockedPagePosition.y, behavior: 'instant' });
+    }
+  }, { passive: true });
+
   const openAppointmentViewModal = (appt) => {
     const modal = document.getElementById("modalViewAppointment");
     if (!modal) return;
@@ -1122,13 +1146,15 @@ document.addEventListener("DOMContentLoaded", () => {
     viewingAppointment = appt;
 
     const archiveFromViewButton = document.getElementById("btnArchiveFromView");
-    const canArchive = isAppointmentCompleted(appt);
+    const canArchive = appointmentIsArchiveEligible(appt);
+    const archiveHelp = document.getElementById('appointmentArchiveReason');
+    if (archiveHelp) archiveHelp.textContent = canArchive || appt.status === 'Archived' ? '' : archiveReason(appt);
     if (archiveFromViewButton) {
       archiveFromViewButton.disabled = !canArchive;
       archiveFromViewButton.setAttribute("aria-disabled", String(!canArchive));
       archiveFromViewButton.title = canArchive
-        ? "Archive completed appointment"
-        : "Mark appointment as Done before archiving";
+        ? "Archive appointment"
+        : archiveReason(appt);
     }
 
     const display = (value, fallback = "Not provided") => escapeAttribute(String(value ?? "").trim() || fallback);
@@ -1165,6 +1191,11 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           </dl>
         </section>
+        ${!appt.custom_product ? `<section class="appt-details-section appt-consultation-section">
+          <div class="appt-details-section-heading"><h4>Confirm consultation</h4>
+            <p>${appt.status === 'Completed' || appt.status === 'Archived' ? 'This consultation is complete.' : appt.status === 'Cancelled' ? 'This consultation was cancelled.' : 'Confirm after the meeting has taken place.'}</p></div>
+          ${appt.can_confirm_consultation === true ? '<div class="appointment-meeting-actions"><button class="btn-admin" type="button" data-confirm-consultation>Confirm consultation</button></div>' : ''}
+        </section>` : ''}
         <section class="appt-details-section">
           <div class="appt-details-section-heading"><h4>Client information</h4></div>
           <dl class="appt-view-grid">
@@ -1196,6 +1227,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.AdminAppointmentDetails?.render(appt,body);
     modal.classList.add("show");
+    syncAppointmentScrollLock();
     if(sameAppointment && body){
       const target=focused?.isConnected ? focused : focusForm && focusName ? body.querySelector(`[data-ap-form="${CSS.escape(focusForm)}"] [name="${CSS.escape(focusName)}"]`) : null;
       target?.focus({preventScroll:true});
@@ -1204,7 +1236,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;state.appointments=state.appointments.map(row=>row.id===item.id?item:row);renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
+  window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;++appointmentReadVersion;state.appointments=sortAppointments(state.appointments.map(row=>row.id===item.id?item:row));renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
 
   ["btnCloseApptView", "btnCloseApptView2"].forEach(id => document.getElementById(id)?.addEventListener("click", async () => {
     if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(document.getElementById("apptViewBody")))return;
@@ -1215,8 +1247,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnArchiveFromView")
     ?.addEventListener("click", () => {
-      document.getElementById("modalViewAppointment")?.classList.remove("show");
-      if (viewingAppointment && isAppointmentCompleted(viewingAppointment)) {
+      if (viewingAppointment && appointmentIsArchiveEligible(viewingAppointment)) {
+        document.getElementById("modalViewAppointment")?.classList.remove("show");
         openAppointmentArchiveModal(viewingAppointment);
       }
     });
@@ -1224,9 +1256,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Appointment Archive Modal ──────────────────────────────────────────────
   const openAppointmentArchiveModal = (appt) => {
     if (archiveRequestPending || archivingAppointmentId !== null) return;
-    if (!isAppointmentCompleted(appt)) {
+    if (!appointmentIsArchiveEligible(appt)) {
       window.showAdminPopup?.(
-        "Only appointments marked as Done can be archived.",
+        archiveReason(appt),
         { title: "Archive Unavailable" },
       );
       return;
@@ -1557,12 +1589,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ─── Mark as Done ─────────────────────────────────────────────────────────
-    const completeBtn = target.closest("[data-complete-id]");
-    if (completeBtn) {
-      const id = completeBtn.getAttribute("data-complete-id");
-      const appt = state.appointments.find((a) => String(a.id) === String(id));
-      if (appt) openMarkAsDoneModal(appt);
+    // Ordinary consultations are confirmed from their open details only.
+    if (target.closest("[data-confirm-consultation]")) {
+      if (viewingAppointment?.can_confirm_consultation === true && !viewingAppointment.custom_product) openConfirmConsultation(viewingAppointment);
       return;
     }
 
@@ -1779,36 +1808,51 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ─── Mark as Done Modal ──────────────────────────────────────────────────
-  let completingAppointmentId = null;
-
-  const openMarkAsDoneModal = (appt) => {
-    completingAppointmentId = appt.id;
+  // Keep the ordinary consultation action tied to the record confirmed here.
+  const openConfirmConsultation = (appt) => {
+    if (completingAppointment || consultationRequestPending || appt.custom_product || appt.can_confirm_consultation !== true) return;
+    completingAppointment = Object.freeze({ id: appt.id, schedule_version: Number(appt.schedule_version) || 0 });
     const labelEl = document.getElementById("completeAppointmentTargetLabel");
     if (labelEl)
       labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
+    const attendance = document.getElementById("confirmConsultationAttendance");
+    if (attendance) attendance.checked = false;
+    const confirm = document.getElementById("btnConfirmCompleteAppt");
+    if (confirm) confirm.disabled = true;
     document.getElementById("modalCompleteAppointment")?.classList.add("show");
+    attendance?.focus({ preventScroll: true });
   };
+
+  document.getElementById("confirmConsultationAttendance")?.addEventListener("change", event => {
+    const confirm = document.getElementById("btnConfirmCompleteAppt");
+    if (confirm) confirm.disabled = consultationRequestPending || !event.target.checked;
+  });
 
   document
     .getElementById("btnCancelCompleteAppt")
     ?.addEventListener("click", () => {
+      if (consultationRequestPending) return;
       document
         .getElementById("modalCompleteAppointment")
         ?.classList.remove("show");
-      completingAppointmentId = null;
+      completingAppointment = null;
+      document.querySelector('[data-confirm-consultation]')?.focus({ preventScroll: true });
     });
 
   document
     .getElementById("btnConfirmCompleteAppt")
     ?.addEventListener("click", async () => {
-      if (!completingAppointmentId) return;
+      if (!completingAppointment || consultationRequestPending || !document.getElementById("confirmConsultationAttendance")?.checked) return;
+      const appointment = completingAppointment;
+      consultationRequestPending = true;
+      const cancelBtn = document.getElementById("btnCancelCompleteAppt");
+      if (cancelBtn) cancelBtn.disabled = true;
 
       const confirmBtn = document.getElementById("btnConfirmCompleteAppt");
       if (confirmBtn) {
         confirmBtn.disabled = true;
         confirmBtn.innerHTML =
-          '<i class="fa-solid fa-spinner fa-spin"></i> Completing…';
+          '<i class="fa-solid fa-spinner fa-spin"></i> Confirming…';
       }
 
       const token =
@@ -1820,46 +1864,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const res = await fetch(
-          `${API_BASE_URL}/appointments/${completingAppointmentId}/complete`,
+          `${API_BASE_URL}/appointments/${appointment.id}/complete`,
           {
             method: "PATCH",
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
+              "Content-Type": "application/json",
             },
+            body: JSON.stringify({ expected_schedule_version: appointment.schedule_version }),
           },
         );
 
         if (!res.ok) {
           const payload = await res.json().catch(() => ({}));
           window.showAdminPopup?.(
-            payload?.message || "Failed to mark appointment as completed.",
+            payload?.message || "The consultation could not be confirmed.",
             { title: "Action Failed" },
           );
           return;
         }
 
+        const payload = await res.json();
+        ++appointmentReadVersion;
+        if (payload.data) window.dispatchEvent(new CustomEvent('fmrc:appointment-updated', { detail: { appointment: payload.data } }));
         document
           .getElementById("modalCompleteAppointment")
           ?.classList.remove("show");
-        completingAppointmentId = null;
+        completingAppointment = null;
         await refreshAll();
-        setTimeout(() => {
-          window.showAdminPopup?.(
-            "Appointment has been marked as completed.",
-            { title: "Completed ✓" },
-          );
-        }, 200);
+        if (viewingAppointment?.id === appointment.id && document.getElementById('modalViewAppointment')?.classList.contains('show')) {
+          openAppointmentViewModal(state.appointments.find(row => row.id === appointment.id) || payload.data);
+          document.getElementById('btnCloseApptView')?.focus({ preventScroll: true });
+        }
       } catch (err) {
         console.error("Mark complete error:", err);
         window.showAdminPopup?.("Connection lost. Please try again.", {
           title: "Error",
         });
       } finally {
+        consultationRequestPending = false;
+        if (cancelBtn) cancelBtn.disabled = false;
         if (confirmBtn) {
-          confirmBtn.disabled = false;
+          confirmBtn.disabled = !completingAppointment || !document.getElementById("confirmConsultationAttendance")?.checked;
           confirmBtn.innerHTML =
-            '<i class="fa-solid fa-circle-check"></i> Mark as Done';
+            '<i class="fa-solid fa-circle-check"></i> Confirm consultation';
         }
       }
     });
@@ -1872,7 +1921,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let productPollFailures=0;
   const pollProductProgress=()=>setTimeout(async()=>{
     try {
-      if(!document.hidden && !document.querySelector('#adminSystemPopup.show') && !tableBody?.querySelector('input:checked') && !modalCalendar?.classList.contains('show')) {
+      if(!document.hidden && !consultationRequestPending && !archiveRequestPending && !document.querySelector('#adminSystemPopup.show') && !tableBody?.querySelector('input:checked') && !modalCalendar?.classList.contains('show')) {
         await fetchAppointments();renderTable();
         const current=state.appointments.find(a=>a.id===viewingAppointment?.id);
         if(current&&document.getElementById('modalViewAppointment')?.classList.contains('show'))openAppointmentViewModal(current);

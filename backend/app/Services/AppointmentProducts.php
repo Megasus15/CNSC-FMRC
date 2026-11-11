@@ -239,13 +239,8 @@ final class AppointmentProducts
         if (! $archive) {
             abort(422, 'This appointment retains custom-product history. Archive it when the work is closed.');
         }
-        $orders = $job->orders()->get();
-        abort_if(! in_array($job->state, ['cancelled', 'declined'], true) && ! $orders->contains(fn ($o) => $o->lifecycle_status === 'completed'), 422,
-            'Finish or close the linked custom work before archiving this appointment.');
-        foreach ($orders as $order) {
-            abort_if(! in_array($order->lifecycle_status, ['cancelled', 'rejected', 'completed'], true) || self::moneyHeld($order) > 0 && $order->lifecycle_status !== 'completed', 422,
-                'Resolve the linked order and its refund before archiving.');
-        }
+        $state = AppointmentWorkState::for($appointment, $job);
+        abort_unless($state['can_archive'], 422, $state['archive_blocked_reason']);
     }
 
     public static function protectAccount(User $user): void

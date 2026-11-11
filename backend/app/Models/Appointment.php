@@ -42,6 +42,7 @@ class Appointment extends Model
         'appointment_date' => 'date:Y-m-d',
         'schedule_version'=>'integer',
         'appointment_starts_at'=>'datetime',
+        'consultation_completed_at'=>'datetime',
         'customer_deleted_at'=>'datetime',
     ];
 }

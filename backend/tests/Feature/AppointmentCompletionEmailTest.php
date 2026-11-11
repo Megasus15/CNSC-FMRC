@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 /**
  * Covers the thank-you email that goes out when Admin or Staff use the
- * "Mark Appointment as Done" modal (PATCH /api/appointments/{id}/complete).
+ * "Confirm consultation" action (PATCH /api/appointments/{id}/complete).
  */
 class AppointmentCompletionEmailTest extends TestCase
 {
@@ -43,6 +43,48 @@ class AppointmentCompletionEmailTest extends TestCase
             'appointment_time' => '9:00 AM - 10:00 AM',
             'status' => 'Scheduled',
         ], $overrides));
+    }
+
+    public function test_confirmation_is_version_checked_and_repeat_safe_for_both_team_roles(): void
+    {
+        foreach (['admin', 'staff'] as $role) {
+            Mail::fake();
+            Sanctum::actingAs(User::factory()->create(['role' => $role]));
+            $appointment = $this->makeAppointment(['reference_no' => 'AP-CONFIRM-'.$role, 'schedule_version' => 2]);
+            $url = '/api/appointments/'.$appointment->id.'/complete';
+            $this->patchJson($url, ['expected_schedule_version' => 1])->assertConflict();
+            $this->assertSame('Scheduled', $appointment->fresh()->status);
+            Mail::assertNothingSent();
+            $result = $this->patchJson($url, ['expected_schedule_version' => 2])->assertOk()
+                ->assertJsonPath('data.list_group', 'closed')->assertJsonPath('data.can_archive', true)
+                ->assertJsonPath('data.can_confirm_consultation', false)->json('data');
+            $saved = $appointment->fresh()->getAttributes();
+            $this->assertNotNull($saved['consultation_completed_at']);
+            $this->patchJson($url, ['expected_schedule_version' => 2])->assertOk()->assertJsonPath('data.work_closed_at', $result['work_closed_at']);
+            $this->assertSame($saved, $appointment->fresh()->getAttributes());
+            Mail::assertSent(AppointmentCompleted::class, 1);
+        }
+    }
+
+    public function test_closed_sorting_uses_completion_evidence_instead_of_later_edits(): void
+    {
+        $this->actingAdmin();
+        $legacy = $this->makeAppointment(['reference_no' => 'AP-LEGACY', 'status' => 'Completed']);
+        $legacy->forceFill(['created_at' => now()->subYears(2)])->save();
+        $older = $this->makeAppointment(['reference_no' => 'AP-OLDER']);
+        $older->forceFill(['created_at' => now()->subYear()])->save();
+        $recent = $this->makeAppointment(['reference_no' => 'AP-RECENT']);
+        $active = $this->makeAppointment(['reference_no' => 'AP-ACTIVE']);
+        $this->patchJson('/api/appointments/'.$older->id.'/complete')->assertOk();
+        $older->refresh()->forceFill(['consultation_completed_at' => now()->subDay()])->save();
+        $this->patchJson('/api/appointments/'.$recent->id.'/complete')->assertOk();
+        $older->forceFill(['additional_notes' => 'A later note edit', 'updated_at' => now()->addWeek()])->save();
+        $feed = $this->getJson('/api/appointments')->assertOk()->json('data');
+        $this->assertSame([$active->id, $recent->id, $older->id, $legacy->id], array_column($feed, 'id'));
+        $this->assertNull($feed[3]['work_closed_at']);
+        $this->patchJson('/api/appointments/'.$recent->id.'/archive')->assertOk();
+        $this->patchJson('/api/appointments/'.$recent->id.'/unarchive')->assertOk()->assertJsonPath('data.status', 'Pending');
+        $this->assertNull($recent->fresh()->consultation_completed_at);
     }
 
     public function test_marking_an_appointment_done_emails_a_thank_you_with_site_contact_details(): void
@@ -147,7 +189,7 @@ class AppointmentCompletionEmailTest extends TestCase
         ]);
     }
 
-    public function test_an_already_completed_appointment_is_rejected_and_sends_nothing(): void
+    public function test_an_already_completed_appointment_is_idempotent_and_sends_nothing(): void
     {
         Mail::fake();
         $this->actingAdmin();
@@ -158,7 +200,7 @@ class AppointmentCompletionEmailTest extends TestCase
         ]);
 
         $this->patchJson('/api/appointments/' . $appointment->id . '/complete')
-            ->assertStatus(422);
+            ->assertOk();
 
         Mail::assertNothingSent();
     }

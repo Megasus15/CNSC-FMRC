@@ -229,6 +229,86 @@ class OptionalAppointmentProductsTest extends TestCase
         $this->patchJson('/api/appointments/'.$independent->id.'/archive')->assertForbidden();
     }
 
+    public function test_team_list_keeps_finished_consultations_active_until_the_custom_order_is_finished(): void
+    {
+        $job = $this->booked();
+        $quote = $this->quote($job);
+        $appointment = $job->appointment;
+        $url = '/api/admin/appointments/'.$appointment->id;
+        $this->getJson($url)->assertOk()->assertJsonPath('data.status', 'Completed')
+            ->assertJsonPath('data.list_group', 'active')->assertJsonPath('data.can_archive', false);
+        $this->patchJson('/api/appointments/'.$appointment->id.'/archive')->assertUnprocessable();
+        $order = $this->accept($job, $quote);
+        foreach (['cash_receipt', 'start', 'ready'] as $action) {
+            $this->act($order, $action, ['amount' => 1000, 'receipt_reference' => 'SORT-CASH', 'confirmed_received' => true])->assertOk();
+            $this->getJson($url)->assertOk()->assertJsonPath('data.list_group', 'active')->assertJsonPath('data.can_archive', false);
+        }
+        $this->act($order, 'collect', ['pickup_code' => $order->pickup_code])->assertOk();
+        $closedAt = $this->getJson($url)->assertOk()->assertJsonPath('data.list_group', 'closed')
+            ->assertJsonPath('data.can_archive', true)->json('data.work_closed_at');
+        $this->assertSame($order->fresh()->completed_at->toIso8601String(), $closedAt);
+        $appointment->forceFill(['additional_notes' => 'Later history edit', 'updated_at' => now()->addDay()])->save();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.work_closed_at', $closedAt);
+        $money = DB::table('appointment_cash_entries')->get()->toJson();
+        $orderBefore = $order->fresh()->getAttributes();
+        $this->patchJson('/api/appointments/'.$appointment->id.'/archive')->assertOk();
+        $this->assertSame($orderBefore, $order->fresh()->getAttributes());
+        $this->assertSame($money, DB::table('appointment_cash_entries')->get()->toJson());
+    }
+
+    public function test_closed_cancelled_work_archives_without_inventing_consultation_attendance_on_restore(): void
+    {
+        $job = $this->booked();
+        $job->update(['state' => 'cancelled']);
+        $job->appointment->update(['status' => 'Cancelled']);
+        Sanctum::actingAs($this->staff);
+        $url = '/api/appointments/'.$job->appointment_id;
+        $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertOk()
+            ->assertJsonPath('data.list_group', 'closed')->assertJsonPath('data.can_archive', true);
+        $this->patchJson($url.'/archive')->assertOk();
+        $this->patchJson($url.'/archive')->assertOk();
+        $this->patchJson($url.'/unarchive')->assertOk()->assertJsonPath('data.status', 'Cancelled');
+        $this->patchJson($url.'/unarchive')->assertOk()->assertJsonPath('data.status', 'Cancelled');
+        $this->patchJson($url.'/archive')->assertOk();
+        $this->patchJson('/api/admin/archives/restore-bulk', ['module' => 'appointment', 'ids' => [$job->appointment_id]])->assertOk()
+            ->assertJsonPath('processed_ids', [$job->appointment_id]);
+        $this->assertSame('Cancelled', $job->appointment->fresh()->status);
+        $this->assertNull($job->appointment->fresh()->consultation_completed_at);
+        Mail::assertNotSent(\App\Mail\AppointmentCompleted::class);
+    }
+
+    public function test_financial_review_blocks_single_and_bulk_archiving_without_touching_linked_records(): void
+    {
+        $job = $this->booked();
+        $order = $this->accept($job, $this->quote($job));
+        $this->act($order, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'REVIEW-CASH', 'confirmed_received' => true])->assertOk();
+        $this->act($order, 'start')->assertOk();
+        $this->act($order, 'ready')->assertOk();
+        $this->act($order, 'collect', ['pickup_code' => $order->pickup_code])->assertOk();
+        // An unresolved ledger record must stay visible even after fulfillment.
+        $refund = DB::table('payment_refunds')->insertGetId(['payment_id' => $order->payment->id, 'token' => (string) Str::uuid(),
+            'provider_payment_id' => 'review-fixture', 'requested_by' => $this->admin->id, 'amount_centavos' => 100000,
+            'reason' => 'Unresolved refund', 'livemode' => false, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($this->customer);
+        $booked = $this->postJson('/api/appointments', $this->booking(['appointment_date' => '2026-11-10']))->assertCreated();
+        $otherJob = AppointmentProductJob::findOrFail($booked->json('data.custom_product.id'));
+        $otherJob->update(['state' => 'declined']);
+        $otherJob->appointment->update(['status' => 'Completed']);
+        foreach ([$this->admin, $this->staff] as $operator) {
+            Sanctum::actingAs($operator);
+            $this->getJson('/api/admin/appointments/'.$job->appointment_id)->assertOk()->assertJsonPath('data.can_archive', false)
+                ->assertJsonPath('data.list_group', 'active')->assertJsonPath('data.archive_blocked_reason', 'Resolve the refund first.');
+            $this->patchJson('/api/appointments/'.$job->appointment_id.'/archive')->assertUnprocessable();
+        }
+        $before = DB::table('payment_refunds')->where('id', $refund)->first();
+        $this->patchJson('/api/appointments/archive-bulk', ['ids' => [$job->appointment_id, $otherJob->appointment_id]])->assertOk()
+            ->assertJsonPath('processed_ids', [$otherJob->appointment_id])->assertJsonPath('skipped_ids', [$job->appointment_id]);
+        $this->assertSame('Completed', $job->appointment->fresh()->status);
+        $this->assertEquals($before, DB::table('payment_refunds')->where('id', $refund)->first());
+        $this->assertSame('paid', $order->payment->fresh()->status);
+        $this->assertSame('completed', $order->fresh()->lifecycle_status);
+    }
+
     public function test_closed_custom_order_exposes_authorized_meeting_cleanup_without_changing_its_agreement(): void
     {
         $job = $this->booked();

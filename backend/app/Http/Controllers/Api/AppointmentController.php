@@ -12,6 +12,7 @@ use App\Services\AppointmentFiles;
 use App\Services\AppointmentConsultations;
 use App\Services\AppointmentScheduling;
 use App\Services\AppointmentProducts;
+use App\Services\AppointmentWorkState;
 use App\Support\OrderNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -52,7 +53,14 @@ class AppointmentController extends Controller
             })
             ->orderBy('created_at', 'asc')
             ->get()
-            ->map(fn (Appointment $appointment) => $this->transformAppointment($appointment));
+            ->map(fn (Appointment $appointment) => $this->transformAppointment($appointment))
+            ->sort(function ($a, $b) {
+                $group = ($a['list_group'] === 'closed' ? 1 : 0) <=> ($b['list_group'] === 'closed' ? 1 : 0);
+                if ($group) return $group;
+                $aTime = $a['list_group'] === 'closed' ? ($a['work_closed_at'] ?: $a['created_at']) : $a['created_at'];
+                $bTime = $b['list_group'] === 'closed' ? ($b['work_closed_at'] ?: $b['created_at']) : $b['created_at'];
+                return (($bTime ? Carbon::parse($bTime)->getTimestamp() : 0) <=> ($aTime ? Carbon::parse($aTime)->getTimestamp() : 0)) ?: ($b['id'] <=> $a['id']);
+            })->values();
 
         return response()->json(['data' => $appointments])->header('Cache-Control', 'private, no-store');
     }
@@ -250,26 +258,26 @@ class AppointmentController extends Controller
             AppointmentScheduling::lock();
             $eligible = Appointment::query()
                 ->whereIn('id', $ids)
-                ->where('status', 'Completed')
                 ->lockForUpdate()->get();
-            foreach ($eligible as $item) AppointmentProducts::protectAppointment($item, true);
+            $eligible = $eligible->filter(fn ($item) => AppointmentWorkState::for($item, lock: true)['can_archive']);
             $eligibleIds = $eligible->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->values()
                 ->all();
 
             if ($eligibleIds) {
-                Appointment::query()->whereIn('id', $eligibleIds)->update([
-                    'status' => 'Archived',
-                    'updated_at' => now(),
-                ]);
+                foreach ($eligible as $item) {
+                    if (Schema::hasColumn('appointments', 'archived_from_status')) $item->archived_from_status = $item->status;
+                    $item->status = 'Archived';
+                    $item->save();
+                }
             }
 
             return $eligibleIds;
         });
 
         if (! $archivedIds) {
-            return response()->json(['message' => 'No completed appointments were found to archive.'], 404);
+            return response()->json(['message' => 'No selected appointments are ready to archive.'], 404);
         }
 
         return response()->json([
@@ -292,8 +300,9 @@ class AppointmentController extends Controller
             $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
             // Repeated submissions are harmless; never act on a related consultation.
             if ($current->status === 'Archived') return $current;
-            abort_unless(strtolower((string) $current->status) === 'completed', 422, 'Only appointments marked as completed can be archived.');
-            AppointmentProducts::protectAppointment($current, true);
+            $state = AppointmentWorkState::for($current, lock: true);
+            abort_unless($state['can_archive'], 422, $state['archive_blocked_reason']);
+            if (Schema::hasColumn('appointments', 'archived_from_status')) $current->archived_from_status = $current->status;
             $current->status = 'Archived';
             $current->save();
             return $current;
@@ -310,8 +319,16 @@ class AppointmentController extends Controller
         if ($denied = $this->ensureAdminOrStaff($request)) {
             return $denied;
         }
-        $appointment->status = AppointmentProducts::jobFor($appointment) ? 'Completed' : 'Pending';
-        $appointment->save();
+        $appointment = DB::transaction(function () use ($appointment) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            if ($current->status !== 'Archived') return $current;
+            $current->status = AppointmentProducts::jobFor($current) ? ($current->archived_from_status ?: 'Completed') : 'Pending';
+            if (Schema::hasColumn('appointments', 'archived_from_status')) $current->archived_from_status = null;
+            if ($current->status === 'Pending' && Schema::hasColumn('appointments', 'consultation_completed_at')) $current->consultation_completed_at = null;
+            $current->save();
+            return $current;
+        });
 
         return response()->json([
             'message' => 'Appointment restored successfully.',
@@ -325,14 +342,18 @@ class AppointmentController extends Controller
             return $denied;
         }
 
-        $appointment = DB::transaction(function () use ($appointment) {
+        $data = $request->validate(['expected_schedule_version' => 'sometimes|integer|min:0']);
+        $changed = false;
+        $appointment = DB::transaction(function () use ($appointment, $data, &$changed) {
             AppointmentScheduling::lock();
             $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
-            AppointmentConsultations::completeLocked($current);
+            abort_if(isset($data['expected_schedule_version']) && $current->schedule_version !== (int) $data['expected_schedule_version'], 409,
+                'The consultation schedule changed. Refresh its details before confirming.');
+            $changed = AppointmentConsultations::completeLocked($current, true);
             return $current;
         });
 
-        AppointmentConsultations::notifyCompleted($appointment);
+        if ($changed) AppointmentConsultations::notifyCompleted($appointment);
 
         return response()->json([
             'message' => 'Appointment marked as completed.',
@@ -713,6 +734,9 @@ class AppointmentController extends Controller
         }];
         if ($private) {
             $job=AppointmentProducts::jobFor($appointment);
+            if (in_array(auth()->user()?->role, self::ALLOWED_ADMIN_ROLES, true)) {
+                $extra += AppointmentWorkState::for($appointment, $job);
+            }
             $extra['custom_product']=$job ? AppointmentProducts::present($job) : ($appointment->getAttribute('product_job_id') ? ['id'=>$appointment->product_job_id,'unavailable'=>true,'stage'=>'Custom-product details unavailable'] : null);
             $extra['custom_products_available']=AppointmentProducts::enabled();
             $files = AppointmentFiles::records($appointment->id);

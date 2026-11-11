@@ -11,6 +11,51 @@
   const link = path => window.FMRCApp?.url(path) || path;
   const icon = '<span class="ap-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/></svg></span>';
   const contexts = new Map();
+  const scrollContainer = node => {
+    for(let parent=node?.parentElement;parent&&parent!==document.body;parent=parent.parentElement) {
+      if(/auto|scroll/.test(getComputedStyle(parent).overflowY))return parent;
+    }
+    return null;
+  };
+  const revealSection = (root,target) => {
+    if(!target)return;
+    cancelAnimationFrame(root.apRevealFrame);
+    root.apRevealFrame=requestAnimationFrame(()=>{
+      if(!target.isConnected)return;
+      const host=root.closest('.modal-body-scroll')||scrollContainer(target);
+      const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';
+      if(host){const top=host.scrollTop+target.getBoundingClientRect().top-host.getBoundingClientRect().top-16;host.scrollTo({top:Math.max(0,Math.min(top,host.scrollHeight-host.clientHeight)),behavior});}
+      else if(!team)target.scrollIntoView({block:'start',behavior});
+      if(!target.matches('summary,button,input,select,textarea,a'))target.tabIndex=-1;
+      target.focus({preventScroll:true});
+    });
+  };
+  const positionOptions = (wrap,input,list) => {
+    const host=scrollContainer(input),bounds=host?.getBoundingClientRect()||{top:0,bottom:innerHeight};
+    const viewport=window.visualViewport,top=Math.max(bounds.top,viewport?.offsetTop||0),bottom=Math.min(bounds.bottom,viewport?viewport.offsetTop+viewport.height:innerHeight),rect=input.getBoundingClientRect();
+    const below=bottom-rect.bottom-10,above=rect.top-top-10,up=below<180&&above>below;
+    const confined=!!input.closest('.modal-body-scroll');
+    const height=Math.max(confined?0:44,Math.min(232,up?above:below));
+    wrap.classList.toggle('is-above',up);list.style.maxHeight=height+'px';
+    return !confined||(height>=24&&rect.bottom>top&&rect.top<bottom);
+  };
+  const revealOption = (list,option) => {
+    const bounds=list.getBoundingClientRect(),rect=option.getBoundingClientRect(),top=bounds.top+list.clientTop,bottom=top+list.clientHeight;
+    if(rect.top<top)list.scrollTop+=rect.top-top;
+    else if(rect.bottom>bottom)list.scrollTop+=rect.bottom-bottom;
+  };
+  const revealQuotation = (ctx,mode='view') => {
+    const {root,job}=ctx;
+    root.querySelector('[data-ap-tab="1"]')?.click();
+    const editor=root.querySelector('[data-ap-quotation-editor]');
+    if(mode==='prepare'&&editor){editor.open=true;revealSection(root,editor.querySelector('summary'));return;}
+    const quotes=[...job.quotations].sort((a,b)=>Number(b.version)-Number(a.version));
+    const current=quotes.find(q=>['sent','accepted','closing'].includes(q.state))||quotes[0];
+    const record=current&&root.querySelector(`[data-ap-quotation-record="${CSS.escape(String(current.id))}"]`);
+    if(record){for(let node=record.parentElement;node&&node!==root;node=node.parentElement)if(node.matches('details'))node.open=true;revealSection(root,record.querySelector('h4')||record);}
+    else if(editor){editor.open=true;revealSection(root,editor.querySelector('summary'));}
+    else revealSection(root,root.querySelector('[data-ap-pane="1"]'));
+  };
   const orderActionLocks = new Set();
   let availability, availabilityLoadedAt=0, availabilityPending, bookingDraft = null, bookingKey = uid(), bookingFinish = '', uploaded = new Set(), draftBusy = false, signingIn = false;
   const numberLimits = {quantity:[1,100000,1],unit_price:[0.01,100000,0.01],shipping_fee:[0,100000,0.01],budget:[0,10000000,0.01]};
@@ -72,15 +117,11 @@
     const message=(state,text)=>{state.note=text;state.status.textContent=text;state.status.removeAttribute('data-ap-count');};
     const check=state=>state.input.setCustomValidity(state.input.value===state.value.value&&state.value.value?'':'Choose a '+(state.key==='city'?'city or municipality':state.key)+' from the list.');
     const close=state=>{state.wrap.classList.remove('open');state.list.hidden=true;state.input.value=state.value.value;state.input.setAttribute('aria-expanded','false');state.input.removeAttribute('aria-activedescendant');state.active=-1;message(state,state.note||'');check(state);};
-    const position=state=>{
-      const viewport=form.closest('.modal-body-scroll')?.getBoundingClientRect()||{top:0,bottom:innerHeight},r=state.input.getBoundingClientRect();
-      const below=Math.min(viewport.bottom,innerHeight)-r.bottom-10,above=r.top-Math.max(viewport.top,0)-10,up=below<160&&above>below;
-      state.wrap.classList.toggle('is-above',up);state.list.style.maxHeight=Math.max(80,Math.min(232,up?above:below))+'px';
-    };
+    const position=state=>{if(!positionOptions(state.wrap,state.input,state.list))close(state);};
     const activate=(state,index)=>{
       const options=[...state.list.querySelectorAll('[role=option]')];state.active=options.length?(index+options.length)%options.length:-1;
       options.forEach((option,i)=>option.classList.toggle('is-active',i===state.active));
-      if(state.active<0)state.input.removeAttribute('aria-activedescendant');else{state.input.setAttribute('aria-activedescendant',options[state.active].id);options[state.active].scrollIntoView({block:'nearest'});}
+      if(state.active<0)state.input.removeAttribute('aria-activedescendant');else{state.input.setAttribute('aria-activedescendant',options[state.active].id);revealOption(state.list,options[state.active]);}
     };
     const open=(state,query='')=>{
       if(state.input.disabled)return;states.forEach(other=>{if(other!==state)close(other);});
@@ -140,6 +181,8 @@
     document.addEventListener('pointerdown',event=>states.forEach(state=>{if(!state.wrap.contains(event.target))close(state);}),{signal});
     form.closest('.modal-body-scroll')?.addEventListener('scroll',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
     window.addEventListener('resize',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
+    window.visualViewport?.addEventListener('resize',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
+    window.visualViewport?.addEventListener('scroll',()=>states.forEach(state=>{if(!state.list.hidden)position(state);}),{signal});
     const fee=form.elements.shipping_fee;let deliveryFee=fee.value||'0';
     const sync=()=>{
       const shown=delivery();form.querySelector('[data-ap-delivery]').hidden=!shown;
@@ -191,13 +234,8 @@
       for(const wrap of grid.querySelectorAll('[data-ap-suggest]')) {
         const input=wrap.querySelector('input'),toggle=wrap.querySelector('button'),list=wrap.querySelector('[role=listbox]');let active=-1;
         const close=()=>{list.hidden=true;wrap.classList.remove('is-open');input.setAttribute('aria-expanded','false');toggle.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;};
-        const position=()=>{
-          const rect=input.getBoundingClientRect(),scroll=wrap.closest('.modal-body-scroll,.appointment-content,.apt-overlay'),bounds=scroll?.getBoundingClientRect()||{top:0,bottom:innerHeight};
-          const viewport=window.visualViewport,bottom=Math.min(bounds.bottom,viewport?viewport.offsetTop+viewport.height:innerHeight),top=Math.max(bounds.top,viewport?.offsetTop||0);
-          const below=bottom-rect.bottom-8,above=rect.top-top-8,up=below<180&&above>below;
-          wrap.classList.toggle('is-above',up);list.style.maxHeight=Math.max(44,Math.min(232,up?above:below))+'px';
-        };
-        const activate=index=>{const options=[...list.querySelectorAll('[role=option]')];active=options.length?(index+options.length)%options.length:-1;options.forEach((o,i)=>o.classList.toggle('is-active',i===active));if(active>=0){input.setAttribute('aria-activedescendant',options[active].id);options[active].scrollIntoView({block:'nearest'});}else input.removeAttribute('aria-activedescendant');};
+        const position=()=>{if(!positionOptions(wrap,input,list))close();};
+        const activate=index=>{const options=[...list.querySelectorAll('[role=option]')];active=options.length?(index+options.length)%options.length:-1;options.forEach((o,i)=>o.classList.toggle('is-active',i===active));if(active>=0){input.setAttribute('aria-activedescendant',options[active].id);revealOption(list,options[active]);}else input.removeAttribute('aria-activedescendant');};
         const choose=value=>{input.value=value;if(value==='I need advice')advice();close();input.dispatchEvent(new Event('input',{bubbles:true}));close();input.dispatchEvent(new Event('change',{bubbles:true}));input.focus({preventScroll:true});};
         const open=(queryText=input.value)=>{
           if(input.disabled)return;
@@ -447,7 +485,7 @@
     if(closed)current=-1;
     const steps=['Review request','Confirm consultation','Prepare quotation','Await customer approval','Confirm payment','Prepare product','Complete pickup or delivery'];
     const action=order?`<a class="ap-btn" data-ap-open-order href="${esc(teamPage('orders')+'?order_id='+encodeURIComponent(order.id)+'&order_action='+nextOrderAction(order))}">Open order ${esc(order.order_no)}</a>`:
-      closed?'':current<2?button('Confirm consultation','data-ap-go-outcome'):button(current===2?'Prepare quotation':'View quotation','data-ap-go-quote');
+      closed?'':current<2?button('Confirm consultation','data-ap-go-outcome'):button(current===2?'Prepare quotation':'View quotation',`data-ap-go-quote="${current===2?'prepare':'view'}"`);
     return `<section class="ap-workflow" aria-label="Custom-product steps"><div class="ap-workflow-heading"><h4>Custom-product steps</h4><span class="ap-badge">${closed?'Request closed':current===7?'All steps complete':'Step '+(current+1)+' of 7'}</span></div><ol>${steps.map((label,i)=>`<li class="${i<current?'is-done':i===current?'is-current':''}" ${i===current?'aria-current="step"':''}><span class="ap-step-number" aria-hidden="true">${i<current?'✓':i+1}</span><span>${label}</span></li>`).join('')}</ol><div class="ap-next-action"><p>${esc(order?'Continue payment, production, or fulfillment in Orders.':closed?'Request history remains available.':current<2?'Save the attended consultation and customer summary.':current===2?'Confirm the design, price, and fulfillment details.':'The customer can review and approve the quotation.')}</p>${action}</div></section>`;
   };
 
@@ -477,13 +515,13 @@
         <details><summary>Activity history</summary>${job.activity.map(a=>`<p>${esc(a.description)}<br><small>${esc(date(a.created_at))}</small></p>`).join('')||'<p>No updates yet.</p>'}</details>
       </section>
       <section role="tabpanel" id="ap-pane-${ctx.key}-1" aria-labelledby="ap-tab-${ctx.key}-1" data-ap-pane="1" ${ctx.tab!==1?'hidden':''}>
-        ${job.quotations.length?job.quotations.map(q=>`<article class="ap-message"><div class="ap-head"><div><h4>Quotation ${q.version}</h4><small>Sent ${esc(date(q.sent_at))} · Expires ${esc(date(q.expires_at))}</small></div><span class="ap-badge">${esc(q.state==='sent'&&Date.parse(q.expires_at)<=Date.now()?'Expired':({sent:'Awaiting approval',accepted:'Accepted',closing:'Checking payment',superseded:'Replaced',expired:'Expired'})[q.state]||q.state)}</span></div>
+        ${job.quotations.length?job.quotations.map(q=>`<article class="ap-message" data-ap-quotation-record="${q.id}"><div class="ap-head"><div><h4>Quotation ${q.version}</h4><small>Sent ${esc(date(q.sent_at))} · Expires ${esc(date(q.expires_at))}</small></div><span class="ap-badge">${esc(q.state==='sent'&&Date.parse(q.expires_at)<=Date.now()?'Expired':({sent:'Awaiting approval',accepted:'Accepted',closing:'Checking payment',superseded:'Replaced',expired:'Expired'})[q.state]||q.state)}</span></div>
           ${specs(q.agreement.specifications,[],job.service_name)}<p><strong>Design proof:</strong> ${esc(q.agreement.design_notes)}</p>
           ${fileList(job.files.filter(f=>q.agreement.proof_file_ids.includes(f.id)),'No separate proof files. Refer to the design description above.')}
           <dl class="ap-summary"><div><dt>Unit price × quantity</dt><dd>${money(q.agreement.unit_price)} × ${q.agreement.specifications.quantity}</dd></div><div><dt>Product subtotal</dt><dd>${money(q.agreement.product_subtotal)}</dd></div><div><dt>Shipping</dt><dd>${money(q.agreement.shipping_fee)}</dd></div><div><dt>Total</dt><dd><strong>${money(q.agreement.total)}</strong></dd></div><div><dt>Production lead time</dt><dd>${esc(q.agreement.lead_time)}</dd></div><div><dt>Fulfillment</dt><dd>${q.agreement.fulfillment_type==='pickup'?'Pickup at FMRC':'J&T delivery'}${q.agreement.fulfillment_type==='delivery'?'<br>'+Object.values(q.agreement.delivery).map(esc).join(', '):''}</dd></div></dl>
           ${!admin&&q.state==='sent'&&Date.parse(q.expires_at)>Date.now()?`<form data-ap-form="accept" data-quote="${q.id}"><div data-ap-policy><p>Loading current transaction terms…</p></div><label class="ap-check ap-approval-check"><input type="checkbox" name="specifications_accepted" required><span>I approve this design, quantity, specifications, price, lead time, and pickup/delivery arrangement.</span></label><div class="ap-grid"><label class="ap-field"><span>Payment method *</span><select name="payment_method"><option value="online" ${job.online_payment_available===false?'disabled':''}>Pay online${job.online_payment_available===false?' (temporarily unavailable)':''}</option><option value="cash" ${job.online_payment_available===false?'selected':''}>Full advance cash payment at FMRC</option></select></label></div><div class="ap-actions"><button type="submit" class="ap-btn" disabled>Approve Quotation</button></div></form>`:''}
         </article>`).join(''):`<p class="ap-help">${esc(quotationHint(ctx))}</p>`}
-        ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Confirm the specifications, design proof, price, and pickup or delivery details before sending.</p><form data-ap-form="quotation">${preferences(job.requirements)}${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<fieldset class="ap-form-section"><legend>Design proof</legend><p class="ap-help">Describe the final design the customer will approve. Add its proof files below when available.</p><div class="ap-grid">${field('design_notes','Design confirmation',current?.agreement.design_notes,'textarea',true,true)}</div></fieldset><div class="ap-grid">${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'number',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'number',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup" ${current?.agreement.fulfillment_type!=='delivery'?'selected':''}>Pickup at FMRC</option><option value="delivery" ${current?.agreement.fulfillment_type==='delivery'?'selected':''}>J&T delivery</option></select></label></div>
+        ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details data-ap-quotation-editor ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Confirm the specifications, design proof, price, and pickup or delivery details before sending.</p><form data-ap-form="quotation">${preferences(job.requirements)}${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<fieldset class="ap-form-section"><legend>Design proof</legend><p class="ap-help">Describe the final design the customer will approve. Add its proof files below when available.</p><div class="ap-grid">${field('design_notes','Design confirmation',current?.agreement.design_notes,'textarea',true,true)}</div></fieldset><div class="ap-grid">${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'number',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'number',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup" ${current?.agreement.fulfillment_type!=='delivery'?'selected':''}>Pickup at FMRC</option><option value="delivery" ${current?.agreement.fulfillment_type==='delivery'?'selected':''}>J&T delivery</option></select></label></div>
           <fieldset class="ap-form-section" data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${field('delivery_recipient_name','Recipient name',current?.agreement.delivery?.delivery_recipient_name,'text',true)}${field('delivery_contact_no','Contact number',current?.agreement.delivery?.delivery_contact_no,'tel',true)}${field('delivery_street','Street / building',current?.agreement.delivery?.delivery_street,'text',true,true)}${placeField('province','Province / Metro Manila',current?.agreement.delivery?.delivery_province,'ap-'+ctx.key+'-province')}${placeField('city','City / municipality',current?.agreement.delivery?.delivery_city,'ap-'+ctx.key+'-city')}${placeField('barangay','Barangay',current?.agreement.delivery?.delivery_barangay,'ap-'+ctx.key+'-barangay')}${field('delivery_postal_code','Postal code',current?.agreement.delivery?.delivery_postal_code,'text',true)}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
           ${job.files.length?`<fieldset class="ap-form-section"><legend>Design proofs included in the quotation</legend><div class="ap-proof-options">${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</div></fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
       </section>
@@ -500,8 +538,8 @@
       const orderLink=event.target.closest('[data-ap-open-order],.ap-linked-orders a');
       if(orderLink){event.preventDefault();if(await allowLeave(root))location.href=orderLink.href;return;}
       if(event.target.closest('[data-ap-go-conversation]')){root.querySelector('[data-ap-tab="2"]').click();return;}
-      if(event.target.closest('[data-ap-go-outcome]')){root.querySelector('[data-ap-tab="0"]').click();const section=root.querySelector('[data-ap-outcome]');if(section){section.open=true;section.scrollIntoView({block:'nearest',behavior:'smooth'});section.querySelector('select')?.focus({preventScroll:true});}return;}
-      if(event.target.closest('[data-ap-go-quote]')){root.querySelector('[data-ap-tab="1"]').click();return;}
+      if(event.target.closest('[data-ap-go-outcome]')){root.querySelector('[data-ap-tab="0"]').click();const section=root.querySelector('[data-ap-outcome]');if(section){section.open=true;revealSection(root,section.querySelector('summary'));}return;}
+      const quotationAction=event.target.closest('[data-ap-go-quote]');if(quotationAction){revealQuotation(ctx,quotationAction.dataset.apGoQuote||'view');return;}
       const tab=event.target.closest('[data-ap-tab]');if(tab){ctx.tab=Number(tab.dataset.apTab);root.querySelectorAll('[data-ap-tab]').forEach(b=>{b.setAttribute('aria-selected',String(Number(b.dataset.apTab)===ctx.tab));b.tabIndex=Number(b.dataset.apTab)===ctx.tab?0:-1;b.classList.toggle('is-secondary',Number(b.dataset.apTab)!==ctx.tab);});root.querySelectorAll('[data-ap-pane]').forEach(p=>p.hidden=Number(p.dataset.apPane)!==ctx.tab);return;}
       const file=event.target.closest('[data-ap-file]');if(file){file.disabled=true;try{await download(job.id,job.files.find(f=>f.id===Number(file.dataset.apFile)),admin);}catch(e){await popup(e.message,'File unavailable');}finally{file.disabled=false;}return;}
       if(event.target.closest('[data-ap-latest]')&&await allowLeave(root)){ctx.job=ctx.latest||ctx.job;ctx.latest=null;await paint(ctx);}
@@ -561,6 +599,7 @@
       if(result.appointment?.id===ctx.appointment.id)ctx.appointment=result.appointment;
       ctx.job=result.data;ctx.latest=null;await paint(ctx);rootFocus(ctx.root);window.dispatchEvent(new CustomEvent('fmrc:custom-product-updated',{detail:{job:result.data}}));
       if(result.appointment)window.dispatchEvent(new CustomEvent('fmrc:appointment-updated',{detail:{appointment:result.appointment}}));
+      if(action==='outcome'&&values.outcome==='ready_for_quote')revealQuotation(ctx,'prepare');
       if(ctx.admin&&action==='outcome')window.showAdminSuccessNotification?.('Consultation outcome saved.',{title:'Saved'});else await popup(result.message||'Changes saved.','Saved');
       if(result.order_id)location.href=link('/home-page/?orders=1&order_id='+result.order_id);
     }catch(e){await popup(e.message,'Action not completed');form.querySelector('input,textarea,select')?.focus();}

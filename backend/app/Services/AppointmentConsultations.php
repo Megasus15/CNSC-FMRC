@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Support\OrderNotifier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 final class AppointmentConsultations
 {
@@ -17,6 +18,9 @@ final class AppointmentConsultations
         abort_if(in_array(strtolower($appointment->status), ['completed', 'cancelled', 'archived'], true), 422,
             'This consultation cannot be marked as done.');
         $appointment->status = 'Completed';
+        if (Schema::hasColumn('appointments', 'consultation_completed_at')) {
+            $appointment->consultation_completed_at = now();
+        }
         $appointment->save();
 
         return true;
@@ -26,7 +30,11 @@ final class AppointmentConsultations
     {
         $email = trim((string) $appointment->email);
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) return;
-        OrderNotifier::afterResponse(function () use ($email, $appointment) {
+        $sent = false;
+        OrderNotifier::afterResponse(function () use ($email, $appointment, &$sent) {
+            // A long-lived application may invoke termination more than once.
+            if ($sent) return;
+            $sent = true;
             try {
                 Mail::to($email)->send(new AppointmentCompleted($appointment));
                 Log::info('[APPT EMAIL] Sent AppointmentCompleted | Ref: '.$appointment->reference_no);

@@ -389,6 +389,7 @@ class ArchiveController extends Controller
         $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
 
         $restoredIds = DB::transaction(function () use ($module, $ids): array {
+            if ($module === 'appointment') \App\Services\AppointmentScheduling::lock();
             $now = now();
             $query = match ($module) {
                 'inventory' => InventoryItem::query()->whereIn('id', $ids)->where('is_archived', true),
@@ -425,9 +426,16 @@ class ArchiveController extends Controller
                 ],
             };
 
-            $query->whereIn('id', $eligibleIds)->update($updates);
-            if ($module==='appointment' && Schema::hasColumn('appointments','product_job_id')) {
-                Appointment::whereIn('id',$eligibleIds)->whereNotNull('product_job_id')->update(['status'=>'Completed']);
+            if ($module === 'appointment') {
+                foreach (Appointment::whereIn('id', $eligibleIds)->where('status', 'Archived')->lockForUpdate()->get() as $appointment) {
+                    $custom = \App\Services\AppointmentProducts::jobFor($appointment);
+                    $appointment->status = $custom ? ($appointment->archived_from_status ?: 'Completed') : 'Pending';
+                    if (Schema::hasColumn('appointments', 'archived_from_status')) $appointment->archived_from_status = null;
+                    if (!$custom && Schema::hasColumn('appointments', 'consultation_completed_at')) $appointment->consultation_completed_at = null;
+                    $appointment->save();
+                }
+            } else {
+                $query->whereIn('id', $eligibleIds)->update($updates);
             }
 
             return $eligibleIds;

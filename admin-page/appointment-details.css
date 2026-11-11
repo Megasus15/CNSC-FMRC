@@ -1,4 +1,13 @@
 /* Shared Appointment Details layout for Admin and Staff. */
+html.appointment-details-open, html.appointment-details-open body { overflow: hidden !important; overscroll-behavior: none; }
+html.appointment-details-open { scrollbar-gutter: stable; }
+#modalViewAppointment { overscroll-behavior: contain; }
+#modalCompleteAppointment .appt-attendance-confirm { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; font: inherit; line-height: 1.6; cursor: pointer; }
+#modalCompleteAppointment .appt-attendance-confirm input { width: 18px; height: 18px; flex-shrink: 0; margin-top: 3px; accent-color: var(--primary-color, #800000); }
+#modalCompleteAppointment .appt-attendance-confirm input:focus-visible { outline: 2px solid var(--primary-color, #800000); outline-offset: 3px; }
+#modalViewAppointment .appointment-archive-help { flex: 1 1 200px; align-self: center; margin: 0; font-size: .74rem; line-height: 1.6; color: var(--text-muted, #6b7280); }
+#modalViewAppointment .appointment-archive-help:empty { display: none; }
+@media (max-width: 700px) { #modalViewAppointment .appointment-archive-help { flex-basis: 100%; } }
 #modalViewAppointment .appointment-view-modal { width: min(840px, 100%); max-width: 840px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 14px; }
 #modalViewAppointment .appointment-view-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-shrink: 0; padding: 22px 26px; border-bottom: 1px solid var(--border-color, #e3e8ef); }
 #modalViewAppointment .appointment-view-eyebrow { color: var(--text-muted, #6b7280); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; margin: 0 0 6px; }

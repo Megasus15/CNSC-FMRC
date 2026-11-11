@@ -265,8 +265,10 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringContainsString('const sortAccountsForTable', $accountsJs);
         $this->assertStringContainsString('state.users = sortAccountsForTable(', $accountsJs);
 
-        // Appointments keeps Completed grouped last, newest-first within groups.
-        $this->assertStringContainsString('const tsB = toTimestamp(b?.created_at', $appointmentsJs);
+        // Appointment grouping follows the full server-derived work state;
+        // a finished consultation can still have an active custom order.
+        $this->assertStringContainsString("item.list_group === 'closed'", $appointmentsJs);
+        $this->assertStringContainsString('item.work_closed_at', $appointmentsJs);
     }
 
     public function test_the_official_letterhead_is_editable_from_both_reports_pages(): void

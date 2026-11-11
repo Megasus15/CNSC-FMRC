@@ -2,7 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
 for(const portal of ['admin','staff'])test(portal+' archives only the frozen selection and renders compact rows',{skip:!chrome,timeout:90000},async t=>{
-  const records=[54,55,56].map(id=>({id,reference_no:'AP-000'+id,client_name:'Customer '+id,purpose:'3D Printing',contact_number:null,email:'fixture@example.test',full_address:'N/A',client_type:'Student',appointment_date:'2026-11-09',appointment_time:'9:00 - 10:00 AM',status:id===56?'Archived':'Completed',attachments:[],additional_notes:null,custom_product:{id:71,revision:0,stage:'Custom request cancelled',requirements:{name:'Large custom product name'},orders:[]}}));
+  const records=[54,55,56].map(id=>({id,reference_no:'AP-000'+id,client_name:'Customer '+id,purpose:'3D Printing',contact_number:null,email:'fixture@example.test',full_address:'N/A',client_type:'Student',appointment_date:'2026-11-09',appointment_time:'9:00 - 10:00 AM',status:id===56?'Archived':'Completed',can_archive:id!==56,list_group:'closed',work_closed_at:null,archive_blocked_reason:null,attachments:[],additional_notes:null,custom_product:{id:71,revision:0,stage:'Custom request cancelled',requirements:{name:'Large custom product name'},orders:[]}}));
   const archived=[];let release,holdNextRead=false,releaseRead;
   const h=await browserFixture(t,async({req,route,json})=>{
     if(route==='/api/appointment-products/availability'){json({data:{enabled:true}});return true;}
