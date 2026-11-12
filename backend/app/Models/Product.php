@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Product extends Model
 {
@@ -40,11 +41,23 @@ class Product extends Model
         'details_chips'  => 'array',
         'availability'   => 'array',
         'recommended_for'=> 'array',
+        'media_managed' => 'boolean',
+        'media_revision' => 'integer',
     ];
 
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function mediaItems(): HasMany
+    {
+        return $this->hasMany(ProductMediaAsset::class)->whereNotNull('published_at')->orderBy('position')->orderBy('id');
+    }
+
+    public function coverMedia(): BelongsTo
+    {
+        return $this->belongsTo(ProductMediaAsset::class, 'cover_media_id');
     }
 
     public function ratings(): HasMany

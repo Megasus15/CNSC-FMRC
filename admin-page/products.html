@@ -795,7 +795,8 @@
     <script src="admin-form-controls.js?v=1.0" defer></script>
 
 
-</head>
+<link rel="stylesheet" href="../products-page/product-gallery.css?v=2026.1112.1" />
+  </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -1408,19 +1409,7 @@
               </div>
             </div>
 
-            <div class="field-stack full">
-              <label>Upload Image</label>
-              <div class="upload-area" id="addUploadArea">
-                <div class="upload-area-icon">
-                  <i class="fa-regular fa-image"></i>
-                </div>
-                <div class="upload-area-text">
-                  <strong id="addUploadLabel">Click to choose an image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
-                </div>
-                <input type="file" id="addProductPhoto" accept="image/*" />
-              </div>
-            </div>
+            <div class="field-stack full" id="addProductMediaEditor"></div>
           </div>
 
           <p class="modal-section-title" style="margin-top: 22px">
@@ -1602,19 +1591,7 @@
               </p>
             </div>
 
-            <div class="field-stack full">
-              <label>Upload Image</label>
-              <div class="upload-area" id="editUploadArea">
-                <div class="upload-area-icon">
-                  <i class="fa-regular fa-image"></i>
-                </div>
-                <div class="upload-area-text">
-                  <strong id="editUploadLabel">Click to replace image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
-                </div>
-                <input type="file" id="editProductPhoto" accept="image/*" />
-              </div>
-            </div>
+            <div class="field-stack full" id="editProductMediaEditor"></div>
           </div>
 
           <p class="modal-section-title" style="margin-top: 22px">
@@ -1671,7 +1648,7 @@
             Cancel
           </button>
           <button class="btn-admin" id="btnUpdateProduct" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Update Product
+            <i class="fa-solid fa-floppy-disk"></i> Save Product
           </button>
         </div>
       </div>
@@ -1742,60 +1719,12 @@
       </div>
     </div>
 
-    <!-- ---------------------- PHOTO EDITOR MODAL ---------------------- -->
-    <div
-      class="modal-overlay"
-      id="modalProductPhotoEditor"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card photo-editor-modal">
-        <h3 class="modal-title" style="margin-bottom: 14px">
-          <i class="fa-regular fa-image" style="margin-right: 6px"></i>Edit
-          Image
-        </h3>
-        <div class="photo-editor-canvas-wrap">
-          <img id="productPhotoEditorPreview" alt="Image editor preview" />
-        </div>
-        <div class="photo-editor-sliders">
-          <div class="slider-row">
-            <label for="productPhotoRotate">Rotate</label>
-            <input
-              id="productPhotoRotate"
-              type="range"
-              min="-180"
-              max="180"
-              value="0"
-            />
-            <span class="slider-val" id="rotateVal">0°</span>
-          </div>
-          <div class="slider-row">
-            <label for="productPhotoScale">Resize</label>
-            <input
-              id="productPhotoScale"
-              type="range"
-              min="50"
-              max="200"
-              value="100"
-            />
-            <span class="slider-val" id="scaleVal">100%</span>
-          </div>
-        </div>
-        <div class="modal-actions" style="margin-top: 14px">
-          <button class="btn-admin btn-secondary" id="btnCancelPhotoEdit">
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnApplyProductPhotoEdit" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Save Image
-          </button>
-        </div>
-      </div>
-    </div>
-
     <script src="session-helper.js?v=2.4"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1109.8"></script>
-    <script src="products.js?v=2026.1109.8"></script>
+    <script src="product-media-editor.js?v=2026.1112.1"></script>
+    <script src="products.js?v=2026.1112.1"></script>
     <script src="admin-table-resize.js?v=2026.1109.8" defer></script>
   </body>
 </html>

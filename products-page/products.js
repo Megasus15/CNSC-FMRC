@@ -5,6 +5,7 @@
  */
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL = (() => {
+    if (window.APP_API_BASE_URL) return String(window.APP_API_BASE_URL).replace(/\/+$/, '');
     const proto = window.location.protocol;
     const host = window.location.hostname;
     const port = window.location.port;
@@ -506,7 +507,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return `
       <div class="shop-card" data-product-id="${p.id}">
-        <div class="product-img-wrapper">${discountPercent > 0 ? `<span class="product-discount-badge">${discountPercent}% OFF</span>` : ""}${imgHtml}</div>
+        <div class="product-img-wrapper">${discountPercent > 0 ? `<span class="product-discount-badge">${discountPercent}% OFF</span>` : ""}${imgHtml}${Number(p.media_count) > 1 ? `<span class="product-media-count">${Number(p.media_count)} views</span>` : ""}</div>
         <div class="product-info">
           <span class="product-category-label">${escHtml(p.category || "FMRC PRODUCT")}</span>
           <h3 class="product-name">${escHtml(p.name)}</h3>
@@ -523,7 +524,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="product-actions">
           <button type="button" class="action-btn btn-view-info" data-action="view-info" data-product-id="${p.id}" aria-label="View details for ${productA11yName}" title="View details for ${productA11yName}">
-            ${INFO_SVG}<span class="action-btn-label">View Info</span>
+            ${INFO_SVG}<span class="action-btn-label">View details</span>
           </button>
           <button type="button" class="action-btn btn-add-cart ${disabledClass}" ${disabledAttr} data-action="add-cart" data-product-id="${p.id}" aria-label="Add ${productA11yName} to cart" title="Add ${productA11yName} to cart">
             ${CART_SVG}<span class="action-btn-label">Add to Cart</span>
@@ -593,10 +594,22 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ── Open View Info Modal ─────────────────────────────────────────────────────
+  const productGallery = window.FMRCProductGallery?.create(document.getElementById('productInfoGallery'), {
+    apiBase: API_BASE_URL, expand: media => openLightboxMedia(media),
+  });
+  let productInfoReturnFocus = null;
+  const closeProductInfo = () => {
+    productGallery?.hide();
+    productInfoModal?.classList.remove('show-modal');
+    if (productInfoReturnFocus?.isConnected && productInfoReturnFocus.getClientRects().length) productInfoReturnFocus.focus({preventScroll:true});
+    productInfoReturnFocus = null;
+  };
   const openViewInfo = (product) => {
     if (!productInfoModal) return;
+    if (!productInfoModal.classList.contains('show-modal')) productInfoReturnFocus = document.activeElement;
 
     if (productInfoTitle) productInfoTitle.textContent = product.name;
+    productGallery?.show(product);
     if (productInfoImage) {
       productInfoImage.src = product.image_data || "";
       productInfoImage.style.display = product.image_data ? "" : "none";
@@ -642,7 +655,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? null
         : (e) => {
             if (e) e.preventDefault();
-            productInfoModal.classList.remove("show-modal");
+            closeProductInfo();
             // Delegate to existing cart logic via custom event
             document.dispatchEvent(
               new CustomEvent("product:add-to-cart", { detail: getCustomerPrice(product) }),
@@ -658,7 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? null
         : (e) => {
             if (e) e.preventDefault();
-            productInfoModal.classList.remove("show-modal");
+            closeProductInfo();
             document.dispatchEvent(
               new CustomEvent("product:buy-now", { detail: getCustomerPrice(product) }),
             );
@@ -673,10 +686,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     productInfoModal.classList.add("show-modal");
+    productInfoModal.setAttribute('role','dialog');
+    productInfoModal.setAttribute('aria-modal','true');
+    productInfoModal.setAttribute('aria-labelledby','productInfoTitle');
+    const focusClose = () => {
+      if (productInfoModal.classList.contains('show-modal') && !productInfoModal.contains(document.activeElement)) document.getElementById('closeProductInfoModal')?.focus({preventScroll:true});
+    };
+    setTimeout(focusClose, 60);
+    setTimeout(focusClose, 350); // Retry after the opening transition if the control was still hidden.
   };
 
   closeProductInfoModal?.addEventListener("click", () => {
-    productInfoModal?.classList.remove("show-modal");
+    closeProductInfo();
   });
 
   // Modal: no scrim dismissal — the close X is the way out, with Escape as its
@@ -686,7 +707,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key !== "Escape") return;
     if (!productInfoModal?.classList.contains("show-modal")) return;
     if (document.querySelector("#imageLightboxModal.show-modal")) return;
-    productInfoModal.classList.remove("show-modal");
+    closeProductInfo();
   });
 
   // Lightbox Modal elements
@@ -701,6 +722,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Shared by product images and customer-review media so both use one viewer.
   let lightboxReturnFocus = null;
+  let lightboxGallery = null;
+  const lightboxNavigation = document.createElement('div');
+  lightboxNavigation.className = 'product-lightbox-navigation';
+  lightboxNavigation.hidden = true;
+  lightboxNavigation.innerHTML = '<button type="button" aria-label="Previous gallery media">← Previous</button><button type="button" aria-label="Next gallery media">Next →</button>';
+  imageLightboxModal?.querySelector('.lightbox-box')?.append(lightboxNavigation);
+  lightboxNavigation.children[0].addEventListener('click',()=>lightboxGallery?.previous());
+  lightboxNavigation.children[1].addEventListener('click',()=>lightboxGallery?.next());
 
   const hideLightboxError = () => {
     if (lightboxError) lightboxError.hidden = true;
@@ -720,11 +749,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lightboxError) lightboxError.hidden = false;
   };
 
-  const openLightboxMedia = ({ src, title, type = "image" }) => {
+  const openLightboxMedia = ({ src, title, type = "image", gallery = null }) => {
     if (!imageLightboxModal || !src) return;
     const isVideo = type === "video";
-    lightboxReturnFocus =
+    productGallery?.pause();
+    const opening = !imageLightboxModal.classList.contains('show-modal');
+    if (opening) lightboxReturnFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lightboxGallery = gallery;
+    lightboxNavigation.hidden = !gallery;
 
     hideLightboxError();
 
@@ -762,12 +795,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (lightboxCaption) lightboxCaption.textContent = title || "";
     imageLightboxModal.classList.add("show-modal");
+    imageLightboxModal.setAttribute('role','dialog');
+    imageLightboxModal.setAttribute('aria-modal','true');
+    imageLightboxModal.setAttribute('aria-label','Media preview');
+    if (opening) {
+      const focusClose = () => {
+        if (imageLightboxModal.classList.contains('show-modal') && !imageLightboxModal.contains(document.activeElement)) closeLightboxBtn?.focus({preventScroll:true});
+      };
+      setTimeout(focusClose, 60); setTimeout(focusClose, 350);
+    }
   };
 
   const openLightbox = (src, title) => openLightboxMedia({ src, title });
 
   const closeLightbox = () => {
     imageLightboxModal?.classList.remove("show-modal");
+    lightboxGallery = null;
+    lightboxNavigation.hidden = true;
     if (lightboxVideo) {
       lightboxVideo.onerror = null;
       lightboxVideo.pause?.();
@@ -791,6 +835,19 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   closeLightboxBtn?.addEventListener("click", closeLightbox);
+  document.addEventListener('keydown', event => {
+    const lightboxOpen = imageLightboxModal?.classList.contains('show-modal');
+    const modal = lightboxOpen ? imageLightboxModal : productInfoModal?.classList.contains('show-modal') ? productInfoModal : null;
+    if (!modal) return;
+    if (lightboxOpen && lightboxGallery && !event.target.closest('video') && ['ArrowLeft','ArrowRight'].includes(event.key)) {
+      event.preventDefault(); lightboxGallery[event.key === 'ArrowLeft' ? 'previous' : 'next']();
+    }
+    if (event.key !== 'Tab') return;
+    const controls = [...modal.querySelectorAll('button:not(:disabled),a[href],video[controls],[tabindex="0"]')].filter(element=>element.getClientRects().length);
+    const first=controls[0],last=controls.at(-1);
+    if (event.shiftKey && (document.activeElement===first || !modal.contains(document.activeElement))) {event.preventDefault();last?.focus();}
+    else if (!event.shiftKey && (document.activeElement===last || !modal.contains(document.activeElement))) {event.preventDefault();first?.focus();}
+  });
 
   // No scrim dismissal by design — on this site modals close only from their own
   // controls (see the note at main.js:11415). The X button above and the Escape
@@ -855,6 +912,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgEl = target.closest(".product-img-wrapper img");
     if (imgEl && imgEl instanceof HTMLImageElement && imgEl.src) {
       const card = target.closest(".shop-card");
+      const product = allProducts.find(item => String(item.id) === card?.dataset.productId);
+      if (product && Number(product.media_count) > 1) { openViewInfo(product); return; }
       const nameEl = card?.querySelector(".product-name");
       openLightbox(imgEl.src, nameEl?.textContent?.trim() || "Product Image");
       return;
