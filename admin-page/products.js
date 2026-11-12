@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalEdit = document.getElementById("modalEditProduct");
   const modalView = document.getElementById("modalViewProduct");
   const modalDelete = document.getElementById("modalDeleteProduct");
+  const modalPhotoEditor = document.getElementById("modalProductPhotoEditor");
 
   // Add form fields
   const addCategory = document.getElementById("addProductCategory");
@@ -107,6 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const addBlocked = document.getElementById("addProductBlocked");
   const addBlockRow = document.getElementById("addBlockToggleRow");
   const addBlockLabel = document.getElementById("addBlockLabel");
+  const addPhoto = document.getElementById("addProductPhoto");
+  const addUploadArea = document.getElementById("addUploadArea");
+  const addUploadLabel = document.getElementById("addUploadLabel");
   const addSummary = document.getElementById("addProductSummary");
   const addChips = document.getElementById("addProductChips");
   const addAvailability = document.getElementById("addProductAvailability");
@@ -122,10 +126,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const editBlocked = document.getElementById("editProductBlocked");
   const editBlockRow = document.getElementById("editBlockToggleRow");
   const editBlockLabel = document.getElementById("editBlockLabel");
+  const editPhoto = document.getElementById("editProductPhoto");
+  const editUploadArea = document.getElementById("editUploadArea");
+  const editUploadLabel = document.getElementById("editUploadLabel");
   const editSummary = document.getElementById("editProductSummary");
   const editChips = document.getElementById("editProductChips");
   const editAvailability = document.getElementById("editProductAvailability");
   const editRecommended = document.getElementById("editProductRecommended");
+
+  // Photo editor
+  const photoEditorPreview = document.getElementById(
+    "productPhotoEditorPreview",
+  );
+  const photoRotate = document.getElementById("productPhotoRotate");
+  const photoScale = document.getElementById("productPhotoScale");
+  const rotateVal = document.getElementById("rotateVal");
+  const scaleVal = document.getElementById("scaleVal");
+  const btnApplyPhotoEdit = document.getElementById("btnApplyProductPhotoEdit");
+  const btnCancelPhotoEdit = document.getElementById("btnCancelPhotoEdit");
 
   // Delete modal
   const deleteTargetLabel = document.getElementById("deleteProductTargetLabel");
@@ -143,16 +161,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let productPerformancePage = 1;
   let productBulkController = null;
   let activeProductId = null;
+  let activePhotoData = ""; // final edited image data URL
+  let photoEditSource = "add"; // "add" or "edit"
   let addProductDiscardGuard = null;
   let editProductDiscardGuard = null;
-  let addMediaEditor = null;
-  let editMediaEditor = null;
-  addMediaEditor = window.FMRCProductMediaEditor?.create(document.getElementById('addProductMediaEditor'), {
-    apiBase: API_BASE_URL, token, onChange: () => { if (btnSaveProduct) btnSaveProduct.disabled = !!addMediaEditor?.busy; },
-  });
-  editMediaEditor = window.FMRCProductMediaEditor?.create(document.getElementById('editProductMediaEditor'), {
-    apiBase: API_BASE_URL, token, onChange: () => { if (btnUpdateProduct) btnUpdateProduct.disabled = !!editMediaEditor?.busy; },
-  });
+  let photoDiscardGuard = null;
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const openModal = (m) => m?.classList.add("show");
@@ -340,6 +353,14 @@ document.addEventListener("DOMContentLoaded", () => {
     updateAddProductTriggerLabel();
   };
 
+  const fileToDataUrl = (file) =>
+    new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result || ""));
+      r.onerror = () => rej(new Error("Failed to read file"));
+      r.readAsDataURL(file);
+    });
+
   const linesToArray = (text) =>
     (text || "")
       .split("\n")
@@ -398,6 +419,159 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   syncBlockToggle(addBlocked, addBlockRow, addBlockLabel);
   syncBlockToggle(editBlocked, editBlockRow, editBlockLabel);
+
+  // ─── Upload Area click-through ───────────────────────────────────────────────
+  addUploadArea?.addEventListener("click", () => addPhoto?.click());
+  editUploadArea?.addEventListener("click", () => editPhoto?.click());
+
+  const closePhotoEditor = () => {
+    closeModal(modalPhotoEditor);
+    if (photoEditSource === "add" && addPhoto) addPhoto.value = "";
+    if (photoEditSource === "edit" && editPhoto) editPhoto.value = "";
+  };
+
+  const getPhotoEditorSnapshot = () => ({
+    source: photoEditSource,
+    preview: String(photoEditorPreview?.src || ""),
+    rotate: String(photoRotate?.value || ""),
+    scale: String(photoScale?.value || ""),
+  });
+
+  photoDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getPhotoEditorSnapshot,
+    close: closePhotoEditor,
+  });
+
+  // ─── Photo Selection → validate aspect ratio and open editor ─────────────────
+  const handlePhotoSelect = async (input, source) => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      window.showAdminPopup?.("Please select a valid image file.", {
+        title: "Invalid File",
+      });
+      input.value = "";
+      return;
+    }
+
+    // Validate 1:1 aspect ratio
+    const img = new Image();
+    const dataUrl = await fileToDataUrl(file);
+    img.src = dataUrl;
+
+    await new Promise((resolve) => {
+      if (img.complete) resolve(null);
+      else img.onload = resolve;
+    });
+
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    const aspectRatio = width / height;
+
+    // Check if aspect ratio is 1:1 (allow very small tolerance like 0.99 to 1.01)
+    if (Math.abs(aspectRatio - 1) > 0.01) {
+      window.showAdminPopup?.(
+        `Image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
+        { title: "Invalid Image Dimensions" },
+      );
+      input.value = "";
+      return;
+    }
+
+    photoEditSource = source;
+    photoEditorPreview.src = dataUrl;
+    if (photoRotate) {
+      photoRotate.value = "0";
+      rotateVal.textContent = "0°";
+    }
+    if (photoScale) {
+      photoScale.value = "100";
+      scaleVal.textContent = "100%";
+    }
+    applyEditorTransform();
+    photoDiscardGuard?.capture();
+    openModal(modalPhotoEditor);
+  };
+
+  addPhoto?.addEventListener("change", (e) =>
+    handlePhotoSelect(e.target, "add"),
+  );
+  editPhoto?.addEventListener("change", (e) =>
+    handlePhotoSelect(e.target, "edit"),
+  );
+
+  // ─── Photo Editor Sliders ────────────────────────────────────────────────────
+  const applyEditorTransform = () => {
+    const r = Number(photoRotate?.value || 0);
+    const s = Number(photoScale?.value || 100) / 100;
+    if (photoEditorPreview) {
+      photoEditorPreview.style.transform = `rotate(${r}deg) scale(${s})`;
+    }
+    if (rotateVal) rotateVal.textContent = `${r}°`;
+    if (scaleVal) scaleVal.textContent = `${Number(photoScale?.value || 100)}%`;
+  };
+
+  photoRotate?.addEventListener("input", applyEditorTransform);
+  photoScale?.addEventListener("input", applyEditorTransform);
+
+  // ─── Render to canvas → save image ───────────────────────────────────────────
+  const renderToCanvas = () =>
+    new Promise((resolve) => {
+      const src = photoEditorPreview?.src;
+      if (!src) return resolve("");
+      const img = new Image();
+      img.src = src;
+      const doRender = () => {
+        const rotateDeg = Number(photoRotate?.value || 0);
+        const scale = Number(photoScale?.value || 100) / 100;
+        const rotateRad = (rotateDeg * Math.PI) / 180;
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        const cos = Math.abs(Math.cos(rotateRad));
+        const sin = Math.abs(Math.sin(rotateRad));
+        const rw = Math.ceil((w * cos + h * sin) * scale);
+        const rh = Math.ceil((w * sin + h * cos) * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = rw;
+        canvas.height = rh;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve("");
+        ctx.translate(rw / 2, rh / 2);
+        ctx.rotate(rotateRad);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, -w / 2, -h / 2);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      if (img.complete) {
+        doRender();
+      } else {
+        img.onload = doRender;
+      }
+    });
+
+  btnApplyPhotoEdit?.addEventListener("click", async () => {
+    const dataUrl = await renderToCanvas();
+    if (!dataUrl) return;
+    activePhotoData = dataUrl;
+    closePhotoEditor();
+    photoDiscardGuard?.clear();
+    // Update upload area UI
+    const area = photoEditSource === "add" ? addUploadArea : editUploadArea;
+    const label = photoEditSource === "add" ? addUploadLabel : editUploadLabel;
+    area?.classList.add("has-image");
+    if (label) label.textContent = "Image selected & edited ✓";
+    // Reset file input
+    if (photoEditSource === "add" && addPhoto) addPhoto.value = "";
+    if (photoEditSource === "edit" && editPhoto) editPhoto.value = "";
+  });
+
+  btnCancelPhotoEdit?.addEventListener("click", () => {
+    if (photoDiscardGuard) {
+      photoDiscardGuard.cancel();
+      return;
+    }
+    closePhotoEditor();
+  });
 
   // ─── Skeleton rows ───────────────────────────────────────────────────────────
   const renderSkeletonRows = () => {
@@ -1450,7 +1624,10 @@ document.addEventListener("DOMContentLoaded", () => {
     addBlocked.checked = false;
     syncBlockToggle_manual(addBlocked, addBlockRow, addBlockLabel);
     setAddStockStatus("in_stock");
-    addMediaEditor?.reset();
+    activePhotoData = "";
+    addUploadArea?.classList.remove("has-image");
+    if (addUploadLabel) addUploadLabel.textContent = "Click to choose an image";
+    if (addPhoto) addPhoto.value = "";
   };
 
   const getProductValue = (element) => String(element?.value ?? "").trim();
@@ -1468,7 +1645,7 @@ document.addEventListener("DOMContentLoaded", () => {
         isAdd ? addStockStatus : editStockStatus,
       ),
       blocked: Boolean((isAdd ? addBlocked : editBlocked)?.checked),
-      media: (isAdd ? addMediaEditor : editMediaEditor)?.snapshot(),
+      imageData: String(activePhotoData || ""),
       summary: getProductValue(isAdd ? addSummary : editSummary),
       chips: getProductValue(isAdd ? addChips : editChips),
       availability: getProductValue(
@@ -1625,8 +1802,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    let media;
-    try { media = addMediaEditor?.payload(); } catch { return; }
     const body = {
       name,
       category: addCategory?.value || "3D Print",
@@ -1635,7 +1810,7 @@ document.addEventListener("DOMContentLoaded", () => {
       price: Number(price),
       stock_status: stockStatus,
       is_blocked: addBlocked?.checked ?? false,
-      ...media,
+      image_data: activePhotoData || null,
       summary: (addSummary?.value || "").trim() || null,
       details_chips: linesToArray(addChips?.value),
       availability: linesToArray(addAvailability?.value),
@@ -1643,8 +1818,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     btnSaveProduct.disabled = true;
-    btnCancelAddProduct.disabled = true;
-    addMediaEditor?.setSaving(true);
     btnSaveProduct.textContent = "Saving…";
 
     try {
@@ -1690,8 +1863,6 @@ document.addEventListener("DOMContentLoaded", () => {
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveProduct.disabled = false;
-      btnCancelAddProduct.disabled = false;
-      addMediaEditor?.setSaving(false);
       btnSaveProduct.innerHTML =
         '<i class="fa-solid fa-floppy-disk"></i> Save Product';
     }
@@ -1775,13 +1946,21 @@ document.addEventListener("DOMContentLoaded", () => {
     editBlocked.checked = !!product.is_blocked;
     syncBlockToggle_manual(editBlocked, editBlockRow, editBlockLabel);
 
-    editMediaEditor?.reset(product);
+    // Image
+    activePhotoData = product.image_data || "";
+    editUploadArea?.classList.toggle("has-image", !!product.image_data);
+    if (editUploadLabel) {
+      editUploadLabel.textContent = product.image_data
+        ? "Image loaded — click to replace"
+        : "Click to replace image";
+    }
+    if (editPhoto) editPhoto.value = "";
 
     editProductDiscardGuard?.capture();
     openModal(modalEdit);
   };
 
-  const closeEditProductModal = () => { closeModal(modalEdit); editMediaEditor?.reset(); };
+  const closeEditProductModal = () => closeModal(modalEdit);
 
   editProductDiscardGuard = window.createAdminFormDiscardGuard?.({
     getSnapshot: () => getProductFormSnapshot("edit"),
@@ -1835,8 +2014,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    let media;
-    try { media = editMediaEditor?.payload(); } catch { return; }
     const body = {
       name,
       category: editCategory?.value || "3D Print",
@@ -1845,7 +2022,7 @@ document.addEventListener("DOMContentLoaded", () => {
       price: Number(price),
       stock_status: stockStatus,
       is_blocked: editBlocked?.checked ?? false,
-      ...media,
+      image_data: activePhotoData || null,
       summary: (editSummary?.value || "").trim() || null,
       details_chips: linesToArray(editChips?.value),
       availability: linesToArray(editAvailability?.value),
@@ -1853,8 +2030,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     btnUpdateProduct.disabled = true;
-    btnCancelEditProduct.disabled = true;
-    editMediaEditor?.setSaving(true);
     btnUpdateProduct.textContent = "Updating…";
 
     try {
@@ -1897,10 +2072,8 @@ document.addEventListener("DOMContentLoaded", () => {
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnUpdateProduct.disabled = false;
-      btnCancelEditProduct.disabled = false;
-      editMediaEditor?.setSaving(false);
       btnUpdateProduct.innerHTML =
-        '<i class="fa-solid fa-floppy-disk"></i> Save Product';
+        '<i class="fa-solid fa-floppy-disk"></i> Update Product';
     }
   });
 

@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Product;
 use App\Models\Promotion;
-use App\Models\ProductMediaAsset;
-use App\Services\ProductMedia;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +24,6 @@ class ProductController extends Controller
     {
         $promotionCandidates = $this->promotionCandidates();
         $products = Product::where('is_blocked', false)
-            ->with('coverMedia')->withCount('mediaItems')
             ->withCount('activeRatings as ratings_count')
             ->withAvg('activeRatings as ratings_avg_stars', 'stars')
             ->orderByDesc('created_at')
@@ -46,10 +43,9 @@ class ProductController extends Controller
 
         $promotionCandidates = $this->promotionCandidates();
         $products = Product::withCount('activeRatings as ratings_count')
-            ->with(['coverMedia', 'mediaItems'])->withCount('mediaItems')
             ->withAvg('activeRatings as ratings_avg_stars', 'stars')
             ->orderByDesc('created_at')->get()
-            ->map(fn($p) => $this->formatProduct($p, $promotionCandidates) + ProductMedia::gallery($p));
+            ->map(fn($p) => $this->formatProduct($p, $promotionCandidates));
 
         return response()->json(['data' => $products]);
     }
@@ -141,11 +137,7 @@ class ProductController extends Controller
             'recommended_for.*' => 'string|max:200',
         ]);
 
-        $product = DB::transaction(function () use ($validated, $request) {
-            $product = Product::create($validated);
-            ProductMedia::commit($product, $request);
-            return $product;
-        });
+        $product = Product::create($validated);
 
         return response()->json([
             'message' => 'Product created successfully.',
@@ -190,13 +182,7 @@ class ProductController extends Controller
             }
         }
 
-        DB::transaction(function () use ($product, $validated, $request) {
-            $locked = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
-            ProductMedia::commit($locked, $request);
-            // A managed gallery owns its cover; legacy image_data stays intact for old orders.
-            if ($locked->media_managed) unset($validated['image_data']);
-            $locked->update($validated);
-        });
+        $product->update($validated);
 
         return response()->json([
             'message' => 'Product updated successfully.',
@@ -204,12 +190,9 @@ class ProductController extends Controller
         ]);
     }
 
-    public function image(Request $request, Product $product): Response|JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse|\Symfony\Component\HttpFoundation\RedirectResponse
+    public function image(Request $request, Product $product): Response|JsonResponse
     {
         $storedImage = $product->image_data;
-        if (! $storedImage && $product->coverMedia) {
-            return ProductMedia::response($request, $product->coverMedia);
-        }
         if (!$storedImage) {
             return response()->json(['message' => 'No image available for this product.'], 404);
         }
@@ -292,32 +275,6 @@ class ProductController extends Controller
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
-
-    public function gallery(Request $request, Product $product): JsonResponse
-    {
-        abort_if($product->is_blocked && ! in_array($request->user('sanctum')?->role, ['admin', 'staff'], true), 404);
-        return response()->json(['data' => ProductMedia::gallery($product)])->header('Cache-Control', 'no-store');
-    }
-
-    public function uploadMedia(Request $request): JsonResponse
-    {
-        if ($denied = $this->ensureAdminOrStaff($request)) return $denied;
-        $request->validate(['file' => 'required|file|max:51200']);
-        $asset = ProductMedia::stage($request->file('file'), $request->user()->id);
-        return response()->json(['data' => ProductMedia::descriptor($asset, true)], 201);
-    }
-
-    public function discardMedia(Request $request, string $token): JsonResponse
-    {
-        if ($denied = $this->ensureAdminOrStaff($request)) return $denied;
-        ProductMedia::discard($token, $request->user()->id);
-        return response()->json(['message' => 'Draft upload discarded.']);
-    }
-
-    public function mediaFile(Request $request, ProductMediaAsset $media): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Symfony\Component\HttpFoundation\RedirectResponse
-    {
-        return ProductMedia::response($request, $media);
-    }
 
     private function imageResponse(Request $request, string $imageBytes, string $mimeType, ?\DateTimeInterface $updatedAt): Response
     {
@@ -458,7 +415,6 @@ class ProductController extends Controller
 
     private function resolveProductImageUrl(Product $product): ?string
     {
-        if ($product->media_managed) return ProductMedia::coverUrl($product);
         if (empty($product->image_data)) {
             return null;
         }
@@ -498,8 +454,6 @@ class ProductController extends Controller
             'stock_status'   => $product->stock_status,
             'is_blocked'     => (bool) $product->is_blocked,
             'image_data'     => $this->resolveProductImageUrl($product),
-            'media_count' => $product->media_managed ? (int) ($product->media_items_count ?? $product->mediaItems()->count()) : ($product->image_data ? 1 : 0),
-            'media_revision' => (int) $product->media_revision,
             'summary'        => $product->summary,
             'details_chips'  => $product->details_chips ?? [],
             'availability'   => $product->availability ?? [],

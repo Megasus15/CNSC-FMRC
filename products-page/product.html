@@ -225,8 +225,7 @@
   <link rel="stylesheet" href="shipping-quotes.css?v=1.2-actions" /><link rel="stylesheet" href="refund-policy.css?v=1.2-pages" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=2026.1109.1">
 
     <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
-<link rel="stylesheet" href="product-gallery.css?v=2026.1112.1" />
-  </head>
+</head>
   <body class="products-page-body">
     <!-- The boot curtain. Static markup, so it can paint on the very first
          frame; hidden by default in CSS and shown only while html.fmrc-booting
@@ -490,7 +489,14 @@
         <div class="modal-divider"></div>
 
         <div class="modal-scroll-area">
-          <div id="productInfoGallery"></div>
+          <div class="modal-img-holder">
+            <img
+              src=""
+              alt="Product Preview"
+              id="productInfoImage"
+              decoding="async"
+            />
+          </div>
 
           <p class="modal-desc" id="productInfoSummary"></p>
 
@@ -1854,8 +1860,7 @@
     <script defer src="../home-page/my-appointments.js?v=2026.1111.6"></script>
 <script defer src="../home-page/page-content.js?v=2026.1105.1"></script>
 <script defer src="../home-page/main.js?v=2026.1111.2"></script>
-    <script defer src="product-gallery.js?v=2026.1112.1"></script>
-    <script defer src="products.js?v=2026.1112.1"></script>
+    <script defer src="products.js?v=2026.1106.1"></script>
 
       <script src="../home-page/appointment-products.js?v=2026.1111.6"></script>
 </body>

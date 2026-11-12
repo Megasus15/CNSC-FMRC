@@ -6,11 +6,6 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('pwa:process')->everyMinute()->withoutOverlapping(5);
 
-Artisan::command('products:clean-media-drafts', function () {
-    $this->info(\App\Services\ProductMedia::cleanExpired().' expired product upload(s) removed.');
-})->purpose('Remove unpublished product media after 24 hours; retain published order image references');
-Schedule::command('products:clean-media-drafts')->hourly()->withoutOverlapping(10);
-
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
