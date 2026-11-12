@@ -152,6 +152,7 @@ window.createProductGalleryEditor = ({ root, api, token, getCover, replaceCover,
       }
     },
     render,
+    destroy() { close(); input.remove(); },
     snapshot: () => items.map(item => item.upload_token ? {upload_token:item.upload_token} : {id:item.id}),
     isBusy: () => busy,
     setSaving(value) { saving = value; render(); },

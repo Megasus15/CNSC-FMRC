@@ -167,12 +167,123 @@ document.addEventListener("DOMContentLoaded", () => {
   let editProductDiscardGuard = null;
   let photoDiscardGuard = null;
   let productSavePending = false;
-  const galleryEditor = window.createProductGalleryEditor?.({
-    root: document.getElementById("editProductGallery"), api: API_BASE_URL, token,
-    getCover: () => activePhotoData,
-    replaceCover: () => editPhoto?.click(),
-    onBusy: value => { if (btnUpdateProduct) btnUpdateProduct.disabled = value || productSavePending; },
-  });
+  let galleryEditor = null;
+  let galleryEditorRoot = null;
+  let galleryModulePromise = null;
+  let galleryLoadGeneration = 0;
+  let galleryInitializing = false;
+  let galleryUnavailable = false;
+  let initialGalleryMedia = [];
+
+  const syncProductSaveButton = () => {
+    if (btnUpdateProduct) btnUpdateProduct.disabled = productSavePending || galleryInitializing || galleryUnavailable || Boolean(galleryEditor?.isBusy());
+  };
+
+  const getGalleryRoot = () => {
+    let root = modalEdit?.querySelector('#editProductGallery');
+    if (!root) {
+      const grid = editUploadArea?.closest('.form-grid');
+      if (!grid) throw new Error('The product gallery container is unavailable.');
+      root = document.createElement('section');
+      root.id = 'editProductGallery';
+      root.className = 'product-gallery-editor';
+      root.setAttribute('aria-label', 'Product gallery editor');
+      grid.after(root);
+    }
+    return root;
+  };
+
+  const galleryNotice = (root, failed, retry) => {
+    const heading = document.createElement('h3');
+    heading.textContent = 'Product gallery';
+    const title = document.createElement('div');
+    title.className = 'product-gallery-heading';
+    title.append(heading);
+    const message = document.createElement('p');
+    message.className = 'product-gallery-status' + (failed ? ' is-error' : '');
+    message.setAttribute('role', failed ? 'alert' : 'status');
+    message.textContent = failed ? 'The gallery could not load. Retry to continue editing this product.' : 'Preparing your five-slot product gallery…';
+    root.replaceChildren(title, message);
+    if (failed) {
+      const tools = document.createElement('div');
+      tools.className = 'product-gallery-tools';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.galleryRetry = '';
+      button.textContent = 'Retry gallery';
+      button.addEventListener('click', retry, {once:true});
+      tools.append(button);
+      root.append(tools);
+    }
+  };
+
+  const ensureGalleryModule = async () => {
+    if (typeof window.createProductGalleryEditor === 'function') return;
+    if (!galleryModulePromise) {
+      galleryModulePromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = new URL('../admin-page/product-gallery.js?v=2026.1112.2', window.location.href).href;
+        script.async = true;
+        const finish = error => {
+          clearTimeout(timeout);
+          script.onload = script.onerror = null;
+          if (error) { script.remove(); reject(error); }
+          else resolve();
+        };
+        const timeout = setTimeout(() => finish(new Error('The product gallery script timed out.')), 15000);
+        script.onload = () => finish(typeof window.createProductGalleryEditor === 'function' ? null : new Error('The product gallery script did not initialize.'));
+        script.onerror = () => finish(new Error('The product gallery script could not be loaded.'));
+        document.head.append(script);
+      });
+    }
+    const pending = galleryModulePromise;
+    try {
+      await pending;
+      if (typeof window.createProductGalleryEditor !== 'function') throw new Error('The product gallery script did not initialize.');
+    } finally {
+      if (galleryModulePromise === pending) galleryModulePromise = null;
+    }
+  };
+
+  const loadProductGallery = async product => {
+    const generation = ++galleryLoadGeneration;
+    galleryInitializing = true;
+    galleryUnavailable = false;
+    syncProductSaveButton();
+    let root;
+    try {
+      root = getGalleryRoot();
+      root.setAttribute('aria-busy', 'true');
+      if (typeof window.createProductGalleryEditor !== 'function') galleryNotice(root, false);
+      await ensureGalleryModule();
+      if (generation !== galleryLoadGeneration || !modalEdit.classList.contains('show')) return;
+      root = getGalleryRoot();
+      if (!galleryEditor || galleryEditorRoot !== root || !galleryEditorRoot.isConnected) {
+        if (galleryEditor?.destroy) galleryEditor.destroy();
+        else galleryEditor?.close();
+        galleryEditor = window.createProductGalleryEditor({
+          root, api: API_BASE_URL, token,
+          getCover: () => activePhotoData,
+          replaceCover: () => editPhoto?.click(),
+          onBusy: syncProductSaveButton,
+        });
+        galleryEditorRoot = root;
+        if (!galleryEditor) throw new Error('The product gallery could not attach to the editor.');
+      }
+      galleryEditor.load(product);
+    } catch (error) {
+      if (generation !== galleryLoadGeneration) return;
+      galleryUnavailable = true;
+      console.error('Product gallery initialization failed:', error);
+      if (root) galleryNotice(root, true, () => void loadProductGallery(product));
+    } finally {
+      if (generation === galleryLoadGeneration) {
+        galleryInitializing = false;
+        root?.setAttribute('aria-busy', 'false');
+        syncProductSaveButton();
+      }
+    }
+  };
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const openModal = (m) => m?.classList.add("show");
@@ -1664,7 +1775,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ),
       blocked: Boolean((isAdd ? addBlocked : editBlocked)?.checked),
       imageData: String(activePhotoData || ""),
-      galleryMedia: isAdd ? [] : galleryEditor?.snapshot() || [],
+      galleryMedia: isAdd ? [] : (galleryInitializing || galleryUnavailable || !galleryEditor ? initialGalleryMedia : galleryEditor.snapshot()),
       galleryUploadPending: !isAdd && Boolean(galleryEditor?.isBusy()),
       summary: getProductValue(isAdd ? addSummary : editSummary),
       chips: getProductValue(isAdd ? addChips : editChips),
@@ -1976,14 +2087,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (editPhoto) editPhoto.value = "";
 
-    galleryEditor?.load(product);
-
-    editProductDiscardGuard?.capture();
+    initialGalleryMedia = (Array.isArray(product.media) ? product.media : []).filter(item => item.id !== 'cover').map(item => ({id:item.id}));
+    galleryEditor?.close();
     openModal(modalEdit);
+    void loadProductGallery(product);
+    editProductDiscardGuard?.capture();
   };
 
   const closeEditProductModal = (published = false) => {
+    galleryLoadGeneration++;
+    galleryInitializing = false;
+    galleryUnavailable = false;
     galleryEditor?.close(published === true);
+    syncProductSaveButton();
     closeModal(modalEdit);
   };
 
@@ -2008,7 +2124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnUpdateProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
     if (!activeProductId) return;
-    if (productSavePending || galleryEditor?.isBusy()) return;
+    if (productSavePending || galleryInitializing || galleryUnavailable || galleryEditor?.isBusy()) return;
 
     const name = (editName?.value || "").trim();
     const code = (editCode?.value || "").trim();
@@ -2111,7 +2227,7 @@ document.addEventListener("DOMContentLoaded", () => {
       modalEdit.querySelector('.modal-body-scroll').inert = false;
       if (btnCancelEditProduct) btnCancelEditProduct.disabled = false;
       galleryEditor?.setSaving(false);
-      btnUpdateProduct.disabled = Boolean(galleryEditor?.isBusy());
+      syncProductSaveButton();
       btnUpdateProduct.innerHTML =
         '<i class="fa-solid fa-floppy-disk"></i> Update Product';
     }

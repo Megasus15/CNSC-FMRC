@@ -32,19 +32,65 @@ selecting a video still starts it muted.
 
 ## Install the release
 
+### Editor loading repair: assets 2026.1112.2
+
+The gallery is now attached when Edit Product opens, instead of only once at
+page startup. It recovers from a late helper script, retries a failed load with a
+visible Retry gallery action, and reattaches to replaced or older modal markup.
+The form cannot save an uninitialized gallery. Existing unsaved form edits remain
+intact during loading/retry, and cancelled initialization cannot reopen a dialog.
+
+For an installation where the backend release is already installed, deploy only
+these six files to their matching locations under the active `public_html`:
+
+- `admin-page/products.html`, `products.js`, `product-gallery.js`, and
+  `product-gallery.css`.
+- `staff-page/products.html` and `products-loader.js`.
+
+The scoped archive is `output/product-gallery-editor-fix-2026-11-12-v2.zip`.
+Upload it to **public_html**, extract it there, and replace the included files.
+Its `admin-page` and `staff-page` folders belong directly inside `public_html`.
+Do not extract this frontend update into `public_html/backend` or create another
+nested `public_html` folder. This repair needs no additional database migration
+or Composer installation. Reload Products and reopen View Product → Edit Product;
+Product gallery appears directly below Upload Image.
+
+### Full backend and frontend installation
+
 Back up the target database and application first. Preserve its environment,
 application key and storage. Install this release's backend, dependency lockfile,
 and database column before making the updated frontend available.
 
-From the target **backend** directory:
+For this Hostinger website, enter the active **backend** directory explicitly.
+Selecting a folder in File Manager does not change Terminal's working directory.
+The file check below also confirms the gallery migration has been uploaded. Each
+step stops if the preceding command fails:
 
 ```sh
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-php artisan migrate --path=database/migrations/2026_11_12_000001_add_product_gallery_media.php --force
+cd /home/u799987132/domains/ucn-fabmanlab.com/public_html/backend &&
+ls artisan composer.json composer.lock database/migrations/2026_11_12_000001_add_product_gallery_media.php &&
+composer2 install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts &&
+php artisan config:clear &&
+php artisan clear-compiled &&
+php artisan package:discover --no-interaction &&
+php artisan migrate --path=database/migrations/2026_11_12_000001_add_product_gallery_media.php --force &&
 php artisan optimize:clear
 ```
 
-On Hostinger, use `composer2` when that is the installed Composer command.
+Copy only the commands inside the code block, without the Markdown backticks.
+If the file check reports a missing file, upload/deploy the complete release to
+this directory before running the installation again. The commands require
+Composer 2 and PHP 8.3 or later; on another host, `composer` may be the Composer 2
+command instead of `composer2`.
+
+This Hostinger PHP installation disables `proc_open`. Composer can unpack the
+dependency with PHP's ZIP extension, but cannot launch `@php artisan` scripts as
+child processes. `--no-scripts` avoids that failure; the next three commands run
+the required cache cleanup and package discovery directly. The yellow ZIP warning
+alone is not an installation failure. If the earlier installation stopped at
+`@php artisan package:discover`, do not assume the migration ran: the `&&` chain
+stopped when that Composer script failed. Run the corrected block above.
+
 The dependency lockfile includes `james-heinrich/getid3` 1.9.28 for server-side
 duration inspection. FFmpeg and transcoding services are not required.
 
@@ -58,6 +104,15 @@ Publish these frontend groups together:
 
 The changed HTML includes versioned asset references. Staff loads the canonical
 Admin form and product script, with its shared gallery dependency loaded first.
+
+If Edit Product has Upload Image followed directly by Product Details, the
+five-slot gallery editor has not initialized. It belongs between those two
+sections. Hard-refresh the Products page with Ctrl+Shift+R, then reopen View
+Product → Edit Product. The required script is `admin-page/product-gallery.js`,
+loaded before `admin-page/products.js`. Check both scripts, the gallery stylesheet,
+and the matching portal HTML/Staff loader if refreshing does not restore it.
+The database migration does not render this frontend section; verify its
+installation separately before uploading and saving media.
 
 Configure the web PHP runtime with `upload_max_filesize` of at least `30M` and
 `post_max_size` of at least `40M`; the site's existing `50M`/`64M` settings are

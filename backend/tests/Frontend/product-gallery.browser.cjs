@@ -13,6 +13,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
   let failSave=false,uploads=0,discards=0,writes=0,uploadReplies=[],holdUploads=false;
   let aboutEmpty=false;
   let saveReply=null,holdSave=false;
+  let galleryModuleFails=false;
   const drafts=new Map();
   const server=http.createServer(async(req,res)=>{
     try {
@@ -43,11 +44,20 @@ test('Product gallery, fixed media layout and shared operator editor work across
         return json({data:[]});
       }
       if(route==='/fixtures/short.webm'){res.setHeader('Content-Type','video/webm');res.end(fs.readFileSync(path.join(repo,'backend/tests/Fixtures/product-media/short.webm')));return;}
-      const file=path.resolve(repo,'.'+route);
+      if (route === '/admin-page/product-gallery.js' && galleryModuleFails) { res.writeHead(503, {'Content-Type':'text/javascript'}); res.end(''); return; }
+      const sourceRoute = /^\/(admin|staff)-page\/products$/.test(route) ? route+'.html' : route;
+      const file=path.resolve(repo,'.'+sourceRoute);
       if(!file.startsWith(repo+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
       const ext=path.extname(file);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg'})[ext]||'application/octet-stream');
       let data=fs.readFileSync(file);
       if(ext==='.html')data=data.toString().replace('<head>',`<head><script>window.APP_API_BASE_URL=location.origin+'/api';window.fixtureErrors=[];addEventListener('error',e=>{if(e.message)fixtureErrors.push(e.message)});addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));for(const role of ['admin','staff']){localStorage.setItem(role+'_auth_token','fixture-'+role);localStorage.setItem(role+'_user_info',JSON.stringify({id:11,role,email:role+'@example.com'}));}</script>`);
+      if (['/admin-page/products.html','/staff-page/products.html'].includes(sourceRoute)) data = data.toString().replace('</head>', `<script>
+        document.addEventListener('DOMContentLoaded', () => {
+          const factory = window.createProductGalleryEditor;
+          delete window.createProductGalleryEditor;
+          setTimeout(() => { window.createProductGalleryEditor = factory; window.fixtureGalleryStartupSettled = true; }, 150);
+        }, {once:true});
+      </script></head>`);
       res.end(data);
     }catch(error){res.statusCode=500;res.end(String(error));}
   });
@@ -129,7 +139,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
       // Exercise the canonical editor through both its Admin and Staff loaders.
       product={...product,summary:'A carefully made bamboo tumbler.',media:product.media.slice(0,1)};
       for(const role of ['admin','staff']) {
-        await navigate('/'+role+'-page/products.html');
+        await navigate('/'+role+'-page/products');
         await until("document.querySelector('[data-view-id=\"1\"]')");
         await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
         await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5");
@@ -182,6 +192,28 @@ test('Product gallery, fixed media layout and shared operator editor work across
       aboutEmpty=true;await navigate('/about-page/about.html');
       await until("document.getElementById('missionDeck').classList.contains('fmrc-gallery')");
       assert.equal(await run("!!document.getElementById('missionImgEl')&&document.querySelectorAll('#missionDeck .editorial-gallery-arrow').length===0"),true,'Empty About galleries retain their live image setting target');
+      product={...product,image_data:image,media:[{id:'cover',type:'image',url:image}],stock:5,stock_status:'in_stock'};
+      galleryModuleFails=true;
+      await navigate('/admin-page/products');await until("document.querySelector('[data-view-id=\"1\"]')");
+      await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
+      await until("document.querySelector('[data-gallery-retry]')&&window.fixtureGalleryStartupSettled");
+      assert.equal(await run("document.getElementById('btnUpdateProduct').disabled"),true,'A missing helper shows Retry and cannot silently save without gallery state');
+      const unchangedWrites=writes;await click('#btnUpdateProduct');assert.equal(writes,unchangedWrites);
+      galleryModuleFails=false;await click('[data-gallery-retry]');
+      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&!document.getElementById('btnUpdateProduct').disabled");
+      await click('#btnCancelEditProduct');await until("!document.getElementById('modalEditProduct').classList.contains('show')");
+      await run("(()=>{const root=document.getElementById('editProductGallery');root.replaceWith(root.cloneNode(true));})()");
+      await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
+      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&!document.getElementById('btnUpdateProduct').disabled");
+      assert.equal(await run("document.querySelectorAll('#modalEditProduct input[accept*=\"video/mp4\"]').length"),1,'Rebinding a replaced gallery cleans up the old hidden input');
+      await run("window.fixtureFileClicks=0;document.getElementById('editProductGallery').nextElementSibling.addEventListener('click',event=>{event.preventDefault();window.fixtureFileClicks++;})");
+      await click('#editProductGallery [data-gallery-action="add"]');
+      assert.equal(await run('window.fixtureFileClicks'),1,'Replaced gallery has working Add media controls');
+      await click('#btnCancelEditProduct');await until("!document.getElementById('modalEditProduct').classList.contains('show')");
+      await run("document.getElementById('editProductGallery').remove()");
+      await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
+      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5");
+      assert.equal(await run("document.querySelectorAll('#modalEditProduct input[accept*=\"video/mp4\"]').length"),1,'Older markup gains a gallery without duplicate upload controls');
     });
   } finally {saveReply?.();uploadReplies.splice(0).forEach(resolve=>resolve());server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

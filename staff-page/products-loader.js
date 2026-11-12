@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     const productsScriptResponse = await fetch(
-      new URL("../admin-page/products.js?v=2026.1112.1", window.location.href).href,
+      new URL("../admin-page/products.js?v=2026.1112.2", window.location.href).href,
       {
         cache: "no-store",
       },
