@@ -225,6 +225,8 @@
   <link rel="stylesheet" href="shipping-quotes.css?v=1.2-actions" /><link rel="stylesheet" href="refund-policy.css?v=1.2-pages" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=2026.1109.1">
 
     <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
+    <link rel="stylesheet" href="../home-page/media-carousel.css?v=2026.1112.1" />
+    <link rel="stylesheet" href="product-details.css?v=2026.1112.1" />
 </head>
   <body class="products-page-body">
     <!-- The boot curtain. Static markup, so it can paint on the very first
@@ -475,10 +477,10 @@
       <!-- Contents come from the shared Customer/Admin/Staff card renderer. -->
     </div>
 
-    <div class="modal-overlay ux-dlg" id="productInfoModal">
-      <div class="modal-box ux-dlg__card">
+    <div class="modal-overlay ux-dlg" id="productInfoModal" aria-hidden="true">
+      <div class="modal-box ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="productInfoTitle">
         <div class="modal-header ux-dlg__head">
-          <button class="close-modal-btn ux-dlg__close" id="closeProductInfoModal">
+          <button class="close-modal-btn ux-dlg__close" id="closeProductInfoModal" aria-label="Close product details">
             &times;
           </button>
           <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-cube"></i></span>
@@ -488,15 +490,12 @@
 
         <div class="modal-divider"></div>
 
-        <div class="modal-scroll-area">
-          <div class="modal-img-holder">
-            <img
-              src=""
-              alt="Product Preview"
-              id="productInfoImage"
-              decoding="async"
-            />
+        <div class="product-details-body">
+          <div class="product-details-media fmrc-gallery-media">
+            <div class="product-details-gallery" id="productInfoGallery"></div>
           </div>
+
+          <div class="product-details-copy" id="productInfoCopy" role="region" aria-label="Product information" tabindex="0">
 
           <p class="modal-desc" id="productInfoSummary"></p>
 
@@ -513,6 +512,7 @@
               <ul class="modal-list" id="productInfoRecommended"></ul>
             </div>
           </div>
+          </div>
         </div>
 
         <div class="modal-divider"></div>
@@ -523,13 +523,14 @@
             Customer Reviews
             <span class="reviews-btn-count" id="productInfoReviewsCount">0</span>
           </button>
-          <button class="modal-btn outline-btn" id="productInfoAddToCart" type="button" title="Add to Cart" aria-label="Add to Cart">
+          <div class="product-purchase-actions">
+          <button class="action-btn btn-add-cart" id="productInfoAddToCart" type="button" title="Add to Cart" aria-label="Add to Cart">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path><line x1="14.5" y1="8" x2="14.5" y2="13"></line><line x1="12" y1="10.5" x2="17" y2="10.5"></line></svg>
-            <span class="modal-btn-label">Add to Cart</span>
           </button>
-          <button class="modal-btn solid-btn" id="productInfoBuyNow">
+          <button class="action-btn btn-buy-now" id="productInfoBuyNow" type="button">
             Buy Now
           </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1859,8 +1860,9 @@
     <script defer src="../products-page/gateway-payments.js?v=2026.1104.3"></script>
     <script defer src="../home-page/my-appointments.js?v=2026.1111.6"></script>
 <script defer src="../home-page/page-content.js?v=2026.1105.1"></script>
-<script defer src="../home-page/main.js?v=2026.1111.2"></script>
-    <script defer src="products.js?v=2026.1106.1"></script>
+<script defer src="../home-page/media-carousel.js?v=2026.1112.1"></script>
+<script defer src="../home-page/main.js?v=2026.1112.1"></script>
+    <script defer src="products.js?v=2026.1112.1"></script>
 
       <script src="../home-page/appointment-products.js?v=2026.1111.6"></script>
 </body>

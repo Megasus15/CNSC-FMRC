@@ -134,6 +134,7 @@ Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'v
 // Public: Customer-facing products (non-blocked only)
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}/image', [ProductController::class, 'image']);
+Route::get('/products/{product}/media/{media}', [\App\Http\Controllers\Api\ProductMediaController::class, 'show'])->whereUuid('media');
 Route::get('/products/{product}/reviews', [ProductRatingController::class, 'publicIndex']);
 Route::get('/announcements', [AnnouncementController::class, 'publicIndex']);
 Route::get('/promotions/active', [PromotionController::class, 'active']);
@@ -358,6 +359,10 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/products', [ProductController::class, 'store']);
     Route::delete('/admin/products/delete-bulk', [ProductController::class, 'deleteBulk']);
     Route::put('/admin/products/{product}', [ProductController::class, 'update']);
+    Route::post('/admin/products/{product}/media-uploads', [\App\Http\Controllers\Api\ProductMediaController::class, 'store'])->middleware('throttle:30,1');
+    Route::get('/admin/products/{product}/media/{media}', [\App\Http\Controllers\Api\ProductMediaController::class, 'editorShow'])->whereUuid('media');
+    Route::get('/admin/products/{product}/media-uploads/{token}', [\App\Http\Controllers\Api\ProductMediaController::class, 'preview'])->whereUuid('token');
+    Route::delete('/admin/products/{product}/media-uploads/{token}', [\App\Http\Controllers\Api\ProductMediaController::class, 'destroy'])->whereUuid('token');
     Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
 
     // Admin/Staff: time-bound sale campaigns and customer announcements

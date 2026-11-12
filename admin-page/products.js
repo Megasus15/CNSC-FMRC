@@ -166,6 +166,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let addProductDiscardGuard = null;
   let editProductDiscardGuard = null;
   let photoDiscardGuard = null;
+  let productSavePending = false;
+  const galleryEditor = window.createProductGalleryEditor?.({
+    root: document.getElementById("editProductGallery"), api: API_BASE_URL, token,
+    getCover: () => activePhotoData,
+    replaceCover: () => editPhoto?.click(),
+    onBusy: value => { if (btnUpdateProduct) btnUpdateProduct.disabled = value || productSavePending; },
+  });
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const openModal = (m) => m?.classList.add("show");
@@ -446,6 +453,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const handlePhotoSelect = async (input, source) => {
     const file = input.files?.[0];
     if (!file) return;
+    if (source === "edit" && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024)) {
+      window.showAdminPopup?.("Choose a JPG, PNG or WebP image that is 10 MB or smaller.", { title: "Invalid image" });
+      input.value = "";
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       window.showAdminPopup?.("Please select a valid image file.", {
         title: "Invalid File",
@@ -552,7 +564,13 @@ document.addEventListener("DOMContentLoaded", () => {
   btnApplyPhotoEdit?.addEventListener("click", async () => {
     const dataUrl = await renderToCanvas();
     if (!dataUrl) return;
+    const photoBytes = (dataUrl.length - dataUrl.indexOf(",") - 1) * 3 / 4 - (dataUrl.endsWith("==") ? 2 : dataUrl.endsWith("=") ? 1 : 0);
+    if (photoEditSource === "edit" && photoBytes > 10 * 1024 * 1024) {
+      window.showAdminPopup?.("The edited cover is too large. Reduce its size to 10 MB or smaller.", { title: "Image too large" });
+      return;
+    }
     activePhotoData = dataUrl;
+    galleryEditor?.render();
     closePhotoEditor();
     photoDiscardGuard?.clear();
     // Update upload area UI
@@ -1646,6 +1664,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ),
       blocked: Boolean((isAdd ? addBlocked : editBlocked)?.checked),
       imageData: String(activePhotoData || ""),
+      galleryMedia: isAdd ? [] : galleryEditor?.snapshot() || [],
+      galleryUploadPending: !isAdd && Boolean(galleryEditor?.isBusy()),
       summary: getProductValue(isAdd ? addSummary : editSummary),
       chips: getProductValue(isAdd ? addChips : editChips),
       availability: getProductValue(
@@ -1956,15 +1976,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (editPhoto) editPhoto.value = "";
 
+    galleryEditor?.load(product);
+
     editProductDiscardGuard?.capture();
     openModal(modalEdit);
   };
 
-  const closeEditProductModal = () => closeModal(modalEdit);
+  const closeEditProductModal = (published = false) => {
+    galleryEditor?.close(published === true);
+    closeModal(modalEdit);
+  };
 
   editProductDiscardGuard = window.createAdminFormDiscardGuard?.({
     getSnapshot: () => getProductFormSnapshot("edit"),
     close: closeEditProductModal,
+  });
+  window.addEventListener("beforeunload", event => {
+    if (!modalEdit?.classList.contains("show") || (!galleryEditor?.isBusy() && !editProductDiscardGuard?.isDirty())) return;
+    event.preventDefault();
+    event.returnValue = "";
   });
 
   btnCancelEditProduct?.addEventListener("click", () => {
@@ -1978,6 +2008,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnUpdateProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
     if (!activeProductId) return;
+    if (productSavePending || galleryEditor?.isBusy()) return;
 
     const name = (editName?.value || "").trim();
     const code = (editCode?.value || "").trim();
@@ -2029,6 +2060,11 @@ document.addEventListener("DOMContentLoaded", () => {
       recommended_for: linesToArray(editRecommended?.value),
     };
 
+    if (galleryEditor) body.gallery_media = galleryEditor.snapshot();
+    productSavePending = true;
+    modalEdit.querySelector('.modal-body-scroll').inert = true;
+    if (btnCancelEditProduct) btnCancelEditProduct.disabled = true;
+    galleryEditor?.setSaving(true);
     btnUpdateProduct.disabled = true;
     btnUpdateProduct.textContent = "Updating…";
 
@@ -2058,7 +2094,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.showAdminPopup?.(msg, { title: "Update Failed" });
         return;
       }
-      closeEditProductModal();
+      closeEditProductModal(true);
       editProductDiscardGuard?.clear();
       broadcastProductChange("updated");
       await loadProducts();
@@ -2071,7 +2107,11 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Update product error:", err);
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
-      btnUpdateProduct.disabled = false;
+      productSavePending = false;
+      modalEdit.querySelector('.modal-body-scroll').inert = false;
+      if (btnCancelEditProduct) btnCancelEditProduct.disabled = false;
+      galleryEditor?.setSaving(false);
+      btnUpdateProduct.disabled = Boolean(galleryEditor?.isBusy());
       btnUpdateProduct.innerHTML =
         '<i class="fa-solid fa-floppy-disk"></i> Update Product';
     }

@@ -11,6 +11,11 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
+Artisan::command('products:clean-media', function () {
+    \App\Support\ProductMedia::cleanup();
+    $this->info('Expired product uploads and unreferenced gallery files cleaned.');
+})->purpose('Clean expired product gallery uploads');
+Schedule::command('products:clean-media')->daily()->withoutOverlapping();
 // Run inside the scheduler's bootstrapped app on shared hosting. A separate PHP
 // child can be skipped or fail before the worker heartbeat is written.
 // The command owns its 120-second lock; a second scheduler lock hides skips.

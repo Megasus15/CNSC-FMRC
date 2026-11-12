@@ -5,6 +5,7 @@
  */
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL = (() => {
+    if (window.APP_API_BASE_URL) return window.APP_API_BASE_URL.replace(/\/+$/, "");
     const proto = window.location.protocol;
     const host = window.location.hostname;
     const port = window.location.port;
@@ -23,7 +24,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // View Info Modal elements
   const productInfoModal = document.getElementById("productInfoModal");
   const productInfoTitle = document.getElementById("productInfoTitle");
-  const productInfoImage = document.getElementById("productInfoImage");
+  const productInfoGallery = document.getElementById("productInfoGallery");
+  let productCarousel = null;
+  let productInfoOpener = null;
   const productInfoSummary = document.getElementById("productInfoSummary");
   const productInfoChips = document.getElementById("productInfoChips");
   const productInfoAvailability = document.getElementById(
@@ -595,12 +598,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Open View Info Modal ─────────────────────────────────────────────────────
   const openViewInfo = (product) => {
     if (!productInfoModal) return;
+    productInfoOpener = document.activeElement;
 
     if (productInfoTitle) productInfoTitle.textContent = product.name;
-    if (productInfoImage) {
-      productInfoImage.src = product.image_data || "";
-      productInfoImage.style.display = product.image_data ? "" : "none";
-    }
+    productCarousel?.destroy();
+    const media = Array.isArray(product.media) && product.media.length
+      ? product.media.slice(0, 5)
+      : product.image_data ? [{ id: "cover", type: "image", url: product.image_data }] : [];
+    const fullImageUrl = value => {
+      const url = new URL(resolveMediaUrl(value), location.href);
+      if (/\/api\/products\/\d+\/image$/.test(url.pathname)) url.searchParams.set("full", "1");
+      return url.href;
+    };
+    if (productInfoGallery) productCarousel = window.FMRCMediaCarousel?.mount(
+      productInfoGallery,
+      media.map(item => ({ ...item, url: item.type === "video" ? resolveMediaUrl(item.url) : fullImageUrl(item.url) })),
+      {
+        label: product.name || "Product", imageId: "productInfoImage",
+        poster: product.image_data ? fullImageUrl(product.image_data) : "",
+        isActive: () => productInfoModal.classList.contains("show-modal")
+          && !document.querySelector("#imageLightboxModal.show-modal, #customerReviewsModal.show-modal, #checkoutModal.show-modal, #cartModal.show-modal"),
+        onImage: img => openLightbox(img.currentSrc || img.src, product.name),
+      },
+    );
+    document.getElementById("productInfoCopy")?.scrollTo(0, 0);
     if (productInfoSummary)
       productInfoSummary.textContent =
         product.summary || "No description available.";
@@ -637,7 +658,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOutOfStock =
         product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoAddToCart.disabled = isOutOfStock;
-      productInfoAddToCart.className = `modal-btn outline-btn${isOutOfStock ? " disabled" : ""}`;
+      productInfoAddToCart.className = `action-btn btn-add-cart${isOutOfStock ? " disabled" : ""}`;
+      productInfoAddToCart.innerHTML = CART_SVG;
       productInfoAddToCart.onclick = isOutOfStock
         ? null
         : (e) => {
@@ -653,7 +675,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOutOfStock =
         product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoBuyNow.disabled = isOutOfStock;
-      productInfoBuyNow.className = `modal-btn solid-btn${isOutOfStock ? " disabled" : ""}`;
+      productInfoBuyNow.className = `action-btn btn-buy-now${isOutOfStock ? " disabled" : ""}`;
+      productInfoBuyNow.innerHTML = `${BUY_SVG}<span>Buy Now</span>`;
       productInfoBuyNow.onclick = isOutOfStock
         ? null
         : (e) => {
@@ -673,7 +696,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     productInfoModal.classList.add("show-modal");
+    productInfoModal.setAttribute("aria-hidden", "false");
+    productCarousel?.refresh();
+    closeProductInfoModal?.focus({ preventScroll: true });
   };
+
+  const productVisibilityObserver = new MutationObserver(() => {
+    const open = productInfoModal.classList.contains('show-modal');
+    productInfoModal.setAttribute('aria-hidden', String(!open));
+    if (!open && productInfoModal.contains(document.activeElement)) {
+      requestAnimationFrame(() => {
+        if (!document.querySelector('.modal-overlay.show-modal, .shop-modal-overlay.show-modal')) productInfoOpener?.focus?.({preventScroll:true});
+      });
+    }
+  });
+  if (productInfoModal) productVisibilityObserver.observe(productInfoModal, {attributes: true, attributeFilter: ['class']});
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || !productInfoModal?.classList.contains('show-modal') || document.querySelector('#imageLightboxModal.show-modal')) return;
+    const targets = [...productInfoModal.querySelectorAll('button,[tabindex],video[controls]')]
+      .filter(node => !node.disabled && !node.closest('[inert],[hidden]') && node.tabIndex >= 0 && node.getClientRects().length);
+    const first = targets[0], last = targets.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
 
   closeProductInfoModal?.addEventListener("click", () => {
     productInfoModal?.classList.remove("show-modal");
@@ -808,7 +853,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // modal thumbnails and the Edit Details guide image all open the same
   // fullscreen preview as the product cards.
   const MODAL_PREVIEW_IMAGE_SELECTOR = [
-    "#productInfoModal .modal-img-holder img",
     "#checkoutSingleProductCard img",
     "#checkoutCartItemsList .checkout-cart-item img",
     "#cartItemsContainer .cart-item-card .cart-item-img img",

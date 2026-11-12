@@ -19,6 +19,7 @@ class Product extends Model
         'stock_status',
         'is_blocked',
         'image_data',
+        'gallery_media',
         'summary',
         'details_chips',
         'availability',
@@ -38,9 +39,17 @@ class Product extends Model
         'is_blocked'     => 'boolean',
         'is_active'      => 'boolean',
         'details_chips'  => 'array',
+        'gallery_media'  => 'array',
         'availability'   => 'array',
         'recommended_for'=> 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleted(function (Product $product) {
+            \Illuminate\Support\Facades\DB::afterCommit(fn () => \App\Support\ProductMedia::pruneProduct((int) $product->id));
+        });
+    }
 
     public function orderItems(): HasMany
     {

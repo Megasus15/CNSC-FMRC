@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Product;
 use App\Models\Promotion;
+use App\Support\ProductMedia;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -159,7 +160,7 @@ class ProductController extends Controller
             'price'          => 'required|numeric|min:0',
             'stock_status'   => 'required|in:in_stock,out_of_stock',
             'is_blocked'     => 'boolean',
-            'image_data'     => 'nullable|string',
+            'image_data'     => ['bail', 'nullable', 'string', ProductMedia::validateCover(...)],
             'summary'        => 'nullable|string',
             'details_chips'  => 'nullable|array',
             'details_chips.*'=> 'string|max:200',
@@ -167,6 +168,10 @@ class ProductController extends Controller
             'availability.*' => 'string|max:200',
             'recommended_for'   => 'nullable|array',
             'recommended_for.*' => 'string|max:200',
+            'gallery_media' => 'sometimes|array|max:4',
+            'gallery_media.*' => 'array:id,upload_token',
+            'gallery_media.*.id' => 'sometimes|uuid',
+            'gallery_media.*.upload_token' => 'sometimes|uuid',
         ]);
 
         if (isset($validated['image_data'])) {
@@ -182,7 +187,19 @@ class ProductController extends Controller
             }
         }
 
-        $product->update($validated);
+        DB::transaction(function () use ($product, $validated, $request) {
+            $locked = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            if (array_key_exists('gallery_media', $validated)) {
+                $validated['gallery_media'] = ProductMedia::resolve(
+                    $locked, $validated['gallery_media'], (int) $request->user()->id,
+                    array_key_exists('image_data', $validated) ? $validated['image_data'] : $locked->image_data,
+                );
+            } elseif (! (array_key_exists('image_data', $validated) ? $validated['image_data'] : $locked->image_data) && $locked->gallery_media) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['image_data' => 'Keep a cover image while the gallery contains additional media.']);
+            }
+            $locked->update($validated);
+            DB::afterCommit(fn () => ProductMedia::pruneProduct((int) $locked->id));
+        });
 
         return response()->json([
             'message' => 'Product updated successfully.',
@@ -338,7 +355,7 @@ class ProductController extends Controller
         $useWebp = function_exists('imagewebp');
         $extension = $useWebp ? 'webp' : 'jpg';
         $mimeType = $useWebp ? 'image/webp' : 'image/jpeg';
-        $version = $product->updated_at?->format('YmdHis') ?? 'unversioned';
+        $version = substr(hash('sha256', $sourceBytes), 0, 20);
         $cachePath = 'product-thumbnails/' . $product->id . '-' . $version . '.' . $extension;
 
         try {
@@ -423,7 +440,8 @@ class ProductController extends Controller
             return $product->image_data;
         }
 
-        $version = $product->updated_at?->getTimestamp() ?? time();
+        // Two cover replacements in one second must never share a browser URL.
+        $version = substr(hash('sha256', $product->image_data), 0, 20);
         return url("/api/products/{$product->id}/image?v={$version}");
     }
 
@@ -436,6 +454,7 @@ class ProductController extends Controller
         $price = (float) $product->price;
         $discountPercent = $promotion ? (int) $promotion->discount_percent : 0;
         $salePrice = round($price * (1 - ($discountPercent / 100)), 2);
+        $imageUrl = $this->resolveProductImageUrl($product);
 
         return [
             'id'             => $product->id,
@@ -453,7 +472,8 @@ class ProductController extends Controller
             ] : null,
             'stock_status'   => $product->stock_status,
             'is_blocked'     => (bool) $product->is_blocked,
-            'image_data'     => $this->resolveProductImageUrl($product),
+            'image_data'     => $imageUrl,
+            'media'          => ProductMedia::references($product, $imageUrl),
             'summary'        => $product->summary,
             'details_chips'  => $product->details_chips ?? [],
             'availability'   => $product->availability ?? [],

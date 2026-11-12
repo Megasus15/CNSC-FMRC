@@ -795,6 +795,7 @@
     <script src="admin-form-controls.js?v=1.0" defer></script>
 
 
+    <link rel="stylesheet" href="product-gallery.css?v=2026.1112.1" />
 </head>
   <body>
     <div class="dashboard-container">
@@ -1424,10 +1425,10 @@
           </div>
 
           <p class="modal-section-title" style="margin-top: 22px">
-            View Info Details
+            Product Details
           </p>
           <p class="field-hint" style="margin-bottom: 12px">
-            These fields appear inside the "View Info" modal on the customer's
+            These fields appear inside Product Details on the customer's
             product page.
           </p>
           <div class="form-grid">
@@ -1610,18 +1611,20 @@
                 </div>
                 <div class="upload-area-text">
                   <strong id="editUploadLabel">Click to replace image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                  <span>JPG, PNG, WebP · up to 10 MB — opens in the image editor</span>
                 </div>
-                <input type="file" id="editProductPhoto" accept="image/*" />
+                <input type="file" id="editProductPhoto" accept="image/jpeg,image/png,image/webp" />
               </div>
             </div>
           </div>
 
+          <section class="product-gallery-editor" id="editProductGallery" aria-label="Product gallery editor"></section>
+
           <p class="modal-section-title" style="margin-top: 22px">
-            View Info Details
+            Product Details
           </p>
           <p class="field-hint" style="margin-bottom: 12px">
-            These fields appear inside the "View Info" modal on the customer's
+            These fields appear inside Product Details on the customer's
             product page.
           </p>
           <div class="form-grid">
@@ -1795,7 +1798,8 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1109.8"></script>
-    <script src="products.js?v=2026.1109.8"></script>
+    <script src="product-gallery.js?v=2026.1112.1"></script>
+    <script src="products.js?v=2026.1112.1"></script>
     <script src="admin-table-resize.js?v=2026.1109.8" defer></script>
   </body>
 </html>
