@@ -139,7 +139,7 @@
     </script>
       <link rel="stylesheet" href="customer-scroll.css?v=1.2" />
     <script defer src="customer-scroll.js?v=1.0"></script>
-  <link rel="stylesheet" href="appointment-flow.css?v=2026.1111.3" />
+  <link rel="stylesheet" href="appointment-flow.css?v=2026.1113.2" />
   <link rel="stylesheet" href="../home-page/my-appointments.css?v=2026.1109.1">
 
       <link rel="stylesheet" href="appointment-products.css?v=2026.1111.6">
@@ -712,7 +712,7 @@
             href="#home"
             class="apt-home-link"
             id="closeAppointmentBtn"
-            title="Back to Homepage"
+            title="Return to Home"
             aria-label="Close appointment form and return to homepage"
           >
             <svg
@@ -730,7 +730,7 @@
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
-            <span>Back to Home Page</span>
+            <span>Return to Home</span>
           </a>
           <h2 class="apt-main-title" id="appointmentFlowTitle">
             Set an Appointment
@@ -1252,6 +1252,7 @@
                 <div class="ticket-column">
                   <div class="t-label">TYPE OF CLIENT</div>
                   <div class="t-value" id="revClientType">Student</div>
+                    <div data-ucn-review="rev" hidden><div class="t-label">College / Department</div><div class="t-value" id="revDepartment">Not provided</div><div class="t-label">Purchase Request (PR)</div><div class="t-value" id="revPurchaseRequest">Not provided</div></div>
                 </div>
               </div>
 
@@ -1345,6 +1346,7 @@
                   <div class="ticket-column">
                     <div class="t-label">TYPE OF CLIENT</div>
                     <div class="t-value" id="comClientType">Student</div>
+                    <div data-ucn-review="com" hidden><div class="t-label">College / Department</div><div class="t-value" id="comDepartment">Not provided</div><div class="t-label">Purchase Request (PR)</div><div class="t-value" id="comPurchaseRequest">Not provided</div></div>
                   </div>
                 </div>
 
@@ -1485,7 +1487,7 @@
         </div>
         <div class="success-card__footer">
           <a href="#home" class="apt-btn apt-btn-blue" id="btnSuccessHome">
-            <span>Back to Home Page</span>
+            <span>Return to Home</span>
           </a>
         </div>
       </div>
@@ -1944,12 +1946,13 @@
     <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script defer src="../products-page/gateway-payments.js?v=2026.1104.3"></script>
-    <script defer src="../home-page/my-appointments.js?v=2026.1111.6"></script>
-<script defer src="main.js?v=2026.1111.2"></script>
+    <script defer src="../home-page/my-appointments.js?v=2026.1113.2"></script>
+<script defer src="appointment-intake.js?v=2026.1113.2"></script>
+<script defer src="main.js?v=2026.1113.2"></script>
     <script defer src="service-dialogs.js?v=2026.1107.1"></script>
     <script defer src="customer-announcements.js?v=7.0"></script>
     <script defer src="customer-notifications.js?v=2026.1107.3"></script>
 
-      <script src="appointment-products.js?v=2026.1111.6"></script>
+      <script src="appointment-products.js?v=2026.1113.2"></script>
 </body>
 </html>

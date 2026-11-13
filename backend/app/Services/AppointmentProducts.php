@@ -205,7 +205,7 @@ final class AppointmentProducts
     }
 
     /** Called inside the existing booking transaction and schedule lock. */
-    public static function booked(Appointment $appointment, array $input, int $customer, string $key, ?int $draftId, mixed $revision, array $stored): AppointmentProductJob
+    public static function booked(Appointment $appointment, array $input, int $customer, string $key, ?int $draftId, mixed $revision, array $stored, bool $removePurchaseRequest = false): AppointmentProductJob
     {
         $job = $draftId ? AppointmentProductJob::where('customer_id', $customer)->whereKey($draftId)->lockForUpdate()->firstOrFail() : null;
         $brief = self::customerBrief($input, false, $job?->requirements ?? [], $appointment->additional_notes);
@@ -213,9 +213,15 @@ final class AppointmentProducts
         if ($job) {
             self::version($job, $revision);
             abort_unless($job->state === 'draft' && ! $job->appointment_id, 409, 'This draft has already been booked. Open its appointment.');
-            $existing = DB::table('appointment_product_files')->where('job_id', $job->id);
-            abort_if((clone $existing)->count() + count($stored) > 5 || (clone $existing)->sum('size') + array_sum(array_column($stored, 'size')) > 50 * 1024 * 1024,
-                422, 'Keep up to five design files, 50 MB combined. Remove a saved file before adding another.');
+            if ($appointment->client_type !== AppointmentIntake::CLIENT || $removePurchaseRequest || collect($stored)->contains('kind', 'purchase_request')) {
+                $oldPr = DB::table('appointment_product_files')->where('job_id', $job->id)->where('kind', 'purchase_request');
+                $removed = $oldPr->get()->map(fn ($f) => (array) $f)->all();
+                $oldPr->delete();
+                DB::afterCommit(fn () => AppointmentFiles::clean($removed));
+            }
+            $retained = DB::table('appointment_product_files')->where('job_id', $job->id)->get(['name', 'path', 'mime', 'size', 'created_at', 'kind'])->map(fn ($f) => (array) $f)->all();
+            AppointmentIntake::limits(array_merge($retained, $stored));
+            foreach ($retained as $file) DB::table('appointment_attachments')->insert($file + ['appointment_id' => $appointment->id]);
             $job->fill(['requirements' => $brief, 'service_id' => $service->id, 'service_name' => $service->title, 'appointment_id' => $appointment->id, 'state' => 'awaiting_consultation']);
             self::touch($job);
         } else {
@@ -448,7 +454,7 @@ final class AppointmentProducts
             'state' => $job->state, 'progress' => $progress, 'stage' => $stage, 'revision' => (int) $job->revision, 'request_key' => $job->request_key,
             'requirements' => self::customerBriefView($job->requirements ?? [], $job->booking['aptDesc'] ?? null, $job->appointment?->additional_notes), 'booking' => $job->booking,
             'next_action' => $next, 'outcome_note' => $job->outcome_note, 'discussed_at' => $job->discussed_at?->toIso8601String(),
-            'files' => DB::table('appointment_product_files')->where('job_id', $job->id)->get(['id', 'name', 'size', 'message_id'])->all(),
+            'files' => DB::table('appointment_product_files')->where('job_id', $job->id)->get(['id', 'name', 'size', 'message_id', 'kind'])->all(),
             'messages' => DB::table('appointment_product_messages')->where('job_id', $job->id)->orderBy('id')
                 ->get(['id', 'sender_id', 'sender_name', 'sender_role', 'body', 'request_key', 'created_at'])
                 ->map(function ($message) {

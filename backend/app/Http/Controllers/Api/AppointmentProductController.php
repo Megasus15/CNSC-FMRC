@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\AppointmentFiles;
+use App\Services\AppointmentIntake;
 use App\Services\AppointmentConsultations;
 use App\Services\AppointmentProducts as Products;
 use App\Services\AppointmentScheduling;
@@ -87,7 +88,8 @@ class AppointmentProductController extends Controller
         $service = Products::eligible($brief['service_id']);
         $r->validate(['booking' => ['nullable'], 'draft_id' => 'nullable|integer', 'expected_revision' => 'required_with:draft_id|integer|min:0']);
         $booking = $this->data($r, 'booking');
-        \Illuminate\Support\Facades\Validator::make($booking, ['aptDesc' => 'nullable|string|max:2000'])->validate();
+        \Illuminate\Support\Facades\Validator::make($booking, ['aptDesc' => 'nullable|string|max:2000', 'aptRole' => 'nullable|string|max:120', 'aptUniversityDepartment' => 'nullable|string|max:20'])->validate();
+        $booking['aptUniversityDepartment'] = AppointmentIntake::department($booking['aptRole'] ?? null, $booking['aptUniversityDepartment'] ?? null, true);
         $notes = Products::customerNotes($input, $booking['aptDesc'] ?? null);
         \Illuminate\Support\Facades\Validator::make(['additional_notes' => $notes], ['additional_notes' => 'nullable|string|max:2000'])->validate();
         $brief['instructions'] = $notes;
@@ -107,11 +109,19 @@ class AppointmentProductController extends Controller
                     Products::version($job, $r->input('expected_revision'));
                     abort_unless($job->state === 'draft', 409, 'This draft is already booked. Open its appointment.');
                 }
+                $ucn = ($booking['aptRole'] ?? null) === AppointmentIntake::CLIENT;
+                $pr = AppointmentIntake::purchaseRequest($r, $ucn);
                 $files = AppointmentFiles::validate($r);
-                $count = $job ? DB::table('appointment_product_files')->where('job_id', $job->id)->count() : 0;
-                $bytes = $job ? (int) DB::table('appointment_product_files')->where('job_id', $job->id)->sum('size') : 0;
-                abort_if($count + count($files) > 5 || $bytes + array_sum(array_map(fn ($f) => $f->getSize(), $files)) > 50 * 1024 * 1024, 422, 'Your draft can hold up to five files, totaling 50 MB.');
                 $stored = AppointmentFiles::store($files);
+                $stored = array_merge($stored, AppointmentFiles::store($pr, 'purchase_request'));
+                if ($job && (!$ucn || $pr || $r->boolean('purchase_request_removed'))) {
+                    $oldPr = DB::table('appointment_product_files')->where('job_id', $job->id)->where('kind', 'purchase_request');
+                    $removed = $oldPr->get()->map(fn ($f) => (array) $f)->all();
+                    $oldPr->delete();
+                    DB::afterCommit(fn () => AppointmentFiles::clean($removed));
+                }
+                $retained = $job ? DB::table('appointment_product_files')->where('job_id', $job->id)->get()->map(fn ($f) => (array) $f)->all() : [];
+                AppointmentIntake::limits(array_merge($retained, $stored));
                 $values = ['requirements' => $brief, 'booking' => $booking, 'service_id' => $service->id, 'service_name' => $service->title];
                 if ($job) {
                     $job->fill($values);
@@ -157,7 +167,7 @@ class AppointmentProductController extends Controller
             $a->forceFill(['product_job_id' => $job->id])->save();
             $a->update(['additional_notes' => $brief['instructions'] ?? null]);
             if (Schema::hasTable('appointment_attachments')) {
-                $files = DB::table('appointment_attachments')->where('appointment_id', $a->id)->get(['name', 'path', 'mime', 'size', 'created_at'])->map(fn ($f) => (array) $f)->all();
+                $files = DB::table('appointment_attachments')->where('appointment_id', $a->id)->where('kind', 'design')->get(['name', 'path', 'mime', 'size', 'created_at', 'kind'])->map(fn ($f) => (array) $f)->all();
                 Products::files($job, $files);
             }
             Products::event($job, 'requested', 'Custom product added to the existing appointment.', $user->id);
@@ -413,7 +423,7 @@ class AppointmentProductController extends Controller
         abort_unless($job->discussed_at && in_array($job->state, ['ready_for_quote', 'quoted'], true), 422, 'Confirm the completed product discussion and resolve outstanding questions before sending a quotation.');
         abort_unless((int) $spec['service_id'] === (int) $job->service_id, 422, 'The quotation must use the agreed fabrication service.');
         $proofs = $v['proof_file_ids'] ?? [];
-        abort_unless(DB::table('appointment_product_files')->where('job_id', $job->id)->whereIn('id', $proofs)->count() === count(array_unique($proofs)), 422, 'Choose design proofs from this appointment only.');
+        abort_unless(DB::table('appointment_product_files')->where('job_id', $job->id)->where('kind', 'design')->whereIn('id', $proofs)->count() === count(array_unique($proofs)), 422, 'Choose design proofs from this appointment only.');
         if ($job->quotes()->whereIn('state', ['sent', 'accepted', 'closing'])->exists()) {
             $this->closeOffers($job, 'superseded');
         }
@@ -426,7 +436,7 @@ class AppointmentProductController extends Controller
             abort_unless($j->discussed_at && in_array($j->state, ['ready_for_quote', 'quoted'], true), 422, 'Confirm the completed product discussion and resolve outstanding questions before sending a quotation.');
             abort_unless((int) $spec['service_id'] === (int) $j->service_id, 422, 'The quotation must use the agreed fabrication service.');
             $ids = $v['proof_file_ids'] ?? [];
-            abort_unless(DB::table('appointment_product_files')->where('job_id', $j->id)->whereIn('id', $ids)->count() === count(array_unique($ids)), 422, 'Choose design proofs from this appointment only.');
+            abort_unless(DB::table('appointment_product_files')->where('job_id', $j->id)->where('kind', 'design')->whereIn('id', $ids)->count() === count(array_unique($ids)), 422, 'Choose design proofs from this appointment only.');
             $agreement = ['specifications' => $spec, 'service' => $j->service_name, 'design_notes' => $v['design_notes'], 'proof_file_ids' => $ids,
                 'unit_price' => $unit / 100, 'product_subtotal' => $subtotal / 100, 'shipping_fee' => GatewayPayments::centavos($v['shipping_fee']) / 100, 'total' => $total / 100,
                 'lead_time' => $v['lead_time'], 'fulfillment_type' => $v['fulfillment_type'], 'delivery' => $delivery];

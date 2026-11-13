@@ -45,7 +45,7 @@ final class AppointmentFiles
         return $files;
     }
 
-    public static function store(array $files): array
+    public static function store(array $files, string $kind = 'design'): array
     {
         $stored = [];
         try {
@@ -55,7 +55,7 @@ final class AppointmentFiles
                     throw new \RuntimeException('Design file storage is unavailable.');
                 }
                 $stored[] = ['name' => mb_substr(basename(str_replace('\\', '/', $file->getClientOriginalName())), 0, 200),
-                    'path' => $path, 'mime' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'created_at' => now()];
+                    'path' => $path, 'mime' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'created_at' => now(), 'kind' => $kind];
             }
         } catch (\Throwable $error) {
             self::clean($stored);
@@ -75,7 +75,7 @@ final class AppointmentFiles
     public static function records(int $appointment): array
     {
         return DB::table('appointment_attachments')->where('appointment_id', $appointment)->orderBy('id')->get()->map(fn ($file) => [
-            'id' => $file->id, 'name' => $file->name, 'size' => $file->size, 'download_url' => url('/api/customer/appointments/'.$appointment.'/attachments/'.$file->id),
+            'id' => $file->id, 'name' => $file->name, 'size' => $file->size, 'kind' => $file->kind ?? 'design', 'download_url' => url('/api/customer/appointments/'.$appointment.'/attachments/'.$file->id),
         ])->all();
     }
 

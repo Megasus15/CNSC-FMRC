@@ -74,6 +74,8 @@ class AppointmentConfirmation extends Mailable
         $time       = e($appointment->appointment_time ?? 'N/A');
         $purpose    = e($appointment->purpose ?? 'N/A');
         $clientType = e($appointment->client_type ?? 'N/A');
+        $department = \App\Services\AppointmentIntake::label($appointment->university_department);
+        if ($department) $clientType .= '<br><span style="font-size:12px">'.e($department).'</span>';
         $contact    = e($appointment->contact_number ?? 'N/A');
         $email      = e($appointment->email ?? 'N/A');
         $address    = e($appointment->full_address ?? 'N/A');

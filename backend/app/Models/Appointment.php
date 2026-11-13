@@ -27,6 +27,7 @@ class Appointment extends Model
         'intl_address',
         'full_address',
         'client_type',
+        'university_department',
         'purpose',
         'additional_notes',
         'appointment_date',

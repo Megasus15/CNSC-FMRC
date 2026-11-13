@@ -617,7 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
         item.contact_number,
         item.email,
         item.full_address,
-        item.client_type,
+        item.client_type, item.university_department, item.university_department_label,
         item.purpose,
         item.additional_notes,
         item.custom_product?.requirements?.name,item.custom_product?.service_name,item.custom_product?.stage,
@@ -1211,6 +1211,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="appt-view-field">
             <dt>Client type</dt><dd>${display(appt.client_type)}</dd>
           </div>
+          ${appt.client_type==='UCN College / Department'?`<div class="appt-view-field full"><dt>College / Department</dt><dd>${display(appt.university_department_label)}</dd></div>`:''}
           <div class="appt-view-field full">
             <dt>Address</dt><dd>${display(appt.full_address)}</dd>
           </div>
@@ -1220,8 +1221,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="appt-details-section-heading"><h4>Additional notes</h4></div>
           <p class="appt-view-notes">${display(appt.additional_notes, "No additional notes were provided.")}</p>
         </section>
+        ${appt.client_type==='UCN College / Department'?`<section class="appt-details-section"><div class="appt-details-section-heading"><h4>Purchase Request (PR)</h4><p>Private request document submitted by the college or department.</p></div><div class="appt-view-files">${window.AdminAppointmentDetails?.files(appt,{detailed:true,kind:'purchase_request'})||'<p class="appt-view-empty">No PR submitted.</p>'}</div></section>`:''}
         <section class="appt-details-section">
-          <div class="appt-details-section-heading"><h4>Design files</h4><p>Private files submitted for this appointment.</p></div>
+          <div class="appt-details-section-heading"><h4>Supporting design files</h4><p>Private files submitted for this appointment.</p></div>
           <div class="appt-view-files">${fileHtml}</div>
         </section>`;
       // Reuse the live editor so polling retains its tabs, disclosures and files.

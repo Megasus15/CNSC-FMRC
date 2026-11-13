@@ -682,7 +682,7 @@
       ${admin?workflowChecklist(ctx):''}
       <div class="ap-tabs" role="tablist" aria-label="Custom product details">${['Overview','Quotation','Conversation'].map((t,i)=>button(t,`role="tab" id="ap-tab-${ctx.key}-${i}" aria-controls="ap-pane-${ctx.key}-${i}" tabindex="${ctx.tab===i?0:-1}" aria-selected="${ctx.tab===i}" data-ap-tab="${i}"`,ctx.tab!==i)).join('')}</div>
       <section role="tabpanel" id="ap-pane-${ctx.key}-0" aria-labelledby="ap-tab-${ctx.key}-0" data-ap-pane="0" ${ctx.tab!==0?'hidden':''}>${!admin&&job.state==='needs_information'?'<div class="ap-actions">'+button('Provide Details','data-ap-go-conversation')+'</div>':''}${!admin&&!activeOrder&&current?.state==='sent'?'<div class="ap-actions">'+button('Review Quotation','data-ap-go-quote')+'</div>':''}${customerSpecs(job.requirements,job.service_name)}${job.outcome_note?`<p><strong>FMRC update:</strong> ${esc(job.outcome_note)}</p>`:''}
-        ${fileList(job.files)}${admin?linkedOrders(job):activeOrder?`<div class="ap-actions"><a class="ap-btn" href="${esc(link(admin?`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/orders.html?order_id=${order.id}`:`/home-page/?orders=1&order_id=${order.id}`))}">${admin?'Open Order':order.payment_status==='pending'?'Continue Payment':'View Order'} ${esc(order.order_no)}</a></div>`:''}
+        ${fileList(job.files.filter(f=>f.kind!=='purchase_request'))}${admin?linkedOrders(job):activeOrder?`<div class="ap-actions"><a class="ap-btn" href="${esc(link(admin?`/${location.pathname.includes('staff-page')?'staff-page':'admin-page'}/orders.html?order_id=${order.id}`:`/home-page/?orders=1&order_id=${order.id}`))}">${admin?'Open Order':order.payment_status==='pending'?'Continue Payment':'View Order'} ${esc(order.order_no)}</a></div>`:''}
         ${editable?`<details><summary>Update product details</summary><form data-ap-form="requirements">${briefFields(job.requirements,[{id:job.service_id,title:job.service_name}],'',false,admin)}<div class="ap-actions"><button class="ap-btn is-secondary" type="submit">Save Details</button></div></form></details>`:''}
         ${admin&&!activeOrder&&!['cancelled','declined'].includes(job.state)?`<details data-ap-outcome ${!job.discussed_at?'open':''}><summary>Confirm consultation</summary><p class="ap-help">Confirm the meeting and save its outcome here. Choose the consultation you attended.</p><form data-ap-form="outcome"><div class="ap-grid"><label class="ap-field"><span>Next step *</span><select name="outcome"><option value="ready_for_quote">Ready to prepare quotation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up needed</option><option value="declined">Unable to fulfill</option></select></label><label class="ap-field"><span>Consultation *</span><select name="discussed_appointment_id" required>${consultations(ctx).map(a=>`<option value="${a.id}" ${a.id===appointment.id?'selected':''}>${esc(a.reference_no)}${a.status==='Completed'?' · Done':''}</option>`).join('')}</select></label>${field('note','Summary for the customer',job.outcome_note,'textarea',true,true)}<label class="ap-check"><input type="checkbox" name="discussion_confirmed"><span>I confirm that this consultation took place and the product requirements were discussed.</span></label><p class="ap-help" data-ap-outcome-help></p></div><div class="ap-actions"><button class="ap-btn is-secondary" type="submit">Confirm consultation and save</button></div></form></details>`:''}
         ${!admin&&job.state==='follow_up'?`<details open><summary>Book a follow-up</summary><form data-ap-form="follow-up"><div class="ap-grid">${field('appointment_date','Available date','','date',true)}<label class="ap-field"><span>Available time *</span><select name="appointment_time" required><option value="">Choose a date first</option></select></label><label class="ap-field"><span>Meeting method *</span><select name="appointment_method"><option value="face_to_face">Face-to-face at FMRC</option><option value="online">Online</option></select></label></div><div class="ap-actions"><button class="ap-btn" type="submit">Confirm Follow-up</button></div></form></details>`:''}
@@ -698,7 +698,7 @@
         </article>`).join(''):`<p class="ap-help">${esc(quotationHint(ctx))}</p>`}
         ${admin&&editable&&job.discussed_at&&['ready_for_quote','quoted'].includes(job.state)?`<details data-ap-quotation-editor ${!current?'open':''}><summary>${current?'Prepare revised quotation':'Prepare quotation'}</summary><p class="ap-help">Confirm the specifications, design proof, price, and pickup or delivery details before sending.</p><form data-ap-form="quotation">${preferences(job.requirements)}${briefFields(current?.agreement.specifications||job.requirements,[{id:job.service_id,title:job.service_name}],'spec_',true)}<fieldset class="ap-form-section"><legend>Design proof</legend><p class="ap-help">Describe the final design the customer will approve. Add its proof files below when available.</p><div class="ap-grid">${field('design_notes','Design confirmation',current?.agreement.design_notes,'textarea',true,true)}</div></fieldset><div class="ap-grid">${field('unit_price','Unit price (₱)',current?.agreement.unit_price,'number',true)}${field('shipping_fee','Shipping fee (₱)',current?.agreement.shipping_fee??0,'number',true)}${field('lead_time','Production lead time',current?.agreement.lead_time||'','text',true)}<label class="ap-field"><span>Pickup or delivery *</span><select name="fulfillment_type"><option value="pickup" ${current?.agreement.fulfillment_type!=='delivery'?'selected':''}>Pickup at FMRC</option><option value="delivery" ${current?.agreement.fulfillment_type==='delivery'?'selected':''}>J&T delivery</option></select></label></div>
           <fieldset class="ap-form-section" data-ap-delivery hidden><legend>Quoted delivery destination</legend><div class="ap-grid">${field('delivery_recipient_name','Recipient name',current?.agreement.delivery?.delivery_recipient_name,'text',true)}${field('delivery_contact_no','Contact number',current?.agreement.delivery?.delivery_contact_no,'tel',true)}${field('delivery_street','Street / building',current?.agreement.delivery?.delivery_street,'text',true,true)}${placeField('province','Province / Metro Manila',current?.agreement.delivery?.delivery_province,'ap-'+ctx.key+'-province')}${placeField('city','City / municipality',current?.agreement.delivery?.delivery_city,'ap-'+ctx.key+'-city')}${placeField('barangay','Barangay',current?.agreement.delivery?.delivery_barangay,'ap-'+ctx.key+'-barangay')}${field('delivery_postal_code','Postal code',current?.agreement.delivery?.delivery_postal_code,'text',true)}<label class="ap-check"><input type="checkbox" name="delivery_eligible"><span>FMRC confirmed that this product and destination are eligible for delivery at the quoted shipping fee.</span></label></div></fieldset>
-          ${job.files.length?`<fieldset class="ap-form-section"><legend>Design proofs included in the quotation</legend><div class="ap-proof-options">${job.files.map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</div></fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
+          ${job.files.length?`<fieldset class="ap-form-section"><legend>Design proofs included in the quotation</legend><div class="ap-proof-options">${job.files.filter(f=>f.kind!=='purchase_request').map(f=>`<label class="ap-check"><input type="checkbox" name="proof_file_ids" value="${f.id}"><span>${esc(f.name)}</span></label>`).join('')}</div></fieldset>`:''}<div class="ap-actions"><button type="submit" class="ap-btn">Send Quotation</button></div></form></details>`:''}
       </section>
       <section role="tabpanel" id="ap-pane-${ctx.key}-2" aria-labelledby="ap-tab-${ctx.key}-2" data-ap-pane="2" ${ctx.tab!==2?'hidden':''}>${chatMarkup(ctx)}</section>`;
     if(conversation){root.querySelector('[data-ap-pane="2"]').replaceWith(conversation);conversation.hidden=ctx.tab!==2;}
@@ -818,8 +818,8 @@
   }
 
   // Booking fields remain owned by the existing five-step form.
-  const bookingIds=['aptLName','aptFName','aptMI','aptPhone','aptEmail','aptRole','aptRoleOther','aptCountry','aptRegion','aptProvince','aptMunicipality','aptAddress','aptIntlAddress','aptMethod','aptPurpose','aptDesc'];
-  const bookingValues=()=>({...Object.fromEntries(bookingIds.map(id=>[id,document.getElementById(id)?.value||''])),custom_measurements:document.querySelector('#aptCustomFields [data-ap-measurements]')?.apMeasurements?.state()});
+  const bookingIds=['aptLName','aptFName','aptMI','aptPhone','aptEmail','aptRole','aptRoleOther','aptUniversityDepartment','aptCountry','aptRegion','aptProvince','aptMunicipality','aptAddress','aptIntlAddress','aptMethod','aptPurpose','aptDesc'];
+  const bookingValues=()=>{const values=Object.fromEntries(bookingIds.map(id=>[id,document.getElementById(id)?.value||'']));if(!window.FMRCAppointmentIntake?.isUcn())delete values.aptUniversityDepartment;return {...values,custom_measurements:document.querySelector('#aptCustomFields [data-ap-measurements]')?.apMeasurements?.state()};};
   const selected=()=>!!document.getElementById('aptCustomProduct')?.checked;
   const bookingPurpose=()=>document.querySelector('#aptCustomFields [name="service_id"]')?.selectedOptions[0]?.textContent.trim()||'';
   function syncBookingFields() {
@@ -855,12 +855,15 @@
     if(draftBusy)return; if(!token())return signIn(); const form=document.getElementById('aptCustomFields');
     if(!Number(form.elements.service_id.value))return popup('Choose an eligible FMRC service first.');
     if(!validateBookingNotes())return;
-    const snapshot=()=>JSON.stringify({requirements:requirements(form),booking:bookingValues(),files:(window.FMRCAppointmentBooking?.files()||[]).map(fileKey)}),savedSnapshot=snapshot();
+    const intakeError=window.FMRCAppointmentIntake?.validate(window.FMRCAppointmentBooking?.files()||[]);if(intakeError)return popup(intakeError,'Check your uploads');
+    const snapshot=()=>JSON.stringify({requirements:requirements(form),booking:bookingValues(),files:(window.FMRCAppointmentBooking?.files()||[]).map(fileKey),intake:window.FMRCAppointmentIntake?.snapshot()}),savedSnapshot=snapshot();
     draftBusy=true;const btn=document.getElementById('aptSaveCustomDraft');btn.disabled=true;
     try{const fd=new FormData();fd.append('requirements',JSON.stringify(requirements(form)));fd.append('booking',JSON.stringify(bookingValues()));fd.append('request_key',bookingKey);
       if(bookingDraft){fd.append('draft_id',bookingDraft.id);fd.append('expected_revision',bookingDraft.revision);}
       const files=window.FMRCAppointmentBooking?.files()||[];for(const f of newFiles(files))fd.append('attachments[]',f);
-      const result=await request('/customer/appointment-products/drafts',{method:'POST',body:fd});bookingDraft=result.data;files.filter(f=>(bookingDraft.files||[]).some(saved=>saved.name===f.name&&Number(saved.size)===f.size)).forEach(f=>uploaded.add(fileKey(f)));showSavedFiles();if(snapshot()===savedSnapshot)form.dataset.dirty='false';await popup(result.message,'Draft saved');
+      window.FMRCAppointmentIntake?.append(fd);
+      fd.delete('university_department');
+      const result=await request('/customer/appointment-products/drafts',{method:'POST',body:fd});bookingDraft=result.data;files.filter(f=>(bookingDraft.files||[]).some(saved=>saved.name===f.name&&Number(saved.size)===f.size)).forEach(f=>uploaded.add(fileKey(f)));const unchanged=snapshot()===savedSnapshot;showSavedFiles();window.FMRCAppointmentIntake?.saved(bookingDraft.files.find(f=>f.kind==='purchase_request'),!unchanged);if(unchanged)form.dataset.dirty='false';await popup(result.message,'Draft saved');
     }catch(e){await popup(e.message,'Draft not saved');
       if(e.status===409&&bookingDraft)void request('/customer/appointment-products/'+bookingDraft.id).then(latest=>{
         const host=document.querySelector('[data-ap-saved-files]');let notice=host.querySelector('[data-ap-draft-conflict]');if(!notice){notice=document.createElement('details');notice.dataset.apDraftConflict='';host.prepend(notice);}
@@ -869,16 +872,37 @@
       }).catch(()=>{});
     }finally{draftBusy=false;btn.disabled=false;}
   }
-  function showSavedFiles(){const node=document.querySelector('[data-ap-saved-files]');if(!node)return;node.innerHTML=bookingDraft?'<p class="ap-help">Saved designs remain private and will be included when you book.</p>'+fileList(bookingDraft.files):'';
+  function showSavedFiles(){const node=document.querySelector('[data-ap-saved-files]');if(!node)return;node.innerHTML=bookingDraft?'<p class="ap-help">Saved designs remain private and will be included when you book.</p>'+fileList(bookingDraft.files.filter(f=>f.kind!=='purchase_request')):'';
     node.querySelectorAll('[data-ap-file]').forEach(b=>{b.onclick=()=>download(bookingDraft.id,bookingDraft.files.find(f=>f.id===Number(b.dataset.apFile))).catch(e=>popup(e.message));
       const remove=document.createElement('button');remove.type='button';remove.className='ap-file';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+b.textContent);
       b.closest('li').append(remove);remove.onclick=async()=>{if(draftBusy||!await confirm('Remove this file from your saved draft?'))return;draftBusy=true;remove.disabled=true;
         try{const file=bookingDraft.files.find(f=>f.id===Number(b.dataset.apFile));const result=await request(`/customer/appointment-products/${bookingDraft.id}/files/${file.id}`,{method:'DELETE',body:JSON.stringify({expected_revision:bookingDraft.revision})});bookingDraft=result.data;
           const retained=(window.FMRCAppointmentBooking?.files()||[]).filter(f=>!(f.name===file.name&&f.size===file.size));window.FMRCAppointmentBooking?.restoreFiles(retained);showSavedFiles();}
         catch(error){await popup(error.message);}finally{draftBusy=false;if(remove.isConnected)remove.disabled=false;}};});} 
-  function localFiles(value) {return new Promise((resolve,reject)=>{const open=indexedDB.open('fmrc-appointment-resume',1);open.onupgradeneeded=()=>open.result.createObjectStore('pending');open.onerror=()=>reject(Error('Your browser could not keep the selected files. Please save or keep this tab open.'));open.onsuccess=()=>{const db=open.result,tx=db.transaction('pending','readwrite'),store=tx.objectStore('pending');let req=value===undefined?store.get('booking'):store.put(value,'booking');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();};});}
+  function localFiles(value) {
+    return new Promise((resolve,reject)=>{
+      const open=indexedDB.open('fmrc-appointment-resume',1);
+      open.onupgradeneeded=()=>open.result.createObjectStore('pending');
+      open.onerror=()=>reject(Error('Your browser could not keep the selected files. Please save or keep this tab open.'));
+      open.onsuccess=()=>{
+        const db=open.result,tx=db.transaction('pending','readwrite'),store=tx.objectStore('pending');
+        const req=value===undefined?store.get('booking'):store.put(value,'booking');let result;
+        req.onsuccess=()=>{result=req.result;};
+        tx.oncomplete=()=>{db.close();resolve(result);};
+        tx.onerror=tx.onabort=()=>{db.close();reject(tx.error||Error('Your files could not be kept. Please try again.'));};
+      };
+    });
+  }
   async function signIn() {
-    try{const custom=requirements(document.getElementById('aptCustomFields'));await localFiles(window.FMRCAppointmentBooking?.files()||[]);sessionStorage.setItem('fmrc-appointment-product-resume',JSON.stringify({booking:bookingValues(),custom,draft:bookingDraft,key:bookingKey}));signingIn=true;location.href=link('/customer-auth/auth.html#login');}catch(e){await popup(e.message);}
+    try{const custom=selected()?requirements(document.getElementById('aptCustomFields')):null;await localFiles({designs:window.FMRCAppointmentBooking?.files()||[],intake:window.FMRCAppointmentIntake?.resumeData()});sessionStorage.setItem('fmrc-appointment-product-resume',JSON.stringify({booking:bookingValues(),custom,customSelected:selected(),draft:bookingDraft,key:bookingKey}));signingIn=true;location.href=link('/customer-auth/auth.html#login');}catch(e){await popup(e.message);}
+  }
+  async function restorePending(pending) {
+    sessionStorage.removeItem('fmrc-appointment-product-resume');await resume(JSON.parse(pending));const stored=await localFiles();
+    const files=Array.isArray(stored)?stored:stored?.designs||[];
+    window.FMRCAppointmentBooking?.restoreFiles(files);
+    files.filter(f=>(bookingDraft?.files||[]).some(saved=>saved.kind!=='purchase_request'&&saved.name===f.name&&Number(saved.size)===f.size)).forEach(f=>uploaded.add(fileKey(f)));
+    if(stored?.intake)window.FMRCAppointmentIntake?.restore(stored.intake);
+    await localFiles([]);
   }
   async function resume(data) {
     window.FMRCAppointmentBooking?.open();
@@ -886,13 +910,19 @@
       if(input.tagName==='SELECT'&&value)for(let i=0;i<45&&!Array.from(input.options).some(o=>o.value===value);i++)await new Promise(r=>setTimeout(r,70));
       input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));}
     bookingDraft=data.draft||null;bookingKey=data.key||bookingDraft?.request_key||uid();uploaded.clear();
+    window.FMRCAppointmentIntake?.saved(bookingDraft?.files?.find(f=>f.kind==='purchase_request'));
+    if(data.customSelected===false)return;
     const custom=customerRequest(data.custom||bookingDraft?.requirements||{},data.booking?.aptDesc);bookingFinish=custom.finish||'';
     const notes=document.getElementById('aptDesc');if(notes){notes.value=custom.instructions;notes.setCustomValidity('');}
     const checkbox=document.getElementById('aptCustomProduct');if(checkbox){checkbox.checked=true;document.getElementById('aptCustomFields').innerHTML=briefFields(custom,availability.services,'',false,false,true);bindBriefFields(document.getElementById('aptCustomFields'));document.querySelector('#aptCustomFields [data-ap-measurements]')?.apMeasurements.restore(data.booking?.custom_measurements);syncBookingFields();}
     showSavedFiles();
   }
   async function bookingInit() {
+    // The booking controller is installed by a later DOMContentLoaded listener.
+    await new Promise(resolve=>setTimeout(resolve,0));
     const anchor=document.getElementById('aptDesc')?.closest('.apt-input-group');if(!anchor)return;
+    const pendingResume=sessionStorage.getItem('fmrc-appointment-product-resume');
+    if(pendingResume&&token()&&JSON.parse(pendingResume).customSelected===false)await restorePending(pendingResume);
     try{const available=await loadAvailability();if(!available.enabled)return;
       const section=document.createElement('section');section.className='ap-panel ap-booking';section.innerHTML=`<label class="ap-check"><input type="checkbox" id="aptCustomProduct" ${available.services.length?'':'disabled'}><span>Request a custom product<small style="display:block">Discuss your idea with FMRC and receive a quotation after your consultation.</small></span></label>${!available.services.length?'<p class="ap-help">The FMRC team is not accepting new custom-product consultations right now. You can still book an ordinary appointment.</p>':''}<div data-ap-brief hidden><form id="aptCustomFields">${briefFields({},available.services,'',false,false,true)}</form><p class="ap-help">Use Design Files to attach private designs and Additional notes for other instructions. Booking does not commit you to an order.</p><div data-ap-saved-files></div>${!token()?button('Sign In & Keep Details','data-ap-sign-in',true):''}</div>`;
       anchor.before(section);bindBriefFields(section.querySelector('form'));section.querySelector('form').oninput=e=>e.currentTarget.dataset.dirty='true';const checkbox=section.querySelector('input');checkbox.onchange=syncBookingFields;
@@ -900,7 +930,7 @@
       section.querySelector('[data-ap-sign-in]')?.addEventListener('click',signIn);
       const save=document.createElement('button');save.type='button';save.className='apt-btn apt-btn-back';save.id='aptSaveCustomDraft';save.textContent='Save Draft';save.hidden=true;save.onclick=saveDraft;document.getElementById('btnGoToStep3')?.before(save);
       const pending=sessionStorage.getItem('fmrc-appointment-product-resume');
-      if(pending&&token()){sessionStorage.removeItem('fmrc-appointment-product-resume');await resume(JSON.parse(pending));const files=await localFiles();if(files?.length)window.FMRCAppointmentBooking?.restoreFiles(files);await localFiles([]);}
+      if(pending&&token())await restorePending(pending);
       const service=new URLSearchParams(location.search).get('custom_service');if(service&&!pending){window.FMRCAppointmentBooking?.open();checkbox.checked=true;checkbox.dispatchEvent(new Event('change'));section.querySelector('[name=service_id]').value=service;}
     }catch{/* Optional capability never blocks the ordinary appointment form. */}
   }
@@ -943,7 +973,7 @@
         try{await request(`/customer/orders/${order.id}/custom-payment-method`,{method:'POST',body:JSON.stringify({payment_method:order.payment_method==='Cash at FMRC'?'online':'cash',expected_revision:c.revision})});location.reload();}catch(error){await popup(error.message);}finally{busy=false;}}
     };
   }
-  window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,orderBusy:id=>orderActionLocks.has(String(id)),mountMeetingRemoval,draftList,allowLeave,isDirty:dirty,append,newFiles,selected,bookingPurpose,isSigningIn:()=>signingIn,
+  window.FMRCAppointmentProducts={mountCustomer,mountAdmin:(host,a)=>{if(!a.custom_product){host?.closest('.appointment-view-modal')?.classList.remove('has-custom-product');return;}let root=host.querySelector('[data-ap-appointment]');if(!root){root=document.createElement('section');root.dataset.apAppointment='';const summary=host.querySelector('.appt-view-header-row');if(summary)summary.after(root);else host.append(root);}host.closest('.appointment-view-modal')?.classList.add('has-custom-product');mount(root,a.custom_product,a,true);},mountOrder,orderBusy:id=>orderActionLocks.has(String(id)),mountMeetingRemoval,draftList,allowLeave,isDirty:dirty,append,newFiles,selected,bookingPurpose,signIn,savedDesignFiles:()=>bookingDraft?.files?.filter(f=>f.kind!=='purchase_request')||[],isSigningIn:()=>signingIn,
     validate:async()=>{if(!selected())return true;const form=document.getElementById('aptCustomFields');if(!token()){await popup('Sign in using the button in the Custom Product section. Your entered appointment details will be kept.','Sign in required');return false;}return validateBriefFields(form)&&form.reportValidity()&&validateBookingNotes();},
     review:step=>{let summary=document.querySelector('[data-ap-booking-review]');if(!selected()){summary?.remove();return;}const host=document.querySelector('#aptStep'+step+' .ticket-body');if(!host)return;if(!summary||!host.contains(summary)){summary?.remove();summary=document.createElement('section');summary.className='ap-panel';summary.dataset.apBookingReview='';host.append(summary);}summary.innerHTML='<h3>Custom Product Consultation</h3><p class="ap-help">The FMRC team will discuss this idea during your consultation. A quotation follows once the specifications are agreed.</p>'+customerSpecs(requirements(document.getElementById('aptCustomFields')),bookingPurpose(),['Additional notes (optional)']);},
     reset:()=>{bookingDraft=null;bookingKey=uid();bookingFinish='';uploaded.clear();document.getElementById('aptDesc')?.setCustomValidity('');document.getElementById('aptCustomFields')?.reset();document.querySelector('[data-ap-saved-files]')?.replaceChildren();document.querySelector('[data-ap-booking-review]')?.remove();const c=document.getElementById('aptCustomProduct');if(c){c.checked=false;c.dispatchEvent(new Event('change'));}},

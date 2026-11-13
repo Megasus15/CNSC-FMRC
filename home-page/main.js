@@ -6079,6 +6079,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "aptPurpose",
     "aptRole",
     "aptRoleOther",
+    "aptUniversityDepartment",
     "aptDesc",
   ].forEach((id) => {
     const el = document.getElementById(id);
@@ -6096,7 +6097,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const syncAppointmentRequiredFields = () => {
     const ph=(document.getElementById('aptCountry')?.value||'Philippines')==='Philippines';
     const custom=!!document.getElementById('aptCustomProduct')?.checked;
-    const fields={aptLName:true,aptFName:true,aptPhone:true,aptEmail:true,aptCountry:true,aptMethod:true,aptRole:true,aptPurpose:!custom,aptRoleOther:isOtherClientType(),aptRegion:ph,aptProvince:ph,aptMunicipality:ph,aptAddress:ph,aptIntlAddress:!ph};
+    const fields={aptUniversityDepartment:!!window.FMRCAppointmentIntake?.isUcn(),aptLName:true,aptFName:true,aptPhone:true,aptEmail:true,aptCountry:true,aptMethod:true,aptRole:true,aptPurpose:!custom,aptRoleOther:isOtherClientType(),aptRegion:ph,aptProvince:ph,aptMunicipality:ph,aptAddress:ph,aptIntlAddress:!ph};
     for(const [id,required] of Object.entries(fields)){
       const input=document.getElementById(id),label=input?.closest('.apt-input-group')?.querySelector('label');
       if(!input||!label)continue;
@@ -6204,6 +6205,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if(!document.getElementById("aptMethod")?.value)markError("aptMethod","Choose an appointment method.");
 
+    if (window.FMRCAppointmentIntake?.isUcn() && !document.getElementById('aptUniversityDepartment')?.value) markError('aptUniversityDepartment', 'Choose your UCN college or department.');
+    const intakeError = window.FMRCAppointmentIntake?.validate(uploadedAppointmentFiles);
+    if (intakeError) markError('aptPurchaseRequest', intakeError);
     if (!clientType) {
       markError("aptRole", "Type of Client is required.");
     } else if (clientType === "Others") {
@@ -6268,7 +6272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (firstInvalidId) {
-      document.getElementById(firstInvalidId)?.focus();
+      document.getElementById(firstInvalidId === 'aptPurchaseRequest' ? 'aptPrChoose' : firstInvalidId)?.focus();
       return false;
     }
 
@@ -6326,6 +6330,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setText(`${prefix}Address`, address);
     setText(`${prefix}Purpose`, purpose);
     setText(`${prefix}ClientType`, clientType);
+    const ucn = !!window.FMRCAppointmentIntake?.isUcn();
+    document.querySelectorAll(`[data-ucn-review="${prefix}"]`).forEach(node => node.hidden = !ucn);
+    setText(`${prefix}Department`, window.FMRCAppointmentIntake?.label() || 'Not provided');
+    setText(`${prefix}PurchaseRequest`, window.FMRCAppointmentIntake?.current()?.name || 'Not provided');
     setText(`${prefix}Country`, country);
     setText(`${prefix}Desc`, notes);
     setText(`${prefix}FileAttach`, attachmentName);
@@ -6475,6 +6483,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     formData.append("full_address", getAppointmentAddress() || "");
     formData.append("client_type", getAppointmentClientType());
+    window.FMRCAppointmentIntake?.append(formData);
     formData.append(
       "purpose",
       window.FMRCAppointmentProducts?.selected()
@@ -6927,6 +6936,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submittedAppointment = null;
     appointmentSubmitted = false;
     uploadedAppointmentFiles = [];
+    window.FMRCAppointmentIntake?.reset();
     /* Isolated: a widget that failed to load must not throw here and leave the
        form half-cleared. */
     try {
@@ -6992,6 +7002,8 @@ document.addEventListener("DOMContentLoaded", () => {
        _psgcCache), so this costs no extra network. */
     resetPhSelects();
     syncAptRoleOtherField(); // re-hides #aptRoleOtherField
+    const department = document.getElementById('aptUniversityDepartment'); if (department) department.value = '';
+    document.getElementById('aptRole')?.dispatchEvent(new Event('change'));
     updateAddressMode(); // re-syncs the PH vs international address panes
     clearAllFieldErrors(); // drops stale has-error groups, aria-invalid, alerts
 
@@ -7375,6 +7387,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 3. File upload
+    if (window.FMRCAppointmentIntake?.dirty()) return true;
     if (aptFileInput?.files?.length > 0 || uploadedAppointmentFiles.length) return true;
 
     // 4. Schedule selection

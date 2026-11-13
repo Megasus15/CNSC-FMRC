@@ -9,6 +9,7 @@ use App\Models\Appointment;
 use App\Models\AppointmentCalendarDay;
 use App\Models\AppointmentTimeSlot;
 use App\Services\AppointmentFiles;
+use App\Services\AppointmentIntake;
 use App\Services\AppointmentConsultations;
 use App\Services\AppointmentScheduling;
 use App\Services\AppointmentProducts;
@@ -115,12 +116,17 @@ class AppointmentController extends Controller
             'appointment_method' => 'sometimes|required|in:online,face_to_face',
         ]);
 
+        $department = AppointmentIntake::department($validated['client_type'], $request->input('university_department'));
+        $pr = AppointmentIntake::purchaseRequest($request, $validated['client_type'] === AppointmentIntake::CLIENT);
         $files = AppointmentFiles::validate($request);
         $this->ensureDefaultSlots();
-        $stored = AppointmentFiles::store($files);
+        $stored = [];
         try {
+            $stored = AppointmentFiles::store($files);
+            $stored = array_merge($stored, AppointmentFiles::store($pr, 'purchase_request'));
+            AppointmentIntake::limits($stored);
             $replayed=false;
-            $appointment = DB::transaction(function () use ($validated, $request, $stored, $custom, &$replayed) {
+            $appointment = DB::transaction(function () use ($validated, $request, $stored, $custom, $department, &$replayed) {
                 AppointmentScheduling::lock();
                 if ($custom) {
                     $prior=\App\Models\AppointmentProductJob::where('customer_id',$request->user('sanctum')->id)->where('request_key',$request->input('request_key'))->lockForUpdate()->first();
@@ -144,6 +150,7 @@ class AppointmentController extends Controller
                     'intl_address' => $validated['intl_address'] ?? null,
                     'full_address' => $validated['full_address'],
                     'client_type' => $validated['client_type'],
+                    'university_department' => $department,
                     'purpose' => $validated['purpose'],
                     'additional_notes' => $validated['additional_notes'] ?? null,
                     'appointment_date' => $validated['appointment_date'],
@@ -165,7 +172,7 @@ class AppointmentController extends Controller
                 }
 
                 if ($custom) AppointmentProducts::booked($appointment,$request->input('product_data'),$request->user('sanctum')->id,
-                    $request->input('request_key'),$request->integer('product_draft_id')?:null,$request->input('product_revision'),$stored);
+                    $request->input('request_key'),$request->integer('product_draft_id')?:null,$request->input('product_revision'),$stored,$request->boolean('purchase_request_removed'));
 
                 return $appointment;
             });
@@ -545,7 +552,7 @@ class AppointmentController extends Controller
         $data = $this->transformAppointment($appointment, false);
         $verifiedAt = now()->format('F j, Y g:i A');
 
-        $html = '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>FMRC Official Appointment Receipt</title><style>*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#f7f2ec,#efe6da);font-family:Montserrat,Segoe UI,Tahoma,Arial,sans-serif;color:#4b5563;padding:24px}.receipt{max-width:980px;margin:0 auto;background:#fdfaf6;border-radius:8px;border:1px solid #f0e8c8;overflow:hidden;box-shadow:0 22px 54px rgba(27,4,4,.18)}.header{background:linear-gradient(135deg,#3d0808 0%,#511721 52%,#6b202b 100%);color:#f7f2ec;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center}.kicker{display:block;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:#f5ef8e}.ticket{margin-top:6px;font-size:30px;font-weight:800;color:#f7f2ec}.badge{background:#f1ed12;color:#6b202b;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}.body{display:flex;gap:0;align-items:stretch}.left{flex:1;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{border-bottom:1px solid #f0e8c8;padding:10px 4px}.label{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:#77610d;font-weight:800}.value{font-size:14.5px;font-weight:600;color:#4b5563;margin-top:6px;word-break:break-word}.highlight{color:#6b202b;font-weight:800}.right{width:260px;border-left:1px solid #f0e8c8;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:22px 16px;background:#fffdf4}.verify-chip{font-size:12px;color:#6b202b;background:#fff8d2;border:1px solid #f0e8c8;border-radius:999px;padding:7px 12px;font-weight:800;margin-bottom:12px}.qr-box{width:170px;height:170px;border:2px solid #f0e8c8;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;color:#6b202b;font-size:12px;font-weight:700;padding:10px}.verify-note{text-align:center;font-size:12px;color:#4b5563;line-height:1.5;margin-top:10px}.footer{background:#fffdf4;border-top:1px solid #f0e8c8;padding:14px 18px;font-size:12px;color:#4b5563;line-height:1.65}.footer strong{color:#6b202b}@media (max-width:860px){body{padding:12px}.body{flex-direction:column}.right{width:100%;border-left:none;border-top:1px solid #f0e8c8}.left{grid-template-columns:1fr}}</style></head><body><div class="receipt"><div class="header"><div><span class="kicker">OFFICIAL RECEIPT VERIFICATION</span><div class="ticket">Ticket #'.e($data['reference_no']).'</div></div><span class="badge">CONFIRMED</span></div><div class="body"><div class="left"><div class="item"><div class="label">Full Name</div><div class="value">'.e($data['client_name']).'</div></div><div class="item"><div class="label">Purpose</div><div class="value">'.e($data['purpose']).'</div></div><div class="item"><div class="label">Type of Client</div><div class="value">'.e($data['client_type']).'</div></div><div class="item"><div class="label">Schedule</div><div class="value highlight">'.e($data['appointment_date']).' @ '.e($data['appointment_time']).'</div></div><div class="item"><div class="label">Contact Number</div><div class="value">'.e($data['contact_number']).'</div></div><div class="item"><div class="label">Email Address</div><div class="value">'.e($data['email']).'</div></div><div class="item"><div class="label">Address</div><div class="value">'.e($data['full_address']).'</div></div><div class="item"><div class="label">Appointment method</div><div class="value">'.e($data['method_label']).'</div></div><div class="item"><div class="label">Status</div><div class="value">'.e($data['status']).'</div></div></div><div class="right"><span class="verify-chip">VALID APPOINTMENT RECEIPT</span><div class="qr-box">QR Verified</div><p class="verify-note">This receipt has been successfully verified by the FMRC system.</p><p class="verify-note">Verified at: '.e($verifiedAt).'</p></div></div><div class="footer"><strong>Important:</strong> Present this verified receipt or the original QR code at the FMRC office for appointment confirmation.</div></div></body></html>';
+        $html = '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>FMRC Official Appointment Receipt</title><style>*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#f7f2ec,#efe6da);font-family:Montserrat,Segoe UI,Tahoma,Arial,sans-serif;color:#4b5563;padding:24px}.receipt{max-width:980px;margin:0 auto;background:#fdfaf6;border-radius:8px;border:1px solid #f0e8c8;overflow:hidden;box-shadow:0 22px 54px rgba(27,4,4,.18)}.header{background:linear-gradient(135deg,#3d0808 0%,#511721 52%,#6b202b 100%);color:#f7f2ec;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center}.kicker{display:block;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:#f5ef8e}.ticket{margin-top:6px;font-size:30px;font-weight:800;color:#f7f2ec}.badge{background:#f1ed12;color:#6b202b;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}.body{display:flex;gap:0;align-items:stretch}.left{flex:1;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{border-bottom:1px solid #f0e8c8;padding:10px 4px}.label{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:#77610d;font-weight:800}.value{font-size:14.5px;font-weight:600;color:#4b5563;margin-top:6px;word-break:break-word}.highlight{color:#6b202b;font-weight:800}.right{width:260px;border-left:1px solid #f0e8c8;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:22px 16px;background:#fffdf4}.verify-chip{font-size:12px;color:#6b202b;background:#fff8d2;border:1px solid #f0e8c8;border-radius:999px;padding:7px 12px;font-weight:800;margin-bottom:12px}.qr-box{width:170px;height:170px;border:2px solid #f0e8c8;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;color:#6b202b;font-size:12px;font-weight:700;padding:10px}.verify-note{text-align:center;font-size:12px;color:#4b5563;line-height:1.5;margin-top:10px}.footer{background:#fffdf4;border-top:1px solid #f0e8c8;padding:14px 18px;font-size:12px;color:#4b5563;line-height:1.65}.footer strong{color:#6b202b}@media (max-width:860px){body{padding:12px}.body{flex-direction:column}.right{width:100%;border-left:none;border-top:1px solid #f0e8c8}.left{grid-template-columns:1fr}}</style></head><body><div class="receipt"><div class="header"><div><span class="kicker">OFFICIAL RECEIPT VERIFICATION</span><div class="ticket">Ticket #'.e($data['reference_no']).'</div></div><span class="badge">CONFIRMED</span></div><div class="body"><div class="left"><div class="item"><div class="label">Full Name</div><div class="value">'.e($data['client_name']).'</div></div><div class="item"><div class="label">Purpose</div><div class="value">'.e($data['purpose']).'</div></div><div class="item"><div class="label">Type of Client</div><div class="value">'.e($data['client_type']).'</div></div>'.($data['university_department_label'] ? '<div class="item"><div class="label">College / Department</div><div class="value">'.e($data['university_department_label']).'</div></div>' : '').'<div class="item"><div class="label">Schedule</div><div class="value highlight">'.e($data['appointment_date']).' @ '.e($data['appointment_time']).'</div></div><div class="item"><div class="label">Contact Number</div><div class="value">'.e($data['contact_number']).'</div></div><div class="item"><div class="label">Email Address</div><div class="value">'.e($data['email']).'</div></div><div class="item"><div class="label">Address</div><div class="value">'.e($data['full_address']).'</div></div><div class="item"><div class="label">Appointment method</div><div class="value">'.e($data['method_label']).'</div></div><div class="item"><div class="label">Status</div><div class="value">'.e($data['status']).'</div></div></div><div class="right"><span class="verify-chip">VALID APPOINTMENT RECEIPT</span><div class="qr-box">QR Verified</div><p class="verify-note">This receipt has been successfully verified by the FMRC system.</p><p class="verify-note">Verified at: '.e($verifiedAt).'</p></div></div><div class="footer"><strong>Important:</strong> Present this verified receipt or the original QR code at the FMRC office for appointment confirmation.</div></div></body></html>';
 
         return response($html)->header('Content-Type', 'text/html');
     }
@@ -741,7 +748,7 @@ class AppointmentController extends Controller
             $extra['custom_products_available']=AppointmentProducts::enabled();
             $files = AppointmentFiles::records($appointment->id);
             if ($appointment->attachment_path) {
-                $files[] = ['id' => 'legacy', 'name' => $appointment->attachment_name, 'size' => null, 'download_url' => $attachmentUrl];
+                $files[] = ['kind' => 'design', 'id' => 'legacy', 'name' => $appointment->attachment_name, 'size' => null, 'download_url' => $attachmentUrl];
             }
             $extra += AppointmentScheduling::meetingData($appointment, in_array(auth()->user()?->role, self::ALLOWED_ADMIN_ROLES, true));
             $extra += ['attachments' => $files, 'can_reschedule' => AppointmentScheduling::canReschedule($appointment),
@@ -765,6 +772,8 @@ class AppointmentController extends Controller
             'intl_address' => $appointment->intl_address,
             'full_address' => $appointment->full_address,
             'client_type' => $appointment->client_type,
+            'university_department' => $appointment->university_department,
+            'university_department_label' => AppointmentIntake::label($appointment->university_department),
             'purpose' => $appointment->purpose,
             'additional_notes' => $appointment->additional_notes,
             'appointment_date' => optional($appointment->appointment_date)->format('Y-m-d'),

@@ -12,7 +12,7 @@
     catch{window.showAdminPopup?.('The file could not be downloaded. Please try again.',{title:'Attachment Unavailable'});}
     finally{button.disabled=false;button.innerHTML=original;}
   });
-  const files=(appointment,{detailed=false}={})=>(appointment.attachments||[]).map(file=>'<button type="button" class="photo-link appointment-file-button" data-private-appointment-file="'+escape(file.id)+'" data-appointment="'+appointment.id+'" data-filename="'+escape(file.name)+'">'+(detailed?'<span>'+escape(file.name)+'</span><span class="appointment-file-action">Download </span>':escape(file.name))+'</button>').join(detailed?'':'<br>');
+  const files=(appointment,{detailed=false,kind='design'}={})=>(appointment.attachments||[]).filter(file=>(file.kind||'design')===kind).map(file=>'<button type="button" class="photo-link appointment-file-button" data-private-appointment-file="'+escape(file.id)+'" data-appointment="'+appointment.id+'" data-filename="'+escape(file.name)+'">'+(detailed?'<span>'+escape(file.name)+'</span><span class="appointment-file-action">Download </span>':escape(file.name))+'</button>').join(detailed?'':'<br>');
   const render=(appointment,host)=>{
     if(!host)return;
     const card=document.createElement('section');card.className='appointment-operational';host.appendChild(card);

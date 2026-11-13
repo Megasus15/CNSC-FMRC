@@ -86,8 +86,8 @@ test('guided measurements, searchable examples, required markers and phone actio
   await h.run(`(()=>{const files=new DataTransfer();files.items.add(new File(['solid example'],'Custom-part-'.repeat(16)+'.stl',{type:'text/plain'}));const input=document.getElementById('aptFile');input.files=files.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   for(const width of [375,390,640,844,1440]){
     await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-    await h.run(`document.querySelector('#aptStep2 .file-upload-wrapper').scrollIntoView({block:'center',behavior:'instant'});new Promise(r=>requestAnimationFrame(r))`);
-    const upload=await h.run(`(()=>{const box=document.querySelector('#aptStep2 .file-upload-wrapper'),r=box.getBoundingClientRect();return {inside:[...box.children].filter(n=>n.type!=='file').every(n=>{const c=n.getBoundingClientRect();return c.left>=r.left+1&&c.right<=r.right-1&&c.top>=r.top+1&&c.bottom<=r.bottom-1;}),width:box.scrollWidth<=box.clientWidth+1};})()`);
+    await h.run(`document.querySelector('#aptStep2 .apt-design-files .file-upload-wrapper').scrollIntoView({block:'center',behavior:'instant'});new Promise(r=>requestAnimationFrame(r))`);
+    const upload=await h.run(`(()=>{const box=document.querySelector('#aptStep2 .apt-design-files .file-upload-wrapper'),r=box.getBoundingClientRect();return {inside:[...box.children].filter(n=>n.type!=='file').every(n=>{const c=n.getBoundingClientRect();return c.left>=r.left+1&&c.right<=r.right-1&&c.top>=r.top+1&&c.bottom<=r.bottom-1;}),width:box.scrollWidth<=box.clientWidth+1};})()`);
     assert.deepEqual(upload,{inside:true,width:true},'Upload instructions and long file names fit at '+width);
     if([390,1440].includes(width)){await h.run(`Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot('upload-contained-'+width);}
   }
