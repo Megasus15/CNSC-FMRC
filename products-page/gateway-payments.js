@@ -49,6 +49,8 @@
     </footer>`;
     document.body.append(dialog);
     dialog.addEventListener('close', () => {
+      // Native close events are queued; an immediate reopen already owns a new request.
+      if (dialog.open) return;
       clearTimeout(timer); orderId = null; generation++; busy = false; continuing = false;
     });
     dialog.querySelector('[data-gateway-close]').onclick = () => dialog.close();
@@ -89,11 +91,11 @@
     const expiredClaim=refunds.some(r=>['pending','unknown'].includes(r.status) && r.claim_expires_at && Date.parse(r.claim_expires_at)<=Date.now());
     const closedPaid = data.status === 'paid' && ['cancelled','rejected'].includes(data.order_status);
     const refundLabels = {requested:'Awaiting FMRC approval',submitting:'Processing',pending:'Processing',unknown:'Awaiting confirmation',succeeded:'Confirmed',failed:'Needs FMRC review',rejected:'Request declined — contact FMRC'};
-    const canContinue = data.status !== 'paid' && data.status !== 'refunded' && !data.exception && Boolean(data.checkout_url || data.retry_allowed);
+    const canContinue = !data.payment_blocked_reason && data.status !== 'paid' && data.status !== 'refunded' && !data.exception && Boolean(data.checkout_url || data.retry_allowed);
     dialog.querySelector('[data-gateway-error]').hidden = true;
     const status = dialog.querySelector('[data-gateway-status]');
-    status.dataset.state = refundRequested || refundProcessing || closedPaid ? 'review' : data.exception ? 'review' : data.status;
-    const statusText = claimable.length ? 'Claim your refund' : expiredClaim ? 'Refund claim needs review' : refundProcessing ? 'Refund processing' : refundRequested ? 'Refund requested' : data.status === 'refunded' ? 'Refunded' : closedPaid ? 'Refund needs review' : data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
+    status.dataset.state = refundRequested || refundProcessing || closedPaid || data.payment_blocked_reason ? 'review' : data.exception ? 'review' : data.status;
+    const statusText = claimable.length ? 'Claim your refund' : expiredClaim ? 'Refund claim needs review' : refundProcessing ? 'Refund processing' : refundRequested ? 'Refund requested' : data.status === 'refunded' ? 'Refunded' : closedPaid ? 'Refund needs review' : data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.payment_blocked_reason ? (data.review?.label || 'Payment unavailable') : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
     if (status.textContent !== statusText) status.textContent = statusText;
     dialog.querySelector('[data-gateway-title]').textContent = (data.method_label || (qrph ? 'QR Ph' : 'GCash')) + ' payment';
     dialog.querySelector('[data-gateway-continue]').textContent = qrph ? 'Continue to payment QR' : 'Continue to GCash';
@@ -108,7 +110,8 @@
       : closedPaid ? 'This order is closed and your payment needs to be returned. FMRC must review the refund. Contact FMRC for assistance; do not pay again.'
       : refunds.some(r => r.status === 'succeeded') ? 'The confirmed refund amount is listed below. Any remaining payment stays on your order.'
       : refunds.some(r => ['failed','rejected'].includes(r.status)) ? 'Your payment was received, but the refund request needs FMRC review. Contact FMRC for assistance.'
-      : data.status === 'paid' ? (data.exception ? 'Payment received. The team is reviewing this transaction.' : 'Payment confirmed. Your order is awaiting team approval or preparation.')
+      : data.status === 'paid' ? (data.exception ? 'Payment received. The team is reviewing this transaction.' : data.review?.status === 'approved' ? 'Payment confirmed. Your order is ready for preparation.' : 'Payment confirmed. Your order is awaiting team approval or preparation.')
+      : data.payment_blocked_reason ? data.payment_blocked_reason
       : data.exception ? 'Your payment needs review. Please contact FMRC before attempting another payment.'
       : data.attempt_status === 'expired' ? 'This checkout has expired. You can start a new secure payment.'
       : ['creating','unknown'].includes(data.attempt_status) ? 'We are checking your payment request. Please wait; do not pay again.'

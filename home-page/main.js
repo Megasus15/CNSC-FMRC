@@ -529,11 +529,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const modal = document.getElementById("orderSuccessModal");
       const numEl = document.getElementById("orderSuccessNumber");
       const okBtn = document.getElementById("orderSuccessOkBtn");
+      const viewBtn = document.getElementById("orderSuccessViewOrdersBtn");
+      const previousFocus = document.activeElement;
 
       // Fallback: page doesn't have the dedicated modal
       if (!modal || !okBtn) {
         void showCustomerPopup(
-          `Order placed successfully${orderNoDisplay ? ` (${orderNoDisplay})` : ""}!`,
+          `Order request submitted${orderNoDisplay ? ` (${orderNoDisplay})` : ""}!`,
           { title: "Success", allowBackdropClose: false },
         ).then(resolve);
         return;
@@ -552,14 +554,32 @@ document.addEventListener("DOMContentLoaded", () => {
       // Single-fire OK handler â€” cleans itself up
       const handleOk = () => {
         okBtn.removeEventListener("click", handleOk);
+        viewBtn?.removeEventListener("click", handleView);
+        modal.removeEventListener("keydown", handleKeys);
+        modal.removeEventListener("transitionend", focusOnReveal);
         modal.classList.remove("active");
         modal.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
+        previousFocus?.focus();
         resolve();
       };
-
+      const handleView = () => {handleOk();document.getElementById('viewOrdersBtn')?.click();};
+      const handleKeys = event => {
+        if (event.key === 'Escape') {event.preventDefault();event.stopPropagation();handleOk();}
+        if (event.key === 'Tab') {event.preventDefault();(document.activeElement===viewBtn?okBtn:viewBtn||okBtn).focus();}
+      };
+      const focusDialog = () => {
+        if(modal.classList.contains('active')&&!modal.contains(document.activeElement)) (viewBtn || okBtn).focus({preventScroll:true});
+      };
+      const focusOnReveal = event => {if(event.target===modal) focusDialog();};
+      viewBtn?.addEventListener('click', handleView);
+      modal.addEventListener('keydown', handleKeys);
+      modal.addEventListener('transitionend', focusOnReveal);
+      requestAnimationFrame(() => requestAnimationFrame(focusDialog));
       okBtn.addEventListener("click", handleOk);
     });
+
+  window.FMRCOrderRequestSuccess = openOrderSuccessModal;
 
   // Disable sticky header when any modal/overlay/form is open
   const headerBlockingSelectors = [
@@ -2947,8 +2967,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (gcashUnconfiguredNote) {
         gcashUnconfiguredNote.textContent =
           settings.checkoutMethod === 'qrph'
-            ? "Continue to secure checkout to pay using QR Ph. Payment confirmation updates automatically."
-            : "Continue to secure checkout, then follow the GCash authorization instructions. Payment confirmation appears automatically.";
+            ? "After FMRC approves your request, open My Orders to pay securely using QR Ph."
+            : "After FMRC approves your request, open My Orders to pay securely using GCash.";
         gcashUnconfiguredNote.hidden = false;
       }
       return;
@@ -4218,7 +4238,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try { localStorage.removeItem('fmrc_customer_linked_gcash'); } catch {}
     document.getElementById('linkGcashModal')?.remove();
     const sub = document.getElementById('tiktokGcashSub');
-    if (sub) sub.textContent = window.FMRC_PAYMENT_METHODS?.checkout?.().description || 'Continue to secure payment';
+    if (sub) sub.textContent = 'Secure online payment after FMRC approval';
     const badge = document.getElementById('tiktokGcashBadge');
     if (badge) badge.hidden = true;
     const update = () => {
@@ -4245,6 +4265,11 @@ document.addEventListener("DOMContentLoaded", () => {
   renderGcashSection();
 
   // Submit Order logic
+  document.getElementById('productMyOrdersBtn')?.addEventListener('click', () => {
+    const entry=document.getElementById('viewOrdersBtn');
+    if(entry) entry.click();
+    else {window.location.href='/home-page/?orders=1';}
+  });
   const submitOrderBtn = document.getElementById("submitOrderBtn");
   if (submitOrderBtn) {
     submitOrderBtn.addEventListener("click", async function (event) {
@@ -4296,8 +4321,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Online payment authorization happens after the unpaid order is created,
-      // on the provider's checkout. No linked wallet or manual receipt is required.
+      // FMRC reviews the request first. Approved online orders pay from My Orders.
 
       // Pickup vs delivery decides whether an address is needed at all, so it
       // has to be settled before the address is validated.
@@ -4360,7 +4384,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const originalText = this.innerText;
       window.FMRC_PAYMENT_METHODS?.setSubmitting(true);
       this.disabled = true;
-      this.innerText = "Processing...";
+      this.innerText = "Submitting...";
 
       /* The hint earns its place here: the server sends the confirmation email
          inside this request, which is why the timeout below is 25s and not 15s.
@@ -4368,7 +4392,7 @@ document.addEventListener("DOMContentLoaded", () => {
          success path, so the last thing the visitor sees is the mark, not a
          form dismantling itself. */
       window.FMRCLoader?.show(
-        "Placing your order",
+        "Submitting your order request",
         "This can take a moment. Please keep this tab open.",
       );
 
@@ -4570,7 +4594,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // redirect the customer to PayMongo's hosted GCash checkout page.
         // After payment, PayMongo redirects them back to our success URL.
         const checkoutUrl = data?.data?.checkout_url;
-        if (checkoutUrl) {
+        if (checkoutUrl && !data?.data?.awaiting_review) {
           // Save the order info so the success page can display it
           try {
             sessionStorage.setItem(
@@ -4619,7 +4643,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return; // Stop here - browser is navigating away
         }
 
-        if (paymentMethod === 'GCash') {
+        if (paymentMethod === 'GCash' && !data?.data?.awaiting_review) {
           if (useCartCheckout && cartItemsContainer) {
             cartItemsContainer.querySelectorAll('.cart-item-check:checked').forEach(input => input.closest('.cart-item-card')?.remove());
             updateCartTotals(); await persistCartItems();
@@ -8274,6 +8298,8 @@ document.addEventListener("DOMContentLoaded", () => {
     String(order?.lifecycle_status || "").toLowerCase() === "incoming";
 
   const canSubmitOrderPayment = (order) =>
+    !order?.awaiting_review &&
+    order?.payment_eligibility?.allowed !== false &&
     !order?.payment_is_automated &&
     !isOrderPaymentConfirmed(order) &&
     !isOrderPaymentRefunded(order) &&
@@ -8288,6 +8314,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderOrderPaymentAction = (order) => {
     const orderId = Number(order?.id);
     if (!Number.isSafeInteger(orderId) || orderId < 1) return '';
+    if (order.awaiting_review || (order.review?.required && order.review.status !== "approved" && !isOrderPaymentConfirmed(order) && !isOrderPaymentRefunded(order))) return '';
     if (order?.payment_is_automated) {
       const pending = !isOrderPaymentConfirmed(order) && !isOrderPaymentRefunded(order)
         && !order.cancel_pending && !order.custom_product?.collection_pending
@@ -8300,6 +8327,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const resolveOrderPaymentNotice = (order) => {
+    if (order?.awaiting_review && !isOrderPaymentConfirmed(order)) return {label:'Payment locked', note:'Your order is awaiting FMRC review. Payment will become available once approved.'};
     if (isOrderPaymentRefunded(order)) {
       return {
         label: "Payment refunded",
@@ -8324,7 +8352,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : order?.cancel_pending
             ? "FMRC has received your payment. The FMRC team is reviewing your cancellation request. No further payment is needed."
             : isOrderAwaitingApproval(order)
-              ? "FMRC has received your payment. Your order is awaiting approval from the FMRC team before preparation begins. No further payment is needed."
+              ? (order.review?.status === "approved" ? "FMRC has received your payment. Your order is ready for preparation. No further payment is needed." : "FMRC has received your payment. Your order is awaiting approval from the FMRC team before preparation begins. No further payment is needed.")
               : "FMRC has received your payment. No further payment is needed.",
       };
     }
@@ -8697,7 +8725,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></span>
             <p class="ux-dlg__eyebrow">Order tracking</p>
             <h2 class="customer-orders-title ux-dlg__title" id="customerOrdersTitle">My Orders</h2>
-            <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
+            <p class="customer-orders-subtitle">Follow FMRC review, payment, and fulfillment in one place.</p>
             <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
               <span class="customer-orders-sync-dot" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
               <span>Loading current orders...</span>
@@ -8706,6 +8734,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           <div class="customer-orders-tabs" id="customerOrdersTabs">
             <button type="button" class="customer-orders-tab active" data-tab="all"><span class="customer-orders-tab-label">All</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="awaiting_review"><span class="customer-orders-tab-label">Awaiting Review</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_pay"><span class="customer-orders-tab-label">To Pay</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_ship"><span class="customer-orders-tab-label">To Ship</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_receive"><span class="customer-orders-tab-label">To Receive</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
@@ -8722,6 +8751,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="customer-orders-viewport" id="customerOrdersViewport">
             <div class="customer-orders-track" id="customerOrdersTrack">
               <section class="customer-orders-panel" data-panel="all"></section>
+              <section class="customer-orders-panel" data-panel="awaiting_review"></section>
               <section class="customer-orders-panel" data-panel="to_pay"></section>
               <section class="customer-orders-panel" data-panel="to_ship"></section>
               <section class="customer-orders-panel" data-panel="to_receive"></section>
@@ -8763,6 +8793,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const syncStatus = overlay.querySelector("#customerOrdersSyncStatus");
       const stageByPanel = [
         "all",
+        "awaiting_review",
         "to_pay",
         "to_ship",
         "to_receive",
@@ -9302,6 +9333,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const renderEmptyState = (stageKey) => {
         const labels = {
           all: "No orders yet.",
+          awaiting_review: "No requests are awaiting FMRC review.",
           to_pay: "No orders are waiting for payment.",
           to_ship: "No orders are waiting for shipping.",
           to_receive: "No orders are waiting for delivery/pickup.",
@@ -9360,12 +9392,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Sort copies so cached data, counters and live updates stay intact.
         const orders = state.orders.slice().sort(compareOrdersNewestFirst);
         if (stageKey === "all") return orders;
+        if (stageKey === "awaiting_review") return orders.filter(order => order.awaiting_review && !isDeadOrder(order));
         if (stageKey === "cancelled") {
           return orders.filter(order => String(order.lifecycle_status || "").toLowerCase() === "cancelled");
         }
         // To Rate keeps its existing unrated/rated sections in newest-first order.
         const stage = stageKey === "to_rate" ? "completed" : stageKey;
-        return orders.filter(order => !isDeadOrder(order) && String(order.customer_stage || "") === stage
+        return orders.filter(order => !isDeadOrder(order) && !order.awaiting_review && String(order.customer_stage || "") === stage
           && (stageKey !== "to_rate" || !isCustomProductOrder(order)));
       };
 
@@ -9434,6 +9467,8 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        if (order?.awaiting_review) return {label:"Awaiting FMRC review",className:"status-to-pay is-review"};
+        if (order.review?.status === "approved" && lifecycle === "incoming" && isOrderPaymentConfirmed(order)) return {label:"Ready for preparation",className:"status-to-pay is-review"};
         if (lifecycle === "completed" || stage === "completed") {
           return {
             label: ORDER_STAGE_LABELS.completed,
@@ -11703,6 +11738,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const safeStatus = escapeHtml(resolveOrderStatusMeta(detail).label);
         const paymentNotice = resolveOrderPaymentNotice(detail);
         const paymentRows = [
+          ["FMRC review", detail.review?.required ? detail.review.label : null],
+          ["Review decision", detail.review?.reason],
           ["Status", paymentNotice.label],
           ["Method", detail.payment_method_label || detail.payment_method],
           ["Amount", detail.payment_amount_label || detail.total_label || formatOrderCurrency(detail.total_amount)],

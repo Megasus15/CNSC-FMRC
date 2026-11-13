@@ -88,6 +88,7 @@ final class ShipmentTracking
 
     public static function eligibility(Order $order, bool $correction = false): ?string
     {
+        if ($reason = \App\Support\OrderReview::blockedReason($order)) return $reason;
         if ($order->isPickup()) {
             return 'Pickup orders do not need a J&T tracking number.';
         }

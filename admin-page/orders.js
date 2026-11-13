@@ -63,6 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return ordersRealtimeChannel;
   };
 
+  const reviewTable = document.getElementById('orderReviewTable');
+  const reviewFooter = document.getElementById('orderReviewFooter');
+  const reviewSearch = document.getElementById('orderReviewSearch');
   const incomingOrdersTable = document.getElementById("incomingOrdersTable");
   const incomingOrdersTbody = incomingOrdersTable?.querySelector("tbody");
   const incomingOrdersFooter = document.getElementById("incomingOrdersFooter");
@@ -326,6 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "btnSaveTrackingUpdate",
   );
   const state = {
+    review: [], reviewPage: 1,
     incoming: [],
     directory: [],
     payments: [],
@@ -453,6 +457,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
+  const reviewPager = getFooterControls(reviewFooter);
   const incomingPager = getFooterControls(incomingOrdersFooter);
   const directoryPager = getFooterControls(ordersDirectoryFooter);
   const paymentsPager = getFooterControls(paymentsHistoryFooter);
@@ -864,7 +869,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const mapOrderById = () => {
     state.ordersById.clear();
-    [...state.incoming, ...state.directory].forEach((order) => {
+    [...state.review, ...state.incoming, ...state.directory].forEach((order) => {
       if (order?.id) {
         state.ordersById.set(String(order.id), order);
       }
@@ -895,6 +900,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const key = String(orderId || "");
     if (!key) return;
 
+    state.review = state.review.filter(order => String(order.id) !== key);
     state.incoming = state.incoming.filter(
       (order) => String(order?.id || "") !== key,
     );
@@ -910,6 +916,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderId = String(summary?.id || "");
     if (!orderId) return;
 
+    state.review = state.review.filter(order => String(order.id) !== orderId);
     state.incoming = state.incoming.filter(
       (order) => String(order?.id || "") !== orderId,
     );
@@ -919,7 +926,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if(mutation)state.summaryRevision=(state.summaryRevision||0)+1;
     const lifecycle = String(summary.lifecycle_status || "").toLowerCase();
-    if (lifecycle === "incoming") {
+    if (summary.awaiting_review) {
+      state.review.push(summary);
+    } else if (lifecycle === "incoming") {
       state.incoming.push(summary);
     } else {
       state.directory.push(summary);
@@ -966,7 +975,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   const orderDetailsNotice = (orderId,message='') => {
     if(modalOrderDetails?.dataset.orderId!==String(orderId))return;
-    const body=ensureOrderDetailsLayout();let notice=body?.querySelector('[data-order-readback]');
+    const body=ensureOrderDetailsLayout();
+    let notice=body?.querySelector('[data-order-readback]');
     const scroll=body?.scrollTop||0,height=body?.scrollHeight||0;
     if(!notice){notice=document.createElement('div');notice.className='order-readback-notice';notice.dataset.orderReadback='';notice.setAttribute('role','status');body?.prepend(notice);}
     notice.hidden=!message;
@@ -1068,6 +1078,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!sameOrder){const notice=body?.querySelector('[data-order-readback]');if(notice){notice.hidden=true;notice.dataset.message='';notice.replaceChildren();}}
     const scrollTop=sameOrder?body?.scrollTop:0,focused=sameOrder&&body?.contains(document.activeElement)?document.activeElement:null;
     const focusId=focused?.id,focusName=focused?.name,focusStart=focused?.selectionStart,focusEnd=focused?.selectionEnd;
+    renderRequestReview(order, body);
     const opened=sameOrder?[...body.querySelectorAll('details')].map(node=>[node.querySelector('summary')?.textContent,node.open]):[];
     if(body){
       let notice=body.querySelector('[data-cancellation-notice]');
@@ -1221,7 +1232,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const snapshot=JSON.stringify([order.id,order.customer_stage,order.customer_stage_label,order.lifecycle_status,order.lifecycle_status_label,order.pickup_ready_at,order.payment_status,order.payment_method,order.payment_reference,order.total_amount,order.payment_amount_label,order.total_label,order.payment_actions,order.can_confirm_collection,order.collection_blocked_reason,busy]);
     if(section.dataset.snapshot===snapshot)return;section.dataset.snapshot=snapshot;
     let controls='';
-    if(!closed&&order.lifecycle_status==='incoming')controls=approvalFor(order).allowed?'<button type="button" class="btn-admin" data-pickup-action="approve">Approve order</button>':'<p class="field-hint">'+escapeHtml(approvalFor(order).reason)+'</p>';
+    if(!closed&&order.lifecycle_status==='incoming')controls=approvalFor(order).allowed?'<button type="button" class="btn-admin" data-pickup-action="approve">Start preparation</button>':'<p class="field-hint">'+escapeHtml(approvalFor(order).reason)+'</p>';
     else if(!closed&&!ready)controls='<button type="button" class="btn-admin" data-pickup-action="ready">Mark ready for pickup</button>';
     if(!closed&&ready&&normalizePaymentMethodKey(order.payment_method)==='cop'&&order.payment_status!=='paid'&&paymentActionAllowed(order,'paid'))controls+='<div class="pickup-cash-confirm"><p>Amount to receive <strong>'+escapeHtml(order.payment_amount_label||order.total_label||formatMoney(order.total_amount))+'</strong></p><label class="order-flow-check"><input type="checkbox" data-cash-ack data-pickup-focus="cash" '+(ack?'checked':'')+'><span>I received the full amount in cash.</span></label><button type="button" class="btn-admin" data-pickup-action="cash" '+(!ack?'disabled':'')+'>Record cash payment</button></div>';
     if(order.can_confirm_collection)controls+='<div class="field-stack"><label for="'+prefix+'PickupCode">Customer pickup code</label><input class="input-field" id="'+prefix+'PickupCode" data-pickup-code data-pickup-focus="code" autocomplete="off" maxlength="20"></div><button type="button" class="btn-admin" data-confirm-collection data-pickup-action="collect">Confirm pickup</button>';
@@ -1238,7 +1249,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if(action==='collect'&&!input?.value.trim()){input?.focus();section.querySelector('[data-pickup-feedback]').textContent='Enter the pickup code from the customer’s order.';return;}
       collectionRequests.add(String(order.id));button.disabled=true;
       try{
-        const confirmText=action==='collect'?'Confirm pickup collection':action==='approve'?'Approve order':'Mark ready for pickup';
+        const confirmText=action==='collect'?'Confirm pickup collection':action==='approve'?'Start preparation':'Mark ready for pickup';
         if(!await askConfirm(action==='collect'?'Confirm that this paid order has been handed to the customer at FMRC?':action==='approve'?'Approve this order for preparation?':'Confirm that this order is ready for the customer to collect?',{title:confirmText,confirmText}))return;
         const result=await request('/admin/orders/'+order.id+(action==='collect'?'/complete':action==='approve'?'/approve':'/tracking'),{method:action==='ready'?'PATCH':'POST',body:action==='collect'?{pickup_code:input.value.trim()}:action==='ready'?{stage:'to_receive'}:{}});
         collectionRequests.delete(String(order.id));refreshMatchingOrderDialogs(result.data);
@@ -1352,8 +1363,8 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "The customer sees the recorded refund. Payment cannot be confirmed again."
           : isIncoming
             ? status === "paid"
-              ? "The customer sees Payment confirmed — awaiting order approval. This order stays in Incoming Orders. Use Approve Order in that table to move it to Orders Directory."
-              : "Confirming payment updates the customer’s payment status. This order stays in Incoming Orders until you choose Approve Order."
+              ? "Payment is confirmed. This order stays in Incoming Orders until you choose Start preparation."
+              : "Confirming payment updates the customer’s payment status. This order stays in Incoming Orders until you choose Start preparation."
             : status === "paid"
               ? "The customer sees a confirmed payment. Continue the order’s delivery or pickup process from Orders Directory. Use Returns & Refunds for product returns."
               : isGcash
@@ -1555,7 +1566,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const approvalFor = order => order?.approval || {
     allowed:order?.lifecycle_status==='incoming'&&!order.cancel_pending&&(order.order_type==='custom'?!!order.custom_product?.available_actions?.start_production:order.payment_status==='paid'||(['COP','COD'].includes(order.payment_method)&&order.payment_status==='pending')),
-    label:order?.order_type==='custom'?'Start production':'Approve order',
+    label:order?.order_type==='custom'?'Start production':'Start preparation',
     reason:'Payment must be confirmed before approving this order.',
   };
   // One rejected order belongs to one work queue, including old cached payloads.
@@ -1696,6 +1707,63 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<span class="status-pill status-grey">${window.AdminTableValue.html(method)}</span>`;
   };
 
+  const reviewRows = () => {
+    const search = (reviewSearch?.value || '').trim().toLowerCase();
+    return state.review.filter(order => !search || [order.order_no, order.customer_name, order.product_name].join(' ').toLowerCase().includes(search))
+      .sort((a,b) => (Date.parse(a.created_at)-Date.parse(b.created_at)) || Number(a.id)-Number(b.id));
+  };
+  const renderReviewTable = () => {
+    if (!reviewTable) return;
+    document.getElementById('orderReviewCount').textContent = String(state.review.length);
+    state.reviewPage = renderPagedRows({rows:reviewRows(), tbody:reviewTable.querySelector('tbody'), colCount:9, footer:reviewFooter,
+      currentPage:state.reviewPage, pageSize:PAGE_SIZE, emptyMessage:'No requests are awaiting FMRC review.', renderRow:order => `<tr>
+      <td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.customer_name)}</td>
+      <td class="order-items-cell">${renderOrderItemsInline(order)}</td><td>${escapeHtml(order.fulfillment_label || (order.fulfillment_type === 'pickup' ? 'Pickup at FMRC' : 'Delivery'))}</td>
+      <td>${escapeHtml(order.payment_method_label || order.payment_method)}<small class="table-pay-sub">Payment locked</small></td>
+      <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td><td>${escapeHtml(formatDateLabel(order.created_at))}</td>
+      <td><span class="status-pill status-yellow">Awaiting review</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="Review request" aria-label="Review request ${escapeHtml(order.order_no)}"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></button></td></tr>`});
+  };
+  reviewSearch?.addEventListener('input', () => {state.reviewPage=1;renderReviewTable();});
+  reviewPager.prev?.addEventListener('click', () => {state.reviewPage=Math.max(1,state.reviewPage-1);renderReviewTable();});
+  reviewPager.next?.addEventListener('click', () => {state.reviewPage++;renderReviewTable();});
+  window.AdminPageNumberInput?.bind(reviewPager.pageNumber, {getPage:()=>state.reviewPage, getTotalPages:()=>Math.max(1,Math.ceil(reviewRows().length/PAGE_SIZE)), onChange:page=>{state.reviewPage=page;renderReviewTable();}});
+
+  const reviewRequests = new Set();
+  const renderRequestReview = (order, body) => {
+    if (!body) return;
+    let section = body.querySelector('[data-request-review]');
+    if (!section) {section=document.createElement('section');section.className='order-dialog-section order-request-review';section.dataset.requestReview='';body.prepend(section);}
+    const previous = section.dataset.orderId === String(order.id) ? section.querySelector('textarea')?.value || '' : '';
+    section.dataset.orderId=String(order.id);
+    section.hidden=!order.review?.required;
+    if (section.hidden) return;
+    const review=order.review, loaded=Array.isArray(review.availability), disabled=!review.can_review||!loaded||reviewRequests.has(String(order.id));
+    section.innerHTML=`<header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>FMRC request review</h4><span class="status-pill ${review.status==='approved'?'status-green':'status-yellow'}">${escapeHtml(review.label)}</span></header>
+      <p class="field-hint">${escapeHtml(order.awaiting_review ? 'Check the details and stock before approving. Approval unlocks payment; preparation is a separate step.' : review.reason || 'The request decision is recorded. Continue through the existing order workflow.')}</p>
+      ${order.awaiting_review ? `<ul class="order-review-stock">${(review.availability||[]).map(item=>`<li><strong>${escapeHtml(item.product_name)}</strong><span>Requested: ${item.quantity} · Available: ${item.available}${item.unavailable?' · Unavailable':''}</span></li>`).join('')}</ul>
+      <label class="field-stack" for="orderReviewReason"><span>Reason for declining</span><textarea id="orderReviewReason" rows="2" maxlength="1000" placeholder="Required only when declining. This reason is shared with the customer.">${escapeHtml(previous)}</textarea></label>
+      <div class="order-review-actions"><button class="btn-admin btn-secondary" type="button" data-review-decision="reject" ${disabled?'disabled':''}><i class="fa-solid fa-xmark" aria-hidden="true"></i>Reject request</button><button class="btn-admin" type="button" data-review-decision="approve" ${disabled?'disabled':''}><i class="fa-solid fa-check" aria-hidden="true"></i>Approve request</button></div>`:''}`;
+    section.querySelectorAll('[data-review-decision]').forEach(button=>button.addEventListener('click',async()=>{
+      const key=String(order.id);
+      if (reviewRequests.has(key)) return;
+      const decision=button.dataset.reviewDecision,reason=section.querySelector('textarea').value.trim();
+      if(decision==='reject'&&!reason){showPopup('Enter a reason the customer can understand.',{title:'Reason required',type:'error'});section.querySelector('textarea').focus();return;}
+      reviewRequests.add(key);
+      section.querySelectorAll('button').forEach(node=>node.disabled=true);
+      try {
+        const confirmed=await askConfirm(decision==='approve'?'Approve this request and reserve its stock? Payment will become available; preparation will not start yet.':'Decline this request? The customer will see your reason.',{title:decision==='approve'?'Approve order request':'Decline order request',confirmText:decision==='approve'?'Approve request':'Reject request'});
+        if(!confirmed)return;
+        const response=await request(`/admin/orders/${order.id}/review`,{method:'POST',body:{decision,...(decision==='reject'?{reason}:{})}});
+        refreshMatchingOrderDialogs(response.data);
+        showPopup(response.message,{title:decision==='approve'?'Request approved':'Request declined',type:'success'});
+      } catch(error) {showPopup(error.message||'Unable to save the review. Please try again.',{title:'Review not saved',type:'error'});}
+      finally {
+        reviewRequests.delete(key);
+        if(section.dataset.orderId===key){const current=orderDetailsCache.get(key)||order;section.querySelectorAll('button').forEach(node=>node.disabled=!current.review?.can_review||!Array.isArray(current.review?.availability));}
+      }
+    }));
+  };
+
   const renderIncomingTable = () => {
     state.incomingPage = renderPagedRows({
       rows: state.incoming,
@@ -1717,7 +1785,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${renderPaymentMethodCell(order)}</td>
             <td>${window.AdminTableValue.html(order.total_label || formatTableMoney(order.total_amount))}</td>
             <td>${window.AdminTableValue.html(formatDateLabel(order.created_at))}</td>
-            <td><span class="status-pill ${statusClass}">Incoming</span></td>
+            <td><span class="status-pill ${statusClass}">${order.review?.status === "approved" ? (approvalFor(order).allowed ? "Ready for preparation" : "Awaiting payment") : "Incoming"}</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
               ${approvalFor(order).allowed?`<button data-tooltip="${escapeHtml(approvalFor(order).label)}" aria-label="${escapeHtml(approvalFor(order).label)}" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i></button>`:""}
@@ -2195,7 +2263,7 @@ document.addEventListener("DOMContentLoaded", () => {
       confirmMessage,
       loadingText:
         {
-          approve: "Approving...",
+          approve: "Starting preparation...",
           archive: "Archiving...",
           reject: "Rejecting...",
         }[action] || "Processing...",
@@ -2242,7 +2310,7 @@ document.addEventListener("DOMContentLoaded", () => {
       actions: [
         {
           key: "approve",
-          label: "Approve selected incoming orders",
+          label: "Start preparation for selected orders",
           icon: "fa-check",
           className: "admin-bulk-approve",
           onClick: (ids, controller) =>
@@ -2252,6 +2320,7 @@ document.addEventListener("DOMContentLoaded", () => {
               action: "approve",
               endpoint: "/admin/orders/approve-bulk",
               tableLabel: "Incoming Orders records",
+              confirmMessage: "Start preparation for the selected eligible catalog orders? Requests awaiting FMRC review and unpaid online orders will be skipped.",
             }),
         },
         {
@@ -2398,7 +2467,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Counted on the scope rule, not on the raw array, and deliberately
       // without the search box or the status <select>: typing must not make the
       // chip flicker.
-      state.incoming.length + getDirectoryScopeRows().length,
+      state.review.length + state.incoming.length + getDirectoryScopeRows().length,
     );
     setCount(
       ordersTabCountEls.records,
@@ -2408,6 +2477,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderAll = () => {
+    renderReviewTable();
     renderIncomingTable();
     renderDirectoryTable();
     renderRejectedTable();
@@ -2417,7 +2487,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderWalkInTable();
 
     renderOrdersTabCounts();
-    window.dispatchEvent(new CustomEvent("fmrc:orders-synced",{detail:{orders:[...state.incoming,...state.directory]}}));
+    window.dispatchEvent(new CustomEvent("fmrc:orders-synced",{detail:{orders:[...state.review,...state.incoming,...state.directory]}}));
   };
 
   const renderOrdersLoading = () => {
@@ -2437,6 +2507,7 @@ document.addEventListener("DOMContentLoaded", () => {
         3,
       );
     };
+    if (reviewTable && !reviewTable.querySelector('tbody tr:not(.table-empty-state)')) showSkeletons(reviewTable.querySelector('tbody'), 9);
     if (
       incomingOrdersTbody &&
       (!incomingOrdersTbody.children.length ||
@@ -2528,6 +2599,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ]);
 
       if(summaryRevision!==(state.summaryRevision||0)){state.pendingForceSync=true;return;}
+      state.review = Array.isArray(response.review) ? response.review : [];
       state.incoming = Array.isArray(response.incoming)
         ? response.incoming
         : [];
@@ -2556,7 +2628,7 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshOpenOrderDialogs();
       const productOrderId=new URLSearchParams(location.search).get('order_id');
       if(productOrderId&&!state.productDeepLinkOpened){
-        let linked=[...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
+        let linked=[...state.review,...state.incoming,...state.directory].find(o=>String(o.id)===productOrderId);
         // Archived linked orders are deliberately absent from the active tables.
         if(!linked){const detail=await request('/admin/orders/'+encodeURIComponent(productOrderId));linked=detail.data;}
         if(linked){
@@ -2597,6 +2669,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
+      renderEmptyTable(reviewTable?.querySelector('tbody'), 9, 'Unable to load order requests. Use Refresh to try again.');
       renderEmptyTable(
         incomingOrdersTbody,
         10,
@@ -4220,11 +4293,11 @@ document.addEventListener("DOMContentLoaded", () => {
       approve: {
         path: `/admin/orders/${orderId}/approve`,
         method: "POST",
-        title: "Approve Incoming Order",
-        message: "Approve this order for preparation? Cash-on-pickup customers pay when collecting their order.",
-        confirmText: "Approve",
-        loadingText: "Approving...",
-        success: "Order approved and moved to Orders Directory.",
+        title: "Start preparation",
+        message: "Start preparing this order? Cash-on-pickup customers pay when collecting their order.",
+        confirmText: "Start preparation",
+        loadingText: "Starting preparation...",
+        success: "Preparation started. The order is now in Orders Directory.",
       },
       delete: {
         path: `/admin/orders/${orderId}`,

@@ -14,7 +14,7 @@
     <title>Orders | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="dashboard.css?v=2026.1108.1" />
-    <link rel="stylesheet" href="admin-modules.css?v=2026.1111.8" />
+    <link rel="stylesheet" href="admin-modules.css?v=2026.1113.3" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -190,6 +190,12 @@
 
           <div class="orders-layout-stack">
             <section class="archive-section active" id="sectionOrders">
+            <article class="panel" id="orderReviewPanel">
+              <div class="panel-header"><div><h3>Awaiting FMRC Review <span class="status-pill status-yellow" id="orderReviewCount">0</span></h3><p class="incoming-subtitle">Review availability and details before unlocking payment.</p></div><input class="search-input" id="orderReviewSearch" type="search" aria-label="Search order requests" placeholder="Search order, customer, or item..." /></div>
+              <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper"><table class="admin-table" id="orderReviewTable" data-page-size="10"><thead><tr><th>Order No.</th><th>Customer</th><th>Items / Quantity</th><th>Fulfillment</th><th>Payment Method</th><th>Total</th><th>Submitted Date</th><th>Status</th><th class="sticky-action">Action</th></tr></thead><tbody></tbody></table></div>
+              <div class="table-footer" id="orderReviewFooter"><div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div><div class="table-pagination"><button class="page-btn" type="button" aria-label="Previous review page"><i class="fa-solid fa-chevron-left"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to review page" /><button class="page-btn" type="button" aria-label="Next review page"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+            </article>
             <article class="panel incoming-orders-panel">
               <div class="panel-header incoming-panel-header">
                 <div>
@@ -1756,7 +1762,7 @@
     <script src="admin-common.js?v=2026.1109.8"></script>
     <script src="jnt-tracking.js?v=2026.1111.8"></script>
 <script src="courier-shipments.js?v=2026.1110.1"></script>
-<script src="orders.js?v=2026.1111.8"></script>
+<script src="orders.js?v=2026.1113.3"></script>
     <script src="admin-table-resize.js?v=2026.1109.8" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2026.1104.5">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">

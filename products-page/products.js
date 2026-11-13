@@ -1062,6 +1062,7 @@ document.addEventListener("DOMContentLoaded", () => {
       /* ignore */
     }
 
+    if (window.FMRCOrderRequestSuccess) {void window.FMRCOrderRequestSuccess(orderNo);return;}
     // Locate the dedicated success modal elements (defined in product.html)
     const modal = document.getElementById("orderSuccessModal");
     const numEl = document.getElementById("orderSuccessNumber");

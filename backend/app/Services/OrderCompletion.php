@@ -25,6 +25,7 @@ final class OrderCompletion
 
     public static function collectionBlocker(Order $order): ?string
     {
+        if ($reason = \App\Support\OrderReview::blockedReason($order)) return $reason;
         if (! $order->isPickup()) {
             return 'J&T delivery is completed automatically from verified courier updates.';
         }

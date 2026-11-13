@@ -54,14 +54,18 @@ class GatewayPaymentsTest extends TestCase {
         $body=['product_id'=>$p->id,'product_name'=>'Test','quantity'=>2,'unit_price'=>0.01,'total_amount'=>0.02,'payment_method'=>'GCash','fulfillment_type'=>'pickup','checkout_request_key'=>(string)Str::uuid()];
         $body['shipping_quote_token']=$this->postJson('/api/shipping/quote',['items'=>[['product_id'=>$p->id,'quantity'=>2]],'fulfillment_type'=>'pickup'])->assertOk()->json('data.quote_token');
         $body+=\Tests\Support\CommercePolicyFixture::acceptance();
-        $r=$this->postJson('/api/orders',$body)->assertCreated()->assertJsonPath('data.payment_status','pending')->assertJsonPath('data.checkout_url','https://checkout.paymongo.com/test');
+        $r=$this->postJson('/api/orders',$body)->assertCreated()->assertJsonPath('data.payment_status','pending')->assertJsonPath('data.review.status','pending');
         $this->postJson('/api/orders',$body)->assertCreated()->assertJsonPath('data.id',$r->json('data.id'));
-        $this->assertDatabaseCount('orders',1); $this->assertDatabaseCount('payment_attempts',1); $this->assertSame(8,$p->fresh()->stock);
+        $this->assertDatabaseCount('orders',1); $this->assertDatabaseCount('payment_attempts',0); $this->assertSame(10,$p->fresh()->stock);
+        \App\Support\OrderReview::decide(Order::findOrFail($r->json('data.id')),'approve',null,User::factory()->create(['role'=>'staff'])->id);
+        $this->postJson('/api/customer/orders/'.$r->json('data.id').'/payment-checkout')->assertOk()->assertJsonPath('checkout_url','https://checkout.paymongo.com/test');
+        $this->assertSame(8,$p->fresh()->stock);
         $this->postJson('/api/orders',array_merge($body,['quantity'=>3]))->assertStatus(409);
     }
     public function test_unavailable_gateway_never_falls_back_to_manual(): void {
         Sanctum::actingAs(User::factory()->create(['role'=>'customer'])); config(['payments.paymongo.enabled'=>false]);
-        $this->postJson('/api/orders',['product_name'=>'Test','quantity'=>1,'total_amount'=>500,'payment_method'=>'GCash','fulfillment_type'=>'pickup','checkout_request_key'=>(string)Str::uuid()])->assertUnprocessable()->assertJsonPath('code','gcash_unavailable');
+        $p=Product::create(['name'=>'Test','code'=>'UNAVAILABLE','category'=>'Products','price'=>500,'stock'=>1]);
+        $this->postJson('/api/orders',['product_id'=>$p->id,'product_name'=>'Test','quantity'=>1,'total_amount'=>500,'payment_method'=>'GCash','fulfillment_type'=>'pickup','checkout_request_key'=>(string)Str::uuid()])->assertUnprocessable()->assertJsonPath('code','gcash_unavailable');
         $this->assertDatabaseCount('orders',0); Http::assertNothingSent();
         $this->getJson('/api/site-settings')->assertOk()->assertJsonPath('data.payment_gcash_ready','0');
     }
@@ -81,6 +85,25 @@ class GatewayPaymentsTest extends TestCase {
     public function test_failed_payment_in_nonempty_payments_array_is_not_confirmation(): void {
         $o=$this->order();$a=$this->attempt($o); app(GatewayPayments::class)->applySession($a->id,$this->providerSession($a,['status'=>'failed']));
         $this->assertSame('pending',$o->fresh()->payment->status);
+    }
+    public function test_unexpected_payment_evidence_never_approves_a_catalog_request(): void {
+        $o=$this->order(['review_status'=>'pending']);$a=$this->attempt($o);$g=app(GatewayPayments::class);
+        $this->assertTrue($g->applySession($a->id,$this->providerSession($a)));
+        $g->applySession($a->id,$this->providerSession($a));
+        $fresh=$o->fresh();
+        $this->assertSame('paid',$fresh->payment->status);
+        $this->assertSame('pending',$fresh->review_status);
+        $this->assertSame('incoming',$fresh->lifecycle_status);
+        $this->assertNull($fresh->approved_at);$this->assertNull($fresh->stock_reserved_at);
+        $this->assertDatabaseCount('payment_receipts',1);
+        $this->assertDatabaseHas('payment_attempts',['id'=>$a->id,'exception'=>'order_review_required']);
+        $this->assertDatabaseHas('admin_notifications',['message'=>'Payment received before FMRC approval. Review the transaction and order request before preparation.']);
+        Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
+        $this->postJson('/api/admin/orders/'.$o->id.'/approve')->assertUnprocessable();
+        Sanctum::actingAs($o->customer);
+        $this->getJson('/api/customer/orders/'.$o->id)->assertOk()->assertJsonPath('data.review.status','pending')->assertJsonPath('data.awaiting_review',true);
+        $this->assertNull($g->state($fresh)['checkout_url']);
+        $this->assertFalse($g->state($fresh)['retry_allowed']);
     }
     public function test_wrong_amount_currency_mode_source_and_association_are_rejected(): void {
         foreach ([['amount'=>1],['currency'=>'USD'],['livemode'=>true],['source'=>['type'=>'card']]] as $fields) {

@@ -182,7 +182,7 @@
     <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.8" />
     <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="../home-page/customer-notifications.css?v=2026.1107.4" />
-    <link rel="stylesheet" href="product-editorial.css?v=1.1" />
+    <link rel="stylesheet" href="product-editorial.css?v=2026.1113.3" />
     <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="../home-page/customer-mobile.css?v=1.5" />
     <script>
@@ -315,6 +315,7 @@
         </ul>
       </nav>
       <div class="header-right-actions">
+        <button type="button" class="product-my-orders" id="productMyOrdersBtn" title="My Orders" aria-label="My Orders"><i class="fa-solid fa-box-open" aria-hidden="true"></i><span>My Orders</span></button>
         <a href="#" class="cart-icon-container" title="View Cart">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -850,7 +851,7 @@
             id="gcashPaymentSection"
             hidden
           >
-            <h3 class="checkout-section-title">Secure online payment</h3>
+            <h3 class="checkout-section-title">Online payment after approval</h3>
 
             <p class="gcash-amount-line">
               Order total
@@ -864,6 +865,7 @@
             ></p>
           </div>
 
+          <p class="checkout-review-notice"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i><span>FMRC will review your order before payment becomes available. Availability is confirmed upon approval.</span></p>
           <div class="c-terms-box">
             <input type="checkbox" id="orderTerms" />
             <label for="orderTerms">I agree to the <a class="checkout-policy-link" id="checkoutTermsLink" href="transaction-terms.html#transaction-terms" target="_blank" rel="noopener noreferrer">Transaction Terms</a> and <a class="checkout-policy-link" id="checkoutRefundLink" href="refund-policy.html#refund-policy" target="_blank" rel="noopener noreferrer">Refund Policy</a>.</label>
@@ -878,7 +880,7 @@
             <span class="highlight-total" id="footerTotalDisplay">₱0.00</span>
           </div>
           <button class="btn-place-order" id="submitOrderBtn" type="button" disabled>
-            Place order
+            Submit Order Request
           </button>
         </div>
       </div>
@@ -1802,15 +1804,14 @@
       >
         <div class="success-card__header">
           <div class="success-icon" aria-hidden="true">✓</div>
-          <p class="success-eyebrow">Order Placed</p>
+          <p class="success-eyebrow">Order Request</p>
           <h3 class="success-title" id="orderSuccessTitle">
-            Your order is confirmed
+            Order request submitted
           </h3>
         </div>
         <div class="success-card__body">
           <p class="success-desc">
-            Your order has been successfully submitted to the FMRC team. Keep
-            the order number below so you can track its status anytime.
+            Your order is awaiting FMRC review. Payment will become available once approved.
           </p>
           <div class="success-reference" aria-label="Order number">
             <span>Order Number</span>
@@ -1818,14 +1819,14 @@
           </div>
           <p class="success-note">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            We will process your order shortly. An email confirmation will be
-            sent to your registered address.
+            Follow your request in My Orders. We will email you when FMRC records its decision.
           </p>
         </div>
         <div class="success-card__footer">
+          <button type="button" class="apt-btn apt-btn-blue" id="orderSuccessViewOrdersBtn"><i class="fa-solid fa-box-open" aria-hidden="true"></i>View My Orders</button>
           <button
             type="button"
-            class="apt-btn apt-btn-blue"
+            class="apt-btn apt-btn-ghost"
             id="orderSuccessOkBtn"
           >
             <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
@@ -1857,12 +1858,12 @@
     <script defer src="checkout-policy.js?v=1.2-publication"></script>
     <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script defer src="../products-page/gateway-payments.js?v=2026.1104.3"></script>
+    <script defer src="../products-page/gateway-payments.js?v=2026.1113.3"></script>
     <script defer src="../home-page/my-appointments.js?v=2026.1113.2"></script>
 <script defer src="../home-page/page-content.js?v=2026.1105.1"></script>
 <script defer src="../home-page/media-carousel.js?v=2026.1113.1"></script>
-<script defer src="../home-page/main.js?v=2026.1113.2"></script>
-    <script defer src="products.js?v=2026.1113.1"></script>
+<script defer src="../home-page/main.js?v=2026.1113.3"></script>
+    <script defer src="products.js?v=2026.1113.3"></script>
 
       <script src="../home-page/appointment-products.js?v=2026.1113.2"></script>
 </body>

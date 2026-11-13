@@ -22,6 +22,7 @@ use App\Services\ShipmentTracking;
 use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
 use App\Support\OrderApproval;
+use App\Support\OrderReview;
 use App\Support\CancellationHistoryArchive;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -126,22 +127,23 @@ class OrderController extends Controller
             return $denied;
         }
 
+        OrderReview::requireStorage();
         $validated = $request->validate([
-            'product_id' => 'nullable|integer|exists:products,id',
+            'product_id' => 'required_without:items|integer|exists:products,id',
             'product_name' => 'required_without:items|string|max:180',
             'product_image' => 'nullable|string',
             'quantity' => 'required_without:items|integer|min:1|max:999',
             'unit_price' => 'nullable|numeric|min:0|max:9999999.99',
             'total_amount' => 'required_without:items|numeric|min:0|max:9999999.99',
             'items' => 'nullable|array|min:1',
-            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.product_id' => 'required|integer|exists:products,id',
             'items.*.product_name' => 'required_with:items|string|max:180',
             'items.*.product_image' => 'nullable|string',
             'items.*.quantity' => 'required_with:items|integer|min:1|max:999',
             'items.*.unit_price' => 'nullable|numeric|min:0|max:9999999.99',
             'items.*.line_total' => 'nullable|numeric|min:0|max:9999999.99',
             'payment_method' => 'required|string|max:30',
-            'checkout_request_key' => 'nullable|uuid',
+            'checkout_request_key' => 'required|uuid',
             'shipping_quote_token' => 'nullable|string|max:10000',
             'policy_version' => 'nullable|uuid',
             'policy_accepted' => 'nullable|boolean',
@@ -358,6 +360,7 @@ class OrderController extends Controller
                     : ($this->buildAddressLineFromParts($deliveryParts) ?: ($validated['location_name'] ?? null));
 
                 $order = Order::query()->create(array_merge([
+                    'review_status' => 'pending',
                     'order_no' => null,
                     'customer_id' => $customer?->id,
                     'customer_name' => $validated['customer_name']
@@ -384,7 +387,7 @@ class OrderController extends Controller
                     // human-readable placeholder. A GCash order placed before the
                     // money was sent carries the placeholder until the customer
                     // submits their reference from My Orders.
-                    'payment_reference' => ($paymentMethod === 'GCash' ? 'Awaiting secure GCash payment' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
+                    'payment_reference' => ($paymentMethod === 'GCash' ? 'Awaiting FMRC review' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     // Only GCash has a deadline: cash is handed over at the
                     // counter or to the courier, so there is nothing to wait for.
                     'payment_due_at' => $paymentDueAt,
@@ -441,29 +444,12 @@ class OrderController extends Controller
                     OrderItem::query()->create($itemAttributes);
                 }
 
-                foreach ($orderItems as $lineItem) {
-                    $lineProductId = $lineItem['product_id'];
-                    if (is_null($lineProductId)) {
-                        continue;
-                    }
-
-                    $product = $productsById->get((int) $lineProductId);
-                    if (!$product) {
-                        continue;
-                    }
-
-                    $remainingStock = max(0, (int) $product->stock - (int) $lineItem['quantity']);
-                    $product->stock = $remainingStock;
-                    $product->stock_status = $remainingStock > 0 ? 'in_stock' : 'out_of_stock';
-                    $product->save();
-                }
-
                 $paymentRecord = Payment::query()->create([
                     'order_id' => $order->id,
                     'payment_no' => $this->generatePaymentNo((int) $order->id),
                     'method' => $paymentMethod,
                     'gateway' => $paymentMethod === 'GCash' ? 'paymongo' : null,
-                    'reference' => ($paymentMethod === 'GCash' ? 'Awaiting secure GCash payment' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
+                    'reference' => ($paymentMethod === 'GCash' ? 'Awaiting FMRC review' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     'amount' => $totalAmount,
                     'status' => $paymentStatus,
                     // A reference typed at checkout is the customer's claim that
@@ -503,18 +489,10 @@ class OrderController extends Controller
                     'event_type' => 'system',
                     'title' => match (true) {
                         $paymentStatus === 'paid' => 'Payment confirmed',
-                        $paymentMethod === 'GCash' && $gcashReference === null => 'Waiting for your online payment',
-                        default => 'Awaiting payment confirmation',
+                        $paymentMethod === 'GCash' && $gcashReference === null => 'Awaiting FMRC review',
+                        default => 'Awaiting FMRC review',
                     },
-                    'description' => match (true) {
-                        $paymentMethod === 'GCash' => PayMongoService::checkoutDescription(app(PayMongoService::class)->checkoutMethod()),
-                        default => $this->initialPaymentEventDescription(
-                            $paymentMethod,
-                            $paymentStatus,
-                            $isPickup,
-                            $gcashReference !== null,
-                        ),
-                    },
+                    'description' => 'FMRC will review your order before payment becomes available. Availability is confirmed upon approval.',
                     'occurred_at' => now(),
                     'metadata' => [
                         'payment_status' => $paymentStatus,
@@ -578,29 +556,17 @@ class OrderController extends Controller
             $emailHtml = $this->buildOrderEmailHtml(
                 $createdOrder,
                 'Your Order Has Been Received',
-                "Hi {$customerName},\n\nThank you for placing your order with UCN-FMRC. We have received your order and it is currently under review. You will be notified once it has been processed.\n\nPlease keep your order number for your reference.",
+                "Hi {$customerName},\n\nThank you for placing your order with UCN-FMRC. We have received your order and it is awaiting FMRC review. Payment will become available once approved. Check My Orders for updates.\n\nPlease keep your order number for your reference.",
                 '#800000',
-                templateKey: 'order_received'
+                statusOverride: 'Awaiting FMRC review'
             );
             $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
 
             }
-            $checkoutUrl = null;
-            if ($paymentMethod === 'GCash') {
-                $gatewayState = app(GatewayPayments::class)->checkout($createdOrder, $request->input('app_context') === 'customer' ? 'customer' : '');
-                $checkoutUrl = $gatewayState['checkout_url'];
-            }
-
             $responseData = $this->transformOrderDetail($createdOrder, false, true);
 
-            // Include the PayMongo checkout URL so the frontend knows to
-            // redirect the customer to GCash instead of showing "To Pay".
-            if ($checkoutUrl) {
-                $responseData['checkout_url'] = $checkoutUrl;
-            }
-
             return response()->json([
-                'message' => 'Order placed successfully.',
+                'message' => 'Order request submitted. Awaiting FMRC review.',
                 'data' => $responseData,
             ], 201);
 
@@ -673,6 +639,7 @@ class OrderController extends Controller
                 // Without this column the GCash deadline line and the overdue
                 // styling in My Orders silently render as nothing, because the
                 // transform reads it straight off the model.
+                'review_status', 'reviewed_at', 'review_reason', 'stock_reserved_at', 'stock_released_at',
                 'payment_due_at',
                 'fulfillment_type',
                 'lifecycle_status',
@@ -772,7 +739,8 @@ class OrderController extends Controller
 
         $counts = [
             'all'         => $data->count(),
-            'to_pay'      => $data->where('customer_stage', 'to_pay')->whereNotIn('lifecycle_status', $live)->count(),
+            'awaiting_review' => $data->where('awaiting_review', true)->count(),
+            'to_pay'      => $data->where('customer_stage', 'to_pay')->where('awaiting_review', false)->whereNotIn('lifecycle_status', $live)->count(),
             'to_ship'     => $data->where('customer_stage', 'to_ship')->whereNotIn('lifecycle_status', $live)->count(),
             'to_receive'  => $data->where('customer_stage', 'to_receive')->whereNotIn('lifecycle_status', $live)->count(),
             'completed'   => $data->where('customer_stage', 'completed')->whereNotIn('lifecycle_status', $live)->count(),
@@ -971,6 +939,7 @@ class OrderController extends Controller
             ], 422);
         }
 
+        OrderReview::assertApproved($order);
         if (in_array($order->lifecycle_status, ['rejected', 'cancelled'], true)) {
             return response()->json([
                 'message' => 'This order was cancelled or rejected. Do not send any payment for it - contact FMRC if you already did.',
@@ -1048,6 +1017,7 @@ class OrderController extends Controller
             $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $payment = Payment::query()->where('order_id', $fresh->id)->lockForUpdate()->first();
             $fresh->setRelation('payment', $payment);
+            OrderReview::assertApproved($fresh);
             if (in_array($fresh->lifecycle_status, ['cancelled', 'rejected', 'completed'], true)
                 || $fresh->customer_stage === 'completed'
                 || in_array($payment?->status, ['paid', 'refunded'], true)
@@ -1592,6 +1562,11 @@ class OrderController extends Controller
     private function restockOrder(Order $order): array
     {
         $restored = [];
+        if (OrderReview::required($order)) {
+            if (! $order->stock_reserved_at || $order->stock_released_at) return [];
+            $order->stock_released_at = now();
+            $order->save();
+        }
 
         $lines = $order->relationLoaded('items')
             ? $order->items
@@ -1647,7 +1622,8 @@ class OrderController extends Controller
             fn (Order $order) => $this->transformOrderSummary($order, false)
         );
 
-        $incoming = $mapped->where('lifecycle_status', 'incoming')->values();
+        $review = $mapped->where('awaiting_review', true)->values();
+        $incoming = $mapped->where('lifecycle_status', 'incoming')->where('awaiting_review', false)->values();
         $directory = $mapped->where('lifecycle_status', '!=', 'incoming')->values();
 
         $payments = $orders
@@ -1694,6 +1670,7 @@ class OrderController extends Controller
         ];
 
         return response()->json([
+            'review' => $review,
             'incoming' => $incoming,
             'directory' => $directory,
             'payments' => $payments,
@@ -1815,6 +1792,7 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->get();
 
+            $orders = $orders->reject(fn ($order) => OrderReview::pending($order));
             foreach ($orders as $order) {
                 $order->lifecycle_status = 'rejected';
                 $order->rejected_at = Carbon::now();
@@ -1880,6 +1858,17 @@ class OrderController extends Controller
         $reason = trim(preg_replace('/\s+/u', ' ', $validated['reason']) ?? '');
         if ($reason === '') throw ValidationException::withMessages(['reason' => 'Enter a reason for rejecting the order.']);
         return $reason;
+    }
+
+    public function review(Request $request, Order $order): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) return $denied;
+        $input = $request->validate(['decision' => 'required|in:approve,reject', 'reason' => 'required_if:decision,reject|nullable|string|max:1000']);
+        $reason = trim((string) ($input['reason'] ?? ''));
+        if ($input['decision'] === 'reject' && $reason === '') throw ValidationException::withMessages(['reason' => 'Enter a reason the customer can understand.']);
+        $saved = OrderReview::decide($order, $input['decision'], $input['decision'] === 'reject' ? $reason : null, (int) $request->user()->id);
+        $saved->load(['items', 'payment', 'trackingEvents', 'latestTrackingEvent']);
+        return response()->json(['message' => $input['decision'] === 'approve' ? 'Request approved. Payment is now available.' : 'Request declined. The customer can view your reason.', 'data' => $this->transformOrderDetail($saved)]);
     }
 
     public function approve(Request $request, Order $order): JsonResponse
@@ -1963,6 +1952,7 @@ class OrderController extends Controller
         DB::transaction(function () use ($order, $request, $reason): void {
             $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($fresh->lifecycle_status, ['incoming','pending'], true), 422, 'This order can no longer be rejected. Refresh its status.');
+            abort_if(OrderReview::pending($fresh), 422, 'Review this request individually before using order actions.');
             $order->setRawAttributes($fresh->getAttributes(), true);
             abort_if(AppointmentProducts::custom($order) && $order->appointment_production_status==='ready',422,'Use the assistance and return workflow for a production-ready custom order.');
             $order->lifecycle_status = 'rejected';
@@ -2208,6 +2198,7 @@ class OrderController extends Controller
             return $denied;
         }
 
+        OrderReview::assertApproved($order);
         if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before updating fulfillment.'],422);
 
         $validated = $request->validate([
@@ -2483,7 +2474,7 @@ class OrderController extends Controller
             };
             $description = match ($nextStatus) {
                 'paid' => $awaitingApproval
-                    ? 'FMRC confirmed receipt of your payment. Your order is still awaiting approval. No further payment is needed.'
+                    ? ($fresh->review_status === 'approved' ? 'FMRC confirmed receipt of your payment. Your order is ready for preparation. No further payment is needed.' : 'FMRC confirmed receipt of your payment. Your order is still awaiting approval. No further payment is needed.')
                     : 'FMRC confirmed receipt of your payment. No further payment is needed.',
                 'pending' => 'FMRC reopened the payment check. Reason: '.$correctionReason
                     .($payment->hasCustomerClaim() ? ' Your submitted reference is still on file for review. Do not send another payment while FMRC checks it.' : ' Contact FMRC to confirm what is owed before sending a payment.'),
@@ -2527,13 +2518,13 @@ class OrderController extends Controller
             $title,
             "Hi {$order->customer_name},\n\n{$description}",
             $nextStatus === 'pending' ? '#b45309' : '#059669',
-            statusOverride: $nextStatus === 'paid' && $order->lifecycle_status === 'incoming' ? 'Awaiting approval' : $title,
+            statusOverride: $nextStatus === 'paid' && $order->lifecycle_status === 'incoming' ? ($order->review_status === 'approved' ? 'Ready for preparation' : 'Awaiting approval') : $title,
         );
         $this->sendCustomerOrderEmail($order, "{$title} - {$orderNoLabel}", $emailHtml);
 
         return response()->json([
             'message' => $nextStatus === 'paid' && $order->lifecycle_status === 'incoming'
-                ? 'Payment confirmed. The order stays in Incoming Orders until you approve it.'
+                ? 'Payment confirmed. The order stays in Incoming Orders until preparation starts.'
                 : $title.'.',
             'payment' => $this->transformPaymentRow($order),
             'order' => $this->transformOrderSummary($order),
@@ -3038,7 +3029,7 @@ class OrderController extends Controller
             $order->hasPendingCancellation() => 'Review the pending cancellation request before changing this payment.',
             default => null,
         };
-        $paidReason = $commonReason ?? match (true) {
+        $paidReason = $commonReason ?? OrderReview::blockedReason($order) ?? match (true) {
             $closed => 'This order is cancelled or rejected. Record a refund only after returning any money received.',
             $status === 'paid' => 'Payment receipt has already been confirmed.',
             ($payment?->method ?? $order->payment_method) === 'GCash' && ! $payment?->hasCustomerClaim() => 'Wait for the customer to submit their GCash reference before confirming the payment.',
@@ -3732,6 +3723,18 @@ class OrderController extends Controller
             }
         }
 
+        $review = OrderReview::present($order);
+        $summary['review'] = $review;
+        $summary['awaiting_review'] = $review['awaiting_review'];
+        $summary['payment_eligibility'] = ['allowed' => OrderReview::blockedReason($order) === null && ! $order->hasPendingCancellation() && ! in_array($order->lifecycle_status, ['cancelled', 'rejected', 'completed'], true) && ($payment?->status ?? 'pending') === 'pending', 'reason' => OrderReview::blockedReason($order)];
+        if (OrderReview::blockedReason($order)) {
+            $summary['awaiting_customer_payment'] = false;
+            $summary['payment_under_review'] = false;
+            $summary['payment_action_label'] = $review['label'];
+        }
+        if ($review['status'] === 'approved' && $payment?->status === 'paid' && $order->lifecycle_status === 'incoming') $summary['payment_action_label'] = 'Payment confirmed — ready for preparation';
+        if ($review['awaiting_review']) $summary['customer_stage_label'] = 'Awaiting FMRC review';
+        elseif ($review['status'] === 'approved' && $order->lifecycle_status === 'incoming' && $payment?->status === 'paid') $summary['customer_stage_label'] = 'Ready for preparation';
         $summary = array_merge($summary, AppointmentProducts::orderData($order));
         if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true)) {
             $summary['approval'] = OrderApproval::state($order);
@@ -3769,6 +3772,10 @@ class OrderController extends Controller
             ->values()
             ->all();
 
+        if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true) && OrderReview::pending($order)) {
+            $products = Product::whereIn('id', $order->items->pluck('product_id'))->get()->keyBy('id');
+            $summary['review']['availability'] = $order->items->map(fn ($item) => ['product_name' => $item->product_name, 'quantity' => (int) $item->quantity, 'available' => (int) ($products->get($item->product_id)?->stock ?? 0), 'unavailable' => ! $products->has($item->product_id) || (bool) $products->get($item->product_id)?->is_blocked || $products->get($item->product_id)?->stock_status === 'out_of_stock'])->values()->all();
+        }
         $timeline = $order->trackingEvents
             ->sortByDesc(fn (OrderTrackingEvent $event) => [
                 $event->metadata['time']['instant'] ?? $event->occurred_at?->toISOString() ?? '',

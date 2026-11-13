@@ -4,6 +4,7 @@ namespace App\Services;
 use App\Models\{Order, Payment, OrderTrackingEvent, AdminNotification};
 use Illuminate\Support\Facades\{DB, Cache};
 use Illuminate\Support\Str;
+use App\Support\OrderReview;
 use Illuminate\Support\Carbon;
 
 class GatewayPayments
@@ -48,6 +49,7 @@ class GatewayPayments
         return $attempt;
     }
     public function checkout(Order $order, string $context = ''): array {
+        OrderReview::assertApproved($order);
         AppointmentProducts::assertPayable($order);
         abort_unless($order->payment_method === 'GCash' && self::managed($order->payment), 422, 'This order does not use automatic GCash checkout.');
         $attempt = $this->attempt($order->payment);
@@ -57,6 +59,7 @@ class GatewayPayments
         abort_unless($this->provider->acceptsNewPayments(), 422, 'GCash is temporarily unavailable. Please try again later.');
         $attempt = DB::transaction(function () use ($order, $context) {
             $locked=Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            OrderReview::assertApproved($locked);
             AppointmentProducts::assertPayable($locked);
             $payment = Payment::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             if ($payment->status !== 'pending') return null;
@@ -80,6 +83,7 @@ class GatewayPayments
             DB::table('payment_attempts')->where('id', $attempt->id)->update(['exception' => 'checkout_requires_reconciliation']); return;
         }
         $payment = Payment::findOrFail($attempt->payment_id); $order = $payment->order;
+        if (OrderReview::blockedReason($order)) return;
         // Recovery repeats only this attempt's original idempotency key, then the caller expires it.
         // It must remain possible after a quote closes; otherwise a lost create response can never be reconciled.
         if (AppointmentProducts::custom($order) && !$recoverForClosure && ($order->collection_hold || !\App\Models\AppointmentProductQuote::whereKey($order->appointment_product_quote_id)->where('state','accepted')->where('expires_at','>',now())->exists())) return;
@@ -165,9 +169,10 @@ class GatewayPayments
             }
             $duplicate = $payment->paid_at !== null && $payment->paymongo_payment_id !== $p['id'];
             $closed = in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true);
+            $reviewBlocked = OrderReview::blockedReason($order) !== null;
             DB::table('payment_attempts')->where('id', $a->id)->update([
                 'status' => 'paid', 'provider_payment_id' => $p['id'], 'confirmed_at' => now(), 'updated_at' => now(),
-                'exception' => $duplicate || count($paid) > 1 ? 'duplicate_payment_review' : ($closed ? 'late_payment_refund_review' : null),
+                'exception' => $duplicate || count($paid) > 1 ? 'duplicate_payment_review' : ($closed ? 'late_payment_refund_review' : ($reviewBlocked ? 'order_review_required' : null)),
             ]);
             if (!$duplicate && $payment->status !== 'refunded') {
                 $payment->update(['status' => 'paid', 'paid_at' => now(), 'reference' => $p['id'], 'paymongo_payment_id' => $p['id']]);
@@ -184,9 +189,9 @@ class GatewayPayments
                 }
             }
             OrderTrackingEvent::create(['order_id' => $order->id, 'stage' => $order->customer_stage, 'event_type' => 'system',
-                'title' => PayMongoService::methodLabel($a->checkout_method).' payment confirmed', 'description' => $closed ? 'Payment received after the order closed. The team will review the refund.' : 'Payment received. Order preparation requires team approval.', 'occurred_at' => now()]);
+                'title' => PayMongoService::methodLabel($a->checkout_method).' payment confirmed', 'description' => $closed ? 'Payment received after the order closed. The team will review the refund.' : ($reviewBlocked ? 'Payment received before FMRC approval. The team must review this transaction; the order remains on hold.' : 'Payment received. FMRC will start preparation through the order workflow.'), 'occurred_at' => now()]);
             AdminNotification::create(['type' => 'order', 'title' => PayMongoService::methodLabel($a->checkout_method).' payment: '.$order->order_no,
-                'message' => $closed || $duplicate ? 'Payment needs refund review.' : 'Payment confirmed automatically. Review this order for approval.',
+                'message' => $closed || $duplicate ? 'Payment needs refund review.' : ($reviewBlocked ? 'Payment received before FMRC approval. Review the transaction and order request before preparation.' : 'Payment confirmed automatically. This order is ready for preparation.'),
                 'metadata' => json_encode(['order_id' => $order->id])]);
             if (in_array($order->lifecycle_status, ['cancelled','rejected'], true)) $this->queueClosedOrderRefunds($order, $order->customer_id);
             return true;
@@ -215,8 +220,8 @@ class GatewayPayments
         $a = $payment ? $this->attempt($payment) : null;
         $method = $a?->checkout_method ?? $this->provider->checkoutMethod();
         $closed = in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true);
-        $payable = $payment?->status === 'pending' && !$closed && !$a?->exception && (!$a || (bool) $a->livemode === $this->provider->isLive()) && $this->provider->acceptsNewPayments();
-        return ['status' => $payment?->status ?? 'pending', 'attempt_status' => $a?->status, 'order_status' => $order->lifecycle_status,
+        $payable = !OrderReview::blockedReason($order) && !$order->hasPendingCancellation() && $payment?->status === 'pending' && !$closed && !$a?->exception && (!$a || (bool) $a->livemode === $this->provider->isLive()) && $this->provider->acceptsNewPayments();
+        return ['review' => OrderReview::present($order), 'payment_blocked_reason' => OrderReview::blockedReason($order), 'status' => $payment?->status ?? 'pending', 'attempt_status' => $a?->status, 'order_status' => $order->lifecycle_status,
             'checkout_method' => $method, 'method_label' => PayMongoService::methodLabel($method),
             'checkout_label' => PayMongoService::checkoutLabel($method), 'checkout_description' => PayMongoService::checkoutDescription($method),
             'confirmed_at' => $payment?->paid_at?->toIso8601String(), 'expires_at' => $a?->expires_at,

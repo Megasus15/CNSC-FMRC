@@ -108,11 +108,16 @@ class OrderDeliveryFlowTest extends TestCase
             'payment_method' => 'GCash', 'shipping_quote_token' => $quote['quote_token'], 'checkout_request_key' => (string) Str::uuid()];
         $created = $this->postJson('/api/orders', $input)->assertCreated()
             ->assertJsonPath('data.payment_status', 'pending')->assertJsonPath('data.total_amount', 485)
-            ->assertJsonPath('data.checkout_url', 'https://checkout.paymongo.com/fixture');
+            ->assertJsonPath('data.review.status', 'pending');
         $order = Order::findOrFail($created->json('data.id'));
         $this->postJson('/api/orders', $input)->assertCreated()->assertJsonPath('data.id', $order->id);
         $this->assertDatabaseCount('orders', 1);
-        $this->assertDatabaseCount('payment_attempts', 1);
+        $this->assertDatabaseCount('payment_attempts', 0);
+        $this->assertSame(2, $product->fresh()->stock);
+        Sanctum::actingAs($staff);
+        $this->postJson('/api/admin/orders/'.$order->id.'/review', ['decision'=>'approve'])->assertOk();
+        Sanctum::actingAs($customer);
+        $this->postJson('/api/customer/orders/'.$order->id.'/payment-checkout')->assertOk()->assertJsonPath('checkout_url', 'https://checkout.paymongo.com/fixture');
         $this->assertSame(1, $product->fresh()->stock);
 
         Sanctum::actingAs($staff);

@@ -325,7 +325,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       if(method==='Cash on Delivery')assert(await run(`document.getElementById('fulfillDeliveryRadio').checked`));
       if(method==='GCash'){
         const instructions=await run(`document.getElementById('gcashUnconfiguredNote').textContent`);
-        assert.equal(instructions,'Continue to secure checkout to pay using QR Ph. Payment confirmation updates automatically.');
+        assert.equal(instructions,'After FMRC approves your request, open My Orders to pay securely using QR Ph.');
         assert.doesNotMatch(instructions,/GCash/);
       }
     }

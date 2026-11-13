@@ -450,3 +450,14 @@
     transition: none;
   }
 }
+
+/* Order requests share the purchase palette and global modal typography. */
+.product-my-orders {display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 10px;border:1px solid #d9cbc9;border-radius:8px;background:transparent;color:#701e2d;font:600 12px Montserrat,sans-serif;cursor:pointer;white-space:nowrap;}
+.product-my-orders:hover {background:#f2e9e6;}
+.product-my-orders:focus-visible {outline:2px solid #701e2d;outline-offset:3px;}
+.checkout-review-notice {display:flex;gap:10px;padding:14px;border:1px solid #dfd4ca;border-radius:10px;background:#fffaf1;color:#65333c;font:500 13px/1.6 Montserrat,sans-serif;}
+.checkout-review-notice i {padding-top:4px;}
+#orderSuccessModal .success-card__footer {display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+#orderSuccessModal .apt-btn-ghost {background:transparent;color:#701e2d;border:1px solid #d9cbc9;}
+#checkoutModal .btn-place-order {white-space:normal;line-height:1.4;}
+@media(max-width:600px){.product-my-orders span {display:none;}.product-my-orders {padding:8px;min-width:40px;}#orderSuccessModal .success-card__footer button {width:100%;}}

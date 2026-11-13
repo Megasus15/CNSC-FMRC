@@ -17,6 +17,7 @@ class Order extends Model
 
     protected $fillable = [
         'appointment_product_job_id', 'appointment_product_quote_id', 'appointment_production_status', 'production_revision',
+        'review_status', 'reviewed_by_user_id', 'reviewed_at', 'review_reason', 'stock_reserved_at', 'stock_released_at',
         'order_no',
         'customer_id',
         'customer_name',
@@ -155,6 +156,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'reviewed_at' => 'datetime', 'stock_reserved_at' => 'datetime', 'stock_released_at' => 'datetime',
         'subtotal'    => 'decimal:2',
         'total'       => 'decimal:2',
         'shipping_fee' => 'decimal:2',

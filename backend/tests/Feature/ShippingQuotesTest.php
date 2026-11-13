@@ -212,7 +212,7 @@ class ShippingQuotesTest extends TestCase
             $admin = $this->getJson('/api/admin/orders/'.$id)->assertOk()->json('data.pricing');
             $this->assertSame($customer, $admin);
         }
-        $this->assertSame(28, $this->product->fresh()->stock);
+        $this->assertSame(30, $this->product->fresh()->stock); // Submitted requests do not reserve inventory.
     }
 
     public function test_quote_tampering_expiry_owner_destination_and_quantity_changes_are_rejected_without_writes(): void

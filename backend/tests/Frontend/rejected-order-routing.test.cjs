@@ -10,7 +10,7 @@ const readSection = (start, end) => {
   return source.slice(a, b);
 };
 const helpers = readSection('  const rejectedOrderWorkspace =', '  // Directory and record counts');
-const cells = readSection('  const renderPaymentMethodCell =', '  const renderIncomingTable =');
+const cells = readSection('  const renderPaymentMethodCell =', '  const reviewRows =');
 const renderers = readSection('  const renderRejectedTable =', '  // Returns arrive whole');
 const order = (id, overrides = {}) => ({ id, order_no: 'ORDER-' + id, lifecycle_status: 'rejected', payment_status: 'pending', payment_method: 'COP', ...overrides });
 

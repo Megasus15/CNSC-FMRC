@@ -51,6 +51,7 @@ class GcashManualPaymentRailTest extends TestCase
             'unit_price' => 500,
             'total_amount' => 500,
             'payment_method' => 'COP',
+            'checkout_request_key' => (string) \Illuminate\Support\Str::uuid(),
         ])->assertCreated();
 
         // Cash changes hands at the counter, so there is nothing to wait for and

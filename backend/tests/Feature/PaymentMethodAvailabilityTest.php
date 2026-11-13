@@ -205,7 +205,7 @@ class PaymentMethodAvailabilityTest extends TestCase
             Http::fake(['api.paymongo.com/v2/checkout_sessions'=>Http::response(['data'=>['id'=>'cs_test', 'attributes'=>['checkout_url'=>'https://checkout.paymongo.com/test','livemode'=>false]]])]);
         }
         $this->postJson('/api/orders', $this->orderPayload($product, $method))->assertCreated();
-        $this->assertSame(9, (int) $product->fresh()->stock);
+        $this->assertSame(10, (int) $product->fresh()->stock); // Requests reserve stock only after FMRC review.
         $this->assertDatabaseHas('orders', ['payment_method' => $method]);
         $this->assertDatabaseHas('payments', ['method' => $method]);
     }

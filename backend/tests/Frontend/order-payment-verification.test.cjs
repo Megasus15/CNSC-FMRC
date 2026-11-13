@@ -51,7 +51,7 @@ function harness(initial = order()) {
   elements.modalOrderDetails.classList.add('show');
   const context = vm.createContext({
     ...elements, modalTrackingUpdate:element(), trackingOrderId:element(), paymentActionBusy: false, paymentVerificationKey: '',
-    state: { incoming: [initial], directory: [], ordersById: new Map([['1', initial]]) },
+    state: { review: [], incoming: [initial], directory: [], ordersById: new Map([['1', initial]]) },
     normalizeStateOrdering() {}, refreshPaymentsFromDirectory() {}, renderAll() {},
     formatMoney: (amount) => `PHP ${Number(amount).toFixed(2)}`,
     resolveMediaUrl: (url) => url || '',

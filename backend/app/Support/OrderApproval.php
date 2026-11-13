@@ -13,6 +13,7 @@ final class OrderApproval
     {
         $custom = AppointmentProducts::custom($order);
         $reason = match (true) {
+            OrderReview::blockedReason($order) !== null => OrderReview::blockedReason($order),
             (bool) $order->is_archived => 'Restore this order before continuing.',
             $order->lifecycle_status !== 'incoming' => 'This order is no longer awaiting approval.',
             $order->hasPendingCancellation() => 'Review the cancellation request first.',
@@ -34,6 +35,6 @@ final class OrderApproval
             }
         }
 
-        return ['allowed' => $reason === null, 'label' => $custom ? 'Start production' : 'Approve order', 'reason' => $reason];
+        return ['allowed' => $reason === null, 'label' => $custom ? 'Start production' : 'Start preparation', 'reason' => $reason];
     }
 }

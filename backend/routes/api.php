@@ -326,6 +326,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/orders/reject-bulk', [OrderController::class, 'rejectBulk']);
     Route::patch('/admin/orders/archive-bulk', [OrderController::class, 'archiveBulk']);
     Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
+    Route::post('/admin/orders/{order}/review', [OrderController::class, 'review']);
     Route::post('/admin/orders/{order}/approve', [OrderController::class, 'approve']);
     Route::post('/admin/orders/{order}/reject', [OrderController::class, 'reject']);
     Route::post('/admin/orders/{order}/complete', [OrderController::class, 'complete']);
