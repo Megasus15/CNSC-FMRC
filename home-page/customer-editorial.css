@@ -625,7 +625,7 @@
   align-items: stretch;
   gap: 0;
   border: 1px solid #e7ded9;
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--customer-paper);
   box-shadow: 0 14px 38px #49252b0b, inset 0 1px 0 #ffffff80;
