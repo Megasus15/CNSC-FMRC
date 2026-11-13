@@ -168,6 +168,10 @@ class BuiltInAdminProtectionTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin', 'username' => 'schema_admin', 'password' => Hash::make('SchemaPass123!')]);
         $customer = User::factory()->create(['role' => 'customer']);
+        foreach (['email', 'username'] as $column) {
+            Schema::table('users', fn (Blueprint $table) => $table->dropUnique('users_active_'.$column.'_unique'));
+            Schema::table('users', fn (Blueprint $table) => $table->dropColumn('active_'.$column));
+        }
         Schema::table('users', fn (Blueprint $table) => $table->dropColumn(['is_builtin_admin', 'deleted_at']));
         User::forgetSchemaColumnCache();
         Sanctum::actingAs($admin);

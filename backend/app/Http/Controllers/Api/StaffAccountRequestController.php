@@ -74,14 +74,14 @@ class StaffAccountRequestController extends Controller
         // fail to sign in on a rule this form did not enforce.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required|string|min:3|max:50|alpha_dash|unique:users,username',
+            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', User::uniqueActiveIdentity('username')],
             'email' => [
                 'required',
                 'string',
                 'email:rfc,dns',
                 'max:255',
                 'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/i',
-                'unique:users,email',
+                User::uniqueActiveIdentity('email'),
             ],
             'password' => 'required|string|min:8|confirmed',
         ], [
@@ -432,12 +432,12 @@ class StaffAccountRequestController extends Controller
      */
     private function claimedSinceSubmission(string $email, string $username): ?string
     {
-        if (User::withTrashed()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
+        if (User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
             return 'That Gmail address now belongs to an existing account, so this request '
                 . 'cannot be approved. Reject it and ask the applicant to use "Forgot Password?" instead.';
         }
 
-        if (User::withTrashed()->whereRaw('LOWER(username) = ?', [strtolower($username)])->exists()) {
+        if (User::query()->whereRaw('LOWER(username) = ?', [strtolower($username)])->exists()) {
             return 'That username was taken by another account while this request was waiting. '
                 . 'Reject it and ask the applicant to submit a new request with a different username.';
         }

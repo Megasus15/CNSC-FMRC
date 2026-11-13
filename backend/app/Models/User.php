@@ -14,9 +14,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 #[Fillable(['name', 'email', 'password', 'username', 'role', 'signed_with_google', 'has_custom_password', 'phone_number', 'address_line', 'address_details', 'department', 'customer_type', 'gcash_phone', 'gcash_linked_at'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'active_email', 'active_username'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -66,6 +68,15 @@ class User extends Authenticatable
     public function isBuiltInAdmin(): bool
     {
         return $this->role === 'admin' && ! $this->isSpectator() && (bool) $this->getAttribute('is_builtin_admin');
+    }
+
+    /** Match the database's active-account constraint, including during file-first deployment. */
+    public static function uniqueActiveIdentity(string $column): Unique
+    {
+        $active = 'active_'.$column;
+        $target = in_array($active, static::schemaColumns('users'), true) ? $active : $column;
+
+        return Rule::unique('users', $target);
     }
 
     public function spectatorHasExpired(): bool

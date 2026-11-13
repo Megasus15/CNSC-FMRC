@@ -863,6 +863,7 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
     if (creatingAccount) return;
     clearCreateFormErrors();
+    updateFormStatus("");
 
     const name = String(createName?.value || "").trim();
     const role = String(createRole?.value || "customer")
@@ -877,38 +878,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!name) {
       setFieldError(createName, "Full Name is required.");
-      updateFormStatus("Full Name is required.", true);
       hasError = true;
     }
 
     // Both Username and Gmail are now required
     if (!username) {
       setFieldError(getUsernameElementForValidation(), "Username is required.");
-      updateFormStatus("Username is required.", true);
       hasError = true;
     }
 
     if (!email) {
       setFieldError(createEmail, "Gmail is required.");
-      updateFormStatus("Gmail is required.", true);
       hasError = true;
     }
 
     if (email && !/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
       setFieldError(createEmail, "Use a valid @gmail.com address.");
-      updateFormStatus("Gmail must be a valid @gmail.com address.", true);
       hasError = true;
     }
 
     if (password.length < 8) {
       setFieldError(createPassword, "Password must be at least 8 characters.");
-      updateFormStatus("Password must be at least 8 characters.", true);
       hasError = true;
     }
 
     if (password !== passwordConfirmation) {
       setFieldError(createPasswordConfirm, "Confirm Password does not match.");
-      updateFormStatus("Confirm Password does not match.", true);
       hasError = true;
     }
 
@@ -969,16 +964,22 @@ document.addEventListener("DOMContentLoaded", () => {
           if (errors.role?.[0])
             setFieldError(createRole, String(errors.role[0]));
           if (errors.username?.[0])
-            setFieldError(createUsername, String(errors.username[0]));
+            setFieldError(getUsernameElementForValidation(), String(errors.username[0]));
           if (errors.email?.[0])
             setFieldError(createEmail, String(errors.email[0]));
           if (errors.password?.[0])
             setFieldError(createPassword, String(errors.password[0]));
-          const firstError = Object.values(errors)[0]?.[0];
-          updateFormStatus(
-            String(firstError || "Please review your input."),
-            true,
+          if (errors.password_confirmation?.[0])
+            setFieldError(createPasswordConfirm, String(errors.password_confirmation[0]));
+          const firstErrorInput = createForm?.querySelector(
+            ".field-stack.has-error input, .field-stack.has-error select",
           );
+          if (firstErrorInput instanceof HTMLElement) {
+            updateFormStatus("");
+            firstErrorInput.focus();
+          } else {
+            updateFormStatus(String(Object.values(errors)[0]?.[0] || payload?.message || "Please review your input."), true);
+          }
         } else {
           updateFormStatus(
             payload?.message || "Unable to create account right now.",

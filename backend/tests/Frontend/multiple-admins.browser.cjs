@@ -25,6 +25,7 @@ test('multiple Admins share records while identity, preferences, notifications a
       if(req.method==='POST'){
         let body='';for await(const c of req)body+=c;const input=JSON.parse(body);writes.push(input);
         await new Promise(resolve=>setTimeout(resolve,120));
+        if(failCreate==='email'){json({message:'This Gmail address is already used by an active account.',errors:{email:['This Gmail address is already used by an active account.']}},422);return true;}
         if(failCreate){json({message:'Temporary failure. Your entries are still here.'},503);return true;}
         const created={id:200+users.length,name:input.name,username:input.username,email:input.email,role:input.role,created_at:new Date().toISOString()};
         users.push(created);json({data:created},201);return true;
@@ -108,12 +109,27 @@ test('multiple Admins share records while identity, preferences, notifications a
   await h.until(`!document.getElementById('btnCreateUser').disabled && document.getElementById('accountsFormStatus').textContent.includes('Temporary failure')`);
   assert.equal(writes.length,1,'duplicate submit cannot create a second pending request');
   assert.equal(await h.run(`document.getElementById('createUserUsername').value`),'gamma_admin');
+  failCreate='email';
+  await h.run(`document.getElementById('btnCreateUser').click()`);await h.until(`document.querySelector('#adminSystemPopup.show')`);
+  await h.run(`document.getElementById('adminSystemPopupOk').click()`);
+  await h.until(`!document.getElementById('btnCreateUser').disabled && document.getElementById('createUserEmail').getAttribute('aria-invalid')==='true'`);
+  assert.equal(await h.run(`document.querySelectorAll('#adminCreateUserForm .field-error-bubble').length`),1,'validation message appears only beneath the offending field');
+  assert.equal(await h.run(`document.getElementById('accountsFormStatus').textContent`),'','no duplicate form-level error');
+  assert.equal(await h.run(`document.activeElement.id`),'createUserEmail','validation returns keyboard focus to the field');
+  assert.equal(await h.run(`document.getElementById('createUserUsername').value`),'gamma_admin','validation keeps entered values');
+  for(const width of [320,390,768,1024,1440]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    await h.pause(100);
+    assert.equal(await h.run(`document.documentElement.scrollWidth<=innerWidth+1`),true,`single validation error fits ${width}`);
+  }
+  await h.run(`document.getElementById('createUserEmail').scrollIntoView({block:'center',behavior:'instant'})`);
+  await h.shot('accounts-single-email-error-1440');
   failCreate=false;
   await h.run(`document.getElementById('btnCreateUser').click()`);await h.until(`document.querySelector('#adminSystemPopup.show')`);
   await h.run(`document.getElementById('adminSystemPopupOk').click()`);
   await h.until(`document.getElementById('createUserName').value==='' && !document.getElementById('btnCreateUser').disabled`);
   await closePopup(h);
-  assert.equal(writes.length,2);
+  assert.equal(writes.length,3);
   assert.equal(users.filter(u=>u.username==='gamma_admin').length,1);
   await peer.run(`document.getElementById('accountsSearchInput').value='gamma';document.getElementById('accountsSearchInput').dispatchEvent(new Event('input'));window.AdminLiveData.publish('users')`);
   await peer.until(`document.getElementById('accountsTableBody').textContent.includes('Gamma Admin')`);

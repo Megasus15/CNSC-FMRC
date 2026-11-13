@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
@@ -113,14 +112,14 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required|string|min:3|max:50|unique:users,username',
+            'username' => ['required', 'string', 'min:3', 'max:50', User::uniqueActiveIdentity('username')],
             'email' => [
                 'required',
                 'string',
                 'email:rfc,dns',
                 'max:255',
                 'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/i',
-                'unique:users,email',
+                User::uniqueActiveIdentity('email'),
             ],
             'password' => 'required|string|min:8|confirmed',
         ], [
@@ -344,8 +343,8 @@ class AuthController extends Controller
             }
             $baseUsername = substr($baseUsername, 0, 15);
 
-            $user = User::withTrashed()->where('email', $email)->first();
-            if ($user?->trashed()) {
+            $user = User::where('email', $email)->first();
+            if (! $user && (new User)->hasSchemaColumns(['deleted_at']) && User::onlyTrashed()->where('email', $email)->exists()) {
                 return response()->json(['message' => 'This account has been deleted. Contact FMRC if you need assistance.'], 403);
             }
 
@@ -600,19 +599,23 @@ class AuthController extends Controller
             return $denied;
         }
 
+        $messages = [
+            'email.unique' => 'This Gmail address is already used by an active account.',
+            'username.unique' => 'This username is already used by an active account.',
+        ];
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|alpha_dash|unique:users,username',
-            'email' => 'required|string|email|max:255|regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i|unique:users,email',
+            'username' => ['bail', 'required', 'string', 'max:255', 'alpha_dash', User::uniqueActiveIdentity('username')],
+            'email' => ['bail', 'required', 'string', 'email', 'max:255', 'regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i', User::uniqueActiveIdentity('email')],
             'role' => 'required|in:customer,staff,admin',
             'password' => 'required|string|min:8|confirmed',
-        ]);
+        ], $messages);
 
-        $user = DB::transaction(function () use ($request, $validated) {
+        $user = DB::transaction(function () use ($request, $validated, $messages) {
             AdminAccounts::lockRoster($request->user());
             // Another Admin may have submitted the same identifiers while
             // this request waited for the roster lock.
-            $request->validate(['username' => ['unique:users,username'], 'email' => ['unique:users,email']]);
+            $request->validate(['username' => [User::uniqueActiveIdentity('username')], 'email' => [User::uniqueActiveIdentity('email')]], $messages);
             return User::create($this->withGooglePasswordState([
                 'name'     => $validated['name'],
                 'username' => $validated['username'] ?? null,
@@ -895,8 +898,8 @@ class AuthController extends Controller
         // address that a typo actually produces (admn@gmail.com) resolves fine; only
         // the verification code below can catch it.
         $validated = $request->validate([
-            'email' => ['nullable', 'string', 'email', 'max:255', 'regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i', Rule::unique('users', 'email')->ignore($user->id)],
-            'username' => ['nullable', 'string', 'max:255', 'alpha_dash', Rule::unique('users', 'username')->ignore($user->id)],
+            'email' => ['nullable', 'string', 'email', 'max:255', 'regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i', User::uniqueActiveIdentity('email')->ignore($user->id)],
+            'username' => ['nullable', 'string', 'max:255', 'alpha_dash', User::uniqueActiveIdentity('username')->ignore($user->id)],
         ]);
 
         if (array_key_exists('username', $validated) && $validated['username']) {
@@ -1128,7 +1131,7 @@ class AuthController extends Controller
 
         // Re-check uniqueness: another account could have claimed the address in the
         // 15 minutes the request sat waiting.
-        $taken = User::withTrashed()->where('email', $newEmail)->where('id', '!=', $user->id)->exists();
+        $taken = User::where('email', $newEmail)->where('id', '!=', $user->id)->exists();
         if ($taken) {
             DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
 
