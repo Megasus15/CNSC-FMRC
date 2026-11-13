@@ -2,6 +2,14 @@
 
 This release extends the existing appointment and order systems. It does not restore the retired standalone Custom Requests feature. Ordinary appointments keep their booking, consultation, receipt, rescheduling, completion, and archive workflow.
 
+## Phone service-card actions
+
+Home's **What We Offer** cards and the customer Services cards share `services-page/service-card-actions.css` and `.js`, version `2026.1113.15`. In the existing 320–480px phone layout, Learn more appears above a full-width **Book Now** button. Its text and calendar icon stay on one line, with a 44px minimum touch height. The accessible name still identifies the consultation and selected service. DOM order follows the visible order for keyboard users and returns to the existing Book a Consultation / Learn more arrangement above 480px. Dynamic content refreshes preserve this behavior, and services without booking eligibility retain only Learn more.
+
+Deploy both new shared files with the matching Home and Services HTML through the existing commit → push → online deployment workflow. This action-layout change requires no migration or Composer command. The consultation link, selected service, sign-in flow and service-details modal retain their existing behavior, including in the customer app.
+
+For a focused browser check, set `FMRC_SERVICE_ACTIONS_ONLY=1` and run `node --test backend/tests/Frontend/appointment-products.browser.cjs` from the repository root. It verifies phone widths through 480px, the 481px breakpoint, tablet/desktop placement, keyboard order, hover/focus, service details and lightbox, booking eligibility, the selected-service link and customer-app routes.
+
 ## Release state
 
 - New intake is **disabled by default**: `APPOINTMENT_PRODUCTS_ENABLED=false`.

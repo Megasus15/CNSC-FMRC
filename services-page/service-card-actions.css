@@ -1,0 +1,29 @@
+/* Shared compact-card actions on Home and Services. */
+@media screen and (min-width: 320px) and (max-width: 480px) {
+  :is(.home-editorial-page, .services-page-body) .service-card .service-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  :is(.home-editorial-page, .services-page-body) .service-card .service-card-footer .details-btn {
+    align-self: flex-start;
+    margin-left: 0;
+  }
+
+  :is(.home-editorial-page, .services-page-body) .service-card .service-card-footer .ap-consult-link {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 8px;
+    gap: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  :is(.home-editorial-page, .services-page-body) .service-booking-label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}

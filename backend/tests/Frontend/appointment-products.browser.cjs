@@ -285,12 +285,20 @@ test('optional appointment products preserve drafts and share the existing modal
         assert.equal(await run(`document.querySelector('${eligible} .service-card-footer').firstElementChild.textContent.trim()`),'Book a Consultation');
         const href=await run(`document.querySelector('${eligible} .ap-consult-link').href`),target=new URL(href);
         assert.equal(target.pathname,route.startsWith('/apps/')?'/apps/customer/home-page/':'/home-page/');assert.equal(target.searchParams.get('custom_service'),'2');
-        for(const width of [320,390,768,1440]){
+        for(const width of [320,375,390,393,414,430,480,481,768,1440]){
           await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+          await until(`document.querySelector('${eligible} .ap-consult-link .service-booking-label')?.textContent===${JSON.stringify(width<=480?'Book Now':'Book a Consultation')}`);
           await run(`document.querySelector('${eligible}').scrollIntoView({block:'center',behavior:'instant'})`);
-          const layout=await run(`(()=>{const card=document.querySelector('${eligible}'),buttons=[...card.querySelectorAll('.service-card-footer > a,.service-card-footer > button')];const rects=buttons.map(b=>b.getBoundingClientRect());return {overflow:document.documentElement.scrollWidth>innerWidth+1,inside:rects.every(r=>r.left>=card.getBoundingClientRect().left&&r.right<=card.getBoundingClientRect().right),style:buttons.map(b=>{const s=getComputedStyle(b);return [s.fontSize,s.fontWeight,s.padding,s.borderWidth,s.borderRadius,s.height,s.textDecorationLine]})};})()`);
+          const layout=await run(`(()=>{const card=document.querySelector('${eligible}'),buttons=[card.querySelector('.ap-consult-link'),card.querySelector('.open-modal-btn')];const rects=buttons.map(b=>b.getBoundingClientRect());return {overflow:document.documentElement.scrollWidth>innerWidth+1,inside:rects.every(r=>r.left>=card.getBoundingClientRect().left&&r.right<=card.getBoundingClientRect().right),style:buttons.map(b=>{const s=getComputedStyle(b);return [s.fontSize,s.fontWeight,s.padding,s.borderWidth,s.borderRadius,s.height,s.textDecorationLine]})};})()`);
           assert.equal(layout.overflow,false,route+' fits '+width);assert(layout.inside);assert.equal(layout.style[0][3],'1px');assert.equal(layout.style[1][3],'0px','Learn more retains its arrow-link style');
-          assert.equal(await run(`(()=>{const f=document.querySelector('${eligible} .service-card-footer'),b=f.querySelector('.ap-consult-link').getBoundingClientRect(),l=f.querySelector('.open-modal-btn').getBoundingClientRect(),r=f.getBoundingClientRect();return Math.abs(b.left-r.left)<2&&Math.abs(l.right-r.right)<2;})()`),true,'Booking aligns left and Learn more aligns right');
+          if(width<=480){
+            const mobile=await run(`(()=>{const f=document.querySelector('${eligible} .service-card-footer'),book=f.querySelector('.ap-consult-link'),label=book.querySelector('.service-booking-label'),b=book.getBoundingClientRect(),l=f.querySelector('.open-modal-btn').getBoundingClientRect(),s=getComputedStyle(label);return {below:b.top>=l.bottom+5,order:f.firstElementChild.matches('.open-modal-btn')&&f.lastElementChild===book,oneLine:label.getClientRects().length===1&&label.getBoundingClientRect().height<=parseFloat(s.lineHeight)+1,fits:book.scrollWidth<=book.clientWidth+1,tap:b.height>=44};})()`);
+            assert(mobile.below&&mobile.order&&mobile.oneLine&&mobile.fits&&mobile.tap,'Learn more precedes the single-line Book Now action: '+JSON.stringify(mobile));
+            await run(`document.querySelector('${eligible} .open-modal-btn').focus()`);await key('Tab');
+            assert.equal(await run(`document.activeElement===document.querySelector('${eligible} .ap-consult-link')`),true,'keyboard order matches the phone layout');
+          }else{
+            assert.equal(await run(`(()=>{const f=document.querySelector('${eligible} .service-card-footer'),b=f.querySelector('.ap-consult-link').getBoundingClientRect(),l=f.querySelector('.open-modal-btn').getBoundingClientRect(),r=f.getBoundingClientRect();return Math.abs(b.left-r.left)<2&&Math.abs(l.right-r.right)<2;})()`),true,'Wide-screen placement stays unchanged');
+          }
           assert.match(await run(`getComputedStyle(document.querySelector('${eligible} .ap-consult-link')).fontFamily`),/Montserrat/);
           if(width===1440)assert.equal(await run(`(()=>{const cards=[...document.querySelectorAll('.service-card')].slice(0,3);return Math.max(...cards.map(c=>c.querySelector('.service-image-trigger').getBoundingClientRect().top))-Math.min(...cards.map(c=>c.querySelector('.service-image-trigger').getBoundingClientRect().top))<2;})()`),true,'Eligible and ordinary images align');
           await shot((route.startsWith('/apps/')?'pwa-':route.includes('services-page')?'services-':'home-')+'service-actions-'+width);
@@ -346,6 +354,10 @@ test('optional appointment products preserve drafts and share the existing modal
       }
     };
     await serviceActions();
+    if(process.env.FMRC_SERVICE_ACTIONS_ONLY==='1'){
+      console.log('Home, Services and customer-app service actions checked; screenshots: '+artifacts);
+      return;
+    }
     await cdp.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:artifacts});
 
     await navigate('/home-page/main.html');await until(`!!document.getElementById('aptCustomProduct')`);
