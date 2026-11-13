@@ -6,11 +6,12 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../../..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-function contentModule(elements = []) {
+function contentModule(elements = [], university = null) {
   const context = {
     window: {}, CustomEvent: class { constructor(type) { this.type = type; } },
     document: {
       querySelectorAll: (selector) => elements.filter((el) => selector.includes('placeholder') ? el.dataset.editorialPlaceholder : el.dataset.editorialCopy),
+      getElementById: (id) => id === 'universityPurposeSection' ? university : null,
       dispatchEvent() {},
     },
   };
@@ -50,6 +51,37 @@ test('copy preserves defaults, literal user text, intentional blanks and cached 
   assert.equal(title.textContent, '');
   assert.equal(search.placeholder, 'Image coming soon');
   assert(!api.fields.some((field) => field.key === 'editorial_services_search_placeholder'));
+});
+
+test('university statements start empty and display together only after both contain text', () => {
+  const university = { hidden: true };
+  const vision = { dataset: { editorialCopy: 'editorial_about_university_vision_copy' }, textContent: '' };
+  const mission = { dataset: { editorialCopy: 'editorial_about_university_mission_copy' }, textContent: '' };
+  const api = contentModule([vision, mission], university);
+  const fields = api.fields.filter(field => field.key.startsWith('editorial_about_university_'));
+  assert.equal(fields.length, 6);
+  assert.equal(fields.find(field => field.key.endsWith('vision_copy')).default, '');
+  assert.equal(fields.find(field => field.key.endsWith('mission_copy')).default, '');
+  api.apply({});
+  assert.equal(university.hidden, true);
+  api.apply({editorial_about_university_vision_copy:'A sample university vision.'});
+  assert.equal(university.hidden, true);
+  const draft = {editorial_about_university_vision_copy:'CNSC sample wording.', editorial_about_university_mission_copy:'First paragraph.\n\nSecond paragraph with <b>literal text</b>.'};
+  api.apply(draft);
+  assert.equal(university.hidden, false);
+  assert.equal(vision.textContent, draft.editorial_about_university_vision_copy);
+  assert.equal(mission.textContent, draft.editorial_about_university_mission_copy);
+  api.apply();
+  assert.equal(university.hidden, false, 'reapplying the last saved snapshot preserves the section');
+  for (const blank of ['', ' \n\t ', null]) {
+    api.apply({...draft, editorial_about_university_mission_copy:blank});
+    assert.equal(university.hidden, true);
+    api.apply({...draft, editorial_about_university_vision_copy:blank});
+    assert.equal(university.hidden, true);
+  }
+  api.apply({});
+  assert.equal(university.hidden, true, 'missing settings cannot retain previously displayed statements');
+  assert.equal(mission.textContent, '');
 });
 
 test('Home renders three ordered text-first cards, escapes content and preserves detail data', () => {
@@ -93,79 +125,32 @@ test('legacy About copy distinguishes missing settings from cleared settings', (
   ctx._html('description', null); assert.equal(element.innerHTML, '');
 });
 
-// Small event/element fixtures exercise gallery state without claiming browser rendering.
-class Element {
-  constructor(tag = 'div') {
-    this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.attributes = {}; this.events = {}; this.className = ''; this.style = {};
-    this.complete = true; this.naturalWidth = 640;
-  this.classList = {
-    add: (...names) => { this.className = [...new Set([...this.className.split(' '), ...names])].join(' ').trim(); },
-    remove: (...names) => { this.className = this.className.split(' ').filter((n) => !names.includes(n)).join(' '); },
-    contains: (name) => this.className.split(' ').includes(name),
-    toggle: (name, force) => { const next = force === undefined ? !this.className.split(' ').includes(name) : Boolean(force); if (next) this.classList.add(name); else this.classList.remove(name); return next; },
-  };
-  }
-  appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
-  append(...children) { children.forEach((child) => this.appendChild(child)); }
-  after(child) { this.parentElement.appendChild(child); }
-  remove() { this.parentElement.children = this.parentElement.children.filter((child) => child !== this); }
-  setAttribute(key, value) { this.attributes[key] = String(value); }
-  getAttribute(key) { return this.attributes[key] ?? null; }
-  addEventListener(type, callback, options = {}) { (this.events[type] ||= []).push({ callback, signal: options.signal }); }
-  emit(type, detail = {}) { for (const event of this.events[type] || []) if (!event.signal?.aborted) event.callback({ type, target: this, currentTarget: this, ...detail }); }
-  closest(selector) { return selector.startsWith('.') && this.classList.contains(selector.slice(1)) ? this : this.parentElement?.closest(selector) || null; }
-  contains(element) { return element === this || this.children.some((child) => child.contains(element)); }
-  querySelectorAll(selector) {
-    const matches = (node) => selector.startsWith('.') ? node.classList.contains(selector.slice(1)) : selector.startsWith('[') ? Object.hasOwn(node.attributes, selector.slice(1, -1)) : node.tagName.toLowerCase() === selector;
-    return this.children.flatMap((child) => [...(matches(child) ? [child] : []), ...child.querySelectorAll(selector)]);
-  }
-  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
-  set innerHTML(value) {
-    this.html = value;
-    if (value.includes('data-gallery-dots')) {
-      const dots = new Element('div'); dots.setAttribute('data-gallery-dots', ''); this.appendChild(dots);
-    }
-  }
-}
-
-test('gallery crossfades loop, supports dots and swipe, respects reduced motion and cleans up on refresh', () => {
+// The shared controller owns navigation; this adapter preserves About's public hooks.
+test('About galleries preserve cover IDs and current slide through the shared controller', () => {
   const source = read('home-page/main.js');
   const start = source.indexOf('  function applyEditorialGallery(');
-  const code = source.slice(start, source.indexOf('  /* Cards from slot', start));
-  assert(!code.includes('data-gallery-prev') && !code.includes('data-gallery-next') && !code.includes('data-gallery-pause') && !code.includes('editorial-gallery-status'));
-  const parent = new Element(); const deck = parent.appendChild(new Element());
-  const first = deck.appendChild(new Element()); first.className = 'vm-deck__card'; first.appendChild(new Element('img'));
-  const timers = new Map(); let nextTimer = 0; let disconnects = 0;
-  const reduced = new Element(); reduced.matches = false;
-  const document = Object.assign(new Element(), { hidden: false, activeElement: null, body: new Element('body'), createElement: (tag) => new Element(tag) });
-  const window = Object.assign(new Element(), { matchMedia: () => reduced, IntersectionObserver: true });
+  const calls = [];
   const ctx = {
-    document, window, AbortController, performance: { now: () => 0 },
-    IntersectionObserver: class { observe() {} disconnect() { disconnects++; } },
-    setTimeout: (fn, delay) => { assert.equal(delay, 6000); timers.set(++nextTimer, fn); return nextTimer; },
-    clearTimeout: (id) => timers.delete(id), vmPhotoSettle() {}, vmWarmDeckImages() {},
-    vmResetToFirstCard: (el) => { for (const child of el.querySelectorAll('.vm-deck__card').slice(1)) child.remove(); },
+    window: {FMRCMediaCarousel:{mount(deck, items, options) {calls.push({deck, items, options});}}},
   };
-  vm.runInNewContext(code, ctx);
-  ctx.applyEditorialGallery(deck, 'mission', ['a', 'b', 'c']);
-  const current = () => deck.querySelectorAll('.vm-deck__card').findIndex((card) => card.dataset.current === 'true');
-  assert.equal(current(), 0); assert.equal(timers.size, 1);
-  const tick = () => { const [id, callback] = [...timers.entries()][0] || []; timers.delete(id); callback?.(); };
-  tick(); assert.equal(current(), 1); tick(); tick(); assert.equal(current(), 0);
-  document.hidden = true; document.emit('visibilitychange'); tick(); assert.equal(current(), 0);
-  document.hidden = false; document.emit('visibilitychange');
-  const controls = parent.querySelector('.editorial-gallery-controls');
-  const dots = controls.querySelector('[data-gallery-dots]');
-  assert.equal(dots.querySelectorAll('button').length, 3);
-  assert.equal(dots.querySelectorAll('button')[0].getAttribute('aria-current'), 'true');
-  dots.querySelectorAll('button')[2].emit('click'); assert.equal(current(), 2);
-  deck.emit('pointerdown', { button: 0, isPrimary: true, clientX: 220, clientY: 20, pointerId: 1 });
-  window.emit('pointerup', { isPrimary: true, clientX: 140, clientY: 22, pointerId: 1 });
-  assert.equal(current(), 0, 'Horizontal swipe advances the slideshow');
-  reduced.matches = true; reduced.emit('change'); assert.equal(timers.size, 0);
-  ctx.applyEditorialGallery(deck, 'mission', ['a', 'b']);
-  assert.equal(disconnects, 1); assert.equal(parent.querySelectorAll('.editorial-gallery-controls').length, 1);
-  dots.querySelectorAll('button')[1].emit('click'); assert.equal(current(), 0, 'Old handlers are aborted');
-  ctx.applyEditorialGallery(deck, 'mission', ['only']);
-  assert.equal(parent.querySelectorAll('.editorial-gallery-controls').length, 0); assert.equal(timers.size, 0);
+  vm.runInNewContext(source.slice(start, source.indexOf('  /* Cards from slot', start)), ctx);
+  for (const kind of ['mission', 'vision']) {
+    const deck = {
+      _editorialIndex: 1,
+      classList:{remove() {}},
+      querySelector: () => ({className:kind+'-img',getAttribute:()=>'/legacy-cover.png'}),
+    };
+    ctx.applyEditorialGallery(deck, kind, ['/first.png','/second.png']);
+    const call = calls.at(-1);
+    assert.equal(call.options.imageId, kind+'ImgEl');
+    assert.equal(call.options.imageClass, kind+'-img');
+    assert.equal(call.options.initialIndex, 1);
+    assert.equal(call.options.label, 'FMRC '+(kind==='mission'?'Mission':'Vision'));
+    assert.deepEqual(Array.from(call.items, item=>item.url), ['/first.png','/second.png']);
+    const before = calls.length;
+    ctx.applyEditorialGallery(deck, kind, ['/first.png','/second.png']);
+    assert.equal(calls.length,before,'unchanged settings do not rebuild the active gallery');
+    ctx.applyEditorialGallery(deck, kind, []);
+    assert.equal(calls.at(-1).items[0].url,'/legacy-cover.png','removing extras retains the cover');
+  }
 });

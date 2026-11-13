@@ -593,6 +593,16 @@
   overflow-wrap: anywhere;
 }
 .editorial-content .editorial-purpose-body .editorial-copy { margin: 0; }
+.about-editorial-page .university-purpose-section[hidden] { display: none !important; }
+.about-editorial-page .university-purpose-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 24px;
+}
+.about-editorial-page .editorial-content .university-purpose-card { padding: 32px; }
+.about-editorial-page .university-purpose-card .editorial-purpose-body { padding-bottom: 0; }
+.about-editorial-page .university-purpose-copy { max-width: none; white-space: pre-wrap; }
 .editorial-content .editorial-purpose-media { min-width: 0; }
 .editorial-content .editorial-audience-icon {
   display: inline-flex;
@@ -675,6 +685,7 @@
     gap: 32px;
   }
   .editorial-content .editorial-purpose-card { padding: 24px 24px 16px; }
+  .about-editorial-page .editorial-content .university-purpose-card { padding: 24px; }
 }
 
 @media (max-width: 767px) {
@@ -685,6 +696,7 @@
   .editorial-content .editorial-purpose-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .about-editorial-page .university-purpose-grid { grid-template-columns: minmax(0, 1fr); }
   .editorial-content .editorial-intro { gap: 24px; padding-bottom: 32px; }
   .editorial-content .editorial-intro .editorial-title { max-width: 580px; }
   .editorial-content .editorial-section-heading { flex-direction: column; align-items: start; gap: 12px; }
@@ -705,6 +717,7 @@
   .editorial-content .editorial-purpose-card,
   .editorial-content .editorial-cta { padding: 24px 20px; }
   .editorial-content .editorial-purpose-card { padding-bottom: 16px; }
+  .about-editorial-page .editorial-content .university-purpose-card { padding: 24px 20px; }
   .editorial-content .editorial-purpose-card .editorial-title { font-size: 28px; }
   .editorial-content .editorial-actions { width: 100%; }
 }

@@ -890,7 +890,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const aboutCard = e.target.closest(
       ".about-editorial-page .editorial-purpose-card .vm-deck.editorial-gallery .vm-deck__card",
     );
-    if (aboutCard && !aboutCard.closest(".fmrc-gallery") && aboutCard.dataset.current !== "false") {
+    if (aboutCard && aboutCard.dataset.current !== "false") {
       openAboutImageLightbox(aboutCard);
       return;
     }
@@ -15588,7 +15588,6 @@ const openReturnRequestModal = (() => {
       imageId,
       imageClass: template?.className || '',
       initialIndex: deck._editorialIndex || 0,
-      onImage: (_image, card) => openAboutImageLightbox(card),
     });
   }
 

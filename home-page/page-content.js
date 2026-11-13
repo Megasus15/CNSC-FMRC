@@ -44,6 +44,14 @@
       ["cta_button", "Appointment button text", "Set an appointment"],
       ["cta_contact", "Contact link text", "Contact us"],
     ]],
+    ["University Vision and Mission", "about", [
+      ["university_name", "University name", "University of Camarines Norte", 100],
+      ["university_title", "Section heading", "Vision and Mission", 100],
+      ["university_vision_title", "Vision label", "Vision", 80],
+      ["university_vision_copy", "University Vision", "", 1000],
+      ["university_mission_title", "Mission label", "Mission", 80],
+      ["university_mission_copy", "University Mission", "", 2500],
+    ], "Enter the approved university statements here. Both Vision and Mission must contain text to appear on About Us. You may save them separately; clearing either hides the section after Save All Changes."],
     ["About Us: Introduction", "about", [
       ["page_kicker", "Page eyebrow", "THE CENTER & ITS PURPOSE"],
       ["page_copy", "Page introduction", "Bringing creativity, technology, and opportunity together."],
@@ -139,6 +147,11 @@
       const field = byKey.get(element.dataset.editorialPlaceholder);
       if (field) element.setAttribute("placeholder", valueFor(snapshot, field));
     });
+    const university = document.getElementById("universityPurposeSection");
+    if (university) {
+      university.hidden = !get("editorial_about_university_vision_copy").trim()
+        || !get("editorial_about_university_mission_copy").trim();
+    }
     document.dispatchEvent(new CustomEvent("fmrc-page-content-applied"));
   }
 
@@ -177,13 +190,19 @@
     if (!container || container.dataset.editorialReady === "true") return;
     const activePage = page || document.body.dataset.configPage || "home";
     container.replaceChildren();
-    sections.filter((section) => section[1] === activePage).forEach(([name], index) => {
+    sections.filter((section) => section[1] === activePage).forEach(([name, , , hint], index) => {
       const group = document.createElement("details");
       group.className = "wm-editorial-group";
       group.open = index === 0;
       const summary = document.createElement("summary");
       summary.textContent = name;
       group.appendChild(summary);
+      if (hint) {
+        const help = document.createElement("p");
+        help.className = "field-hint";
+        help.textContent = hint;
+        group.appendChild(help);
+      }
       const grid = document.createElement("div");
       grid.className = "wm-form-grid";
       fields.filter((field) => field.group === name).forEach((field) => {

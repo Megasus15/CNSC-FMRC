@@ -116,6 +116,37 @@ class WebsiteContentValidationTest extends TestCase
     }
 
     #[DataProvider('editorRoles')]
+    public function test_university_statements_can_be_saved_separately_and_cleared_without_changing_fmrc_copy(string $role): void
+    {
+        $this->signIn($role);
+        SiteSetting::set('mission_text', 'Keep the FMRC mission');
+        SiteSetting::set('vision_text', 'Keep the FMRC vision');
+        $vision = 'CNSC sample institutional wording.';
+        $mission = "First sample paragraph.\n\nSecond paragraph with <b>literal text</b>.";
+        $this->putJson('/api/admin/site-settings', [
+            'editorial_about_university_name' => 'Sample University',
+            'editorial_about_university_title' => 'Vision and Mission',
+            'editorial_about_university_vision_title' => 'Vision',
+            'editorial_about_university_vision_copy' => $vision,
+            'editorial_about_university_mission_title' => 'Mission',
+            'editorial_about_university_mission_copy' => '',
+        ])->assertOk();
+        $this->getJson('/api/site-settings')->assertOk()
+            ->assertJsonPath('data.editorial_about_university_vision_copy', $vision)
+            ->assertJsonPath('data.editorial_about_university_mission_copy', null);
+        $this->putJson('/api/admin/site-settings', ['editorial_about_university_mission_copy' => $mission])->assertOk();
+        $this->getJson('/api/site-settings')->assertOk()
+            ->assertJsonPath('data.editorial_about_university_vision_copy', $vision)
+            ->assertJsonPath('data.editorial_about_university_mission_copy', $mission);
+        $this->putJson('/api/admin/site-settings', ['editorial_about_university_vision_copy' => ''])->assertOk();
+        $this->getJson('/api/site-settings')->assertOk()
+            ->assertJsonPath('data.editorial_about_university_vision_copy', null)
+            ->assertJsonPath('data.editorial_about_university_mission_copy', $mission)
+            ->assertJsonPath('data.mission_text', 'Keep the FMRC mission')
+            ->assertJsonPath('data.vision_text', 'Keep the FMRC vision');
+    }
+
+    #[DataProvider('editorRoles')]
     public function test_home_scene_settings_can_be_saved_by_both_editors_without_replacing_the_logo(string $role): void
     {
         $this->signIn($role);
