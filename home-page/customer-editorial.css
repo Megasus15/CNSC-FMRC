@@ -867,6 +867,11 @@
   .editorial-content .editorial-actions { width: 100%; }
 }
 
+/* Match the existing compact-phone cards in the late-loaded mobile sheet. */
+@media screen and (min-width: 320px) and (max-width: 480px) {
+  .about-editorial-page .university-purpose-grid { border-radius: 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .editorial-content * { scroll-behavior: auto; }
   .editorial-content :is(.editorial-button, .editorial-button-secondary, .service-card) { transition: none; }

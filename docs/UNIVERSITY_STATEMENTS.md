@@ -1,6 +1,6 @@
 # University Vision and Mission
 
-Release the matching frontend assets through the existing commit → push → online deployment workflow. No migration, Composer dependency, or ZIP upload is required. The refined section's shared stylesheet uses version `2026.1113.13` on About Us, Home and both policy pages; the unchanged page-content script retains `2026.1113.8`. The joined university panel uses the same 12px corner radius as the other About Us purpose cards.
+Release the matching frontend assets through the existing commit → push → online deployment workflow. No migration, Composer dependency, or ZIP upload is required. The refined section's shared stylesheet uses version `2026.1113.14` on About Us, Home and both policy pages; the unchanged page-content script retains `2026.1113.8`. The joined university panel matches the other About Us purpose cards: 12px corners normally and 10px in the existing 320–480px phone layout.
 
 The refinement keeps the joined 1:2 desktop layout and stacks Vision above Mission below 768px. It uses stationary concentric linework, matched compass/book icon headers with tonal dividers, Montserrat statement text (Vision 24–32px, Mission 18–21px) and natural card heights. CSS subgrid aligns the statements when an editable heading wraps; browsers without subgrid retain the standard readable card layout. All new styles are scoped to the university section. Content settings, APIs, backend validation and surrounding FMRC content are unchanged.
 
