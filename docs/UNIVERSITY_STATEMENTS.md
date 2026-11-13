@@ -1,9 +1,13 @@
 # University Vision and Mission
 
-Release the matching frontend assets and backend content limits through the existing commit → push → online deployment workflow. No migration, Composer dependency, or ZIP upload is required. University page-content and editorial asset references use version `2026.1113.8`.
+Release the matching frontend assets through the existing commit → push → online deployment workflow. No migration, Composer dependency, or ZIP upload is required. The refined section's shared stylesheet uses version `2026.1113.12` on About Us, Home and both policy pages; the unchanged page-content script retains `2026.1113.8`.
+
+The refinement keeps the joined 1:2 desktop layout and stacks Vision above Mission below 768px. It uses stationary concentric linework, matched compass/book icon headers with tonal dividers, Montserrat statement text (Vision 24–32px, Mission 18–21px) and natural card heights. CSS subgrid aligns the statements when an editable heading wraps; browsers without subgrid retain the standard readable card layout. All new styles are scoped to the university section. Content settings, APIs, backend validation and surrounding FMRC content are unchanged.
 
 In either Admin or Staff, open **Website Management → About Us → About Us Section Text → University Vision and Mission**. This is the first group in Section Text. Enter the approved university name, heading, labels, and statements, then choose **Save All Changes** and confirm. The official statements ship empty; no sample statement is published automatically.
 
 The customer section appears after FMRC's Mission and Vision cards and before Who We Support only when both university statements contain text. You can save one statement while preparing the other. Clearing either and saving hides the entire section. The statements use plain text and preserve paragraphs and the names entered by the editor. Single line breaks pasted from documents reflow as spaces on the customer page; blank lines separate paragraphs. The stored text and editor values remain unchanged.
 
 After online deployment, verify save/readback through both portals and check About Us on phone and desktop after entering both statements. Local fixture/browser checks do not verify hosted deployment.
+
+The browser suite checks 320, 390, 768, 1024, 1440 and 1920px layouts, long and short statements, maximum-length content and headings, contrast over the decorative lines, reduced motion, an emulated 200% zoom viewport and user-adjusted text spacing. It also checks both editors, partial/cleared statements, failed saves, realtime refresh, literal text rendering, the existing carousel/lightbox and footer. For visual review with a locally available Montserrat variable TTF, set `FMRC_BROWSER_MONTSERRAT` to that file before running `node --test backend/tests/Frontend/university-purpose.browser.cjs`; the font is injected only into the isolated fixture and is not shipped or fetched by the test.
