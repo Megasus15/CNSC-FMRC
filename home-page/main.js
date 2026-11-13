@@ -4265,11 +4265,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderGcashSection();
 
   // Submit Order logic
-  document.getElementById('productMyOrdersBtn')?.addEventListener('click', () => {
-    const entry=document.getElementById('viewOrdersBtn');
-    if(entry) entry.click();
-    else {window.location.href='/home-page/?orders=1';}
-  });
   const submitOrderBtn = document.getElementById("submitOrderBtn");
   if (submitOrderBtn) {
     submitOrderBtn.addEventListener("click", async function (event) {
@@ -9418,13 +9413,11 @@ document.addEventListener("DOMContentLoaded", () => {
           track.style.transform = `translateX(-${nextIndex * 100}%)`;
         }
 
-        // Keep a swiped-to phone tab visible. Desktop tabs already fit the
-        // drawer, so never nudge the page or its strip at laptop/PC widths.
+        // Keep the selected tab visible whenever the single row overflows.
         const activeTab = tabs[nextIndex];
         if (
           activeTab &&
           tabStrip &&
-          window.matchMedia("(max-width: 768px)").matches &&
           tabStrip.scrollWidth > tabStrip.clientWidth + 1
         ) {
           activeTab.scrollIntoView({

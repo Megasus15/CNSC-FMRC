@@ -26,6 +26,12 @@ The migration adds nullable review/stock metadata. It does not reclassify existi
 
 Keep the new backend in place once review-gated orders exist. Rolling back to the old payment code would remove their payment guard; do not roll back only the application files or drop these columns while such requests remain active. Preserve the database and private storage during deployment.
 
+### UI refinement: assets 2026.1113.4
+
+The follow-up UI changes remove the Products navbar My Orders shortcut, keep all nine My Orders tabs in one row with comfortable label padding, and align Admin/Staff request-review fields and buttons with the shared order dialogs. The tab strip scrolls on smaller screens; the profile menu still opens My Orders.
+
+Deploy the changed frontend files and their matching HTML references through the existing commit → push → online deployment workflow. If the review migration above is already installed, this UI refinement requires no additional migration or Composer command.
+
 ## Interfaces
 
 - Existing `POST /api/orders` creates an unpaid request with `review.status=pending`. A current catalog product ID and `checkout_request_key` UUID are required. It returns no payment URL and creates no provider payment attempt.

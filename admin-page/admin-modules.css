@@ -6063,10 +6063,17 @@ html:has(.cancellation-archive-dialog[open]) { overflow:hidden; }
 @media(max-width:600px){.order-readback-notice{align-items:flex-start;flex-direction:column;}}
 
 /* Request review uses the shared order dialog and table controls. */
-.order-review-stock {list-style:none;margin:14px 0;padding:0;display:grid;gap:8px;}
-.order-review-stock li {display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;font-size:13px;}
-.order-review-stock span {color:var(--text-muted,#6b7280);}
-.order-review-actions {display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:14px;}
-.order-request-review textarea {width:100%;font:inherit;resize:vertical;min-height:84px;padding:12px;border:1px solid var(--border-color,#d9dfe8);border-radius:10px;background:var(--input-bg,transparent);color:inherit;line-height:1.5;}
-.order-request-review textarea:focus-visible {outline:2px solid var(--primary-color,#800000);outline-offset:2px;}
-@media(max-width:600px){#orderReviewPanel .panel-header {align-items:stretch;flex-direction:column;}#orderReviewSearch {width:100%;}.order-review-actions .btn-admin {flex:1;justify-content:center;}}
+.order-request-review .order-section-header {gap:10px 16px;margin-bottom:14px;}
+.order-request-review .order-review-intro {margin:0;font-size:.8rem;line-height:1.65;color:var(--text-muted);}
+.order-review-stock {list-style:none;margin:16px 0 20px;padding:0;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-light);overflow:hidden;}
+.order-review-stock li {display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding:12px 14px;font-size:.82rem;line-height:1.5;}
+.order-review-stock li + li {border-top:1px solid var(--border-color);}
+.order-review-stock strong {min-width:0;font-weight:600;overflow-wrap:anywhere;}
+.order-review-stock span {color:var(--text-muted);font-size:.78rem;font-variant-numeric:tabular-nums;}
+.order-request-review .order-review-reason {gap:8px;margin:0;}
+#modalOrderDetails .order-request-review textarea {width:100%;min-height:96px;max-height:180px;padding:11px 12px;font-size:.82rem;font-weight:500;line-height:1.6;resize:vertical;border:1px solid var(--border-color);border-radius:8px;background:var(--surface);color:var(--text-main);}
+.order-request-review textarea::placeholder {color:var(--text-muted);opacity:1;}
+.order-request-review .order-review-reason > .field-hint {margin:0;font-size:.74rem;line-height:1.6;color:var(--text-muted);}
+.order-review-actions {display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);}
+.order-request-review .order-review-actions .btn-admin {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;width:auto;padding:10px 16px;font-size:.8rem;line-height:1.4;white-space:nowrap;}
+@media(max-width:600px){#orderReviewPanel .panel-header {align-items:stretch;flex-direction:column;}#orderReviewSearch {width:100%;}.order-request-review .order-review-actions .btn-admin {flex:1 1 140px;}.order-review-stock li {padding:10px 12px;}}

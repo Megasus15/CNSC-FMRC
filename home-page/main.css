@@ -18088,7 +18088,7 @@ textarea:focus-visible {
 }
 
 #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card {
-  width: min(880px, 100%);
+  width: min(1040px, 100%);
   max-width: 100%;
   height: 100%;
   min-height: 0;
@@ -18109,7 +18109,7 @@ textarea:focus-visible {
   transform: none;
 }
 
-/* Eight status chips on strictly one line at every width. Wrapping used to be
+/* Status chips on strictly one line at every width. Wrapping used to be
    the safety valve, but a second row pushed the panels down and made the strip
    read as two controls, so the row now scrolls horizontally instead. The
    scrollbar is hidden on every engine and `setActivePanel` in main.js keeps the
@@ -20813,6 +20813,9 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
 }
 
 #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
   padding: 15px 5px 5px;
   border-color: var(--customer-paper-edge);
   border-radius: 10px;
@@ -20821,14 +20824,21 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
 
 #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
   position: relative;
+  flex: 1 0 auto;
+  width: auto;
+  min-width: max-content;
   justify-content: center;
-  min-height: 42px;
+  height: 42px;
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
   background: var(--customer-paper);
   color: var(--customer-wine);
   line-height: 1.2;
+  font-size: .75rem;
+  letter-spacing: 0;
+  white-space: nowrap;
+  scroll-snap-align: start;
   box-shadow: none;
 }
 
@@ -20878,26 +20888,6 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
 #customerOrdersModal.ux-dlg .customer-orders-tabs .customer-orders-tab:focus-visible {
   outline: 2px solid var(--customer-wine);
   outline-offset: 2px;
-}
-
-/* Counts sit above the labels, leaving all eight desktop labels in one row. */
-@media (min-width: 769px) {
-  #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 5px;
-    overflow: visible;
-    scroll-snap-type: none;
-  }
-
-  #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
-    width: 100%;
-    min-width: 0;
-    padding: 10px 3px;
-    font-size: 0.73rem;
-    letter-spacing: 0;
-    scroll-snap-align: none;
-  }
 }
 
 /* The phone strip still scrolls; leave clearance so its badges are not clipped. */

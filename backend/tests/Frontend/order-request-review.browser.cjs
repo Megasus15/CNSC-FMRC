@@ -87,6 +87,11 @@ for(const role of ['admin','staff'])test(role+' reviews requests with shared fee
     await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
     await h.run(`document.documentElement.dataset.theme='${theme}'`);
     assert.equal(await h.run(`(()=>{const body=document.querySelector('#modalOrderDetails .modal-body-scroll');return body.scrollWidth<=body.clientWidth+1})()`),true,role+' '+width+' '+theme);
+    const fields=await h.run(`(()=>{const field=document.getElementById('orderReviewReason'),label=field.labels[0],hint=document.getElementById(field.getAttribute('aria-describedby')),buttons=[...document.querySelectorAll('.order-review-actions button')];return {labelSize:parseFloat(getComputedStyle(label).fontSize),fieldSize:parseFloat(getComputedStyle(field).fontSize),hintSize:parseFloat(getComputedStyle(hint).fontSize),family:getComputedStyle(field).fontFamily,buttons:buttons.map(b=>({height:b.getBoundingClientRect().height,size:parseFloat(getComputedStyle(b).fontSize),overflow:b.scrollWidth>b.clientWidth+1}))}})()`);
+    assert(fields.labelSize>=12&&fields.labelSize<=14&&fields.fieldSize>=12&&fields.fieldSize<=14&&fields.hintSize>=11&&fields.hintSize<=13,JSON.stringify(fields));
+    assert.match(fields.family,/Montserrat/);
+    assert(fields.buttons.every(b=>b.height>=40&&b.size<=14&&!b.overflow),JSON.stringify(fields));
+    assert(Math.abs(fields.buttons[0].height-fields.buttons[1].height)<1,JSON.stringify(fields));
     await h.shot(role+'-review-'+width+'-'+theme);
   }
   await h.run(`document.getElementById('orderReviewReason').value='Customer-visible reason retained after failure';document.querySelector('[data-review-decision="approve"]').click()`);
@@ -142,6 +147,7 @@ test('customer sees review status, shared success modal and payment only after a
   await h.send('Network.setBlockedURLs',{urls:['https://*']});
   await h.send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',${JSON.stringify(JSON.stringify(profile))});`});
   await h.go('/products-page/product.html');await h.until(`!!window.FMRCOrderRequestSuccess&&!!document.getElementById('viewOrdersBtn')`);
+  assert.equal(await h.run(`!!document.getElementById('productMyOrdersBtn')`),false,'The navbar shortcut is removed; the profile entry remains');
   assert.equal(await h.run(`document.getElementById('submitOrderBtn').textContent.trim()`),'Submit Order Request');
   await h.run(`void window.FMRCOrderRequestSuccess('#ORD-000061')`);
   await h.until(`document.activeElement.id==='orderSuccessViewOrdersBtn'`);
@@ -157,8 +163,17 @@ test('customer sees review status, shared success modal and payment only after a
     await h.pause(350);
     const positions=await h.run(`(()=>{const v=document.getElementById('customerOrdersViewport'),p=document.querySelector('[data-panel="awaiting_review"]'),r=p.getBoundingClientRect(),vr=v.getBoundingClientRect();return {left:r.left,viewportLeft:vr.left,width:r.width,viewportWidth:v.clientWidth,scroll:v.scrollLeft,transform:getComputedStyle(document.getElementById('customerOrdersTrack')).transform}})()`);
     assert(Math.abs(positions.left-positions.viewportLeft-1)<2,JSON.stringify({width,positions}));
+    const strip=await h.run(`(()=>{const s=document.getElementById('customerOrdersTabs'),r=s.getBoundingClientRect();return {width:s.clientWidth,content:s.scrollWidth,tabs:[...s.querySelectorAll('button')].map(b=>{const br=b.getBoundingClientRect(),lr=b.querySelector('.customer-orders-tab-label').getBoundingClientRect();return {top:br.top-r.top,height:br.height,room:br.width-lr.width,font:parseFloat(getComputedStyle(b).fontSize),overflow:b.scrollWidth>b.clientWidth+1}})}})()`);
+    assert.equal(strip.tabs.length,9);
+    assert(strip.tabs.every(b=>Math.abs(b.top-strip.tabs[0].top)<1&&b.height===strip.tabs[0].height&&b.room>=24&&!b.overflow),JSON.stringify({width,strip}));
+    if(width>=1024)assert(strip.content<=strip.width+1,JSON.stringify({width,strip}));
     await h.shot('customer-review-'+width);
   }
+  await h.send('Emulation.setDeviceMetricsOverride',{width:768,height:900,deviceScaleFactor:1,mobile:false});
+  await h.run(`document.querySelector('.customer-orders-tab[data-tab="cancelled"]').focus()`);
+  await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});
+  await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});
+  await h.until(`(()=>{const s=document.getElementById('customerOrdersTabs').getBoundingClientRect(),b=document.querySelector('.customer-orders-tab.active');const r=b.getBoundingClientRect();return b.dataset.tab==='cancelled'&&r.left>=s.left-1&&r.right<=s.right+1})()`);
   order={...order,awaiting_review:false,review:{...order.review,status:'approved',label:'Approved by FMRC',awaiting_review:false},payment_eligibility:{allowed:true},awaiting_customer_payment:true};
   await h.run(`window.dispatchEvent(new CustomEvent('fmrc:orders-updated',{detail:{type:'review',orderId:61}}))`);
   await h.until(`!!document.querySelector('[data-panel="to_pay"] [data-gateway-order="61"]')`);
