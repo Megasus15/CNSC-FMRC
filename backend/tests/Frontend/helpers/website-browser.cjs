@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '../../../..');
 const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p => fs.existsSync(p));
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function browserFixture(t, apiHandler = () => null) {
+async function browserFixture(t, apiHandler = () => null, {setup = ''} = {}) {
   const artifacts = fs.mkdtempSync(path.join(os.tmpdir(), 'fmrc-website-fields-'));
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -37,6 +37,7 @@ async function browserFixture(t, apiHandler = () => null) {
         addEventListener('error',e=>fixtureErrors.push(e.message));
         addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
         for(const role of ['admin','staff']){localStorage.setItem(role+'_auth_token','fixture-'+role);localStorage.setItem(role+'_user_info',JSON.stringify({id:role==='admin'?11:22,role,email:role+'@example.test'}));}
+        ${setup}
       </script>`);
       res.end(body);
     } catch(error) { json({message:error.message},500); }

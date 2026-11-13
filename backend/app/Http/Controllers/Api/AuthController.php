@@ -7,6 +7,7 @@ use App\Mail\AdminEmailChangeCommitted;
 use App\Mail\AdminEmailChangeOtp;
 use App\Models\MaintenanceSetting;
 use App\Models\User;
+use App\Support\AdminAccounts;
 use App\Support\EmailTemplate;
 use App\Services\LoginLockoutService;
 use Illuminate\Http\JsonResponse;
@@ -560,6 +561,7 @@ class AuthController extends Controller
         }
 
         $columns = ['id', 'name', 'username', 'email', 'role', 'created_at'];
+        if (Schema::hasColumn('users', 'is_spectator')) $columns[] = 'is_spectator';
         if ($this->supportsGooglePasswordState()) {
             $columns[] = 'signed_with_google';
             $columns[] = 'has_custom_password';
@@ -576,9 +578,15 @@ class AuthController extends Controller
             });
         }
 
-        return response()->json([
-            'data' => $users,
-        ]);
+        $fullCount = AdminAccounts::fullCount($users);
+        $retained = \App\Services\AppointmentProducts::retainedAccountIds($users->modelKeys());
+        $users->each(function (User $user) use ($request, $fullCount, $retained) {
+            $reason = AdminAccounts::deletionBlocker($user, $request->user(), $fullCount, $retained);
+            $user->setAttribute('can_delete', $reason === null);
+            $user->setAttribute('delete_block_reason', $reason);
+        });
+
+        return response()->json(['data' => $users])->header('Cache-Control', 'private, no-store');
     }
 
     // For Admin to create a system user account.
@@ -593,17 +601,23 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|alpha_dash|unique:users,username',
             'email' => 'required|string|email|max:255|regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i|unique:users,email',
-            'role' => 'required|in:customer,staff',
+            'role' => 'required|in:customer,staff,admin',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create($this->withGooglePasswordState([
-            'name'     => $validated['name'],
-            'username' => $validated['username'] ?? null,
-            'email'    => $validated['email'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'role'     => $validated['role'],
-        ], false, true));
+        $user = DB::transaction(function () use ($request, $validated) {
+            AdminAccounts::lockRoster($request->user());
+            // Another Admin may have submitted the same identifiers while
+            // this request waited for the roster lock.
+            $request->validate(['username' => ['unique:users,username'], 'email' => ['unique:users,email']]);
+            return User::create($this->withGooglePasswordState([
+                'name'     => $validated['name'],
+                'username' => $validated['username'] ?? null,
+                'email'    => $validated['email'] ?? null,
+                'password' => Hash::make($validated['password']),
+                'role'     => $validated['role'],
+            ], false, true));
+        }, 3);
 
         // --- Admin-Created Account Welcome Email ---
         $emailDispatch = null;
@@ -651,15 +665,7 @@ class AuthController extends Controller
             return $denied;
         }
 
-        if ((int) $request->user()->id === (int) $user->id) {
-            return response()->json([
-                'message' => 'You cannot delete your own account.',
-            ], 422);
-        }
-
-        \App\Services\AppointmentProducts::protectAccount($user);
-        $user->tokens()->delete();
-        $user->delete();
+        AdminAccounts::delete($request->user(), [(int) $user->id]);
 
         return response()->json([
             'message' => 'User account deleted successfully.',
@@ -677,23 +683,7 @@ class AuthController extends Controller
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
         $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
-        $actorId = (int) $request->user()->id;
-
-        $deletedIds = DB::transaction(function () use ($ids, $actorId): array {
-            $users = User::query()
-                ->whereIn('id', $ids)
-                ->where('id', '!=', $actorId)
-                ->get();
-
-            $eligibleIds = $users->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-            foreach ($users as $user) {
-                \App\Services\AppointmentProducts::protectAccount($user);
-                $user->tokens()->delete();
-                $user->delete();
-            }
-
-            return $eligibleIds;
-        });
+        $deletedIds = AdminAccounts::delete($request->user(), $ids, true);
 
         if (!$deletedIds) {
             return response()->json([
@@ -883,10 +873,9 @@ class AuthController extends Controller
     /**
      * Update the authenticated user's email (self profile update).
      *
-     * For the admin the Gmail is not swapped straight away. There is exactly one
-     * admin account, and the emailed OTP reset is the only unaided way back into
-     * it, so a mistyped address here used to be enough to lock the portal out for
-     * good. An admin change is now parked in `email_change_requests` until the code
+     * An Admin's Gmail is not swapped straight away. Password recovery depends
+     * on the address belonging to that account, so each Admin verifies their
+     * own new Gmail independently. The change waits in `email_change_requests` until the code
      * mailed to the NEW address is entered. Staff and customers are untouched.
      */
     public function updateSelfProfile(Request $request)
@@ -1289,9 +1278,11 @@ HTML;
         $role     = ucfirst(strtolower($user->role ?? 'customer'));
         $password = e($plainPassword);
 
-        $portalNote = $role === 'Staff'
-            ? 'As a <strong>Staff</strong> member, you have access to the administrative dashboard for managing orders, appointments, inventory, and more.'
-            : 'As a <strong>Customer</strong>, you can browse products, place orders, schedule appointments, and track your requests through the portal.';
+        $portalNote = match ($role) {
+            'Admin' => 'Your <strong>Admin</strong> account has full administrative access, including User Management. Sign in through the Admin/Staff portal using your own credentials. Your profile, recovery codes, and personal settings belong to this account; system records are shared with the FMRC team.',
+            'Staff' => 'As a <strong>Staff</strong> member, you have access to the administrative dashboard for managing orders, appointments, inventory, and more.',
+            default => 'As a <strong>Customer</strong>, you can browse products, place orders, schedule appointments, and track your requests through the portal.',
+        };
 
         // Code-owned: the credential card, the portal note and the security
         // notice stay put whatever an admin writes in the editable parts. A

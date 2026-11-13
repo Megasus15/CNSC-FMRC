@@ -251,11 +251,33 @@ final class AppointmentProducts
 
     public static function protectAccount(User $user): void
     {
-        foreach (['appointment_product_jobs' => 'customer_id', 'appointment_product_quotes' => 'created_by', 'appointment_product_messages' => 'sender_id', 'appointment_cash_entries' => 'actor_id'] as $table => $key) {
-            if (Schema::hasTable($table)) {
-                abort_if(DB::table($table)->where($key, $user->id)->exists(), 422, 'This account retains a custom-product agreement or receipt and cannot be permanently deleted.');
+        if ($reason = self::accountDeletionBlocker($user)) abort(422, $reason);
+    }
+
+    private const ACCOUNT_RECORDS = ['appointment_product_jobs' => 'customer_id', 'appointment_product_quotes' => 'created_by', 'appointment_product_messages' => 'sender_id', 'appointment_cash_entries' => 'actor_id'];
+
+    public static function retainedAccountIds(array $ids): array
+    {
+        $retained = [];
+        foreach (self::ACCOUNT_RECORDS as $table => $key) {
+            if (!Schema::hasTable($table)) continue;
+            foreach (array_chunk($ids, 500) as $chunk) {
+                foreach (DB::table($table)->whereIn($key, $chunk)->distinct()->pluck($key) as $id) $retained[(int) $id] = true;
             }
         }
+        return $retained;
+    }
+
+    public static function accountDeletionBlocker(User $user, ?array $retained = null): ?string
+    {
+        $reason = 'This account retains a custom-product agreement or receipt and cannot be permanently deleted.';
+        if ($retained !== null) return isset($retained[(int) $user->id]) ? $reason : null;
+        foreach (self::ACCOUNT_RECORDS as $table => $key) {
+            if (Schema::hasTable($table)) {
+                if (DB::table($table)->where($key, $user->id)->exists()) return $reason;
+            }
+        }
+        return null;
     }
 
     public static function protectOrderArchive(Order $order): void

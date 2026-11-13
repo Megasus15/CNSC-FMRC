@@ -658,6 +658,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     if (!request || ["GET", "HEAD", "OPTIONS"].includes(request.method)) {
       return "";
     }
+    if (/\/users(?:\/|\?|$)/i.test(request.path)) return 'users';
     if (/\/admin\/reports\/generate(?:\?|$)/i.test(request.path)) {
       return "reports";
     }
@@ -2129,7 +2130,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveSidebarState = (isOpen) => {
     try {
-      localStorage.setItem(SIDEBAR_PREF_KEY, isOpen ? "open" : "closed");
+      window.AdminSession?.writePersonal?.(SIDEBAR_PREF_KEY, isOpen ? "open" : "closed");
     } catch {
       // Ignore storage failures in private/incognito modes.
     }
@@ -2137,7 +2138,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getSavedSidebarState = () => {
     try {
-      return localStorage.getItem(SIDEBAR_PREF_KEY) === "open";
+      return window.AdminSession?.readPersonal?.(SIDEBAR_PREF_KEY) === "open";
     } catch {
       return false;
     }
@@ -2413,9 +2414,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isWebsiteMgmtPage) {
       hasDropdown.classList.add("open");
-      localStorage.setItem("websiteMgmtDropdownState", "open");
+      window.AdminSession?.writePersonal?.('websiteMgmtDropdownState', 'open');
     } else {
-      const savedState = localStorage.getItem("websiteMgmtDropdownState");
+      const savedState = window.AdminSession?.readPersonal?.('websiteMgmtDropdownState');
       if (savedState === "open") {
         hasDropdown.classList.add("open");
       } else {
@@ -2435,7 +2436,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         e.preventDefault();
         hasDropdown.classList.toggle("open");
-        localStorage.setItem(
+        window.AdminSession?.writePersonal?.(
           "websiteMgmtDropdownState",
           hasDropdown.classList.contains("open") ? "open" : "closed",
         );
@@ -2537,15 +2538,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const profilePopup = document.getElementById("profilePopup");
   const profileInitials = document.querySelectorAll(".profile-initial");
 
-  profileInitials.forEach((profileInitial) => {
-    const seedValue =
-      profileInitial.dataset.email ||
-      profilePopup?.querySelector(".popup-identity")?.textContent ||
-      userProfile?.querySelector(".role")?.textContent ||
-      "A";
-
-    profileInitial.textContent = seedValue.trim().charAt(0).toUpperCase();
-  });
+  const paintCachedIdentity = () => {
+    const info = window.AdminSession?.getUserInfo();
+    const user = info?.data || info;
+    const email = window.AdminSession?.getToken() ? String(user?.email || '') : '';
+    profileInitials.forEach(el => {
+      el.dataset.email = email;
+      el.textContent = email.trim().charAt(0).toUpperCase() || '—';
+    });
+    const identity = profilePopup?.querySelector('.popup-identity');
+    if (identity) identity.textContent = email || 'Loading account…';
+    const accountName = document.querySelector('.account-name');
+    if (accountName) accountName.textContent = user?.name || 'My Account';
+    const currentEmail = document.getElementById('currentGmailValue');
+    if (currentEmail) currentEmail.textContent = email || 'Loading account…';
+  };
+  paintCachedIdentity();
+  window.addEventListener('admin:session-updated', paintCachedIdentity);
 
   // Fetch current authenticated user and update UI (keeps email in sync after changes)
   (function fetchAndApplyUserProfile() {
@@ -2581,6 +2590,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then((user) => {
         if (!user) return;
+        if (window.AdminSession && window.AdminSession.getToken() !== token) return;
         const email = user.email || (user.data && user.data.email) || "";
         if (!email) return;
         document.querySelectorAll(".profile-initial").forEach((el) => {
@@ -2653,6 +2663,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let notifRealtimeChannel = null;
     let lastNotifSignalTs = 0;
     let notifSyncTimer = null;
+    let notificationRevision = 0;
+    let notificationRead = 0;
 
     // Ensure dropdown exists — attach to body (not notifBtn) for correct positioning
     let notifDropdown = document.getElementById("notificationDropdown");
@@ -2708,6 +2720,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const emitNotifSignal = (detail = {}) => {
       const payload = {
         source: "admin-notifications",
+        user_id: window.AdminSession?.getUserId?.(),
         timestamp: Date.now(),
         ...detail,
       };
@@ -3012,6 +3025,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!recent.length) {
         if (notifEmptyState) notifEmptyState.style.display = "";
         if (notifMarkAllBtn) notifMarkAllBtn.style.display = "none";
+        if (document.getElementById('allNotifOverlay')?.classList.contains('show')) renderAllNotifPanel(notifications);
         return;
       }
 
@@ -3043,7 +3057,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Fetch & render notifications
     const fetchNotifications = async () => {
+      if (notificationWrite) return;
       const token = getToken();
+      const owner = window.AdminSession?.getUserId?.();
+      const revision = notificationRevision, read = ++notificationRead;
       if (!token) return;
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications`, {
@@ -3052,8 +3069,13 @@ document.addEventListener("DOMContentLoaded", () => {
             Accept: "application/json",
           },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (getToken() === token) window.AdminPageNotice?.show('Notifications could not load. Your other work is available.', {key:'notifications',retry:fetchNotifications});
+          return;
+        }
         const payload = await res.json();
+        if (revision !== notificationRevision || read !== notificationRead || getToken() !== token || (payload.user_id !== undefined && owner && String(payload.user_id) !== owner)) return;
+        window.AdminPageNotice?.clear('notifications');
         const notifications = Array.isArray(payload?.data) ? payload.data : [];
         const unread =
           typeof payload?.unread_count === "number" ? payload.unread_count : 0;
@@ -3072,6 +3094,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const handleNotifSignal = (payload = {}) => {
+      if (payload.user_id && String(payload.user_id) !== window.AdminSession?.getUserId?.()) return;
       if (!shouldProcessNotifSignal(payload)) return;
       scheduleNotifSync(0);
     };
@@ -3099,144 +3122,58 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduleNotifSync(150);
     };
 
-    // Mark single as read — INSTANT UI + backend sync
-    const markAsRead = async (id) => {
-      if (window.AdminSession?.isSpectator?.()) return;
-      const token = getToken();
-      if (!token) return;
-      // Optimistic: update local data immediately
-      const n = _lastNotifData.find((x) => String(x.id) === String(id));
-      if (n && !n.is_read) {
-        n.is_read = true;
-        currentUnreadCount = Math.max(0, currentUnreadCount - 1);
-        updateBadge(currentUnreadCount);
-        renderNotifications(_lastNotifData);
-        if (typeof renderAllNotifPanel === "function")
-          renderAllNotifPanel(_lastNotifData);
-      }
-      // API runs in background — reconcile silently
-      try {
-        const res = await fetch(
-          `${NOTIF_API_BASE}/admin/notifications/${id}/read`,
-          {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          },
-        );
-        if (res.ok) {
-          emitNotifSignal({ action: "read", id });
-        }
-        reconcileNotifications();
-      } catch {
-        reconcileNotifications();
-      }
-    };
-
-    // Mark all as read — INSTANT UI + backend sync
-    const markAllRead = async () => {
-      if (window.AdminSession?.isSpectator?.()) return;
-      const token = getToken();
-      if (!token) return;
-      // Optimistic
-      _lastNotifData.forEach((n) => {
-        n.is_read = true;
+    let notificationWrite = false;
+    let notificationQueue = Promise.resolve();
+    const changeNotifications = (action, id = null) => {
+      const ownerToken = getToken();
+      const work = notificationQueue.then(() => {
+        if (ownerToken !== getToken()) return;
+        return performNotificationChange(action, id);
       });
-      currentUnreadCount = 0;
-      updateBadge(0);
-      renderNotifications(_lastNotifData);
-      if (typeof renderAllNotifPanel === "function")
-        renderAllNotifPanel(_lastNotifData);
-      // API runs in background
-      try {
-        const res = await fetch(
-          `${NOTIF_API_BASE}/admin/notifications/mark-all-read`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          },
-        );
-        if (res.ok) {
-          emitNotifSignal({ action: "mark-all-read" });
-        }
-        reconcileNotifications();
-      } catch {
-        reconcileNotifications();
-      }
+      notificationQueue = work.catch(() => {});
+      return work;
     };
-
-    // Delete notification — INSTANT UI + backend sync
-    const deleteNotification = async (id) => {
+    const performNotificationChange = async (action, id) => {
       if (window.AdminSession?.isSpectator?.()) return;
-      const token = getToken();
+      const token = getToken(), owner = window.AdminSession?.getUserId?.();
       if (!token) return;
-      // Optimistic: remove from local data immediately
-      const idx = _lastNotifData.findIndex((x) => String(x.id) === String(id));
-      if (idx !== -1) {
-        const wasUnread = !_lastNotifData[idx].is_read;
-        _lastNotifData.splice(idx, 1);
-        if (wasUnread) {
-          currentUnreadCount = Math.max(0, currentUnreadCount - 1);
-          updateBadge(currentUnreadCount);
-        }
-        renderNotifications(_lastNotifData);
-        if (typeof renderAllNotifPanel === "function")
-          renderAllNotifPanel(_lastNotifData);
-      }
-      // API runs in background
+      notificationWrite = true;
+      notificationRevision++;
+      const previous = _lastNotifData.map(item => ({...item})), previousCount = currentUnreadCount;
+      if (action === 'read') {
+        const item = _lastNotifData.find(row => String(row.id) === String(id));
+        if (item && !item.is_read) { item.is_read = true; updateBadge(Math.max(0,currentUnreadCount-1)); }
+      } else if (action === 'mark-all-read') {
+        _lastNotifData.forEach(item => { item.is_read = true; }); updateBadge(0);
+      } else if (action === 'delete') {
+        const item = _lastNotifData.find(row => String(row.id) === String(id));
+        if (item && !item.is_read) updateBadge(Math.max(0,currentUnreadCount-1));
+        _lastNotifData = _lastNotifData.filter(row => String(row.id) !== String(id));
+      } else { _lastNotifData = []; updateBadge(0); }
+      renderNotifications(_lastNotifData);
       try {
-        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
+        const path = action === 'read' ? `${id}/read` : action === 'delete' ? id : action;
+        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${path}`, {
+          method: action === 'read' ? 'PATCH' : action === 'mark-all-read' ? 'POST' : 'DELETE',
+          headers: {Authorization:`Bearer ${token}`,Accept:'application/json'},
         });
-        if (res.ok) {
-          emitNotifSignal({ action: "delete", id });
-        }
-        reconcileNotifications();
-      } catch {
-        reconcileNotifications();
+        const payload = await res.json().catch(() => ({}));
+        if (getToken() !== token || (payload.user_id !== undefined && owner && String(payload.user_id) !== owner)) return;
+        if (!res.ok) throw new Error(payload.message || 'Your notification changes could not be saved. Please try again.');
+        emitNotifSignal({action,id});
+      } catch (error) {
+        if (getToken() !== token) return;
+        _lastNotifData = previous; updateBadge(previousCount); renderNotifications(previous);
+        window.showAdminPopup?.(error.message || 'Your notifications could not be updated.', {title:'Notifications Not Updated',type:'error'});
+      } finally {
+        notificationWrite = false;
+        if (getToken() === token) reconcileNotifications();
       }
     };
-
-    const clearAllNotifications = async () => {
-      if (window.AdminSession?.isSpectator?.()) return;
-      const token = getToken();
-      if (!token) return;
-      // Optimistic: wipe local data immediately
-      _lastNotifData.length = 0;
-      currentUnreadCount = 0;
-      updateBadge(0);
-      renderNotifications(_lastNotifData);
-      if (typeof renderAllNotifPanel === "function")
-        renderAllNotifPanel(_lastNotifData);
-
-      try {
-        const res = await fetch(
-          `${NOTIF_API_BASE}/admin/notifications/clear-all`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          },
-        );
-        if (res.ok) {
-          emitNotifSignal({ action: "clear-all" });
-        }
-        reconcileNotifications();
-      } catch {
-        reconcileNotifications();
-      }
-    };
+    const markAsRead = id => changeNotifications('read',id);
+    const markAllRead = () => changeNotifications('mark-all-read');
+    const deleteNotification = id => changeNotifications('delete',id);
+    const clearAllNotifications = () => changeNotifications('clear-all');
 
     const currentPageFile = () => {
       const path = String(window.location.pathname || "");

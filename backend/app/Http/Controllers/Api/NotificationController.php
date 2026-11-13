@@ -7,154 +7,108 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationController extends Controller
 {
-    /**
-     * Notification types only an administrator may see. `account_request` carries an
-     * applicant's full name and Gmail address, and the page that answers it
-     * (Accounts Management) exists in the Admin portal only — so a staff session must
-     * neither list one, count one in its badge, nor be able to read, clear or delete
-     * one by guessing an id.
-     *
-     * Filtering has to happen here rather than in the browser: the bell badge is set
-     * from this endpoint's `unread_count`, so a client-side row filter would leave the
-     * badge counting rows the feed no longer shows.
-     */
     private const ADMIN_ONLY_TYPES = ['account_request'];
+    private const STATES = 'admin_notification_states';
 
-    /**
-     * Admin: Get all notifications (latest first) + unread count in ONE query.
-     */
     public function index(Request $request): JsonResponse
     {
         return $this->respondWithNotifications($request);
     }
 
-    /**
-     * Admin: Mark a specific notification as read — returns updated list instantly.
-     */
-    public function markRead(Request $request, AdminNotification $notification): JsonResponse
-    {
-        if (! $this->isVisibleTo($request, $notification)) {
-            return response()->json(['message' => 'Notification not found.'], 404);
-        }
-
-        $notification->update(['is_read' => true]);
-
-        return response()->json([
-            'message' => 'Notification marked as read.',
-        ]);
-    }
-
-    /**
-     * Admin: Mark ALL notifications as read — returns updated list instantly.
-     */
-    public function markAllRead(Request $request): JsonResponse
-    {
-        $this->visibleNotifications($request)
-            ->where('is_read', false)
-            ->update(['is_read' => true]);
-
-        return response()->json([
-            'message' => 'All notifications marked as read.',
-        ]);
-    }
-
-    /**
-     * Admin: Delete a notification — returns updated list instantly.
-     */
-    public function destroy(Request $request, AdminNotification $notification): JsonResponse
-    {
-        if (! $this->isVisibleTo($request, $notification)) {
-            return response()->json(['message' => 'Notification not found.'], 404);
-        }
-
-        $notification->delete();
-
-        return response()->json([
-            'message' => 'Notification deleted.',
-        ]);
-    }
-
-    /**
-     * Admin: Clear all notifications.
-     */
-    public function clearAll(Request $request): JsonResponse
-    {
-        $this->visibleNotifications($request)->delete();
-
-        return response()->json([
-            'message' => 'All notifications cleared.',
-        ]);
-    }
-
-    /**
-     * Admin: Get only the unread count (lightweight poll endpoint).
-     */
     public function unreadCount(Request $request): JsonResponse
     {
-        $count = $this->visibleNotifications($request)
-            ->where('is_read', false)
-            ->count();
-
-        return response()->json(['unread_count' => $count]);
+        return $this->response($request, ['unread_count' => $this->unread($request)]);
     }
 
-    /**
-     * Every query in this controller starts here, so the admin-only scope can never be
-     * forgotten on one endpoint and leak through it. Administrators get everything;
-     * any other signed-in role (staff today) gets everything except the admin-only
-     * types. `admin_notifications.type` is NOT NULL with a default, so a plain
-     * `whereNotIn` cannot silently drop rows.
-     */
+    public function markRead(Request $request, AdminNotification $notification): JsonResponse
+    {
+        $this->requireVisible($request, $notification);
+        $this->writeStates($request, [(int) $notification->id], 'read_at');
+        return $this->response($request, ['message' => 'Notification marked as read.']);
+    }
+
+    public function markAllRead(Request $request): JsonResponse
+    {
+        $this->writeAll($request, 'read_at');
+        return $this->response($request, ['message' => 'Your notifications are marked as read.']);
+    }
+
+    public function destroy(Request $request, AdminNotification $notification): JsonResponse
+    {
+        $this->requireVisible($request, $notification);
+        $this->writeStates($request, [(int) $notification->id], 'dismissed_at');
+        return $this->response($request, ['message' => 'Notification removed from your feed.']);
+    }
+
+    public function clearAll(Request $request): JsonResponse
+    {
+        $this->writeAll($request, 'dismissed_at');
+        return $this->response($request, ['message' => 'Your notifications are cleared.']);
+    }
+
+    private function authorize(Request $request): void
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'staff'], true), 403, 'Admin or Staff access is required.');
+        abort_unless(Schema::hasTable(self::STATES), 503, 'Personal notifications are not installed. Run the notification-state migration to enable this feature.');
+    }
+
     private function visibleNotifications(Request $request): Builder
     {
-        $query = AdminNotification::query();
-
-        if ($request->user()?->role !== 'admin') {
-            $query->whereNotIn('type', self::ADMIN_ONLY_TYPES);
-        }
-
+        $this->authorize($request);
+        $query = AdminNotification::query()->leftJoin(self::STATES.' as personal_state', function ($join) use ($request) {
+            $join->on('personal_state.notification_id', '=', 'admin_notifications.id')
+                ->where('personal_state.user_id', (int) $request->user()->id);
+        })->whereNull('personal_state.dismissed_at');
+        if ($request->user()->role !== 'admin') $query->whereNotIn('admin_notifications.type', self::ADMIN_ONLY_TYPES);
         return $query;
     }
 
-    /**
-     * Guard for the two endpoints that receive a bound model instead of running a
-     * query: a staff session asking for an admin-only row is told it does not exist,
-     * which is also what it looks like in that session's own notification feed.
-     */
-    private function isVisibleTo(Request $request, AdminNotification $notification): bool
+    private function requireVisible(Request $request, AdminNotification $notification): void
     {
-        if ($request->user()?->role === 'admin') {
-            return true;
-        }
-
-        return ! in_array($notification->type, self::ADMIN_ONLY_TYPES, true);
+        abort_unless($this->visibleNotifications($request)->where('admin_notifications.id', $notification->id)->exists(), 404, 'Notification not found.');
     }
 
-    /**
-     * Single helper: fetch latest 50 notifications + unread count.
-     * Every mutation endpoint returns this so the frontend always has fresh data.
-     */
-    private function respondWithNotifications(Request $request, ?string $message = null): JsonResponse
+    private function unread(Request $request): int
     {
-        $notifications = $this->visibleNotifications($request)
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+        return $this->visibleNotifications($request)->where('admin_notifications.is_read', false)
+            ->whereNull('personal_state.read_at')->count('admin_notifications.id');
+    }
 
-        $unreadCount = $notifications->where('is_read', false)->count();
+    private function writeStates(Request $request, array $ids, string $column): void
+    {
+        if (! $ids) return;
+        $at = now();
+        $rows = array_map(fn ($id) => ['user_id' => (int) $request->user()->id, 'notification_id' => $id, $column => $at], $ids);
+        // Only update the requested timestamp: a concurrent mark-read must never
+        // erase a dismissal, and clearing a feed must not alter another account.
+        DB::table(self::STATES)->upsert($rows, ['user_id', 'notification_id'], [$column]);
+    }
 
-        $payload = [
-            'data'         => $notifications,
-            'unread_count' => $unreadCount,
-        ];
+    private function writeAll(Request $request, string $column): void
+    {
+        // Capture the IDs first so later arrivals (including a transaction that
+        // allocated an earlier ID) are never accidentally included by batching.
+        $ids = $this->visibleNotifications($request)->pluck('admin_notifications.id')->all();
+        DB::transaction(function () use ($request, $ids, $column) {
+            foreach (array_chunk($ids, 500) as $chunk) $this->writeStates($request, $chunk, $column);
+        });
+    }
 
-        if ($message) {
-            $payload['message'] = $message;
-        }
+    private function respondWithNotifications(Request $request): JsonResponse
+    {
+        $notifications = $this->visibleNotifications($request)->select('admin_notifications.*')
+            ->selectRaw('(admin_notifications.is_read OR personal_state.read_at IS NOT NULL) as is_read')
+            ->orderByDesc('admin_notifications.created_at')->orderByDesc('admin_notifications.id')->limit(50)->get();
+        return $this->response($request, ['data' => $notifications, 'unread_count' => $this->unread($request)]);
+    }
 
-        return response()->json($payload);
+    private function response(Request $request, array $payload): JsonResponse
+    {
+        return response()->json(['user_id' => (int) $request->user()->id, ...$payload])->header('Cache-Control', 'private, no-store');
     }
 }

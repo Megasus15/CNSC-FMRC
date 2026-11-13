@@ -662,12 +662,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const queueSuccessFlash = (message, title = "Success") => {
     try {
-      sessionStorage.setItem(
+      window.AdminSession?.writePersonal?.(
         ORDERS_SUCCESS_FLASH_KEY,
         JSON.stringify({
           message: String(message || "Success"),
           title: String(title || "Success"),
-        }),
+        }), sessionStorage,
       );
     } catch {
       // Ignore storage failures (private mode/quota).
@@ -678,7 +678,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let payload = null;
     try {
       payload = JSON.parse(
-        sessionStorage.getItem(ORDERS_SUCCESS_FLASH_KEY) || "null",
+        window.AdminSession?.readPersonal?.(ORDERS_SUCCESS_FLASH_KEY, null, sessionStorage) || "null",
       );
     } catch {
       payload = null;
@@ -687,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!payload?.message) return;
 
     try {
-      sessionStorage.removeItem(ORDERS_SUCCESS_FLASH_KEY);
+      window.AdminSession?.removePersonal?.(ORDERS_SUCCESS_FLASH_KEY, sessionStorage);
     } catch {
       // Ignore storage failures.
     }

@@ -159,7 +159,7 @@
 
   const readStored = (state) => {
     try {
-      const raw = window.localStorage.getItem(storageKey(state));
+      const raw = window.AdminSession?.readPersonal?.(storageKey(state));
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) && parsed.length === state.sig.length ? parsed : null;
@@ -170,7 +170,7 @@
 
   const writeStored = (state) => {
     try {
-      window.localStorage.setItem(storageKey(state), JSON.stringify(state.widths));
+      window.AdminSession?.writePersonal?.(storageKey(state), JSON.stringify(state.widths));
     } catch (err) {
       /* Private mode or a full quota: the widths simply stay session-only. */
     }

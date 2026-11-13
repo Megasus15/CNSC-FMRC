@@ -1231,7 +1231,7 @@ document.addEventListener("DOMContentLoaded", () => {
         '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
     // Restore last-used category from localStorage; default to "Consumable Materials"
     if (formCategory) {
-      const lastCat = localStorage.getItem("fmrc_inv_last_category");
+      const lastCat = window.AdminSession?.readPersonal?.('fmrc_inv_last_category');
       formCategory.value = lastCat || "Consumable Materials";
     }
     if (formItemName) formItemName.value = "";
@@ -1258,7 +1258,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (editingItemId === null && formCategory) {
       const categoryToPersist =
         discardChanges && baseline ? baseline.category : formCategory.value;
-      localStorage.setItem("fmrc_inv_last_category", categoryToPersist);
+      window.AdminSession?.writePersonal?.('fmrc_inv_last_category', categoryToPersist);
     }
     closeModal(modalForm);
     resetForm();
@@ -1308,7 +1308,7 @@ document.addEventListener("DOMContentLoaded", () => {
   formCategory?.addEventListener("change", () => {
     if (editingItemId === null) {
       // Only persist when in "Add" mode, not Edit mode
-      localStorage.setItem("fmrc_inv_last_category", formCategory.value);
+      window.AdminSession?.writePersonal?.('fmrc_inv_last_category', formCategory.value);
     }
   });
 

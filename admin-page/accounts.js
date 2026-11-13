@@ -95,6 +95,9 @@ document.addEventListener("DOMContentLoaded", () => {
     "createUserPasswordConfirm",
   );
   const formStatus = document.getElementById("accountsFormStatus");
+  let creatingAccount = false;
+  let accountRead = null;
+  let accountReadAgain = false;
 
   // ── Staff account request queue ───────────────────────────────────────────
   const requestsTableBody = document.getElementById("requestsTableBody");
@@ -319,10 +322,12 @@ document.addEventListener("DOMContentLoaded", () => {
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
           const isCurrentAdmin = Number(user?.id) === getCurrentAdminId();
+          const protectedAccount = isCurrentAdmin || user.can_delete === false;
+          const protectionReason = user.delete_block_reason || (isCurrentAdmin ? 'Your signed-in account cannot be deleted.' : '');
 
           return `
             <tr>
-              <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${window.AdminTableValue.html(user?.name || "user")}" ${isCurrentAdmin ? 'title="Your signed-in account cannot be deleted"' : ""} /></td>
+              <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${window.AdminTableValue.html(user?.name || "user")}" ${protectedAccount ? `disabled title="${window.AdminTableValue.html(protectionReason)}"` : ""} /></td>
               <td>${displayIndex}</td>
               <td>${window.AdminTableValue.html(user?.name)}</td>
               <td>${displayUsername}</td>
@@ -331,7 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
                 <button type="button" data-tooltip="View User" data-user-view="${user.id}"><i class="fa-regular fa-eye"></i></button>
-                <button type="button" data-tooltip="${isCurrentAdmin ? "Signed-in Admin cannot be deleted" : "Delete User"}" data-user-delete="${user.id}" ${isCurrentAdmin ? "disabled" : ""}><i class="fa-regular fa-trash-can"></i></button>
+                <button type="button" data-tooltip="${window.AdminTableValue.html(protectionReason || 'Delete User')}" data-user-delete="${user.id}" ${protectedAccount ? "disabled" : ""}><i class="fa-regular fa-trash-can"></i></button>
               </td>
             </tr>
           `;
@@ -360,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tableLabel: "User Directory",
       getEligibleRows: () =>
         getFilteredUsers().filter(
-          (user) => Number(user?.id) !== getCurrentAdminId(),
+          (user) => Number(user?.id) !== getCurrentAdminId() && user.can_delete !== false,
         ),
       getPageRows: () => {
         const users = getFilteredUsers();
@@ -427,10 +432,19 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "../admin-auth/auth.html";
   };
 
-  const loadAccounts = async () => {
+  const loadAccounts = async ({ silent = false } = {}) => {
+    if (accountRead) { accountReadAgain = true; return accountRead; }
+    accountRead = loadAccountsData(silent).finally(() => {
+      accountRead = null;
+      if (accountReadAgain) { accountReadAgain = false; void loadAccounts({silent:true}); }
+    });
+    return accountRead;
+  };
+
+  const loadAccountsData = async (silent) => {
     try {
       if (
-        tableBody &&
+        !silent && tableBody &&
         (!tableBody.children.length ||
           tableBody.querySelector(".table-empty-state"))
       ) {
@@ -455,6 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
           Accept: "application/json",
         },
       });
+      if (window.AdminSession && window.AdminSession.getToken() !== token) return;
 
       if (response.status === 401 || response.status === 403) {
         setUnauthorizedState();
@@ -466,12 +481,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const payload = await response.json();
+      if (window.AdminSession && window.AdminSession.getToken() !== token) return;
       const fetchedUsers = Array.isArray(payload?.data) ? payload.data : [];
       state.users = sortAccountsForTable(fetchedUsers);
-      state.currentPage = 1;
       renderTable();
     } catch (error) {
       console.error("Failed to load accounts:", error);
+      if (silent) return;
       if (tableBody) {
         tableBody.innerHTML = emptyRow(
           8,
@@ -776,9 +792,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle role change to show/hide Staff username selector
   const handleRoleChange = async (event) => {
     const selectedRole = String(createRole?.value || "customer").toLowerCase();
+    const hint = document.getElementById('createAdminAccessHint');
+    if (hint) hint.hidden = selectedRole !== 'admin';
+    if (selectedRole === 'admin') createRole?.setAttribute('aria-describedby', 'createAdminAccessHint');
+    else createRole?.removeAttribute('aria-describedby');
     if (selectedRole === "staff") {
       // Attempt to load staff members silently; do not block the form if none exist.
       const staffMembers = await fetchStaffMembers();
+      if (createRole?.value !== 'staff') return;
 
       if (Array.isArray(staffMembers) && staffMembers.length > 0) {
         // Populate the username select with available staff usernames
@@ -816,7 +837,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (createUsername) {
         createUsername.style.display = "block";
         createUsername.readOnly = false;
-        createUsername.placeholder = "e.g. customer_name";
+        createUsername.placeholder = selectedRole === "admin" ? "e.g. admin_jane" : "e.g. customer_name";
       }
     }
   };
@@ -837,6 +858,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const createAccount = async (event) => {
     event.preventDefault();
+    if (creatingAccount) return;
     clearCreateFormErrors();
 
     const name = String(createName?.value || "").trim();
@@ -895,7 +917,16 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    creatingAccount = true;
+    if (role === 'admin') {
+      const confirmed = await new Promise(resolve => window.showAdminConfirmPopup(
+        `Create an Admin account for ${name} (${email})? This account will have full administrative access, including creating and managing other Admins.`,
+        {title:'Create Admin Account', confirmText:'Create Admin', cancelText:'Keep editing', onConfirm:()=>resolve(true), onCancel:()=>resolve(false)},
+      ));
+      if (!confirmed) { creatingAccount = false; return; }
+    }
     const originalCreateButtonHtml = btnCreateUser?.innerHTML || "";
+    createForm?.setAttribute('aria-busy','true');
     if (btnCreateUser) {
       btnCreateUser.disabled = true;
       btnCreateUser.innerHTML =
@@ -955,6 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       createForm?.reset();
+      void handleRoleChange();
       clearCreateFormErrors();
       window.showAdminPopup?.("New user account created successfully.", {
         title: "Account Created",
@@ -967,6 +999,8 @@ document.addEventListener("DOMContentLoaded", () => {
         true,
       );
     } finally {
+      creatingAccount = false;
+      createForm?.setAttribute('aria-busy','false');
       if (btnCreateUser) {
         btnCreateUser.disabled = false;
         btnCreateUser.innerHTML = originalCreateButtonHtml ||
@@ -1241,8 +1275,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize password toggles on page load
   setupPasswordToggles();
   setupUserBulkSelection();
+  void handleRoleChange();
 
   void loadAccounts();
+  window.AdminLiveData?.subscribe(event => {
+    if (['users','all'].includes(event.scope)) void loadAccounts({silent:true});
+  });
+  setInterval(() => { if (!document.hidden) void loadAccounts({silent:true}); }, 15000);
+  window.addEventListener('focus', () => void loadAccounts({silent:true}));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) void loadAccounts({silent:true}); });
   void loadRequests().finally(() => {
     // Open the request a header notification points at. The queue is paginated,
     // so the pager is moved to the page holding that row first. Returning false

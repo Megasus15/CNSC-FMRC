@@ -64,6 +64,31 @@
       }
     },
 
+    getUserId() {
+      const info = this.getUserInfo();
+      const user = info?.data || info;
+      return this.getToken() && /^\d+$/.test(String(user?.id || '')) ? String(user.id) : '';
+    },
+
+    /** Personal device preferences never fall back to an unowned legacy key. */
+    userStorageKey(name) {
+      const id = this.getUserId();
+      return id ? `fmrc:user:${id}:${name}` : '';
+    },
+
+    readPersonal(name, fallback = null, storage) {
+      try { const key = this.userStorageKey(name); return key ? (storage || window.localStorage).getItem(key) ?? fallback : fallback; }
+      catch { return fallback; }
+    },
+
+    writePersonal(name, value, storage) {
+      try { const key = this.userStorageKey(name); if (key) (storage || window.localStorage).setItem(key, value); } catch { /* Device storage is optional. */ }
+    },
+
+    removePersonal(name, storage) {
+      try { const key = this.userStorageKey(name); if (key) (storage || window.localStorage).removeItem(key); } catch { /* Device storage is optional. */ }
+    },
+
     /** Presentation accounts keep the admin role, with separate read-only access. */
     isSpectator() {
       const info = this.getUserInfo();

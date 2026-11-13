@@ -56,7 +56,7 @@
   function readStored(storageKey) {
     if (!storageKey) return null;
     try {
-      const v = localStorage.getItem(storageKey);
+      const v = window.AdminSession?.readPersonal?.(storageKey);
       return PRESET_KEYS.has(v) || v === "custom" ? v : null;
     } catch (_) {
       return null;
@@ -65,7 +65,7 @@
   function readRange(storageKey, part) {
     if (!storageKey) return "";
     try {
-      const v = localStorage.getItem(`${storageKey}:${part}`);
+      const v = window.AdminSession?.readPersonal?.(`${storageKey}:${part}`);
       return isIsoDate(v) ? v : "";
     } catch (_) {
       return "";
@@ -74,7 +74,7 @@
   function write(storageKey, suffix, value) {
     if (!storageKey) return;
     try {
-      localStorage.setItem(suffix ? `${storageKey}:${suffix}` : storageKey, value);
+      window.AdminSession?.writePersonal?.(suffix ? `${storageKey}:${suffix}` : storageKey, value);
     } catch (_) {
       /* private mode / quota — the control still works in-memory */
     }

@@ -1,0 +1,34 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const source=fs.readFileSync(path.resolve(__dirname,'../../../admin-page/session-helper.js'),'utf8');
+const memory=()=>{const entries=new Map();return {getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,String(v)),removeItem:k=>entries.delete(k),entries};};
+
+test('personal browser settings and success messages belong to the signed-in user, never legacy keys',()=>{
+  const localStorage=memory(),sessionStorage=memory();
+  const window={localStorage,location:{pathname:'/admin-page/settings.html'},dispatchEvent(){}};
+  vm.runInNewContext(source,{window,localStorage,CustomEvent:class{}});
+  const session=window.AdminSession;
+  localStorage.setItem('fmrc_inv_last_category','Legacy value');
+  assert.equal(session.readPersonal('fmrc_inv_last_category','Default'),'Default');
+  session.storeForRole('admin','token-a',{id:11,role:'admin'});
+  session.writePersonal('fmrc_inv_last_category','Admin A');
+  session.writePersonal('account_update_success','A only',sessionStorage);
+  assert.equal(session.readPersonal('fmrc_inv_last_category'),'Admin A');
+  session.storeForRole('admin','token-b',{id:33,role:'admin'});
+  assert.equal(session.readPersonal('fmrc_inv_last_category','Default'),'Default');
+  assert.equal(session.readPersonal('account_update_success',null,sessionStorage),null);
+  session.writePersonal('fmrc_inv_last_category','Admin B');
+  session.storeForRole('admin','token-a',{id:11,role:'admin'});
+  assert.equal(session.readPersonal('fmrc_inv_last_category'),'Admin A');
+  assert.equal(session.readPersonal('account_update_success',null,sessionStorage),'A only');
+  session.clearSession(); session.writePersonal('fmrc_inv_last_category','Guest');
+  assert.equal(session.userStorageKey('anything'),'');
+  assert.equal(localStorage.getItem('fmrc_inv_last_category'),'Legacy value');
+  assert.equal(localStorage.getItem('fmrc:user:33:fmrc_inv_last_category'),'Admin B');
+  session.storeForRole('admin','token-a',{id:11,role:'admin'});
+  Object.defineProperty(window,'localStorage',{get(){throw Error('Storage blocked');}});
+  assert.equal(session.readPersonal('anything','Default'),'Default');
+  assert.doesNotThrow(()=>session.writePersonal('anything','value'));
+  assert.doesNotThrow(()=>session.removePersonal('anything'));
+});

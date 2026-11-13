@@ -18,9 +18,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * One-time recovery codes for the admin account.
  *
- * The portal has exactly one admin and no UI to create a second, so if the
- * account's Gmail becomes unreachable the emailed OTP reset
- * (PasswordResetController) is the only way back in -- and it stops working.
+ * Each Admin owns an independent set. If that account's Gmail becomes
+ * unreachable, its emailed OTP reset (PasswordResetController) stops working.
  * A recovery code stands in for that OTP: holding one earns the right to set a
  * new password.
  *

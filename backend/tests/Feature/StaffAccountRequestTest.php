@@ -524,7 +524,8 @@ class StaffAccountRequestTest extends TestCase
             'id' => $accountRequest->id,
             'is_read' => false,
         ]);
-        $this->assertDatabaseMissing('admin_notifications', ['id' => $ordinary->id]);
+        $this->assertDatabaseHas('admin_notifications', ['id' => $ordinary->id, 'is_read' => false]);
+        $this->getJson('/api/admin/notifications')->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_the_bell_still_shows_account_requests_to_an_administrator(): void
@@ -548,9 +549,11 @@ class StaffAccountRequestTest extends TestCase
         $id = (int) AdminNotification::query()->value('id');
 
         $this->patchJson("/api/admin/notifications/{$id}/read")->assertOk();
-        $this->assertDatabaseHas('admin_notifications', ['id' => $id, 'is_read' => true]);
+        $this->assertDatabaseHas('admin_notifications', ['id' => $id, 'is_read' => false]);
+        $this->getJson('/api/admin/notifications')->assertOk()->assertJsonPath('data.0.is_read', true);
 
         $this->deleteJson("/api/admin/notifications/{$id}")->assertOk();
-        $this->assertDatabaseCount('admin_notifications', 0);
+        $this->assertDatabaseCount('admin_notifications', 1);
+        $this->getJson('/api/admin/notifications')->assertOk()->assertJsonCount(0, 'data');
     }
 }

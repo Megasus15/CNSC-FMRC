@@ -1146,14 +1146,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const AUTO_DELETE_KEY = "fmrc_archive_retention_days";
 
   const getRetentionDays = () => {
-    const stored = localStorage.getItem(AUTO_DELETE_KEY);
+    const stored = window.AdminSession?.readPersonal?.(AUTO_DELETE_KEY);
     const parsed = Number(stored);
     if ([30, 60, 90].includes(parsed)) return parsed;
     return 60; // default
   };
 
   const saveRetentionDays = (days) => {
-    localStorage.setItem(AUTO_DELETE_KEY, String(days));
+    window.AdminSession?.writePersonal?.(AUTO_DELETE_KEY, String(days));
   };
 
   const openAutoDeleteModal = () => {

@@ -82,6 +82,20 @@
       localStorage.getItem("auth_token") ||
       "";
 
+    const accountToken = getToken();
+    const ownsAccount = () => !window.AdminSession || window.AdminSession.getToken() === accountToken;
+    const accountFetch = async (...args) => {
+      const response = await fetch(...args);
+      if (!ownsAccount()) throw new Error('Account changed. Reload before continuing.');
+      const read = response.json.bind(response);
+      response.json = async () => {
+        const payload = await read();
+        if (!ownsAccount()) throw new Error('Account changed. Reload before continuing.');
+        return payload;
+      };
+      return response;
+    };
+
     const setLoadingLocal = () => {};
 
     const showStatusLocal = (message) => {
@@ -97,6 +111,7 @@
     };
 
     const showSuccessNotification = (message, newEmail) => {
+      if (!ownsAccount()) return;
       if (typeof newEmail === "string" && newEmail) {
         // update small card and header popup immediately
         if (currentGmailEl) currentGmailEl.textContent = newEmail;
@@ -159,10 +174,10 @@
 
     // Show the saved success flash after the authoritative account reload.
     try {
-      const pending = sessionStorage.getItem("account_update_success");
+      const pending = window.AdminSession?.readPersonal?.("account_update_success", null, sessionStorage);
       if (pending) {
         const parsed = JSON.parse(pending || "{}");
-        sessionStorage.removeItem("account_update_success");
+        window.AdminSession?.removePersonal?.("account_update_success", sessionStorage);
         showSuccessNotification(
           parsed.message || "Credentials updated successfully.",
           parsed.email || "",
@@ -179,7 +194,7 @@
       if (token) {
         try {
           setLoadingLocal(true);
-          const res = await fetch(`${API_BASE}/user`, {
+          const res = await accountFetch(`${API_BASE}/user`, {
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
@@ -221,6 +236,7 @@
       }
 
       // Fallback to cached user_info when API not available or not authorized
+      if (!ownsAccount()) return;
       if (!user) {
         try {
           let raw;
@@ -380,7 +396,7 @@
       const token = getToken();
       if (!token) return;
       try {
-        const res = await fetch(`${API_BASE}/user/email-change`, {
+        const res = await accountFetch(`${API_BASE}/user/email-change`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -420,7 +436,7 @@
       emailPendingVerifyBtn.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
       try {
-        const res = await fetch(`${API_BASE}/user/email-change/confirm`, {
+        const res = await accountFetch(`${API_BASE}/user/email-change/confirm`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -454,14 +470,14 @@
         }
         renderEmailPending({ pending: false });
         try {
-          sessionStorage.setItem(
+          window.AdminSession?.writePersonal?.(
             "account_update_success",
             JSON.stringify({
               message:
                 payload?.message ||
                 "Gmail address updated. Password resets will now go to your new address.",
               email: payload?.data?.email || "",
-            }),
+            }), sessionStorage,
           );
         } catch (e) {
           /* ignore */
@@ -482,7 +498,7 @@
       emailPendingCancelBtn.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
       try {
-        const res = await fetch(`${API_BASE}/user/email-change/cancel`, {
+        const res = await accountFetch(`${API_BASE}/user/email-change/cancel`, {
           method: "POST",
           headers: {
             Accept: "application/json",
@@ -544,7 +560,7 @@
 
         let emailPayload = null;
         if (Object.keys(updatePayload).length) {
-          const emailRes = await fetch(`${API_BASE}/user`, {
+          const emailRes = await accountFetch(`${API_BASE}/user`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -586,7 +602,7 @@
             return;
           }
 
-          const pwdRes = await fetch(`${API_BASE}/change-password`, {
+          const pwdRes = await accountFetch(`${API_BASE}/change-password`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -646,12 +662,12 @@
 
         // Persist a success marker and reload the page so the authoritative backend state is shown.
         try {
-          sessionStorage.setItem(
+          window.AdminSession?.writePersonal?.(
             "account_update_success",
             JSON.stringify({
               message: "Credentials updated successfully.",
               email,
-            }),
+            }), sessionStorage,
           );
         } catch (e) {
           /* ignore */
@@ -827,7 +843,7 @@
       const token = getToken();
       if (!token) return;
       try {
-        const res = await fetch(`${API_BASE}/admin/recovery-codes`, {
+        const res = await accountFetch(`${API_BASE}/admin/recovery-codes`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -964,7 +980,7 @@
       recoveryConfirmSubmit.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i> Working...';
       try {
-        const res = await fetch(`${API_BASE}/admin/recovery-codes/generate`, {
+        const res = await accountFetch(`${API_BASE}/admin/recovery-codes/generate`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
