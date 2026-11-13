@@ -526,7 +526,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="product-actions">
           <button type="button" class="action-btn btn-view-info" data-action="view-info" data-product-id="${p.id}" aria-label="View details for ${productA11yName}" title="View details for ${productA11yName}">
-            ${INFO_SVG}<span class="action-btn-label">View Info</span>
+            ${INFO_SVG}<span class="action-btn-label">View details</span>
           </button>
           <button type="button" class="action-btn btn-add-cart ${disabledClass}" ${disabledAttr} data-action="add-cart" data-product-id="${p.id}" aria-label="Add ${productA11yName} to cart" title="Add ${productA11yName} to cart">
             ${CART_SVG}<span class="action-btn-label">Add to Cart</span>
@@ -595,13 +595,33 @@ document.addEventListener("DOMContentLoaded", () => {
     productGrid.innerHTML = result.map(buildCard).join("");
   };
 
-  // ── Open View Info Modal ─────────────────────────────────────────────────────
-  const openViewInfo = (product) => {
-    if (!productInfoModal) return;
-    productInfoOpener = document.activeElement;
-
-    if (productInfoTitle) productInfoTitle.textContent = product.name;
+  let carouselModulePromise = null;
+  let carouselGeneration = 0;
+  const ensureCarouselModule = () => {
+    if (window.FMRCMediaCarousel?.mount) return Promise.resolve();
+    if (!carouselModulePromise) {
+      carouselModulePromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = new URL('../home-page/media-carousel.js?v=2026.1113.1', location.href).href;
+        const finish = error => {
+          clearTimeout(timeout);
+          script.onload = script.onerror = null;
+          script.remove();
+          error ? reject(error) : resolve();
+        };
+        const timeout = setTimeout(() => finish(new Error('Gallery loading timed out.')), 15000);
+        script.onload = () => finish(window.FMRCMediaCarousel?.mount ? null : new Error('Gallery unavailable.'));
+        script.onerror = () => finish(new Error('Gallery unavailable.'));
+        document.head.append(script);
+      }).finally(() => { carouselModulePromise = null; });
+    }
+    return carouselModulePromise;
+  };
+  const renderProductGallery = product => {
+    if (!productInfoGallery) return;
+    const generation = ++carouselGeneration;
     productCarousel?.destroy();
+    productCarousel = null;
     const media = Array.isArray(product.media) && product.media.length
       ? product.media.slice(0, 5)
       : product.image_data ? [{ id: "cover", type: "image", url: product.image_data }] : [];
@@ -610,17 +630,66 @@ document.addEventListener("DOMContentLoaded", () => {
       if (/\/api\/products\/\d+\/image$/.test(url.pathname)) url.searchParams.set("full", "1");
       return url.href;
     };
-    if (productInfoGallery) productCarousel = window.FMRCMediaCarousel?.mount(
-      productInfoGallery,
-      media.map(item => ({ ...item, url: item.type === "video" ? resolveMediaUrl(item.url) : fullImageUrl(item.url) })),
-      {
-        label: product.name || "Product", imageId: "productInfoImage",
-        poster: product.image_data ? fullImageUrl(product.image_data) : "",
-        isActive: () => productInfoModal.classList.contains("show-modal")
-          && !document.querySelector("#imageLightboxModal.show-modal, #customerReviewsModal.show-modal, #checkoutModal.show-modal, #cartModal.show-modal"),
-        onImage: img => openLightbox(img.currentSrc || img.src, product.name),
-      },
-    );
+    const mount = () => {
+      productInfoGallery.classList.remove('product-gallery-fallback');
+      productCarousel = window.FMRCMediaCarousel.mount(
+        productInfoGallery,
+        media.map(item => ({ ...item, url: item.type === "video" ? resolveMediaUrl(item.url) : fullImageUrl(item.url) })),
+        {
+          label: product.name || "Product", imageId: "productInfoImage",
+          poster: product.image_data ? fullImageUrl(product.image_data) : "",
+          isActive: () => productInfoModal.classList.contains("show-modal")
+            && !document.querySelector("#imageLightboxModal.show-modal, #customerReviewsModal.show-modal, #checkoutModal.show-modal, #cartModal.show-modal"),
+          onImage: img => openLightbox(img.currentSrc || img.src, product.name),
+        },
+      );
+    };
+    if (window.FMRCMediaCarousel?.mount) { mount(); return; }
+
+    // Keep the product visible while a blocked or late shared script recovers.
+    productInfoGallery.replaceChildren();
+    productInfoGallery.className = 'product-details-gallery product-gallery-fallback';
+    const cover = product.image_data || media.find(item => item.type === 'image')?.url;
+    if (cover) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'product-gallery-cover';
+      button.setAttribute('aria-label', `Open ${product.name || 'product'} image preview`);
+      const img = document.createElement('img');
+      img.src = fullImageUrl(cover);
+      img.alt = product.name || 'Product image';
+      img.onerror = () => { button.hidden = true; };
+      button.append(img);
+      button.addEventListener('click', () => openLightbox(img.src, product.name));
+      productInfoGallery.append(button);
+    }
+    const notice = document.createElement('div');
+    notice.className = 'product-gallery-recovery';
+    const status = document.createElement('span');
+    status.setAttribute('role', 'status');
+    status.textContent = 'Loading gallery…';
+    notice.append(status);
+    productInfoGallery.append(notice);
+    void ensureCarouselModule().then(() => {
+      if (generation === carouselGeneration && productInfoModal.classList.contains('show-modal')) mount();
+    }).catch(() => {
+      if (generation !== carouselGeneration || !productInfoModal.classList.contains('show-modal')) return;
+      status.textContent = 'The gallery could not load.';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.dataset.productGalleryRetry = '';
+      retry.textContent = 'Retry gallery';
+      retry.addEventListener('click', () => renderProductGallery(product), {once: true});
+      notice.append(retry);
+    });
+  };
+
+  // ── Open View Info Modal ─────────────────────────────────────────────────────
+  const openViewInfo = (product) => {
+    if (!productInfoModal) return;
+    productInfoOpener = document.activeElement;
+    if (productInfoTitle) productInfoTitle.textContent = product.name;
+    renderProductGallery(product);
     document.getElementById("productInfoCopy")?.scrollTo(0, 0);
     if (productInfoSummary)
       productInfoSummary.textContent =
@@ -703,6 +772,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const productVisibilityObserver = new MutationObserver(() => {
     const open = productInfoModal.classList.contains('show-modal');
+    if (!open) carouselGeneration++;
     productInfoModal.setAttribute('aria-hidden', String(!open));
     if (!open && productInfoModal.contains(document.activeElement)) {
       requestAnimationFrame(() => {

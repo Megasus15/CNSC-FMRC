@@ -222,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!galleryModulePromise) {
       galleryModulePromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = new URL('../admin-page/product-gallery.js?v=2026.1112.2', window.location.href).href;
+        script.src = new URL('../admin-page/product-gallery.js?v=2026.1113.1', window.location.href).href;
         script.async = true;
         const finish = error => {
           clearTimeout(timeout);
@@ -276,6 +276,9 @@ document.addEventListener("DOMContentLoaded", () => {
       galleryUnavailable = true;
       console.error('Product gallery initialization failed:', error);
       if (root) galleryNotice(root, true, () => void loadProductGallery(product));
+      window.showAdminPopup?.('The product gallery is unavailable. Use Retry gallery to continue. Your edits are still here.', {
+        title: 'Gallery unavailable', type: 'error', onOk: () => root?.querySelector('[data-gallery-retry]')?.focus(),
+      });
     } finally {
       if (generation === galleryLoadGeneration) {
         galleryInitializing = false;

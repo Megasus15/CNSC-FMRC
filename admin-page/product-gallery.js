@@ -7,6 +7,16 @@ window.createProductGalleryEditor = ({ root, api, token, getCover, replaceCover,
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
   const message = payload => Object.values(payload?.errors || {})[0]?.[0] || payload?.message || 'The upload failed. Please try again.';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const icons = {
+    add: '<path d="M12 5v14M5 12h14"/>',
+    replace: '<path d="M20 4v5h-5M4 20v-5h5M4.9 9a7.5 7.5 0 0 1 12.4-4.3L20 9M4 15l2.7 4.3A7.5 7.5 0 0 0 19.1 15"/>',
+    remove: '<path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/>',
+    earlier: '<path d="m12 5-7 7 7 7M5 12h14"/>',
+    later: '<path d="m12 5 7 7-7 7M5 12h14"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',
+  };
+  const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icons[name]}</svg>`;
+  const actionButton = (action, index, label, disabled = false) => `<button type="button" class="btn-admin btn-secondary gallery-icon-button" data-gallery-action="${action}" data-index="${index}" aria-label="${label}" title="${label}" ${busy || saving || disabled ? 'disabled' : ''}>${icon(action)}</button>`;
   const endpoint = (id = productId) => `${api}/admin/products/${id}/media-uploads`;
   const discard = (receipt, id = productId) => fetch(`${endpoint(id)}/${receipt}`, { method: 'DELETE', headers }).catch(() => {});
   const input = document.createElement('input');
@@ -21,13 +31,12 @@ window.createProductGalleryEditor = ({ root, api, token, getCover, replaceCover,
     const slots = [{type:'image', url:cover, cover:true}, ...items];
     while (slots.length < 5) slots.push(null);
     root.innerHTML = `<div class="product-gallery-heading"><h3>Product gallery</h3><span>${(cover ? 1 : 0) + items.length} / 5 items</span></div>
-      <p class="field-hint">Your cover appears on the product card and first in Product Details. Add up to four more images or one short video.</p>
-      <p class="field-hint">JPG, PNG or WebP · up to 10 MB each. MP4 or WebM · up to 30 MB and 30 seconds. One video per product.</p>
+      <p class="field-hint">Cover first, then up to four photos or clips. One video per product.</p>
+      <p class="field-hint product-gallery-guidance">Photos: JPG, PNG, WebP · 10 MB max.<br>Video: MP4, WebM · 30 MB · 30 seconds max.</p>
       <ol class="product-gallery-slots">${slots.map((item, index) => `<li class="product-gallery-slot">
-        <div class="product-gallery-number">${index + 1}<span>${item?.cover ? 'Cover image' : item ? item.type === 'video' ? `Video · ${Number(item.duration_seconds || 0).toFixed(1)}s` : 'Product image' : 'Empty slot'}</span></div>
-        <div class="product-gallery-preview">${item?.url ? item.type === 'video' ? `<video src="${esc(item.url)}" controls playsinline preload="metadata"></video>` : `<img src="${esc(item.url)}" alt="${index === 0 ? 'Product cover' : `Gallery image ${index + 1}`}" decoding="async">` : '<span>No media</span>'}</div>
-        <div class="product-gallery-tools">${item ? `<button type="button" data-gallery-action="replace" data-index="${index}" ${busy || saving ? 'disabled' : ''}>Replace<span class="admin-loading-sr-only"> item ${index + 1}</span></button>${index ? `<button type="button" data-gallery-action="remove" data-index="${index}" ${busy || saving ? 'disabled' : ''}>Remove<span class="admin-loading-sr-only"> item ${index + 1}</span></button>` : ''}` : `<button type="button" data-gallery-action="add" ${busy || saving || !cover ? 'disabled' : ''}>Add media<span class="admin-loading-sr-only"> to gallery</span></button>`}</div>
-        ${index > 0 && item ? `<div class="product-gallery-tools product-gallery-move"><button type="button" data-gallery-action="earlier" data-index="${index}" aria-label="Move item ${index + 1} earlier" ${index === 1 || busy || saving ? 'disabled' : ''}>← Earlier</button><button type="button" data-gallery-action="later" data-index="${index}" aria-label="Move item ${index + 1} later" ${index === items.length || busy || saving ? 'disabled' : ''}>Later →</button></div>` : ''}
+        <div class="product-gallery-number"><b>${index + 1}</b><span>${item?.cover ? 'Cover image' : item ? item.type === 'video' ? `Video · ${Number(item.duration_seconds || 0).toFixed(1)}s` : 'Product image' : 'Empty slot'}</span></div>
+        <div class="product-gallery-preview">${item?.url ? item.type === 'video' ? `<video src="${esc(item.url)}" controls playsinline preload="metadata"></video>` : `<img src="${esc(item.url)}" alt="${index === 0 ? 'Product cover' : `Gallery image ${index + 1}`}" decoding="async">` : `<span class="product-gallery-empty">${icon('image')}<span>${index ? 'Add a photo or video' : 'Choose a cover'}</span></span>`}</div>
+        <div class="product-gallery-tools" role="group" aria-label="Slot ${index + 1} controls"><span class="product-gallery-tool-pair">${item ? actionButton('replace', index, index ? `Replace item ${index + 1}` : 'Replace cover image') : actionButton('add', index, 'Add media to gallery', !cover)}${index && item ? actionButton('remove', index, `Remove item ${index + 1}`) : ''}</span>${index && item ? `<span class="product-gallery-tool-pair">${actionButton('earlier', index, `Move item ${index + 1} earlier`, index === 1)}${actionButton('later', index, `Move item ${index + 1} later`, index === items.length)}</span>` : index === 0 ? '<span class="product-gallery-cover-note">Card cover · fixed first</span>' : ''}</div>
       </li>`).join('')}</ol>
       <p class="product-gallery-status${error ? ' is-error' : ''}" role="${error ? 'alert' : 'status'}">${esc(error || progress || (!cover ? 'Choose a cover image before adding gallery media.' : 'Changes are published when you select Update Product.'))}</p>`;
   }
@@ -97,8 +106,12 @@ window.createProductGalleryEditor = ({ root, api, token, getCover, replaceCover,
       }
       completed = true;
       progress = 'Media added to your draft. Select Update Product to publish.';
+      window.showAdminPopup?.(progress, { title: 'Media ready', type: 'success' });
     } catch (failure) {
-      if (generation === currentGeneration) error = failure.message;
+      if (generation === currentGeneration) {
+        error = failure.message;
+        window.showAdminPopup?.(error, { title: 'Upload unsuccessful', type: 'error', onOk: () => root.querySelector('[data-gallery-action]:not(:disabled)')?.focus() });
+      }
     } finally {
       if (objectUrl && !completed) { URL.revokeObjectURL(objectUrl); urls.delete(objectUrl); }
       if (generation === currentGeneration) { upload = null; setBusy(false); render(); }

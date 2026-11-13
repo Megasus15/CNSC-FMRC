@@ -14,6 +14,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
   let aboutEmpty=false;
   let saveReply=null,holdSave=false;
   let galleryModuleFails=false;
+  let customerModuleFails=false;
   const drafts=new Map();
   const server=http.createServer(async(req,res)=>{
     try {
@@ -45,7 +46,8 @@ test('Product gallery, fixed media layout and shared operator editor work across
       }
       if(route==='/fixtures/short.webm'){res.setHeader('Content-Type','video/webm');res.end(fs.readFileSync(path.join(repo,'backend/tests/Fixtures/product-media/short.webm')));return;}
       if (route === '/admin-page/product-gallery.js' && galleryModuleFails) { res.writeHead(503, {'Content-Type':'text/javascript'}); res.end(''); return; }
-      const sourceRoute = /^\/(admin|staff)-page\/products$/.test(route) ? route+'.html' : route;
+      if (route === '/home-page/media-carousel.js' && customerModuleFails) { res.writeHead(503, {'Content-Type':'text/javascript'}); res.end(''); return; }
+      const sourceRoute = /^\/(admin|staff)-page\/products$/.test(route) || route === '/products-page/product' ? route+'.html' : route;
       const file=path.resolve(repo,'.'+sourceRoute);
       if(!file.startsWith(repo+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
       const ext=path.extname(file);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg'})[ext]||'application/octet-stream');
@@ -69,7 +71,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
       const click=selector=>run(`document.querySelector(${JSON.stringify(selector)}).click()`);
       const frame=()=>run('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
       const shot=async name=>{const result=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(result.data,'base64'));};
-      await navigate('/products-page/product.html');
+      await navigate('/products-page/product');
       await until("document.querySelector('#productGrid .btn-view-info')");
       await click('#productGrid .btn-view-info');
       await until("document.querySelector('#productInfoGallery img')?.naturalWidth>0");
@@ -82,6 +84,9 @@ test('Product gallery, fixed media layout and shared operator editor work across
         assert(layout.copy.y>=layout.card.y&&layout.copy.bottom<=layout.footer.y+1,`The entire text pane remains above the footer at ${width}x${height}: `+JSON.stringify(layout));
         assert(layout.gallery.bottom<=layout.footer.y+1,`Gallery stays above the footer at ${width}x${height}`);
         assert(layout.footer.bottom<=layout.card.bottom+1);assert.equal(layout.bodyOverflow,false);assert.equal(layout.fit,'contain');
+        const detailButton=await run(`(()=>{const button=document.querySelector('#productGrid .btn-view-info'),label=button.querySelector('.action-btn-label'),s=getComputedStyle(button);return {gap:parseFloat(s.gap),padding:parseFloat(s.paddingLeft),clipped:label.scrollWidth>label.clientWidth+1||button.scrollWidth>button.clientWidth+1,text:label.textContent};})()`);
+        assert(detailButton.gap>=8&&detailButton.padding>=12&&!detailButton.clipped,'View details keeps its icon gap and readable label: '+JSON.stringify(detailButton));
+        assert.equal(detailButton.text,'View details');
         for(const buttons of layout.buttons)assert.deepEqual(buttons.card,buttons.modal,'Card and modal purchase buttons match');
         const before=await run("document.getElementById('productInfoGallery').getBoundingClientRect().top");
         await run("document.getElementById('productInfoCopy').scrollTop=500");await frame();
@@ -143,6 +148,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
         await until("document.querySelector('[data-view-id=\"1\"]')");
         await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
         await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5");
+        assert.equal(await run("[...document.querySelectorAll('#editProductGallery [data-gallery-action]')].every(button=>button.querySelector('svg')&&button.getAttribute('aria-label')&&button.title&&!button.textContent.trim())"),true,'Gallery icon controls keep accessible labels and tooltips');
         for(const [width,theme] of [[390,'light'],[768,'dark'],[1440,'light']]) {
           await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
           await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};document.getElementById('editProductGallery').scrollIntoView({block:'center'})`);await frame();
@@ -156,6 +162,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
         assert.equal(await run("document.getElementById('btnUpdateProduct').disabled"),true);
         holdUploads=false;uploadReplies.splice(0).forEach(resolve=>resolve());
         await until("!document.getElementById('btnUpdateProduct').disabled&&document.querySelector('#editProductGallery .product-gallery-heading>span').textContent==='2 / 5 items'");
+        assert.equal(await run("!!document.querySelector('.admin-success-notification')"),true,'Upload uses the shared success feedback');
         failSave=true;holdSave=true;const savedBefore=writes;await click('#btnUpdateProduct');
         await until("document.getElementById('btnCancelEditProduct').disabled&&document.querySelector('#modalEditProduct .modal-body-scroll').inert");
         for(let i=0;i<100&&!saveReply;i++)await delay(20);
@@ -172,13 +179,28 @@ test('Product gallery, fixed media layout and shared operator editor work across
         await click('#editProductGallery [data-gallery-action="earlier"][data-index="2"]');
         assert.match(await run("document.querySelectorAll('#editProductGallery .product-gallery-number span')[1].textContent"),/Video/);
         await click('#editProductGallery [data-gallery-action="later"][data-index="1"]');
+        for(const [width,theme] of [[320,'light'],[390,'light'],[768,'dark'],[1440,'light']]) {
+          await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+          await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};document.getElementById('editProductGallery').scrollIntoView({block:'center'})`);
+          await run("Promise.all(document.getAnimations().filter(animation=>animation.playState==='running'&&animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})))");await frame();
+          assert.equal(await run("[...document.querySelectorAll('#editProductGallery .product-gallery-slot')].every(slot=>slot.scrollWidth<=slot.clientWidth+1)"),true,'Filled slot controls fit at '+width);
+          if(theme==='dark') assert.equal(await run("getComputedStyle(document.querySelector('.product-gallery-slot')).backgroundColor===getComputedStyle(document.querySelector('#modalEditProduct .modal-card')).backgroundColor"),true,'Gallery uses the shared dark surface');
+          await shot(role+'-filled-editor-'+width+'-'+theme);
+        }
         const uploaded=uploads;await addFile('second.webm',true);
         await until("document.querySelector('#editProductGallery .is-error')");assert.equal(uploads,uploaded);
+        await until("document.querySelector('#adminSystemPopup.show')");
+        assert.match(await run("document.getElementById('adminSystemPopupMessage').textContent"),/Only one short video/);
+        await click('#adminSystemPopupOk');
         const discarded=discards;await click('#btnCancelEditProduct');await until("document.querySelector('#adminSystemPopup.show')");
         await click('#adminSystemPopupOk');await until("!document.getElementById('modalEditProduct').classList.contains('show')");
         for(let i=0;i<100&&discards===discarded;i++)await delay(20);
         assert(discards>discarded,'Discard removes unpublished uploads');assert.equal(product.media.length,2);
         assert.deepEqual(await run('window.fixtureErrors'),[]);
+        await navigate('/products-page/product');await until("document.querySelector('#productGrid .btn-view-info')");await click('#productGrid .btn-view-info');
+        await until("document.querySelectorAll('#productInfoGallery .vm-deck__card').length===2");
+        await click('#productInfoGallery .editorial-gallery-arrow--next');
+        await until("document.querySelector('#productInfoGallery [data-current=true] img')?.naturalWidth>0");
         product={...product,media:product.media.slice(0,1)};
       }
       product={...product,stock:0,stock_status:'out_of_stock'};
@@ -193,10 +215,28 @@ test('Product gallery, fixed media layout and shared operator editor work across
       await until("document.getElementById('missionDeck').classList.contains('fmrc-gallery')");
       assert.equal(await run("!!document.getElementById('missionImgEl')&&document.querySelectorAll('#missionDeck .editorial-gallery-arrow').length===0"),true,'Empty About galleries retain their live image setting target');
       product={...product,image_data:image,media:[{id:'cover',type:'image',url:image}],stock:5,stock_status:'in_stock'};
+      customerModuleFails=true;
+      await navigate('/products-page/product');await until("document.querySelector('#productGrid .btn-view-info')");await click('#productGrid .btn-view-info');
+      await until("document.querySelector('[data-product-gallery-retry]')");
+      assert.equal(await run("document.querySelector('#productInfoGallery .product-gallery-cover img').naturalWidth>0"),true,'A missing carousel script still displays the cover');
+      assert.equal(await run("document.getElementById('productInfoBuyNow').disabled"),false,'Gallery recovery does not block purchases');
+      await shot('customer-gallery-retry');
+      await click('#closeProductInfoModal');
+      customerModuleFails=false;
+      await click('#productGrid .btn-view-info');
+      await until("document.querySelector('#productInfoGallery .vm-deck__card img')?.naturalWidth>0");
+      await run("delete window.FMRCMediaCarousel");customerModuleFails=true;
+      await click('#closeProductInfoModal');await click('#productGrid .btn-view-info');
+      await until("document.querySelector('[data-product-gallery-retry]')");
+      customerModuleFails=false;await click('[data-product-gallery-retry]');
+      await until("document.querySelector('#productInfoGallery .vm-deck__card img')?.naturalWidth>0");
+      assert.equal(await run("document.querySelectorAll('#productInfoGallery [data-product-gallery-retry]').length"),0,'Customer retry replaces the fallback with the working carousel');
+      assert.deepEqual(await run('window.fixtureErrors'),[]);
       galleryModuleFails=true;
       await navigate('/admin-page/products');await until("document.querySelector('[data-view-id=\"1\"]')");
       await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
       await until("document.querySelector('[data-gallery-retry]')&&window.fixtureGalleryStartupSettled");
+      await until("document.querySelector('#adminSystemPopup.show')");await click('#adminSystemPopupOk');
       assert.equal(await run("document.getElementById('btnUpdateProduct').disabled"),true,'A missing helper shows Retry and cannot silently save without gallery state');
       const unchangedWrites=writes;await click('#btnUpdateProduct');assert.equal(writes,unchangedWrites);
       galleryModuleFails=false;await click('[data-gallery-retry]');

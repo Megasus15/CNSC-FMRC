@@ -10,13 +10,16 @@ pane scrolls; the media, header and purchase footer remain visible.
 
 In either Products portal, open View Product, then Edit Product. The Product
 gallery section shows five numbered slots. The first slot is the existing card
-cover. Replace that cover with the current image editor; use Add media, Replace,
-Remove, Earlier and Later for the remaining items. Extra photos need no square
-crop. Newly selected covers retain the existing square-cover workflow.
+cover. Replace that cover with the current image editor. The compact controls use
+plus (add), refresh (replace), trash (remove), and left/right arrows (reorder).
+Every icon has a tooltip and an accessible name. Extra photos need no square crop. Newly selected covers retain the existing square-cover workflow.
 
 - Images: JPG, PNG or WebP, at most 10 MB each.
 - Video: MP4 or WebM, at most 30 MB and 30 seconds; only one per gallery.
 - Uploads show progress and keep Update Product disabled until complete.
+  Upload errors use the shared system dialog. Successful uploads use the shared
+  success notification and explicitly say the media is still a draft. Product
+  save success/failure and discard confirmation retain their global feedback.
 - Update Product publishes all product fields and the ordered gallery together.
   Failed saves retain the draft. Cancel uses the existing discard confirmation;
   leaving a dirty editor also invokes the browser's unsaved-change prompt.
@@ -32,28 +35,49 @@ selecting a video still starts it muted.
 
 ## Install the release
 
-### Editor loading repair: assets 2026.1112.2
+### Customer gallery and editor repair: assets 2026.1113.1
 
-The gallery is now attached when Edit Product opens, instead of only once at
-page startup. It recovers from a late helper script, retries a failed load with a
-visible Retry gallery action, and reattaches to replaced or older modal markup.
-The form cannot save an uninitialized gallery. Existing unsaved form edits remain
-intact during loading/retry, and cancelled initialization cannot reopen a dialog.
+This update supersedes the six-file editor-only patch. Upload the complete
+`output/product-gallery-customer-editor-fix-2026-11-13.zip` to **public_html**,
+extract it there, and replace its included files. The folders belong directly
+inside `public_html`, not inside `backend` or a nested `public_html` folder.
 
-For an installation where the backend release is already installed, deploy only
-these six files to their matching locations under the active `public_html`:
+The archive contains these eleven frontend files:
 
+- `products-page/product.html`, `products.js`, and `product-details.css`.
+- `home-page/media-carousel.js` and `media-carousel.css` (the shared dependencies).
 - `admin-page/products.html`, `products.js`, `product-gallery.js`, and
   `product-gallery.css`.
 - `staff-page/products.html` and `products-loader.js`.
 
-The scoped archive is `output/product-gallery-editor-fix-2026-11-12-v2.zip`.
-Upload it to **public_html**, extract it there, and replace the included files.
-Its `admin-page` and `staff-page` folders belong directly inside `public_html`.
-Do not extract this frontend update into `public_html/backend` or create another
-nested `public_html` folder. This repair needs no additional database migration
-or Composer installation. Reload Products and reopen View Product → Edit Product;
-Product gallery appears directly below Upload Image.
+For a site with the gallery backend already installed, this update needs **no
+Composer installation or database migration**. All changed page dependencies
+use version `2026.1113.1`; deploy the HTML and scripts/styles together. If hosting
+or a CDN caches HTML, clear that page cache after replacement. A Git commit/push
+only deploys when the hosting Git deployment is configured to do so; otherwise
+extract this archive manually or use the existing deployment process.
+
+Customer Product Details now keeps the cover visible when the carousel helper
+fails to load. It attempts to load the shared helper again and displays Retry
+gallery on failure. Closing or changing the product invalidates pending gallery
+work. Normal navigation, playback, lightbox and the About Us carousel are retained.
+View details now has an 8 px icon gap and 12 px horizontal padding.
+
+The Admin/Staff editor uses compact labeled SVG controls, shared theme surfaces,
+and global success/error feedback. It still initializes when Edit Product opens,
+reattaches to replaced markup and blocks saving while unavailable or uploading.
+Gallery errors retain edits and expose Retry gallery.
+
+The original blank-gallery screenshot was not reproduced in a fresh public
+browser session: the existing live carousel mounted there. The old optional
+mount call could silently leave an empty frame when the helper was unavailable;
+this failure is now reproduced and covered by the local browser recovery test.
+Do not interpret local verification as deployment of this patch.
+
+After deployment, open Products → View details and confirm the cover, additional
+slides and purchase icons. In both operator portals, open View Product → Edit
+Product and check the five slots below Upload Image. Save one image/short video,
+then reload the customer page to confirm the committed media.
 
 ### Full backend and frontend installation
 
