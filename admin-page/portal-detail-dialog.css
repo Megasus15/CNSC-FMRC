@@ -1,4 +1,4 @@
-/* Opt-in detail-dialog pilot. Existing portal dialogs keep their own design. */
+/* Opt-in detail-dialog design. Existing portal dialogs keep their own design. */
 .modal-overlay.portal-detail-dialog {
   --portal-detail-muted: var(--portal-muted-color, #6b6269);
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
@@ -108,23 +108,23 @@
 .portal-detail-dialog :is(button, input, [tabindex="0"]):focus-visible { outline: 2px solid var(--portal-accent, #800000); outline-offset: 3px; }
 .portal-detail-dialog .portal-detail-dialog__body:focus-visible { outline-offset: -3px; }
 
-/* Inventory content remains local to this pilot. */
-.portal-detail-dialog .inv-detail-intro { margin-bottom: 22px; }
-.portal-detail-dialog .inv-detail-name { margin: 0 0 5px; color: var(--text-main, #2b2b31); font-size: 22px; font-weight: 600; line-height: 1.4; }
-.portal-detail-dialog .inv-detail-category { margin: 0; color: var(--portal-detail-muted); font-size: 13px; line-height: 1.6; }
+/* Shared detail content, with existing Inventory class aliases. */
+.portal-detail-dialog :is(.inv-detail-intro, .portal-detail-intro) { margin-bottom: 22px; }
+.portal-detail-dialog :is(.inv-detail-name, .portal-detail-name) { margin: 0 0 5px; color: var(--text-main, #2b2b31); font-size: 22px; font-weight: 600; line-height: 1.4; }
+.portal-detail-dialog :is(.inv-detail-category, .portal-detail-subtitle) { margin: 0; color: var(--portal-detail-muted); font-size: 13px; line-height: 1.6; }
 .portal-detail-dialog .inv-detail-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin: 0 0 24px; }
-.portal-detail-dialog .inv-detail-fact { min-width: 0; padding: 18px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); }
-.portal-detail-dialog .inv-detail-label { margin-bottom: 10px; color: var(--portal-detail-muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
-.portal-detail-dialog .inv-detail-fact dd { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; margin: 0; }
-.portal-detail-dialog .inv-detail-quantity { color: var(--text-main, #2b2b31); font-size: 30px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.portal-detail-dialog :is(.inv-detail-fact, .portal-detail-fact) { min-width: 0; padding: 18px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog :is(.inv-detail-label, .portal-detail-label) { margin-bottom: 10px; color: var(--portal-detail-muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
+.portal-detail-dialog :is(.inv-detail-fact, .portal-detail-fact) dd { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; margin: 0; }
+.portal-detail-dialog :is(.inv-detail-quantity, .portal-detail-quantity) { color: var(--text-main, #2b2b31); font-size: 30px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .portal-detail-dialog .inv-detail-unit { color: var(--portal-detail-muted); font-size: 14px; }
 .portal-detail-dialog .inv-detail-missing { color: var(--portal-detail-muted); font-size: 14px; font-weight: 400; }
-.portal-detail-dialog .inv-detail-section { margin-top: 22px; }
-.portal-detail-dialog .inv-detail-section-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color, #e2e8f0); }
-.portal-detail-dialog .inv-detail-section-heading h4 { margin: 0; color: var(--text-main, #2b2b31); font-size: 14px; font-weight: 600; line-height: 1.5; }
-.portal-detail-dialog .inv-detail-section-heading > svg { flex: 0 0 18px; width: 18px; height: 18px; color: var(--portal-accent, #800000); }
-.portal-detail-dialog .inv-detail-copy { margin: 0; color: var(--text-main, #2b2b31); font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
-.portal-detail-dialog .inv-detail-copy.is-empty { color: var(--portal-detail-muted); }
+.portal-detail-dialog :is(.inv-detail-section, .portal-detail-section) { margin-top: 22px; }
+.portal-detail-dialog :is(.inv-detail-section-heading, .portal-detail-section-heading) { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color, #e2e8f0); }
+.portal-detail-dialog :is(.inv-detail-section-heading, .portal-detail-section-heading) h4 { margin: 0; color: var(--text-main, #2b2b31); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.portal-detail-dialog :is(.inv-detail-section-heading, .portal-detail-section-heading) > svg { flex: 0 0 18px; width: 18px; height: 18px; color: var(--portal-accent, #800000); }
+.portal-detail-dialog :is(.inv-detail-copy, .portal-detail-copy) { margin: 0; color: var(--text-main, #2b2b31); font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.portal-detail-dialog :is(.inv-detail-copy.is-empty, .portal-detail-copy.is-empty) { color: var(--portal-detail-muted); }
 .portal-detail-dialog .inv-detail-count { display: inline-flex; align-items: center; justify-content: center; min-width: 25px; padding: 2px 8px; border-radius: 6px; background: var(--portal-accent-soft, #fbf1f2); color: var(--portal-accent, #800000); font-size: 12px; font-weight: 600; }
 .portal-detail-dialog .inv-detail-note { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 22px; padding: 14px 16px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); color: var(--portal-detail-muted); font-size: 13px; line-height: 1.65; }
 .portal-detail-dialog .inv-detail-note svg { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 2px; color: var(--portal-accent, #800000); }
@@ -144,6 +144,27 @@
 .portal-detail-dialog .inv-detail-pagination .table-pagination { margin: 0; }
 .portal-detail-dialog .inv-detail-pagination .page-btn { min-width: 40px; min-height: 40px; }
 
+/* Product-specific arrangement within the shared frame. */
+.portal-detail-dialog .product-detail-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
+.portal-detail-dialog .product-detail-media { display: grid; place-items: center; min-width: 0; min-height: 190px; margin: 0; padding: 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog .product-detail-media img { width: 100%; height: 210px; object-fit: contain; }
+.portal-detail-dialog .product-detail-media-state { display: grid; justify-items: center; gap: 10px; padding: 16px; color: var(--portal-detail-muted); font-size: 13px; line-height: 1.6; text-align: center; }
+.portal-detail-dialog .product-detail-media-state svg { width: 32px; height: 32px; color: var(--portal-detail-muted); }
+.portal-detail-dialog .product-detail-facts { display: grid; align-content: stretch; gap: 12px; min-width: 0; margin: 0; }
+.portal-detail-dialog .product-detail-price { color: var(--text-main, #2b2b31); font-size: 24px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.portal-detail-dialog .product-detail-stock-status { margin-top: 8px; }
+.portal-detail-dialog .product-detail-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin: 22px 0 0; }
+.portal-detail-dialog .product-detail-info dt { margin-bottom: 8px; color: var(--portal-detail-muted); font-size: 12px; line-height: 1.5; }
+.portal-detail-dialog .product-detail-info dd { margin: 0; color: var(--text-main, #2b2b31); font-size: 14px; line-height: 1.65; white-space: pre-wrap; }
+.portal-detail-dialog .product-detail-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.portal-detail-dialog .product-detail-tags li { max-width: 100%; padding: 5px 10px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; background: var(--surface-alt, #f8f4ef); color: var(--text-main, #2b2b31); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.portal-detail-dialog .product-detail-sections { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.portal-detail-dialog .product-detail-list { margin: 0; padding-left: 19px; color: var(--text-main, #2b2b31); font-size: 14px; line-height: 1.75; }
+.portal-detail-dialog .product-detail-list li { padding-left: 2px; white-space: pre-wrap; }
+.portal-detail-dialog .product-detail-list li + li { margin-top: 6px; }
+.portal-detail-dialog .product-detail-list li::marker { color: var(--portal-accent, #800000); }
+.portal-detail-dialog [hidden] { display: none !important; }
+
 @media (max-width: 639px) {
   .modal-overlay.portal-detail-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .portal-detail-dialog .portal-detail-dialog__card { max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom))); }
@@ -152,10 +173,16 @@
   .portal-detail-dialog .portal-detail-dialog__body { padding: 20px 16px; }
   .portal-detail-dialog .portal-detail-dialog__footer { gap: 10px; padding: 14px 16px; }
   .portal-detail-dialog .portal-detail-dialog__footer .btn-admin { flex: 1 1 0; min-width: 0; padding-inline: 10px; font-size: 13px; }
-  .portal-detail-dialog .inv-detail-name { font-size: 20px; }
+  .portal-detail-dialog :is(.inv-detail-name, .portal-detail-name) { font-size: 20px; }
   .portal-detail-dialog .inv-detail-overview { gap: 10px; }
-  .portal-detail-dialog .inv-detail-fact { padding: 14px 12px; }
-  .portal-detail-dialog .inv-detail-quantity { font-size: 28px; }
+  .portal-detail-dialog :is(.inv-detail-fact, .portal-detail-fact) { padding: 14px 12px; }
+  .portal-detail-dialog :is(.inv-detail-quantity, .portal-detail-quantity) { font-size: 28px; }
+  .portal-detail-dialog .product-detail-hero { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .portal-detail-dialog .product-detail-media { min-height: 160px; }
+  .portal-detail-dialog .product-detail-media img { height: 160px; }
+  .portal-detail-dialog .product-detail-facts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .portal-detail-dialog .product-detail-price { font-size: 20px; }
+  .portal-detail-dialog .product-detail-sections { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .portal-detail-dialog .inv-detail-table-frame { display: none; }
   .portal-detail-dialog .inv-detail-variant-cards { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
   .portal-detail-dialog .inv-detail-variant-card { padding: 16px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; }

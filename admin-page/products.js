@@ -2003,54 +2003,78 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── View Product ────────────────────────────────────────────────────────────
-  const openViewModal = (product) => {
+  const openViewModal = (product, trigger = null) => {
     activeProductId = product.id;
-    if (viewTitle) viewTitle.textContent = escHtml(product.name);
-    if (viewSubtitle)
-      viewSubtitle.textContent = `${product.category} — ${product.code || "No Code"}`;
-
-    const chipsHtml = (product.details_chips || []).length
-      ? `<div class="chips-preview">${(product.details_chips || []).map((c) => `<span class="chip-tag">${escHtml(c)}</span>`).join("")}</div>`
-      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">No chips defined</span>`;
-
-    const availHtml = (product.availability || []).length
-      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:var(--portal-data-color,#374151);">${(product.availability || []).map((a) => `<li>${escHtml(a)}</li>`).join("")}</ul>`
-      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">Not set</span>`;
-
-    const recHtml = (product.recommended_for || []).length
-      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:var(--portal-data-color,#374151);">${(product.recommended_for || []).map((r) => `<li>${escHtml(r)}</li>`).join("")}</ul>`
-      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">Not set</span>`;
-
-    const imgHtml = product.image_data
-      ? `<div class="view-product-image"><img src="${product.image_data}" alt="${escHtml(product.name)}" /></div>`
-      : `<div class="view-product-image"><div class="no-image-placeholder"><i class="fa-regular fa-image" style="font-size:2rem;margin-bottom:6px;display:block;"></i>No image uploaded</div></div>`;
-
+    if (viewTitle) viewTitle.textContent = product.name || "Unnamed product";
+    if (viewSubtitle) viewSubtitle.textContent = product.category || "Category not provided";
+    const provided = value => value !== null && value !== undefined && String(value).trim() !== "";
+    const listValues = value => Array.isArray(value) ? value.filter(provided) : [];
+    const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${path}</svg>`;
+    const sectionTitle = (title, path) => `<div class="portal-detail-section-heading">${icon(path)}<h4>${title}</h4></div>`;
+    const empty = message => `<p class="portal-detail-copy is-empty">${message}</p>`;
+    const list = (values, message) => values.length
+      ? `<ul class="product-detail-list">${values.map(value => `<li>${escHtml(value)}</li>`).join("")}</ul>` : empty(message);
+    const chips = listValues(product.details_chips);
+    const imageIcon = icon('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>');
     const stockBadge =
       product.stock_status === "in_stock"
         ? `<span class="status-pill status-green">In Stock</span>`
-        : `<span class="status-pill status-red">Out of Stock</span>`;
-
+        : product.stock_status === "out_of_stock"
+          ? `<span class="status-pill status-red">Out of Stock</span>` : '<span class="portal-detail-copy is-empty">Not provided</span>';
     const blockedBadge = product.is_blocked
       ? `<span class="status-pill status-red">Blocked</span>`
       : `<span class="status-pill status-green">Active</span>`;
 
     if (viewContent) {
       viewContent.innerHTML = `
-        ${imgHtml}
-        <div class="view-product-grid" style="margin-top:14px;">
-          <div><div class="vp-label">Category</div><div class="vp-value">${escHtml(product.category)}</div></div>
-          <div><div class="vp-label">Product Code</div><div class="vp-value">${escHtml(product.code || "—")}</div></div>
-          <div><div class="vp-label">Stock Quantity</div><div class="vp-value">${product.stock}</div></div>
-          <div><div class="vp-label">Price</div><div class="vp-value">${formatPrice(product.price)}</div></div>
-          <div><div class="vp-label">Stock Status</div><div class="vp-value">${stockBadge}</div></div>
-          <div><div class="vp-label">Visibility</div><div class="vp-value">${blockedBadge}</div></div>
-          <div style="grid-column:1/-1;"><div class="vp-label">Summary</div><div class="vp-value">${escHtml(product.summary || "—")}</div></div>
-          <div style="grid-column:1/-1;"><div class="vp-label">Product Detail Chips</div><div class="vp-value">${chipsHtml}</div></div>
-          <div><div class="vp-label">Availability</div><div class="vp-value">${availHtml}</div></div>
-          <div><div class="vp-label">Recommended For</div><div class="vp-value">${recHtml}</div></div>
+        <div class="product-detail-hero">
+          <figure class="product-detail-media" aria-label="Product cover image">
+            ${product.image_data ? `<img src="${escHtml(product.image_data)}" alt="${escHtml(product.name || "Product image")}" hidden />` : ""}
+            <div class="product-detail-media-state" role="status">${imageIcon}<span>${product.image_data ? "Loading product image…" : "No product image added."}</span></div>
+          </figure>
+          <dl class="product-detail-facts">
+            <div class="portal-detail-fact"><dt class="portal-detail-label">Stock on hand</dt><dd><span class="${provided(product.stock) ? "portal-detail-quantity" : "portal-detail-copy is-empty"}">${provided(product.stock) ? escHtml(product.stock) : "Not provided"}</span></dd><dd class="product-detail-stock-status">${stockBadge}</dd></div>
+            <div class="portal-detail-fact"><dt class="portal-detail-label">Price</dt><dd><span class="${provided(product.price) ? "product-detail-price" : "portal-detail-copy is-empty"}">${provided(product.price) ? formatPrice(product.price) : "Not provided"}</span></dd></div>
+          </dl>
+        </div>
+        <dl class="product-detail-info">
+          <div><dt>Product code</dt><dd>${provided(product.code) ? escHtml(product.code) : "Not provided"}</dd></div>
+          <div><dt>Visibility</dt><dd>${blockedBadge}</dd></div>
+        </dl>
+        <section class="portal-detail-section" aria-label="Product summary">
+          ${sectionTitle("Summary", '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>')}
+          ${provided(product.summary) ? `<p class="portal-detail-copy">${escHtml(product.summary)}</p>` : empty("No summary added.")}
+        </section>
+        <section class="portal-detail-section" aria-label="Product details">
+          ${sectionTitle("Product details", '<path d="M20 13 13 20a2 2 0 0 1-3 0l-7-7V3h10l7 7a2 2 0 0 1 0 3Z"/><circle cx="7.5" cy="7.5" r="1"/>')}
+          ${chips.length ? `<ul class="product-detail-tags">${chips.map(value => `<li>${escHtml(value)}</li>`).join("")}</ul>` : empty("No product details added.")}
+        </section>
+        <div class="product-detail-sections">
+          <section class="portal-detail-section" aria-label="Product availability">
+            ${sectionTitle("Availability", '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-11 5 2 2 4-4"/>')}
+            ${list(listValues(product.availability), "No availability added.")}
+          </section>
+          <section class="portal-detail-section" aria-label="Recommended for">
+            ${sectionTitle("Recommended for", '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65"/>')}
+            ${list(listValues(product.recommended_for), "No recommendations added.")}
+          </section>
         </div>`;
+      const image = viewContent.querySelector('.product-detail-media img');
+      if (image) {
+        const state = viewContent.querySelector('.product-detail-media-state');
+        const settleImage = () => {
+          const loaded = image.naturalWidth > 0;
+          image.hidden = !loaded;
+          state.hidden = loaded;
+          if (!loaded) state.querySelector('span').textContent = 'Product image could not load.';
+        };
+        image.addEventListener('load', settleImage, {once: true});
+        image.addEventListener('error', settleImage, {once: true});
+        if (image.complete) settleImage();
+      }
     }
-    openModal(modalView);
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(modalView, {trigger, returnSelector: `[data-view-id="${Number(product.id)}"]`});
+    else openModal(modalView);
   };
 
   btnCloseViewProduct?.addEventListener("click", () => closeModal(modalView));
@@ -2059,6 +2083,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnOpenEditFromView?.addEventListener("click", () => {
     const product = products.find((p) => p.id === activeProductId);
     if (!product) return;
+    window.PortalDetailDialog?.handoff(modalView, modalEdit);
     closeModal(modalView);
     openEditModal(product);
   });
@@ -2298,7 +2323,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (viewBtn) {
       const id = Number(viewBtn.getAttribute("data-view-id"));
       const product = products.find((p) => p.id === id);
-      if (product) openViewModal(product);
+      if (product) openViewModal(product, viewBtn);
       return;
     }
 

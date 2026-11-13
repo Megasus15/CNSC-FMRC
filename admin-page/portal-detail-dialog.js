@@ -1,8 +1,7 @@
-/* Opt-in dialog behavior. A pilot can hand off to its existing edit dialog. */
+/* Opt-in detail dialogs, including markup loaded later by Staff page modules. */
 (() => {
   'use strict';
-  const roots = [...document.querySelectorAll('[data-portal-detail-dialog]')];
-  if (!roots.length) return;
+  const roots = () => [...document.querySelectorAll('[data-portal-detail-dialog]')];
   const layerSelector = '.modal-overlay.show, .admin-system-popup.show, .admin-session-warning, dialog[open]';
   const tabbable = 'button:not(:disabled),a[href],input:not(:disabled):not([type="hidden"]),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
   let session = null;
@@ -42,8 +41,9 @@
     focus(target || document.querySelector('.main-content h1'));
   }
   function sync() {
-    const openRoot = roots.find(root => root.classList.contains('show'));
-    roots.forEach(root => root.setAttribute('aria-hidden', String(!root.classList.contains('show'))));
+    const dialogs = roots();
+    const openRoot = dialogs.find(root => root.classList.contains('show'));
+    dialogs.forEach(root => root.setAttribute('aria-hidden', String(!root.classList.contains('show'))));
     if (!session && openRoot) begin(openRoot);
     if (!session) return;
     const openLayers = layers();
@@ -94,12 +94,14 @@
   };
   document.addEventListener('wheel', preventBackgroundScroll, {capture: true, passive: false});
   document.addEventListener('touchmove', preventBackgroundScroll, {capture: true, passive: false});
-  roots.forEach(root => root.addEventListener('click', event => {
-    if (event.target.closest('[data-portal-detail-close]')) { root.classList.remove('show'); sync(); }
-  }));
+  document.addEventListener('click', event => {
+    const close = event.target.closest('[data-portal-detail-close]');
+    const root = close?.closest('[data-portal-detail-dialog]');
+    if (root) { root.classList.remove('show'); sync(); }
+  });
   window.PortalDetailDialog = {
     open(root, options = {}) {
-      if (!roots.includes(root)) return;
+      if (!root?.matches('[data-portal-detail-dialog]')) return;
       const wasOpen = root.classList.contains('show');
       begin(root, options); root.classList.add('show'); sync();
       if (!wasOpen) root.querySelector('.portal-detail-dialog__body').scrollTop = 0;

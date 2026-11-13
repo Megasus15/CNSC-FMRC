@@ -796,6 +796,7 @@
 
 
     <link rel="stylesheet" href="product-gallery.css?v=2026.1113.1" />
+    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.2" />
 </head>
   <body>
     <div class="dashboard-container">
@@ -1685,38 +1686,41 @@
 
     <!-- ---------------------- VIEW PRODUCT MODAL ---------------------- -->
     <div
-      class="modal-overlay"
+      class="modal-overlay portal-detail-dialog"
       id="modalViewProduct"
+      data-portal-detail-dialog
       data-backdrop-close="false"
+      aria-hidden="true"
     >
-      <div
-        class="modal-card"
-        style="min-width: 500px; max-width: 640px; width: 100%"
-      >
-        <h3
-          class="modal-title"
-          id="viewProductTitle"
-          style="margin-bottom: 4px"
-        >
-          Product Details
-        </h3>
-        <p
-          class="field-hint"
-          style="margin-bottom: 14px"
-          id="viewProductSubtitle"
-        ></p>
-        <hr class="confirm-separator" />
-        <div id="viewProductContent" style="margin-bottom: 16px"></div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewProduct">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="viewProductHeading" aria-describedby="viewProductTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5"/></svg>
+          </span>
+          <div class="portal-detail-dialog__heading">
+            <p class="portal-detail-dialog__eyebrow">Products</p>
+            <h2 class="portal-detail-dialog__title" id="viewProductHeading" data-portal-detail-heading tabindex="-1">Product details</h2>
+          </div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close product details" title="Close product details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body" id="viewProductBody" tabindex="0" role="region" aria-label="Product information">
+          <div class="portal-detail-intro">
+            <h3 class="portal-detail-name" id="viewProductTitle"></h3>
+            <p class="portal-detail-subtitle" id="viewProductSubtitle"></p>
+          </div>
+          <div id="viewProductContent"></div>
+        </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="btnCloseViewProduct" type="button">
             Close
           </button>
           <button class="btn-admin" id="btnOpenEditFromView" type="button">
-            <i class="fa-regular fa-pen-to-square"></i> Edit Product
+            <i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Edit Product
           </button>
-        </div>
-      </div>
+        </footer>
+      </section>
     </div>
 
     <!-- ---------------------- DELETE PRODUCT MODAL ---------------------- -->
@@ -1802,7 +1806,8 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1113.9"></script>
     <script src="product-gallery.js?v=2026.1113.1"></script>
-    <script src="products.js?v=2026.1113.1"></script>
+    <script src="portal-detail-dialog.js?v=2026.1114.2"></script>
+    <script src="products.js?v=2026.1114.2"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>
