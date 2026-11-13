@@ -1,5 +1,5 @@
 .payment-settings-page .payment-settings-card {
-  background: #fdfaf6;
+  background: var(--surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
@@ -27,9 +27,41 @@
 }
 
 .payment-settings-page p {
-  color: #646b75;
+  color: var(--text-muted);
   font-size: 0.84rem;
   line-height: 1.6;
+}
+
+.payment-settings-page #paymentSettingsSummary {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: var(--surface-alt, var(--bg-light));
+  font-size: .75rem;
+  font-weight: 500;
+}
+
+.payment-settings-page .payment-review-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--portal-accent-soft, #fbf1f2);
+  border: 1px solid var(--portal-accent-border, #ecdadd);
+}
+
+.payment-settings-page .payment-review-note > i {
+  color: var(--primary-color);
+  margin-top: 3px;
+}
+
+.payment-settings-page .payment-review-note strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-main);
+  font-size: .84rem;
+  font-weight: 600;
 }
 
 .payment-settings-page .payment-settings-fieldset {
@@ -55,31 +87,46 @@
 }
 
 .payment-settings-page .payment-method-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 62px;
   align-items: center;
   gap: 16px;
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 18px;
+  padding: 20px;
+  background: var(--surface);
   cursor: pointer;
+}
+
+.payment-settings-page .payment-method-row:hover {
+  border-color: var(--portal-accent-border, #d6b8bb);
+}
+
+.payment-settings-page .payment-method-row:focus-within {
+  border-color: var(--admin-field-focus, var(--primary-color));
 }
 
 .payment-settings-page .payment-method-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 10px;
   flex-shrink: 0;
   color: var(--primary-color);
-  background: #f8efef;
+  background: var(--portal-accent-soft, #fbf1f2);
   font-size: 1.15rem;
 }
 
 .payment-settings-page .payment-method-icon img {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
+}
+
+.payment-settings-page .payment-method-icon--qrph {
+  background: #fff;
+  border: 1px solid var(--border-color);
 }
 
 .payment-settings-page .payment-method-copy {
@@ -89,16 +136,63 @@
 
 .payment-settings-page .payment-method-name {
   display: block;
-  color: #25303c;
+  color: var(--text-main);
   font-size: 0.9rem;
   font-weight: 600;
-  margin-bottom: 3px;
+  line-height: 1.5;
+}
+
+.payment-settings-page .payment-method-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.payment-settings-page .payment-readiness {
+  display: inline-block;
+  padding: 3px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.payment-settings-page .payment-readiness.is-ready {
+  color: var(--portal-success, #287345);
+  background: var(--portal-success-soft, #edf7f0);
+  border-color: var(--portal-success-border, #c9e2d0);
+}
+
+.payment-settings-page .payment-readiness.is-unavailable {
+  color: var(--portal-warning, #805b16);
+  background: var(--portal-warning-soft, #fff8e8);
+  border-color: var(--portal-warning-border, #ebd39e);
 }
 
 .payment-settings-page .payment-method-description {
   display: block;
-  color: #646b75;
+  color: var(--text-muted);
+  margin-top: 4px;
   font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.payment-settings-page .payment-method-scope {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.6;
+}
+
+.payment-settings-page .payment-method-unavailable {
+  display: block;
+  margin-top: 8px;
+  color: var(--portal-warning, #805b16);
+  font-size: .75rem;
   line-height: 1.6;
 }
 
@@ -116,10 +210,10 @@
   -webkit-appearance: none;
   width: 46px;
   height: 26px;
-  border: 1px solid #939ba5;
+  border: 1px solid var(--portal-switch-off, #8a8f99);
   border-radius: 20px;
   margin: 0;
-  background: #9ca3af;
+  background: var(--portal-switch-off, #8a8f99);
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
@@ -137,8 +231,8 @@
 }
 
 .payment-settings-page .payment-switch:checked {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--portal-action, var(--primary-color));
+  border-color: var(--portal-action, var(--primary-color));
 }
 
 .payment-settings-page .payment-switch:checked::before {
@@ -160,7 +254,7 @@
 }
 
 .payment-settings-page .payment-switch-state {
-  color: #646b75;
+  color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 500;
 }
@@ -169,7 +263,7 @@
 .payment-settings-page .payment-settings-message {
   padding: 13px 16px;
   border-radius: 8px;
-  background: #f7f8fa;
+  background: var(--surface-alt, var(--bg-light));
   border: 1px solid var(--border-color);
   font-size: 0.82rem;
   line-height: 1.6;
@@ -177,13 +271,14 @@
 
 .payment-settings-page .payment-settings-note strong {
   display: block;
-  color: #374151;
+  color: var(--text-main);
+  font-weight: 600;
   margin-bottom: 3px;
 }
 
 .payment-settings-page .payment-settings-note.is-paused {
-  background: #fff8e8;
-  border-color: #ebd39e;
+  background: var(--portal-warning-soft, #fff8e8);
+  border-color: var(--portal-warning-border, #ebd39e);
 }
 
 .payment-settings-page .payment-settings-message {
@@ -221,8 +316,12 @@
 
 @media (max-width: 600px) {
   .payment-settings-page .payment-settings-card { padding: 18px 14px; }
-  .payment-settings-page .payment-method-row { padding: 16px 12px; gap: 12px; }
-  .payment-settings-page .payment-method-icon { display: none; }
+  .payment-settings-page .payment-method-row { grid-template-columns: minmax(0, 1fr) 62px; padding: 16px; gap: 12px; }
+  .payment-settings-page .payment-method-icon { grid-column: 1; grid-row: 1; width: 40px; height: 40px; }
+  .payment-settings-page .payment-method-icon img { width: 32px; height: 32px; }
+  .payment-settings-page .payment-method-copy { grid-column: 1 / -1; grid-row: 2; }
+  .payment-settings-page .payment-switch-wrap { grid-column: 2; grid-row: 1; }
+  .payment-settings-page .payment-review-note { padding: 14px; }
   .payment-settings-page .payment-settings-note { padding: 12px; }
   .payment-settings-page .payment-save-actions { width: 100%; }
   .payment-settings-page .payment-save-actions .btn-admin { flex: 1; min-height: 44px; }

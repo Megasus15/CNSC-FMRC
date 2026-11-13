@@ -5,7 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../../..');
 const source = fs.readFileSync(path.join(root, 'admin-page/website-payments.js'), 'utf8');
-const keys = ['payment_cash_on_pickup_enabled', 'payment_cash_on_delivery_enabled', 'payment_gcash_enabled'];
+const keys = ['payment_cash_on_pickup_enabled', 'payment_gcash_enabled'];
+const legacyDeliveryKey = 'payment_cash_on_delivery_enabled';
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 function element() {
@@ -13,7 +14,7 @@ function element() {
   const classes = new Set();
   return {
     checked: false, disabled: false, hidden: true, textContent: '', innerHTML: '',
-    classList: { toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); } },
+    classList: { toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }, contains(name) { return classes.has(name); } },
     setAttribute() {},
     addEventListener(name, fn) { const list = listeners.get(name) || []; list.push(fn); listeners.set(name, list); },
     emit(type, extra = {}) { return Promise.all((listeners.get(type) || []).map((fn) => fn({ type, target: this, preventDefault() {}, ...extra }))); },
@@ -38,12 +39,12 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
     constructor() { Object.assign(this, element()); channel = this; }
     postMessage(value) { broadcasts.push(value); }
   };
-  const state = { settings, failGet: initialFailure, putStatus: 200, holdPut: null };
+  const state = { settings: { payment_checkout_method: 'qrph', payment_gcash_ready: '1', ...settings }, failGet: initialFailure, putStatus: 200, holdPut: null };
   const fetch = async (url, options) => {
     requests.push({ url, options });
     if (options.method === 'PUT') {
       if (state.holdPut) await state.holdPut;
-      if (state.putStatus === 200) state.settings = JSON.parse(options.body);
+      if (state.putStatus === 200) Object.assign(state.settings, JSON.parse(options.body));
       return { ok: state.putStatus === 200, status: state.putStatus, json: async () => ({ message: 'Save failed' }) };
     }
     if (state.failGet) throw new Error('Network unavailable');
@@ -67,7 +68,7 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
 for (const role of ['admin']) {
   test(`${role} can save individual or all methods using the portal session, with no draft-only writes`, async () => {
     const h = await harness({}, role);
-    keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
+    keys.forEach((key) => assert.equal(h.field(key).checked, true));
     assert.equal(h.field('savePaymentSettings').disabled, true);
     await h.click('disableAllPayments');
     assert.equal(h.requests.length, 1, 'bulk action only edits the draft');
@@ -77,38 +78,39 @@ for (const role of ['admin']) {
     const request = h.requests.find((item) => item.options.method === 'PUT');
     assert.equal(request.url, 'https://fmrc.test/api/admin/site-settings');
     assert.equal(request.options.headers.Authorization, `Bearer ${role}-token`);
-    assert.deepEqual(JSON.parse(request.options.body), Object.fromEntries(keys.map((key) => [key, '0'])));
+    assert.deepEqual(JSON.parse(request.options.body), { ...Object.fromEntries(keys.map((key) => [key, '0'])), [legacyDeliveryKey]: '0' });
     assert.equal(h.field('savePaymentSettings').disabled, true);
     assert.match(h.field('paymentSettingsNoteTitle').textContent, /orders are paused/);
     assert.equal(h.broadcasts.length, 1);
     assert.equal(h.storage[0].key, 'fmrc_site_content_updated_at');
-    await h.toggle(keys[2], true);
+    await h.toggle(keys[1], true);
     await h.save();
-    assert.equal(h.state.settings[keys[2]], '1');
+    assert.equal(h.state.settings[keys[1]], '1');
     assert.equal(h.state.settings[keys[0]], '0');
     await h.click('enableAllPayments');
     await h.save();
-    keys.forEach((key) => assert.equal(h.state.settings[key], key === keys[1] ? '0' : '1'));
-    assert.equal(h.field(keys[1]).disabled, true);
+    keys.forEach((key) => assert.equal(h.state.settings[key], '1'));
+    assert.equal(h.state.settings[legacyDeliveryKey], '0');
+    assert.equal(h.field('enableAllPayments').disabled, true);
     await h.window.emit('focus');
     await settle();
-    keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
+    keys.forEach((key) => assert.equal(h.field(key).checked, true));
   });
 }
 
 test('incoming updates announce changes without fetching; Load latest intentionally replaces a dirty draft', async () => {
   const h = await harness();
   await h.toggle(keys[0], false);
-  h.state.settings = { [keys[2]]: '0' };
+  h.state.settings = { [keys[1]]: '0' };
   await h.channel.emit('message', { data: { type: 'updated' } });
   await settle();
   assert.equal(h.field(keys[0]).checked, false);
-  assert.equal(h.field(keys[2]).checked, true);
+  assert.equal(h.field(keys[1]).checked, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, false);
   assert.equal(h.requests.length, 1, 'incoming update does not reload content');
   await h.click('reloadPaymentSettings');
   assert.equal(h.field(keys[0]).checked, true);
-  assert.equal(h.field(keys[2]).checked, false);
+  assert.equal(h.field(keys[1]).checked, false);
   assert.equal(h.field('savePaymentSettings').disabled, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, true);
   assert.equal(h.requests.length, 2, 'explicit Load latest requests saved content');
@@ -117,7 +119,7 @@ test('incoming updates announce changes without fetching; Load latest intentiona
 test('returning to a Payment Methods tab keeps controls available and never fetches content', async () => {
   const h = await harness();
   await h.toggle(keys[0], false);
-  h.state.settings = { [keys[2]]: '0' };
+  h.state.settings = { [keys[1]]: '0' };
   await h.window.emit('focus');
   h.document.hidden = false;
   await h.document.emit('visibilitychange');
@@ -125,7 +127,7 @@ test('returning to a Payment Methods tab keeps controls available and never fetc
   assert.equal(h.requests.length, 1);
   assert.equal(h.field('paymentSettingsFields').disabled, false);
   assert.equal(h.field(keys[0]).checked, false, 'unsaved selection remains');
-  assert.equal(h.field(keys[2]).checked, true, 'server changes wait for a manual load');
+  assert.equal(h.field(keys[1]).checked, true, 'server changes wait for a manual load');
 });
 
 test('storage updates show a notice without replacing clean selections or fetching', async () => {
@@ -134,7 +136,7 @@ test('storage updates show a notice without replacing clean selections or fetchi
   await h.window.emit('storage', { key: 'fmrc_site_content_updated_at' });
   await settle();
   assert.equal(h.requests.length, 1);
-  keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
+  keys.forEach((key) => assert.equal(h.field(key).checked, true));
   assert.equal(h.field('paymentSettingsUpdated').hidden, false);
   assert.equal(h.field('savePaymentSettings').disabled, true);
 });
@@ -150,7 +152,7 @@ test('save failure retains selections, and discard returns to persisted settings
   assert.match(h.field('paymentSettingsErrorText').textContent, /cannot update/);
   assert.equal(h.broadcasts.length, 0);
   await h.click('discardPaymentSettings');
-  keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
+  keys.forEach((key) => assert.equal(h.field(key).checked, true));
   assert.equal(h.field('savePaymentSettings').disabled, true);
 });
 
@@ -185,7 +187,7 @@ test('save in flight blocks duplicate writes; returning to the tab does not queu
 });
 
 test('only missing settings default enabled; saved false values do not', async () => {
-  const h = await harness({ [keys[0]]: null, [keys[1]]: '', [keys[2]]: '0' });
+  const h = await harness({ [keys[0]]: null, [keys[1]]: '0' });
   keys.forEach((key) => assert.equal(h.field(key).checked, false));
 });
 
@@ -195,10 +197,44 @@ test('unsaved changes warn before leaving; saved state does not', async () => {
   const event = { preventDefault() { warnings++; } };
   await h.window.emit('beforeunload', event);
   assert.equal(warnings, 0);
-  await h.toggle(keys[2], false);
+  await h.toggle(keys[1], false);
   await h.window.emit('beforeunload', event);
   assert.equal(warnings, 1);
   await h.save();
   await h.window.emit('beforeunload', event);
   assert.equal(warnings, 1);
+});
+
+test('enabled QR Ph preference does not imply availability without the supported, ready payment service', async () => {
+  for (const settings of [
+    { payment_gcash_ready: '0' },
+    { payment_checkout_method: 'gcash' },
+    { payment_checkout_method: undefined, payment_gcash_ready: undefined },
+  ]) {
+    const h = await harness({ ...settings, [legacyDeliveryKey]: '1', [keys[0]]: '0' });
+    assert.equal(h.field(keys[1]).checked, true, 'retain the saved online preference');
+    assert.equal(h.field('qrphPaymentAvailability').textContent, 'Temporarily unavailable');
+    assert.equal(h.field('qrphPaymentNotice').hidden, false);
+    assert.match(h.field('paymentSettingsNoteTitle').textContent, /No methods available/);
+    assert.equal(h.field('paymentSettingsNote').classList.contains('is-paused'), true);
+    assert.equal(h.field('paymentSettingsSummary').textContent, '1 of 2 methods enabled');
+    assert.equal(h.field('savePaymentSettings').disabled, true, 'readiness is not an unsaved preference');
+    await h.click('enableAllPayments');
+    await h.save();
+    const body = JSON.parse(h.requests.find(item => item.options.method === 'PUT').options.body);
+    assert.deepEqual(body, { [keys[0]]: '1', [keys[1]]: '1', [legacyDeliveryKey]: '0' });
+    assert.equal(h.field('qrphPaymentAvailability').textContent, 'Temporarily unavailable', 'saving cannot override service readiness');
+    assert.equal(h.field('paymentSettingsNote').classList.contains('is-paused'), false, 'pickup remains available');
+  }
+});
+
+test('ready QR Ph and pickup preferences remain independent', async () => {
+  const h = await harness({ [keys[1]]: '0' });
+  assert.equal(h.field('qrphPaymentAvailability').textContent, 'Ready');
+  assert.equal(h.field('qrphPaymentNotice').hidden, true);
+  assert.equal(h.field('enableAllPayments').disabled, false);
+  await h.toggle(keys[0], false);
+  assert.match(h.field('paymentSettingsNoteTitle').textContent, /Saving will pause/);
+  await h.toggle(keys[1], true);
+  assert.match(h.field('paymentSettingsNoteTitle').textContent, /Availability applies/);
 });

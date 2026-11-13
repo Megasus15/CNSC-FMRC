@@ -4,7 +4,7 @@
 
   const METHODS = [
     "payment_cash_on_pickup_enabled",
-    "payment_cash_on_delivery_enabled",
+    // The existing online-payment setting also controls QR Ph checkout.
     "payment_gcash_enabled",
   ];
   const CHANNEL = "fmrc-site-settings-realtime";
@@ -18,7 +18,7 @@
     return `${origin}/api`;
   };
   const parseSettings = (data) => Object.fromEntries(METHODS.map((key) => [
-    key, key !== 'payment_cash_on_delivery_enabled' && (data[key] === undefined || [true, 1, "1"].includes(data[key])),
+    key, data[key] === undefined || [true, 1, "1"].includes(data[key]),
   ]));
   const same = (left, right) => METHODS.every((key) => left?.[key] === right?.[key]);
 
@@ -37,6 +37,9 @@
     const summary = document.getElementById("paymentSettingsSummary");
     const note = document.getElementById("paymentSettingsNote");
     const noteTitle = document.getElementById("paymentSettingsNoteTitle");
+    const noteText = document.getElementById("paymentSettingsNoteText");
+    const onlineAvailability = document.getElementById("qrphPaymentAvailability");
+    const onlineNotice = document.getElementById("qrphPaymentNotice");
     const enableAll = document.getElementById("enableAllPayments");
     const disableAll = document.getElementById("disableAllPayments");
     let saved = null;
@@ -46,31 +49,41 @@
     let refreshQueued = false;
     let lastSaveSucceeded = false;
     let channel = null;
+    let onlineReady = false;
     const isDirty = () => !!saved && !same(saved, draft);
     window.AdminWebsiteDraft?.register({ isDirty, busy: () => busy && !refreshing && !!saved });
 
     window.requestPaymentRefresh = () => window.AdminWebsiteDraft.confirmDiscard(() => load({ replaceDraft: true }));
     const render = () => {
       const count = draft ? METHODS.filter((key) => draft[key]).length : 0;
+      const availableCount = count - (draft?.payment_gcash_enabled && !onlineReady ? 1 : 0);
       fieldset.disabled = busy || refreshing || !draft;
       save.disabled = busy || refreshing || !isDirty();
       discard.disabled = busy || refreshing || !isDirty();
       retry.disabled = busy || refreshing;
       document.getElementById("refreshPaymentSettings").disabled = busy || refreshing;
-      enableAll.disabled = count === METHODS.length - 1;
+      enableAll.disabled = count === METHODS.length;
       disableAll.disabled = count === 0;
       form.setAttribute("aria-busy", String(busy || refreshing));
       document.getElementById("reloadPaymentSettings").disabled = busy || refreshing;
       METHODS.forEach((key) => {
         document.getElementById(key).checked = !!draft?.[key];
-        if (key === 'payment_cash_on_delivery_enabled') document.getElementById(key).disabled = true;
         document.getElementById(`${key}_state`).textContent = !draft ? "Loading" : draft[key] ? "Enabled" : "Disabled";
       });
-      summary.textContent = !draft ? "Loading saved payment methods…" : `${count} of 2 available methods ${isDirty() ? "selected" : "enabled"}`;
-      const deliveryDescription = document.getElementById('deliveryPaymentDescription');
-      if (deliveryDescription) deliveryDescription.textContent = 'J&T delivery is prepaid. Courier cash collection is not available for new orders.';
-      note.classList.toggle("is-paused", !!draft && count === 0);
-      noteTitle.textContent = !draft || count > 0 ? "Availability applies to new product orders" : isDirty() ? "Saving will pause new product orders" : "New product orders are paused";
+      summary.textContent = !draft ? "Loading saved payment methods…" : `${count} of ${METHODS.length} methods ${isDirty() ? "selected" : "enabled"}`;
+      onlineAvailability.textContent = !draft ? "Checking availability…" : onlineReady ? "Ready" : "Temporarily unavailable";
+      onlineAvailability.classList.toggle("is-ready", !!draft && onlineReady);
+      onlineAvailability.classList.toggle("is-unavailable", !!draft && !onlineReady);
+      onlineNotice.hidden = !draft || onlineReady;
+      document.getElementById("payment_gcash_enabled").setAttribute("aria-describedby",
+        `qrphPaymentDescription qrphPaymentAvailability${draft && !onlineReady ? " qrphPaymentNotice" : ""}`);
+      note.classList.toggle("is-paused", !!draft && availableCount === 0);
+      noteTitle.textContent = !draft || availableCount > 0 ? "Availability applies to new product orders"
+        : count > 0 ? "No methods available at checkout"
+          : isDirty() ? "Saving will pause new product orders" : "New product orders are paused";
+      noteText.textContent = draft && count > 0 && availableCount === 0
+        ? `QR Ph is temporarily unavailable and cash on pickup is disabled. ${isDirty() ? "After saving, new product orders will be paused" : "New product orders are paused"} until a method is available. Existing orders and their payments stay unchanged.`
+        : "Disabled methods are hidden at checkout. Disabling both methods pauses new product orders. Existing orders and their payments stay unchanged.";
       status.textContent = refreshing ? "Loading payment methods…" : busy ? "Saving payment methods…" : isDirty() ? "You have unsaved changes." : saved ? (lastSaveSucceeded ? "Payment methods saved." : "All changes saved.") : "Load the saved settings before making changes.";
       save.innerHTML = busy && saved ? '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving…' : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save All Changes';
     };
@@ -119,6 +132,7 @@
         const json = await request("/site-settings", { headers: { Accept: "application/json" } });
         if (!json.data || typeof json.data !== "object" || Array.isArray(json.data)) throw new Error("Payment settings could not be loaded. Please try again.");
         const incoming = parseSettings(json.data);
+        onlineReady = json.data.payment_checkout_method === "qrph" && json.data.payment_gcash_ready === "1";
         if (isDirty() && !replaceDraft) {
           changedElsewhere.hidden = same(saved, incoming);
         } else {
@@ -155,7 +169,11 @@
         await request("/admin/site-settings", {
           method: "PUT",
           headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify(Object.fromEntries(METHODS.map((key) => [key, submitted[key] ? "1" : "0"]))),
+          body: JSON.stringify({
+            ...Object.fromEntries(METHODS.map((key) => [key, submitted[key] ? "1" : "0"])),
+            // Courier cash collection is not supported for new orders.
+            payment_cash_on_delivery_enabled: "0",
+          }),
         });
         saved = submitted;
         draft = { ...submitted };
@@ -180,7 +198,7 @@
     }));
     const setAll = (enabled) => {
       if (!draft || busy || refreshing) return;
-      METHODS.forEach((key) => { draft[key] = key === 'payment_cash_on_delivery_enabled' ? false : enabled; });
+      METHODS.forEach((key) => { draft[key] = enabled; });
       lastSaveSucceeded = false;
       render();
     };
