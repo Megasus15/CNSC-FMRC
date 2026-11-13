@@ -18,6 +18,6 @@ class OrderCancellationArchive extends Model
 
     public function archiver(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'archived_by');
+        return $this->belongsTo(User::class, 'archived_by')->withTrashed();
     }
 }

@@ -268,7 +268,7 @@ class Order extends Model
 
     public function cancelDecidedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'cancel_decided_by_user_id');
+        return $this->belongsTo(User::class, 'cancel_decided_by_user_id')->withTrashed();
     }
 
     /** True when this order is collected at the centre instead of shipped. */
@@ -303,7 +303,7 @@ class Order extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'customer_id');
+        return $this->belongsTo(User::class, 'customer_id')->withTrashed();
     }
 
     public function items(): HasMany

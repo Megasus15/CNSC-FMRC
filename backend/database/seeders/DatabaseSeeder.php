@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@cnsc.edu.ph',
             'password' => bcrypt('#admin_2026!'),
             'role' => 'admin',
+            'is_builtin_admin' => true,
         ]);
 
         // Staff Account

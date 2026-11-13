@@ -188,7 +188,7 @@ class BulkAdminTableActionsTest extends TestCase
             ->assertJsonFragment(['skipped_ids' => [$admin->id, 999999]]);
 
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
-        $this->assertDatabaseMissing('users', ['id' => $deletable->id]);
+        $this->assertSoftDeleted('users', ['id' => $deletable->id]);
 
         Sanctum::actingAs($protected);
         $this->deleteJson('/api/users/delete-bulk', ['ids' => [$admin->id]])

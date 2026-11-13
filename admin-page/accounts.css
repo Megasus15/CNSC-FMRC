@@ -1,0 +1,15 @@
+.accounts-deletion-hint {
+  margin: 0 0 16px;
+  max-width: 78ch;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+.accounts-builtin-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--portal-muted-color, #64748b);
+  font-size: .72rem;
+  font-weight: 600;
+  line-height: 1.5;
+}

@@ -4,10 +4,10 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
 
 test('multiple Admins share records while identity, preferences, notifications and browser settings stay personal',{skip:!chrome,timeout:120000},async t=>{
-  const a={id:11,role:'admin',name:'Alpha Admin',username:'alpha',email:'alpha.admin@gmail.com'},b={id:33,role:'admin',name:'Beta Admin',username:'beta',email:'beta.admin@gmail.com'};
+  const a={id:11,role:'admin',is_builtin_admin:true,name:'Alpha Admin',username:'alpha',email:'alpha.admin@gmail.com'},b={id:33,role:'admin',name:'Beta Admin',username:'beta',email:'beta.admin@gmail.com'};
   let users=[a,b,{id:22,role:'staff',name:'Team Staff',username:'team',email:'team.staff@gmail.com'},...Array.from({length:17},(_,i)=>({id:100+i,role:'customer',name:'Customer '+i,username:'customer'+i,email:`customer${i}@gmail.com`}))];
   const prefs=new Map(),states=new Map(),writes=[];
-  let failCreate=false,failNotifications=false,holdIdentity=false,releases=[];
+  let failCreate=false,failDelete=false,failNotifications=false,holdIdentity=false,releases=[];
   const events=[{id:71,type:'order',title:'New order request',message:'A shared order requires review.'},{id:72,type:'account_request',title:'Staff access request',message:'A request is waiting.'},{id:73,type:'appointment',title:'New appointment',message:'An appointment requires review.'}].map(e=>({...e,created_at:new Date().toISOString(),metadata:{}}));
   const identity=req=>Number(String(req.headers.authorization||'').replace('Bearer fixture-',''))||11;
   const state=(id,event)=>{const key=id+':'+event;if(!states.has(key))states.set(key,{read:false,hidden:false});return states.get(key);};
@@ -29,7 +29,13 @@ test('multiple Admins share records while identity, preferences, notifications a
         const created={id:200+users.length,name:input.name,username:input.username,email:input.email,role:input.role,created_at:new Date().toISOString()};
         users.push(created);json({data:created},201);return true;
       }
-      json({data:users.map(u=>({...u,created_at:u.created_at||'2026-11-01T00:00:00Z',can_delete:u.id!==id,delete_block_reason:u.id===id?'Your signed-in account cannot be deleted.':null}))});return true;
+      json({data:users.map(u=>({...u,created_at:u.created_at||'2026-11-01T00:00:00Z',can_delete:u.id!==id&&!u.is_builtin_admin,delete_block_reason:u.is_builtin_admin?'The built-in Admin account is protected and cannot be deleted.':u.id===id?'Your signed-in account cannot be deleted.':null}))});return true;
+    }
+    if(/^\/api\/users\/\d+$/.test(route)&&req.method==='DELETE'){
+      const target=Number(route.split('/').pop());
+      if(failDelete){json({message:'The account changed. Review the current directory.'},422);return true;}
+      if(target===id||users.find(u=>u.id===target)?.is_builtin_admin){json({message:'This Admin account is protected.'},422);return true;}
+      users=users.filter(u=>u.id!==target);json({message:'User account deleted successfully.'});return true;
     }
     if(route==='/api/admin/notifications'||route==='/api/admin/notifications/unread-count'){
       const data=events.filter(e=>(user.role==='admin'||e.type!=='account_request')&&!state(id,e.id).hidden).map(e=>({...e,is_read:state(id,e.id).read}));
@@ -55,6 +61,26 @@ test('multiple Admins share records while identity, preferences, notifications a
   const closePopup=async browser=>browser.run(`if(document.getElementById('adminSystemPopup')?.classList.contains('show'))document.getElementById('adminSystemPopupOk').click()`);
   await h.go('/admin-page/accounts.html');await ready(h);
   await peer.go('/admin-page/accounts.html');await ready(peer);
+  assert.equal(await peer.run(`document.querySelector('[data-user-delete="11"]').disabled`),true,'a peer cannot delete the built-in Admin');
+  assert.equal(await peer.run(`document.querySelector('[data-admin-bulk-row="users"][value="11"]').disabled`),true,'bulk selection also protects the built-in Admin');
+  assert.equal(await peer.run(`document.querySelector('[data-user-delete="11"]').getAttribute('aria-label')`),'The built-in Admin account is protected and cannot be deleted.');
+  assert.equal(await peer.run(`document.querySelector('.accounts-builtin-label').textContent`),'Built-in Admin · Protected');
+  await h.run(`document.getElementById('accountsSearchInput').value='customer0';document.getElementById('accountsSearchInput').dispatchEvent(new Event('input'))`);
+  assert.equal(await h.run(`document.querySelector('[data-user-delete="100"]').disabled`),false,'the built-in Admin can delete other users');
+  await h.run(`document.querySelector('[data-user-delete="100"]').click()`);
+  await h.until(`document.getElementById('modalDeleteAccount').classList.contains('show')`);
+  assert.match(await h.run(`document.getElementById('modalDeleteAccount').textContent`),/payment records will be preserved/);
+  failDelete=true;
+  await h.run(`document.getElementById('btnConfirmDeleteAccount').click()`);
+  await h.until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Delete Failed'`);
+  assert.equal(await h.run(`document.getElementById('modalDeleteAccount').classList.contains('show')`),true,'failed deletion stays reviewable');
+  assert(users.some(u=>u.id===100));
+  await closePopup(h);failDelete=false;
+  await h.run(`document.getElementById('btnConfirmDeleteAccount').click()`);
+  await h.until(`!document.getElementById('modalDeleteAccount').classList.contains('show')&&!document.querySelector('[data-user-delete="100"]')`);
+  await closePopup(h);
+  assert(!users.some(u=>u.id===100));
+  await h.run(`document.getElementById('accountsSearchInput').value='';document.getElementById('accountsSearchInput').dispatchEvent(new Event('input'))`);
   await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await h.until(`!document.querySelector('.fmrc-load-veil.is-on')`);await h.pause(350);
   await h.until(`document.querySelector('#accountsTable .atr-handle')!==null`);

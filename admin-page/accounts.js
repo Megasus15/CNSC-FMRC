@@ -329,14 +329,14 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr>
               <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${window.AdminTableValue.html(user?.name || "user")}" ${protectedAccount ? `disabled title="${window.AdminTableValue.html(protectionReason)}"` : ""} /></td>
               <td>${displayIndex}</td>
-              <td>${window.AdminTableValue.html(user?.name)}</td>
+              <td>${window.AdminTableValue.html(user?.name)}${user.is_builtin_admin ? '<span class="accounts-builtin-label">Built-in Admin · Protected</span>' : ''}</td>
               <td>${displayUsername}</td>
               <td>${displayEmail}</td>
               <td><span class="role-tag ${roleClass}">${displayRole}</span></td>
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
                 <button type="button" data-tooltip="View User" data-user-view="${user.id}"><i class="fa-regular fa-eye"></i></button>
-                <button type="button" data-tooltip="${window.AdminTableValue.html(protectionReason || 'Delete User')}" data-user-delete="${user.id}" ${protectedAccount ? "disabled" : ""}><i class="fa-regular fa-trash-can"></i></button>
+                <button type="button" data-tooltip="${window.AdminTableValue.html(protectionReason || 'Delete User')}" title="${window.AdminTableValue.html(protectionReason || 'Delete User')}" aria-label="${window.AdminTableValue.html(protectionReason || 'Delete ' + user.name)}" data-user-delete="${user.id}" ${protectedAccount ? "disabled" : ""}><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
               </td>
             </tr>
           `;
@@ -380,7 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
       actions: [
         {
           key: "delete",
-          label: "Permanently delete selected users",
+          label: "Delete selected accounts",
           icon: "fa-trash-can",
           className: "admin-bulk-delete",
           onClick: (ids, controller) => {
@@ -390,6 +390,7 @@ document.addEventListener("DOMContentLoaded", () => {
               action: "delete",
               tableLabel: "User Directory records",
               irreversible: true,
+              confirmMessage: `Delete ${ids.length} selected account(s)? They will lose sign-in access and leave User Management. Existing order, agreement and payment records will be preserved.`,
               loadingText: "Deleting...",
               execute: async (selectedIds) => {
                 const response = await fetch(
@@ -731,7 +732,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) {
       window.showAdminPopup?.(payload?.message || "Unable to delete account.", {
         title: "Delete Failed",
+        type: "error",
       });
+      if (response.status === 404 || response.status === 422) await loadAccounts();
       return false;
     }
 
@@ -1054,6 +1057,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Password Sign-in</div><div><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></div></div>
             <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Google Sign-in</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${user?.signed_with_google === true ? "Enabled" : "Not used"}</div></div>
             <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${formatDate(user?.created_at)}</div></div>
+            ${user?.delete_block_reason ? `<div class="field-hint" style="grid-column:1/-1;">${escapeHtml(user.delete_block_reason)}</div>` : ''}
           </div>`;
       }
       modalViewUser?.classList.add("show");
@@ -1076,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const deleteBtn = target.closest("[data-user-delete]");
-    if (!deleteBtn) return;
+    if (!deleteBtn || deleteBtn.disabled) return;
 
     const userId = Number(deleteBtn.getAttribute("data-user-delete") || 0);
     if (!userId) return;
@@ -1096,7 +1100,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnConfirmDeleteAccount?.addEventListener("click", async () => {
-    if (!state.activeDeleteId) return;
+    if (!state.activeDeleteId || btnConfirmDeleteAccount.disabled) return;
 
     const originalDeleteButtonHtml = btnConfirmDeleteAccount.innerHTML;
     btnConfirmDeleteAccount.disabled = true;

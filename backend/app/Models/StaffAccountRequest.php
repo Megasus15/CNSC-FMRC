@@ -99,13 +99,13 @@ class StaffAccountRequest extends Model
     /** The administrator who approved or rejected this request. */
     public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'reviewed_by')->withTrashed();
     }
 
     /** The staff account an approval created. */
     public function createdUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_user_id');
+        return $this->belongsTo(User::class, 'created_user_id')->withTrashed();
     }
 
     /** Applicant's display name, never blank. */

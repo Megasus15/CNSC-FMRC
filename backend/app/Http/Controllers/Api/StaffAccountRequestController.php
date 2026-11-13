@@ -432,12 +432,12 @@ class StaffAccountRequestController extends Controller
      */
     private function claimedSinceSubmission(string $email, string $username): ?string
     {
-        if (User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
+        if (User::withTrashed()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
             return 'That Gmail address now belongs to an existing account, so this request '
                 . 'cannot be approved. Reject it and ask the applicant to use "Forgot Password?" instead.';
         }
 
-        if (User::query()->whereRaw('LOWER(username) = ?', [strtolower($username)])->exists()) {
+        if (User::withTrashed()->whereRaw('LOWER(username) = ?', [strtolower($username)])->exists()) {
             return 'That username was taken by another account while this request was waiting. '
                 . 'Reject it and ask the applicant to submit a new request with a different username.';
         }

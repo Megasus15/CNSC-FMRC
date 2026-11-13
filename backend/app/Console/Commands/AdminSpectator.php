@@ -32,7 +32,7 @@ class AdminSpectator extends Command
             return self::FAILURE;
         }
 
-        $matches = User::query()->where('username', self::USERNAME)->orWhere('email', self::EMAIL)->get();
+        $matches = User::withTrashed()->where(fn ($query) => $query->where('username', self::USERNAME)->orWhere('email', self::EMAIL))->get();
         $user = $matches->first();
 
         if ($matches->count() > 1 || ($user && (! $user->isSpectator()
@@ -45,13 +45,20 @@ class AdminSpectator extends Command
             if ($user) {
                 DB::transaction(function () use ($user): void {
                     $user->tokens()->delete();
-                    $user->delete();
+                    // This exact, view-only fixture has no operational records.
+                    // Preserve the command's existing ability to provision it again.
+                    $user->forceDelete();
                 });
                 $this->info('Presentation account removed and its tokens revoked.');
             } else {
                 $this->info('No presentation account exists.');
             }
             return self::SUCCESS;
+        }
+
+        if ($user?->trashed()) {
+            $this->error('The presentation account was deleted. Run admin:spectator --remove before creating it again.');
+            return self::FAILURE;
         }
 
         if ($user && $this->option('expires') === null) {

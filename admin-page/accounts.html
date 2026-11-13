@@ -14,6 +14,7 @@
     <title>User Management | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css?v=2026.1108.1" />
     <link rel="stylesheet" href="admin-modules.css?v=2026.1113.5" />
+    <link rel="stylesheet" href="accounts.css?v=2026.1113.10" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -245,7 +246,8 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table enhanced-table accounts-table" id="accountsTable">
+                <p id="accountDeletionHint" class="field-hint accounts-deletion-hint">The built-in Admin and your signed-in account are protected. Deleting another account removes its access while keeping order, agreement and payment history.</p>
+                <table class="admin-table enhanced-table accounts-table" id="accountsTable" aria-describedby="accountDeletionHint">
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
@@ -309,7 +311,7 @@
                     <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
                   </select>
-                  <p id="createAdminAccessHint" class="field-hint" hidden>Full administrative access, including User Management. This account has its own sign-in and personal settings.</p>
+                  <p id="createAdminAccessHint" class="field-hint" hidden>Full administrative access, including User Management. This account has its own sign-in and personal settings. The built-in Admin remains protected.</p>
                 </div>
                 <div class="field-stack">
                   <label for="createUserUsername">Username</label>
@@ -428,7 +430,7 @@
           <strong id="deleteAccountTargetLabel">this account</strong>.
         </p>
         <p class="field-hint">
-          This action permanently removes this account from the database.
+          This account will lose sign-in access and leave User Management. Existing orders, agreements and payment records will be preserved.
         </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
@@ -541,7 +543,7 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1113.9"></script>
-    <script src="accounts.js?v=2026.1113.9"></script>
+    <script src="accounts.js?v=2026.1113.10"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

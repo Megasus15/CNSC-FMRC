@@ -76,7 +76,7 @@ class MultipleAdminsTest extends TestCase
         $this->assertFalse(collect($users)->firstWhere('id',$second->id)['can_delete']);
         $this->assertTrue(collect($users)->firstWhere('id',$first->id)['can_delete']);
         $this->deleteJson('/api/users/'.$first->id)->assertOk();
-        $this->assertDatabaseMissing('users',['id'=>$first->id]);
+        $this->assertSoftDeleted('users',['id'=>$first->id]);
         $this->assertEquals(1,$second->tokens()->count());
         $this->assertDatabaseMissing('personal_access_tokens',['tokenable_id'=>$first->id]);
         // An action authenticated before a competing deletion must recheck the
@@ -139,7 +139,7 @@ class MultipleAdminsTest extends TestCase
         $this->assertEquals(1,$a->tokens()->count()); $this->assertEquals(1,$b->tokens()->count());
     }
 
-    public function test_retained_agreement_blocks_peer_admin_deletion_in_the_directory_and_endpoints(): void
+    public function test_retained_agreement_no_longer_blocks_account_deletion_or_erases_its_history(): void
     {
         $actor=User::factory()->create(['role'=>'admin']); $peer=User::factory()->create(['role'=>'admin']);
         $customer=User::factory()->create(['role'=>'customer']);
@@ -147,10 +147,11 @@ class MultipleAdminsTest extends TestCase
         DB::table('appointment_product_messages')->insert(['job_id'=>$job,'sender_id'=>$peer->id,'sender_name'=>$peer->name,'sender_role'=>'admin','body'=>'A retained agreement note','request_key'=>'kept-note']);
         $peer->createToken('retained-peer'); Sanctum::actingAs($actor);
         $rows=$this->getJson('/api/users')->assertOk()->json('data');
-        $this->assertFalse(collect($rows)->firstWhere('id',$peer->id)['can_delete']);
-        $this->deleteJson('/api/users/'.$peer->id)->assertUnprocessable();
-        $this->deleteJson('/api/users/delete-bulk',['ids'=>[$peer->id]])->assertUnprocessable();
-        $this->assertDatabaseHas('users',['id'=>$peer->id]);
-        $this->assertEquals(1,$peer->tokens()->count());
+        $this->assertTrue(collect($rows)->firstWhere('id',$peer->id)['can_delete']);
+        $this->deleteJson('/api/users/'.$peer->id)->assertOk();
+        $this->assertSoftDeleted('users',['id'=>$peer->id]);
+        $this->assertEquals(0,$peer->tokens()->count());
+        $this->assertDatabaseHas('appointment_product_messages',['job_id'=>$job,'sender_id'=>$peer->id]);
+        $this->assertFalse(collect($this->getJson('/api/users')->assertOk()->json('data'))->contains('id',$peer->id));
     }
 }

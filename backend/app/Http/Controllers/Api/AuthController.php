@@ -344,7 +344,10 @@ class AuthController extends Controller
             }
             $baseUsername = substr($baseUsername, 0, 15);
 
-            $user = User::where('email', $email)->first();
+            $user = User::withTrashed()->where('email', $email)->first();
+            if ($user?->trashed()) {
+                return response()->json(['message' => 'This account has been deleted. Contact FMRC if you need assistance.'], 403);
+            }
 
             // A verified Google identity cannot bypass an active password
             // lockout, including one created through the other portal route.
@@ -373,7 +376,7 @@ class AuthController extends Controller
             if (!$user) {
                 $username = $baseUsername;
                 $counter = 1;
-                while (User::where('username', $username)->exists()) {
+                while (User::withTrashed()->where('username', $username)->exists()) {
                     $username = $baseUsername . $counter;
                     $counter++;
                 }
@@ -417,7 +420,7 @@ class AuthController extends Controller
                 if ($user->role === 'customer' && (empty($user->username) || str_contains($user->username, '@') || $user->username === explode('@', $email)[0])) {
                     $username = $baseUsername;
                     $counter = 1;
-                    while (User::where('username', $username)->where('id', '!=', $user->id)->exists()) {
+                    while (User::withTrashed()->where('username', $username)->where('id', '!=', $user->id)->exists()) {
                         $username = $baseUsername . $counter;
                         $counter++;
                     }
@@ -562,6 +565,7 @@ class AuthController extends Controller
 
         $columns = ['id', 'name', 'username', 'email', 'role', 'created_at'];
         if (Schema::hasColumn('users', 'is_spectator')) $columns[] = 'is_spectator';
+        if (Schema::hasColumn('users', 'is_builtin_admin')) $columns[] = 'is_builtin_admin';
         if ($this->supportsGooglePasswordState()) {
             $columns[] = 'signed_with_google';
             $columns[] = 'has_custom_password';
@@ -579,9 +583,8 @@ class AuthController extends Controller
         }
 
         $fullCount = AdminAccounts::fullCount($users);
-        $retained = \App\Services\AppointmentProducts::retainedAccountIds($users->modelKeys());
-        $users->each(function (User $user) use ($request, $fullCount, $retained) {
-            $reason = AdminAccounts::deletionBlocker($user, $request->user(), $fullCount, $retained);
+        $users->each(function (User $user) use ($request, $fullCount) {
+            $reason = AdminAccounts::deletionBlocker($user, $request->user(), $fullCount);
             $user->setAttribute('can_delete', $reason === null);
             $user->setAttribute('delete_block_reason', $reason);
         });
@@ -687,7 +690,7 @@ class AuthController extends Controller
 
         if (!$deletedIds) {
             return response()->json([
-                'message' => 'No eligible user accounts were found to delete. Your own account is protected.',
+                'message' => 'No eligible user accounts were found to delete. The built-in Admin and your signed-in account are protected.',
             ], 404);
         }
 
@@ -1125,7 +1128,7 @@ class AuthController extends Controller
 
         // Re-check uniqueness: another account could have claimed the address in the
         // 15 minutes the request sat waiting.
-        $taken = User::where('email', $newEmail)->where('id', '!=', $user->id)->exists();
+        $taken = User::withTrashed()->where('email', $newEmail)->where('id', '!=', $user->id)->exists();
         if ($taken) {
             DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
 
