@@ -708,6 +708,7 @@
     <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
+    <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.1" />
   </head>
   <body data-report-document-host>
     <div class="dashboard-container">
@@ -1058,35 +1059,32 @@
       </div>
     </div>
 
-    <div
-      class="modal-overlay"
-      id="modalViewInventoryItem"
-      data-backdrop-close="false"
-    >
-      <div
-        class="modal-card"
-        style="min-width: 480px; max-width: 600px; width: 100%"
-      >
-        <h3 class="modal-title" id="invViewTitle" style="margin-bottom: 4px">
-          Item Details
-        </h3>
-        <p
-          class="field-hint"
-          style="margin-bottom: 14px"
-          id="invViewSubtitle"
-        ></p>
-        <hr class="confirm-separator" />
-        <div id="invViewContent" style="margin-bottom: 16px"></div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewInv">
-            Close
+    <div class="modal-overlay portal-detail-dialog" id="modalViewInventoryItem" data-portal-detail-dialog data-backdrop-close="false" aria-hidden="true">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="invViewHeading" aria-describedby="invViewSubtitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5"/></svg>
+          </span>
+          <div class="portal-detail-dialog__heading">
+            <p class="portal-detail-dialog__eyebrow">Inventory</p>
+            <h2 class="portal-detail-dialog__title" id="invViewHeading" data-portal-detail-heading tabindex="-1">Item details</h2>
+          </div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close item details" title="Close item details">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
           </button>
-          <button class="btn-admin" id="btnEditFromViewInv" type="button">
-            <i class="fa-regular fa-pen-to-square"></i> Edit Item
-          </button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body" id="invViewBody" tabindex="0" role="region" aria-label="Inventory item information">
+          <div class="inv-detail-intro">
+            <h3 class="inv-detail-name" id="invViewTitle"></h3>
+            <p class="inv-detail-category" id="invViewSubtitle"></p>
+          </div>
+          <div id="invViewContent"></div>
         </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="btnCloseViewInv" type="button">Close</button>
+          <button class="btn-admin" id="btnEditFromViewInv" type="button"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Edit Item</button>
+        </footer>
+      </section>
     </div>
 
     <div
@@ -1538,7 +1536,8 @@
     <script src="../admin-page/admin-common.js?v=2026.1113.9"></script>
     <script src="../admin-page/reports.js?v=2026.1109.8"></script>
     <script src="../admin-page/inventory-report.js?v=1.1"></script>
-    <script src="../admin-page/inventory.js?v=2026.1113.9"></script>
+    <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.1"></script>
+    <script src="../admin-page/inventory.js?v=2026.1114.1"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

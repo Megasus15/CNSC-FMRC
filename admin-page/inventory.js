@@ -1498,131 +1498,101 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── View Modal ───────────────────────────────────────────────────────────────
-  const openViewModal = (item, { resetVariantPage = true } = {}) => {
+  const openViewModal = (item, { resetVariantPage = true, trigger = null } = {}) => {
     viewingItemId = item.id;
     if (resetVariantPage) viewVariantPage = 1;
-    if (invViewTitle)
-      invViewTitle.textContent = item.item_name || "Item Details";
-    if (invViewSubtitle)
-      invViewSubtitle.textContent = `${item.category} — ${item.unit}`;
+    if (invViewTitle) invViewTitle.textContent = item.item_name || "Unnamed item";
+    if (invViewSubtitle) invViewSubtitle.textContent = item.category || "Category not provided";
 
-    const statusText = displayStatus(item.status);
-    const statusCls = statusClass(statusText);
-    const remarksCls = remarksClass(item.remarks);
-    const remarksHtml = item.remarks
-      ? `<span class="remarks-pill ${remarksCls}">${escHtml(item.remarks)}</span>`
-      : '<span style="color:var(--portal-muted-color,#9ca3af);">--</span>';
-
+    const provided = value => value !== null && value !== undefined && String(value).trim() !== "";
+    const text = (value, empty) => provided(value) ? escHtml(value) : `<span class="inv-detail-missing">${empty}</span>`;
+    const pill = (value, className, empty = "Not provided") => provided(value)
+      ? `<span class="${className}">${escHtml(value)}</span>` : text(null, empty);
+    const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${path}</svg>`;
+    const sectionTitle = (title, path, count = "") => `<div class="inv-detail-section-heading">${icon(path)}<h4>${title}</h4>${count}</div>`;
     const variants = Array.isArray(item.variants) ? item.variants : [];
-    const variantTotalPages = Math.max(
-      1,
-      Math.ceil(variants.length / PAGE_SIZE),
-    );
-    viewVariantPage = Math.min(
-      Math.max(Number(viewVariantPage || 1), 1),
-      variantTotalPages,
-    );
+    const variantTotalPages = Math.max(1, Math.ceil(variants.length / PAGE_SIZE));
+    viewVariantPage = Math.min(Math.max(Number(viewVariantPage || 1), 1), variantTotalPages);
     const variantStart = (viewVariantPage - 1) * PAGE_SIZE;
-    const pagedVariants = variants.slice(
-      variantStart,
-      variantStart + PAGE_SIZE,
-    );
-    const variantRows = pagedVariants
-      .map((variant) => {
-        const variantStatus = displayStatus(
-          computeStatus(variant.on_hand, {
-            category: item.category,
-            itemId: item.id,
-            variantId: variant.id,
-            baseline: variant.initial_on_hand ?? variant.on_hand,
-          }),
-        );
-        const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${window.AdminTableValue.html(variantStatus)}</span>`;
-        const variantRemarksHtml = variant.remarks
-          ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${window.AdminTableValue.html(variant.remarks)}</span>`
-          : '<span style="color:var(--portal-muted-color,#9ca3af);">--</span>';
-        return `
-        <tr>
-          <td>${window.AdminTableValue.html(variant.name)}</td>
-          <td>${window.AdminTableValue.html(variant.description)}</td>
-          <td>${window.AdminTableValue.html(variant.unit)}</td>
-          <td>${window.AdminTableValue.html(variant.on_hand)}</td>
-          <td>${variantStatusHtml}</td>
-          <td>${variantRemarksHtml}</td>
-        </tr>
-      `;
-      })
-      .join("");
-
-    const variantsHtml = variants.length
-      ? `
-        <div class="inv-view-variants">
-          <div class="inv-view-section-title">Variants</div>
-          <div class="table-scroll-hint table-scroll-hint--mobile">
-            <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
-          </div>
-          <div class="table-wrapper">
-          <table class="inv-variant-table">
-            <thead>
-              <tr>
-                <th>Variant Name</th>
-                <th>Description</th>
-                <th>Unit</th>
-                <th>Stocks</th>
-                <th>Status</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>${variantRows}</tbody>
-          </table>
-          </div>
-          ${
-            variants.length > PAGE_SIZE
-              ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">
-                   <div class="table-footer-meta">${window.AdminTablePagination.label(viewVariantPage, variants.length, PAGE_SIZE)}</div>
-                   <div class="table-pagination" aria-label="Inventory variant pages">
-                     <button type="button" class="page-btn" data-inv-view-variant-prev ${viewVariantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-                     <input class="page-number" data-inv-view-variant-page type="number" min="1" max="${variantTotalPages}" value="${viewVariantPage}" inputmode="numeric" aria-label="Go to inventory variant page">
-                     <button type="button" class="page-btn" data-inv-view-variant-next ${viewVariantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                   </div>
-                 </div>`
-              : ""
-          }
+    const variantViews = variants.slice(variantStart, variantStart + PAGE_SIZE).map(variant => {
+      // The same rule resolver used by the inventory table determines each pill.
+      const status = provided(variant.on_hand) ? displayStatus(computeStatus(variant.on_hand, {
+        category: item.category, itemId: item.id, variantId: variant.id,
+        baseline: variant.initial_on_hand ?? variant.on_hand,
+      })) : null;
+      return {
+        name: text(variant.name, "Unnamed variant"),
+        description: text(variant.description, "No description added."),
+        unit: text(variant.unit, "Not provided"),
+        stock: text(variant.on_hand, "Not provided"),
+        status: pill(status, `status-pill ${statusClass(status)}`),
+        remarks: pill(variant.remarks, `remarks-pill ${remarksClass(variant.remarks)}`, "No remarks added."),
+      };
+    });
+    const variantRows = variantViews.map(v => `<tr><td>${v.name}</td><td>${v.description}</td><td>${v.unit}</td><td>${v.stock}</td><td>${v.status}</td><td>${v.remarks}</td></tr>`).join("");
+    const variantCards = variantViews.map(v => `
+      <li class="inv-detail-variant-card">
+        <h5 class="inv-detail-variant-name">${v.name}</h5>
+        <dl class="inv-detail-variant-facts">
+          <div><dt>Stock on hand</dt><dd>${v.stock}</dd></div><div><dt>Unit</dt><dd>${v.unit}</dd></div>
+          <div class="is-wide"><dt>Stock status</dt><dd>${v.status}</dd></div>
+          <div class="is-wide"><dt>Description</dt><dd>${v.description}</dd></div>
+          <div class="is-wide"><dt>Remarks</dt><dd>${v.remarks}</dd></div>
+        </dl>
+      </li>`).join("");
+    const pagination = variants.length > PAGE_SIZE ? `
+      <div class="table-footer inv-detail-pagination">
+        <div class="table-footer-meta" role="status">${window.AdminTablePagination.label(viewVariantPage, variants.length, PAGE_SIZE)}</div>
+        <div class="table-pagination" aria-label="Inventory variant pages">
+          <button type="button" class="page-btn" data-inv-view-variant-prev ${viewVariantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+          <input class="page-number" data-inv-view-variant-page type="number" min="1" max="${variantTotalPages}" value="${viewVariantPage}" inputmode="numeric" aria-label="Go to inventory variant page">
+          <button type="button" class="page-btn" data-inv-view-variant-next ${viewVariantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
         </div>
-      `
-      : `
-        <div class="inv-view-variants">
-          <div class="inv-view-section-title">Variants</div>
-          <div class="field-hint">No variants added.</div>
-        </div>
-      `;
+      </div>` : "";
+    const variantsHtml = `
+      <section class="inv-detail-section" aria-label="Item variants">
+        ${sectionTitle("Variants", '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>', `<span class="inv-detail-count" aria-label="${variants.length} variant${variants.length === 1 ? "" : "s"}">${variants.length}</span>`)}
+        ${variants.length ? `
+          <div class="inv-detail-table-frame">
+            <table class="inv-detail-table" aria-label="Inventory variant details">
+              <thead><tr><th scope="col">Variant</th><th scope="col">Description</th><th scope="col">Unit</th><th scope="col">Stock</th><th scope="col">Status</th><th scope="col">Remarks</th></tr></thead>
+              <tbody>${variantRows}</tbody>
+            </table>
+          </div>
+          <ul class="inv-detail-variant-cards" aria-label="Inventory variant details">${variantCards}</ul>
+          ${pagination}` : '<p class="inv-detail-copy is-empty">This item has no variants.</p>'}
+      </section>`;
 
-    const hasVariants = variants.length > 0;
-    if (invViewSubtitle) {
-      invViewSubtitle.textContent = hasVariants
-        ? `${variants.length} variant${variants.length !== 1 ? "s" : ""}`
-        : `${item.category} — ${item.unit}`;
-    }
-
+    const status = displayStatus(item.status);
     if (invViewContent) {
+      const body = modalView.querySelector(".portal-detail-dialog__body");
+      const scrollTop = body?.scrollTop || 0;
+      const active = invViewContent.contains(document.activeElement) ? document.activeElement : null;
+      const focusAttribute = ["data-inv-view-variant-prev", "data-inv-view-variant-next", "data-inv-view-variant-page"].find(name => active?.hasAttribute(name));
       invViewContent.innerHTML = `
-        ${
-          hasVariants
-            ? `<div class="field-hint" style="margin-bottom:12px;">This item has ${variants.length} variant${variants.length !== 1 ? "s" : ""}. See individual variant stock details below.</div>`
-            : `
-          <div class="inv-view-grid">
-            <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
-            <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
-            <div><div class="inv-view-label">Stocks On Hand</div><div class="inv-view-value">${item.on_hand}</div></div>
-            <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(statusText)}</span></div></div>
-            <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
-            <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
-          </div>`
-        }
+        ${variants.length ? `<p class="inv-detail-note">${icon('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>')}<span>Stock is tracked separately for each variant.</span></p>` : `
+          <dl class="inv-detail-overview">
+            <div class="inv-detail-fact"><dt class="inv-detail-label">Stock on hand</dt><dd><span class="inv-detail-quantity">${text(item.on_hand, "Not provided")}</span>${provided(item.unit) ? `<span class="inv-detail-unit">${escHtml(item.unit)}</span>` : '<span class="inv-detail-unit">Unit not provided</span>'}</dd></div>
+            <div class="inv-detail-fact"><dt class="inv-detail-label">Stock status</dt><dd>${pill(status, `status-pill ${statusClass(status)}`)}</dd></div>
+          </dl>`}
+        <section class="inv-detail-section" aria-label="Item description">
+          ${sectionTitle("Description", '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>')}
+          <p class="inv-detail-copy${provided(item.description) ? "" : " is-empty"}">${provided(item.description) ? escHtml(item.description) : "No description added."}</p>
+        </section>
+        <section class="inv-detail-section" aria-label="Item remarks">
+          ${sectionTitle("Remarks", '<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 1V4a1 1 0 0 1 1-1h8.5A8.5 8.5 0 0 1 21 11.5Z"/><path d="M7 8h9M7 12h7"/>')}
+          <p class="inv-detail-copy${provided(item.remarks) ? "" : " is-empty"}">${provided(item.remarks) ? pill(item.remarks, `remarks-pill ${remarksClass(item.remarks)}`) : "No remarks added."}</p>
+        </section>
         ${variantsHtml}`;
       window.AdminPageNumberInput?.upgrade(invViewContent);
+      if (!resetVariantPage) {
+        if (body) body.scrollTop = scrollTop;
+        const nextFocus = focusAttribute ? invViewContent.querySelector(`[${focusAttribute}]:not(:disabled)`) || invViewContent.querySelector("[data-inv-view-variant-page]") : null;
+        nextFocus?.focus({preventScroll: true});
+      }
     }
-    openModal(modalView);
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(modalView, {trigger, returnSelector: `[data-inv-view="${Number(item.id)}"]`});
+    else openModal(modalView);
   };
 
   btnCloseView?.addEventListener("click", () => closeModal(modalView));
@@ -1666,6 +1636,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnEditFromView?.addEventListener("click", () => {
     const item = allItems.find((x) => x.id === viewingItemId);
     if (!item) return;
+    window.PortalDetailDialog?.handoff(modalView, modalForm);
     closeModal(modalView);
     populateFormForEdit(item);
     captureInventoryFormBaseline();
@@ -2065,7 +2036,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (viewBtn) {
       const id = Number(viewBtn.getAttribute("data-inv-view"));
       const item = allItems.find((x) => x.id === id);
-      if (item) openViewModal(item);
+      if (item) openViewModal(item, {trigger: viewBtn});
       return;
     }
 
