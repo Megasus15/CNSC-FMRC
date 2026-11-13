@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const {browserFixture, chrome} = require('./helpers/website-browser.cjs');
 const prefix = 'editorial_about_university_';
 const vision = 'CNSC sample institutional vision.';
-const mission = 'A sample first paragraph describing teaching and research.\n\nA second paragraph with <b>literal markup</b> and '+ 'community work. '.repeat(28);
+const mission = 'A sample first paragraph\ndescribing teaching and research.\n\nA second paragraph with <b>literal markup</b> and '+ 'community work. '.repeat(28);
+const displayedMission = mission.replace('paragraph\ndescribing','paragraph describing');
 
 test('university statements save through both portals and publish together on About Us', {skip:!chrome, timeout:120000}, async t => {
   const original = {mission_text:'Existing FMRC mission.', vision_text:'Existing FMRC vision.', about_video_url:'',
@@ -102,7 +103,8 @@ test('university statements save through both portals and publish together on Ab
     assert.deepEqual(await h.run('fixtureErrors'),[]);
 
     await h.go('/about-page/about.html'); await visible();
-    assert.equal(await h.run(`document.querySelector('[data-editorial-copy="${prefix}mission_copy"]').textContent`),mission);
+    assert.equal(await h.run(`document.querySelector('[data-editorial-copy="${prefix}mission_copy"]').textContent`),displayedMission);
+    assert.equal(await h.run(`FMRC_PAGE_CONTENT.get('${prefix}mission_copy')`),mission,'saved wording and document line breaks remain intact');
     assert.equal(await h.run(`document.querySelector('.university-purpose-copy b')===null`),true,'markup stays literal');
     const footer = await h.run(`document.querySelector('.site-footer').innerHTML`);
     for (const width of [320,390,768,1024,1440]) {
@@ -113,6 +115,10 @@ test('university statements save through both portals and publish together on Ab
       assert.equal(geometry.stacked,width<768,`Customer ${width}: responsive card layout`);
       if(width>=768) assert(geometry.ratio>1.9,'mission has the wider panel');
       assert.equal(geometry.paragraphs,'pre-wrap'); assert.equal(geometry.ordered,true);
+      const reading = await h.run(`(()=>{const root=document.getElementById('universityPurposeSection'),vision=root.querySelector('.university-purpose-card--vision .university-purpose-copy'),mission=root.querySelector('.university-purpose-card--mission .university-purpose-copy');return {visionSize:parseFloat(getComputedStyle(vision).fontSize),missionSize:parseFloat(getComputedStyle(mission).fontSize),textWidth:mission.getBoundingClientRect().width,bodyWidth:mission.parentElement.getBoundingClientRect().width,icons:root.querySelectorAll('.university-purpose-icon svg').length,font:getComputedStyle(mission).fontFamily};})()`);
+      assert(reading.visionSize>=24 && reading.missionSize>=18,`Customer ${width}: comfortable statement type sizes`);
+      assert(Math.abs(reading.textWidth-reading.bodyWidth)<1,'mission uses the full reading column');
+      assert.equal(reading.icons,2); assert.match(reading.font,/Montserrat/);
       if(role==='admin' && [390,1440].includes(width)) await h.shot(`university-customer-${width}`);
     }
     // Exercise the existing carousel and lightbox beside the new content.

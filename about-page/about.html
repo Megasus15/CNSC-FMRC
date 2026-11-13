@@ -53,7 +53,7 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
-    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=2026.1113.7" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=2026.1113.8" />
     <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.9" />
     <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.8" />
     <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
@@ -427,15 +427,25 @@
             </div>
           </div>
           <div class="university-purpose-grid">
-            <article class="editorial-purpose-card university-purpose-card" aria-labelledby="universityVisionHeading">
+            <article class="editorial-purpose-card university-purpose-card university-purpose-card--vision" aria-labelledby="universityVisionHeading">
               <div class="editorial-purpose-body">
-                <h3 id="universityVisionHeading" data-editorial-copy="editorial_about_university_vision_title"></h3>
+                <div class="university-purpose-card-title">
+                  <span class="university-purpose-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false"><circle cx="12" cy="12" r="9" /><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z" /></svg>
+                  </span>
+                  <h3 id="universityVisionHeading" data-editorial-copy="editorial_about_university_vision_title"></h3>
+                </div>
                 <p class="editorial-copy university-purpose-copy" data-editorial-copy="editorial_about_university_vision_copy"></p>
               </div>
             </article>
-            <article class="editorial-purpose-card university-purpose-card" aria-labelledby="universityMissionHeading">
+            <article class="editorial-purpose-card university-purpose-card university-purpose-card--mission" aria-labelledby="universityMissionHeading">
               <div class="editorial-purpose-body">
-                <h3 id="universityMissionHeading" data-editorial-copy="editorial_about_university_mission_title"></h3>
+                <div class="university-purpose-card-title">
+                  <span class="university-purpose-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" focusable="false"><path d="M12 6.5C9.2 4.8 5.7 4.3 3 5v14c2.7-.7 6.2-.2 9 1.5 2.8-1.7 6.3-2.2 9-1.5V5c-2.7-.7-6.2-.2-9 1.5Zm0 0v14" /></svg>
+                  </span>
+                  <h3 id="universityMissionHeading" data-editorial-copy="editorial_about_university_mission_title"></h3>
+                </div>
                 <p class="editorial-copy university-purpose-copy" data-editorial-copy="editorial_about_university_mission_copy"></p>
               </div>
             </article>
@@ -805,7 +815,7 @@
          `window.FMRCLoader?.…`, so if this one request ever fails the affected
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=2.2"></script>
-    <script defer src="../home-page/page-content.js?v=2026.1113.7"></script>
+    <script defer src="../home-page/page-content.js?v=2026.1113.8"></script>
     <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script defer src="../products-page/gateway-payments.js?v=2026.1113.3"></script>

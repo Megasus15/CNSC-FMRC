@@ -134,7 +134,11 @@
         element.setAttribute("placeholder", valueFor(snapshot, field));
       } else {
         const value = valueFor(snapshot, field);
-        element.textContent = value;
+        // Pasted document lines reflow naturally; blank lines retain paragraphs.
+        // Keep the saved text unchanged in the editor and settings snapshot.
+        element.textContent = /^editorial_about_university_(vision|mission)_copy$/.test(field.key)
+          ? value.split(/\r?\n(?:[\t ]*\r?\n)+/).map(paragraph => paragraph.replace(/[\t ]*\r?\n[\t ]*/g, " ")).join("\n\n")
+          : value;
         const control = element.closest?.("a, button");
         // Keep editable action labels accessible even when the visible wording
         // is intentionally cleared. Service buttons retain their full title.

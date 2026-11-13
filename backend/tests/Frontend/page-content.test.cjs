@@ -73,6 +73,10 @@ test('university statements start empty and display together only after both con
   assert.equal(mission.textContent, draft.editorial_about_university_mission_copy);
   api.apply();
   assert.equal(university.hidden, false, 'reapplying the last saved snapshot preserves the section');
+  const pasted = {...draft, editorial_about_university_mission_copy:'First document line.\r\nSecond document line.\r\n \r\nA separate paragraph.'};
+  api.apply(pasted);
+  assert.equal(mission.textContent,'First document line. Second document line.\n\nA separate paragraph.');
+  assert.equal(api.get('editorial_about_university_mission_copy'),pasted.editorial_about_university_mission_copy,'display reflow does not rewrite saved copy');
   for (const blank of ['', ' \n\t ', null]) {
     api.apply({...draft, editorial_about_university_mission_copy:blank});
     assert.equal(university.hidden, true);
