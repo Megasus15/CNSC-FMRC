@@ -100,7 +100,9 @@ class OnlineRefundArchiveTest extends TestCase
         $payment=$this->payment(); $this->refund($payment,'failed',100); $this->refund($payment,'succeeded',100);
         $actor=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($actor);
         $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertOk();
-        app(GatewayPayments::class)->requestRefund($payment,100,'Additional approved refund',$actor->id,(string)Str::uuid());
+        $return=\App\Models\OrderReturn::create(['order_id'=>$payment->order_id,'customer_id'=>$payment->order->customer_id,'return_no'=>'RTN-ARCHIVE',
+            'status'=>'item_received','resolution'=>'refund','reason'=>'damaged','requested_amount'=>10,'approved_amount'=>10]);
+        app(GatewayPayments::class)->requestRefund($payment,100,'Additional approved return refund',$actor->id,(string)Str::uuid(),$return->id);
         $this->assertNull($payment->fresh()->online_refund_archived_at);
         $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',1)
             ->assertJsonPath('payments.data.0.can_archive_refunds',false);

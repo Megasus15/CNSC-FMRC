@@ -13,6 +13,7 @@ final class OrderApproval
     {
         $custom = AppointmentProducts::custom($order);
         $reason = match (true) {
+            RefundedOrderReview::required($order) => 'Admin must resolve this refunded order before fulfillment.',
             OrderReview::blockedReason($order) !== null => OrderReview::blockedReason($order),
             (bool) $order->is_archived => 'Restore this order before continuing.',
             $order->lifecycle_status !== 'incoming' => 'This order is no longer awaiting approval.',

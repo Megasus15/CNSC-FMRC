@@ -157,6 +157,7 @@ class GatewayPaymentsTest extends TestCase {
     }
     public function test_refunds_require_admin_and_provider_confirmation_with_cumulative_limits(): void {
         $o=$this->order();$a=$this->attempt($o);app(GatewayPayments::class)->applySession($a->id,$this->providerSession($a));
+        $o->update(['lifecycle_status'=>'cancelled']);
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
         $body=['amount_centavos'=>20000,'reason'=>'Partial return','request_key'=>(string)Str::uuid()];
         $id=$this->postJson('/api/admin/orders/'.$o->id.'/gateway-refunds',$body)->assertCreated()->json('data.id');
@@ -208,6 +209,7 @@ class GatewayPaymentsTest extends TestCase {
     }
     public function test_full_refund_is_closed_only_when_provider_confirms(): void {
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Cancelled',$admin->id,(string)Str::uuid());
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_full','attributes'=>['amount'=>50000,'currency'=>'PHP','livemode'=>false,'payment_id'=>$o->fresh()->payment->paymongo_payment_id,'status'=>'succeeded']]])]);
         $g->approveRefund($r->id,$admin->id);$g->approveRefund($r->id,$admin->id);$this->assertPaymentRequestCount(1);
@@ -215,6 +217,7 @@ class GatewayPaymentsTest extends TestCase {
     }
     public function test_definitive_refund_failure_releases_reserved_amount_for_new_request(): void {
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Cancelled',$admin->id,(string)Str::uuid());
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::response([],422)]);$g->approveRefund($r->id,$admin->id);
         $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'failed']);
@@ -254,6 +257,7 @@ class GatewayPaymentsTest extends TestCase {
         foreach (['requested','submitting','pending','unknown','failed','rejected','succeeded'] as $status) {
             $order=$this->order();$attempt=$this->attempt($order,false,'qrph');
             $gateway->applySession($attempt->id,$this->providerSession($attempt,['source'=>['type'=>'qrph']]));
+            $order->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
             $refund=$gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid());
             DB::table('payment_refunds')->where('id',$refund->id)->update(['status'=>$status]);$refundOrders[]=$order->payment->id;
         }
@@ -277,7 +281,7 @@ class GatewayPaymentsTest extends TestCase {
         $admin=User::factory()->create(['role'=>'admin']);$gateway=app(GatewayPayments::class);
         for($i=0;$i<22;$i++) {
             $order=$this->order();$attempt=$this->attempt($order);$gateway->applySession($attempt->id,$this->providerSession($attempt));
-            if($i<21) $gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid());
+            if($i<21) { $order->update(['lifecycle_status'=>'cancelled']); $gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid()); }
         }
         Sanctum::actingAs($admin);
         $first=$this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',21)->assertJsonPath('payments.last_page',3)->assertJsonCount(10,'payments.data');
@@ -423,6 +427,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order();$a=$this->attempt($o,false,'qrph');$gateway=app(GatewayPayments::class);
         $gateway->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $payment=$o->fresh()->payment;$admin=User::factory()->create(['role'=>'admin']);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $refund=$gateway->requestRefund($payment,50000,'Cancelled order',$admin->id,(string)Str::uuid());
         config(['payments.paymongo.checkout_method'=>'gcash']);
         Http::fake(['api.paymongo.com/v1/refunds'=>function($request) use ($payment) {
@@ -491,6 +496,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(); $a=$this->attempt($o,false,'qrph'); $g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $admin=User::factory()->create(['role'=>'admin']);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $g->requestRefund($o->fresh()->payment,10000,'Partial adjustment',$admin->id,(string)Str::uuid());
         $o->update(['lifecycle_status'=>'rejected']);
         $this->artisan('payments:reconcile')->assertSuccessful(); $this->artisan('payments:reconcile')->assertSuccessful();
@@ -532,6 +538,7 @@ class GatewayPaymentsTest extends TestCase {
 
     public function test_admin_can_issue_a_refund_directly_while_staff_requires_approval(): void {
         $o=$this->order();$a=$this->attempt($o,false,'qrph');$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $o->update(['lifecycle_status'=>'cancelled']);
         $url='/api/admin/orders/'.$o->id.'/gateway-refunds';$body=['amount_centavos'=>50000,'reason'=>'Order adjustment','request_key'=>(string)Str::uuid(),'issue'=>true];
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));$this->postJson($url,$body)->assertForbidden();$this->assertDatabaseCount('payment_refunds',0);
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
@@ -558,7 +565,7 @@ class GatewayPaymentsTest extends TestCase {
     }
 
     public function test_resolution_change_is_blocked_by_a_reserved_refund_even_if_return_status_is_old(): void {
-        $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']);$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
         $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RESERVED','status'=>'item_received','resolution'=>'refund','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
         $admin=User::factory()->create(['role'=>'admin']);Sanctum::actingAs($admin);
         $g->requestRefund($o->fresh()->payment,50000,'Reserved refund',$admin->id,(string)Str::uuid(),$return->id);
@@ -791,6 +798,7 @@ class GatewayPaymentsTest extends TestCase {
             $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
             $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
             $admin=User::factory()->create(['role'=>'admin']);
+            $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
             $r=$g->requestRefund($o->fresh()->payment,50000,'Claim test',$admin->id,(string)Str::uuid());
             $id='ref_embedded'.$r->id;
             $attrs=['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/fallback-claim'];
@@ -850,6 +858,7 @@ class GatewayPaymentsTest extends TestCase {
         config(['payments.paymongo.secret_key'=>'sk_live_example']);
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
         $attrs=['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/claim-fixture'];
         Http::fake(function() use (&$attrs) {return Http::response(['data'=>['id'=>'ref_claimfail','attributes'=>$attrs]]);});
@@ -869,6 +878,7 @@ class GatewayPaymentsTest extends TestCase {
         config(['payments.paymongo.secret_key'=>'sk_live_example']);
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Rejected order',$admin->id,(string)Str::uuid());
         Http::fake(['*'=>Http::response([],503)]);
         $g->approveRefund($r->id,$admin->id);
@@ -882,6 +892,7 @@ class GatewayPaymentsTest extends TestCase {
 
     public function test_signed_refund_success_event_updates_without_waiting_for_the_cron(): void {
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
         DB::table('payment_refunds')->where('id',$r->id)->update(['approved_by'=>$admin->id,'provider_refund_id'=>'ref_event','status'=>'pending']);
         Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_event','attributes'=>['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded']]])]);
@@ -897,6 +908,7 @@ class GatewayPaymentsTest extends TestCase {
             $this->assertNull(\App\Support\RefundStatus::safeTransferLink($url,true));
         }
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
         DB::table('payment_refunds')->where('id',$r->id)->update(['status'=>'pending']);
         \App\Models\OrderTrackingEvent::create(['order_id'=>$o->id,'stage'=>'to_pay','event_type'=>'system','title'=>'Refund ready to claim','occurred_at'=>now(),'metadata'=>['refund_id'=>$r->id,'transfer_link'=>'https://transfer.paymongo.com/expired','claim_expires_at'=>now()->subMinute()->toIso8601String()]]);
@@ -911,6 +923,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $admin=User::factory()->create(['role'=>'admin']);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $r=$g->requestRefund($o->fresh()->payment,50000,'Order rejected',$admin->id,(string)Str::uuid());
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::sequence()
             ->push(['errors'=>[['code'=>'insufficient_balance','detail'=>'Insufficient funds private@example.test sk_live_do_not_expose']]],422)
@@ -938,6 +951,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $admin=User::factory()->create(['role'=>'admin']);$staff=User::factory()->create(['role'=>'staff']);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $r=$g->requestRefund($o->fresh()->payment,50000,'Rejected order',$admin->id,(string)Str::uuid());
         Sanctum::actingAs($staff);
         $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/check')->assertOk()->assertJsonPath('data.status','requested');Http::assertNothingSent();
@@ -1000,6 +1014,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(); $a=$this->attempt($o,true,'qrph'); $g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $r=$g->requestRefund($o->fresh()->payment,50000,'Cancelled order',$admin->id,(string)Str::uuid());
         $url='/api/admin/gateway-refunds/'.$r->id.'/approve';
         $this->postJson($url)->assertUnprocessable()->assertJsonPath('message','Top up the PayMongo wallet to cover this refund, then issue it again. Scheduled payouts are not available funds.');
@@ -1027,6 +1042,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(); $a=$this->attempt($o,true,'qrph'); $g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $r=$g->requestRefund($o->fresh()->payment,100,'Cancelled order',$admin->id,(string)Str::uuid());
         $this->walletHttpStatus=503;
         $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertUnprocessable()->assertJsonPath('message','Wallet balance unavailable. Check PayMongo before issuing a refund.');
@@ -1055,6 +1071,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(); $a=$this->attempt($o); $g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a));
         $admin=User::factory()->create(['role'=>'admin']);
+        $o->update(['lifecycle_status'=>'cancelled']); // Resolve the order before refunding its valid payment.
         $r=$g->requestRefund($o->fresh()->payment,100,'Cancelled order',$admin->id,(string)Str::uuid());
         DB::table('payment_refunds')->where('id',$r->id)->update(['status'=>'failed']);
         $metadata=['refund_id'=>$r->id,'error_code'=>'unprocessable_entity','failure_message'=>'The refund exceeds the amount PayMongo can still return.'];

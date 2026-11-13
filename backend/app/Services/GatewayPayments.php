@@ -5,6 +5,7 @@ use App\Models\{Order, Payment, OrderTrackingEvent, AdminNotification};
 use Illuminate\Support\Facades\{DB, Cache};
 use Illuminate\Support\Str;
 use App\Support\OrderReview;
+use App\Support\OrderRefundEligibility;
 use Illuminate\Support\Carbon;
 
 class GatewayPayments
@@ -269,6 +270,8 @@ class GatewayPayments
                 abort_unless($existing->payment_id === $payment->id && (int) $existing->order_return_id === (int) $returnId && (int) $existing->amount_centavos === $amount && $existing->reason === $reason && $existing->provider_payment_id === $providerPaymentId, 409, 'This request key has already been used.'); return $existing;
             }
             abort_unless(self::managed($payment) && $receipt && in_array($payment->status, ['paid','refunded'], true), 422, 'A confirmed online payment is required.');
+            $eligibility = OrderRefundEligibility::action($order, $payment, $providerPaymentId, $amount, $returnId, (string) \App\Models\User::find($actor)?->role);
+            abort_unless($eligibility['allowed'], 422, $eligibility['reason'] ?? 'This refund is unavailable.');
             if ($returnId) {
                 $return = \App\Models\OrderReturn::whereKey($returnId)->where('order_id', $payment->order_id)->lockForUpdate()->firstOrFail();
                 abort_unless($return->resolution === 'refund', 422, 'Approve this return for a refund first.');
@@ -302,12 +305,16 @@ class GatewayPayments
         });
     }
     public function approveRefund(int $id, int $actor): void {
+        abort_unless(\App\Models\User::find($actor)?->role === 'admin', 403, 'Only Admin can authorize an online refund.');
         $lock = Cache::lock('payment-refund:'.$id,30);
         if (!$lock->get()) return;
         try {
         $candidate = DB::table('payment_refunds')->find($id);
         abort_unless($candidate, 404);
         if ($candidate->status !== 'requested') return;
+        $candidatePayment = Payment::with('order')->findOrFail($candidate->payment_id);
+        $eligibility = OrderRefundEligibility::action($candidatePayment->order, $candidatePayment, $candidate->provider_payment_id, (int) $candidate->amount_centavos, $candidate->order_return_id, 'admin', (int) $candidate->id);
+        abort_unless($eligibility['allowed'], 422, $eligibility['reason'] ?? 'This refund is unavailable.');
         abort_unless($this->provider->isConfigured() && (bool) $candidate->livemode === $this->provider->isLive(), 422, 'The payment provider is unavailable.');
         $source = DB::table('payment_receipts')->where('payment_id',$candidate->payment_id)->where('provider_payment_id',$candidate->provider_payment_id)->value('source_type');
         if ($candidate->livemode && $source === 'qrph') {
@@ -319,10 +326,15 @@ class GatewayPayments
                 'Top up the PayMongo wallet to cover this refund, then issue it again. Scheduled payouts are not available funds.');
         }
         $refund = DB::transaction(function () use ($id, $actor) {
+            $initial = DB::table('payment_refunds')->find($id);
+            $initialPayment = Payment::findOrFail($initial->payment_id);
+            $order = Order::whereKey($initialPayment->order_id)->lockForUpdate()->firstOrFail();
+            $payment = Payment::whereKey($initialPayment->id)->lockForUpdate()->firstOrFail();
             $r = DB::table('payment_refunds')->where('id', $id)->lockForUpdate()->first();
             abort_unless($r, 404); if ($r->status !== 'requested') return null;
             abort_unless($this->provider->isConfigured() && (bool) $r->livemode === $this->provider->isLive(), 422, 'The payment provider is unavailable.');
-            $payment = Payment::findOrFail($r->payment_id);
+            $eligibility = OrderRefundEligibility::action($order, $payment, $r->provider_payment_id, (int) $r->amount_centavos, $r->order_return_id, 'admin', (int) $r->id);
+            abort_unless($eligibility['allowed'], 422, $eligibility['reason'] ?? 'This refund is unavailable.');
             $source = DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$r->provider_payment_id)->value('source_type');
             OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
                 'title'=>'Refund approved','description'=>'FMRC approved the refund for submission to the payment provider.','occurred_at'=>now(),

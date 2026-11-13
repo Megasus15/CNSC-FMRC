@@ -256,7 +256,7 @@ test('rejected provider payment exposes refund management and closes order detai
   const button=ui.modalPaymentVerifyBlock.child;
   assert.equal(button.hidden,false); assert.equal(button.dataset.gatewayManage,'1');
   assert.equal(button.className,'btn-admin btn-secondary gateway-order-action');
-  assert.equal(button.textContent,'Payment & refund details');
+  assert.equal(button.textContent,'Payment details');
   button.click(); assert.equal(ui.modalOrderDetails.classList.contains('show'),false);
 });
 

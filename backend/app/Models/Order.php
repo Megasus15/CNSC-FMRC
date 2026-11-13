@@ -223,6 +223,7 @@ class Order extends Model
     public function cancellationAvailability(): array
     {
         $deny = fn (string $why) => ['allowed' => false, 'immediate' => false, 'reason' => $why];
+        if (\App\Support\RefundedOrderReview::required($this)) return $deny('FMRC is reviewing this refunded order. No new payment or cancellation is needed.');
         if (\App\Services\AppointmentProducts::custom($this) && !in_array($this->lifecycle_status,['cancelled','rejected','completed'],true)) {
             if ($this->hasPendingCancellation()) return $deny('Your cancellation request is already being reviewed.');
             if ($this->appointment_production_status === 'in_production' || $this->appointment_production_status === 'ready') return $deny('Production has begun. Contact FMRC for assistance or use Return / Refund after receipt.');

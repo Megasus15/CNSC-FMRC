@@ -121,7 +121,7 @@ final class ShipmentTracking
             if (! $receipt->livemode && ! self::demoAllowed()) {
                 return 'This order has a test payment and cannot be dispatched as a real shipment.';
             }
-            if (DB::table('payment_refunds')->where('payment_id', $order->payment->id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
+            if (DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('provider_payment_id', $order->payment->paymongo_payment_id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
                 return 'Resolve the refund before recording a handover.';
             }
         }

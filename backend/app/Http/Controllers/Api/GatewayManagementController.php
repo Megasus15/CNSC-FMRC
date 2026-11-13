@@ -6,6 +6,7 @@ use App\Models\{Order, Payment};
 use App\Services\{GatewayPayments, PayMongoService};
 use App\Support\RefundStatus;
 use App\Support\OnlineRefundArchive;
+use App\Support\OrderRefundEligibility;
 use Illuminate\Http\{Request, JsonResponse};
 use Illuminate\Support\Facades\DB;
 
@@ -46,18 +47,34 @@ class GatewayManagementController extends Controller
         $currentStatuses=DB::table('payments')->whereIn('id',$ids)->pluck('status','id');
         $refunds = DB::table('payment_refunds')->whereIn('payment_id', $ids)->orderByDesc('id')->get();
         $archiveAvailable = OnlineRefundArchive::available();
+        $orders = Order::with('payment')->whereIn('id', collect($rows->items())->pluck('order_id'))->get()->keyBy('id');
+        $receipts = DB::table('payment_receipts')->whereIn('payment_id', $ids)->get();
         foreach($rows->items() as $row) {
             $row->status=$currentStatuses[$row->id] ?? $row->status;
             $row->cancel_reason_label=Order::CANCEL_REASON_LABELS[$row->cancel_reason] ?? $row->cancel_reason;
             $row->refund_archive_reason = OnlineRefundArchive::blockedReason($refunds->where('payment_id', $row->id), $row->cancel_state);
             $row->can_archive_refunds = $row->refund_archive_reason === null;
+            $order = $orders[$row->order_id];
+            foreach ($receipts->where('payment_id', $row->id) as $receipt) {
+                $receipt->refund_action = OrderRefundEligibility::action($order, $order->payment, $receipt->provider_payment_id, 100, null, $r->user()->role);
+                $receipt->refundable_centavos = OrderRefundEligibility::remaining($order->payment, $receipt->provider_payment_id);
+            }
+            $allowed = $receipts->where('payment_id', $row->id)->first(fn ($receipt) => $receipt->refund_action['allowed']);
+            $row->refund_action = $allowed?->refund_action ?? ['allowed' => false, 'reason' => 'Use cancellation, rejection, or an approved return before refunding the valid order payment.', 'label' => 'Request refund'];
+        }
+        foreach ($refunds as $refund) {
+            $order = $orders->first(fn ($order) => (int) $order->payment?->id === (int) $refund->payment_id);
+            $eligibility = OrderRefundEligibility::action($order, $order->payment, $refund->provider_payment_id, (int) $refund->amount_centavos, $refund->order_return_id, $r->user()->role, (int) $refund->id);
+            $refund->actions = ['approve' => ['allowed' => $r->user()->role === 'admin' && $refund->status === 'requested' && $eligibility['allowed'], 'reason' => $eligibility['reason']],
+                'retry' => ['allowed' => $refund->status === 'failed' && $eligibility['allowed'], 'reason' => $eligibility['reason']]];
+            $refund->refund_kind = $eligibility['kind'];
         }
         $summary = DB::table('payment_refunds')->where('livemode',$provider->isLive())
             ->where(fn($q)=>$q->whereNotIn('status',['failed','rejected'])->orWhereNotExists(fn($new)=>$new->selectRaw('1')->from('payment_refunds as newer')
                 ->whereColumn('newer.payment_id','payment_refunds.payment_id')->whereColumn('newer.provider_payment_id','payment_refunds.provider_payment_id')->whereColumn('newer.id','>','payment_refunds.id')))
             ->selectRaw('status, COUNT(*) as count, SUM(amount_centavos) as amount')->groupBy('status')->get()->keyBy('status');
         return response()->json(['payments' => $rows, 'attempts' => DB::table('payment_attempts')->whereIn('payment_id', $ids)->get(),
-            'receipts' => DB::table('payment_receipts')->whereIn('payment_id', $ids)->get(),
+            'receipts' => $receipts,
             'refunds' => RefundStatus::details($refunds),
             'refund_archive_available' => $archiveAvailable,
             'can_approve' => $r->user()->role === 'admin', 'enabled' => $provider->acceptsNewPayments(),

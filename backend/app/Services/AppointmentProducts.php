@@ -301,7 +301,7 @@ final class AppointmentProducts
             return false;
         }
         if (GatewayPayments::managed($p)) {
-            if (DB::table('payment_refunds')->where('payment_id', $p->id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
+            if (DB::table('payment_refunds')->where('payment_id', $p->id)->where('provider_payment_id', $p->paymongo_payment_id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
                 return false;
             }
             if (app()->environment('production') && ! DB::table('payment_receipts')->where('payment_id', $p->id)->where('livemode', true)->exists()) {

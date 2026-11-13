@@ -37,7 +37,7 @@ final class OrderReview
 
     public static function pending(Order $order): bool
     {
-        return self::required($order) && $order->review_status === 'pending' && $order->lifecycle_status === 'incoming';
+        return self::required($order) && $order->review_status === 'pending' && $order->lifecycle_status === 'incoming' && !RefundedOrderReview::required($order);
     }
 
     public static function present(Order $order): array

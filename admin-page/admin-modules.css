@@ -6063,6 +6063,17 @@ html:has(.cancellation-archive-dialog[open]) { overflow:hidden; }
 @media(max-width:600px){.order-readback-notice{align-items:flex-start;flex-direction:column;}}
 
 /* Request review uses the shared order dialog and table controls. */
+.refunded-order-form {display:grid;gap:18px;margin-top:18px;}
+.refunded-order-form .textarea-field {font-size:.82rem;line-height:1.6;color:var(--text-main);background:var(--surface);}
+.refunded-stock {margin:0;padding:14px;border:1px solid var(--border-color);border-radius:10px;min-width:0;}
+.refunded-stock legend {font-size:.82rem;font-weight:600;padding:0 6px;color:var(--text-main);}
+.refunded-stock-row {display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:14px;font-size:.82rem;}
+.refunded-stock-row label {min-width:0;overflow-wrap:anywhere;}
+.refunded-stock-row small {display:block;margin-top:5px;color:var(--text-muted);font-size:.75rem;}
+.refunded-stock-row input {width:90px;flex:0 0 90px;}
+.refunded-review-note {margin-top:14px;}
+.refunded-order-form .order-review-actions .btn-admin {min-height:42px;padding:10px 16px;font-size:.8rem;line-height:1.4;gap:8px;}
+.refunded-order-review > .field-hint {line-height:1.65;}
 .order-request-review .order-section-header {gap:10px 16px;margin-bottom:14px;}
 .order-request-review .order-review-intro {margin:0;font-size:.8rem;line-height:1.65;color:var(--text-muted);}
 .order-review-stock {list-style:none;margin:16px 0 20px;padding:0;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-light);overflow:hidden;}

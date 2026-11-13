@@ -928,7 +928,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const lifecycle = String(summary.lifecycle_status || "").toLowerCase();
     if (summary.awaiting_review) {
       state.review.push(summary);
-    } else if (lifecycle === "incoming") {
+    } else if (lifecycle === "incoming" && !summary.refund_review?.required) {
       state.incoming.push(summary);
     } else {
       state.directory.push(summary);
@@ -1079,6 +1079,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scrollTop=sameOrder?body?.scrollTop:0,focused=sameOrder&&body?.contains(document.activeElement)?document.activeElement:null;
     const focusId=focused?.id,focusName=focused?.name,focusStart=focused?.selectionStart,focusEnd=focused?.selectionEnd;
     renderRequestReview(order, body);
+    renderRefundedOrderReview(order, body);
     const opened=sameOrder?[...body.querySelectorAll('details')].map(node=>[node.querySelector('summary')?.textContent,node.open]):[];
     if(body){
       let notice=body.querySelector('[data-cancellation-notice]');
@@ -1192,7 +1193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderFulfillmentOverview(order,fulfillment);
     let manage=body?.querySelector('[data-manage-fulfillment]');
     if(!manage){manage=document.createElement('button');manage.type='button';manage.className='btn-admin btn-secondary';manage.dataset.manageFulfillment='';body?.querySelector('[data-order-section="fulfillment"] .order-section-header')?.append(manage);}
-    manage.hidden=!isGuidedOrder(order)||['completed','cancelled','rejected'].includes(order.lifecycle_status);
+    manage.hidden=!isGuidedOrder(order)||order.refund_review?.required||['completed','cancelled','rejected'].includes(order.lifecycle_status);
     manage.textContent=(order.is_pickup||order.fulfillment_type==='pickup')?'Manage pickup':'Manage delivery';
     manage.onclick=async()=>{if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(body))return;body.querySelectorAll('form[data-dirty]').forEach(form=>form.dataset.dirty='false');modalOrderDetails.classList.remove('show');openTrackingModal(state.ordersById.get(String(order.id))||order);};
     renderPickupCollection(order,fulfillment);
@@ -1219,7 +1220,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderPickupCollection = (order, host) => {
     let section=host?.querySelector('[data-pickup-collection]');
-    if(!host||!(order.is_pickup||order.fulfillment_type==='pickup')||order.custom_product){section?.remove();return;}
+    if(!host||!(order.is_pickup||order.fulfillment_type==='pickup')||order.custom_product||order.refund_review?.required){section?.remove();return;}
     if(!section){section=document.createElement('section');section.className='order-fulfillment-card';section.dataset.pickupCollection='';host.append(section);}
     const prefix=host.closest('#modalTrackingUpdate')?'tracking':'collection';
     const same=section.dataset.orderId===String(order.id),code=same?section.querySelector('[data-pickup-code]')?.value||'':'';
@@ -1299,7 +1300,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     gatewayAction.dataset.gatewayManage = String(order?.id || '');
     gatewayAction.hidden = !isAutomated;
-    gatewayAction.textContent = order?.cancel_pending ? 'Review customer cancellation' : 'Payment & refund details';
+    gatewayAction.textContent = order?.cancel_pending ? 'Review customer cancellation' : 'Payment details';
     if(order?.cancel_pending){delete gatewayAction.dataset.gatewayManage;gatewayAction.dataset.cancellationReview=String(order.id);}else delete gatewayAction.dataset.cancellationReview;
     modalPaymentVerifyBlock.hidden = order?.order_type === 'custom' && !isGcash;
     modalPaymentVerifyBlock.dataset.orderId = String(order?.id || "");
@@ -1764,6 +1765,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
   };
 
+  const refundedClosures = new Set();
+  const renderRefundedOrderReview = (order, body) => {
+    if(!body)return;
+    let section=body.querySelector('[data-refunded-review]');
+    if(!section){section=document.createElement('section');section.className='order-dialog-section refunded-order-review';section.dataset.refundedReview='';body.prepend(section);}
+    const review=order.refund_review;
+    section.hidden=!review?.required;
+    if(section.hidden)return;
+    const snapshot=JSON.stringify([order.id,review]);
+    if(section.dataset.snapshot===snapshot)return;
+    const same=section.dataset.orderId===String(order.id),previous=same?section.querySelector('form'):null;
+    const reason=previous?.querySelector('textarea')?.value||'',confirmed=previous?.querySelector('[name=non_fulfillment_confirmed]')?.checked;
+    const quantities=new Map([...previous?.querySelectorAll('[data-restore-product]')||[]].map(input=>[input.dataset.restoreProduct,input.value]));
+    section.dataset.orderId=String(order.id);section.dataset.snapshot=snapshot;
+    section.innerHTML=`<header class="order-section-header"><h4 class="order-section-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Refunded order review</h4><span class="status-pill status-yellow">Admin review required</span></header>
+      <p class="field-hint">The valid payment is fully refunded, but this order is still active. Review shipment, collection, and usable stock before closing it. No additional refund will be sent.</p>
+      ${review.can_close&&Array.isArray(review.stock_items)?`<form class="refunded-order-form"><div class="field-stack"><label for="refundedCloseReason">Reason for closure <span aria-hidden="true">*</span></label><textarea class="textarea-field" id="refundedCloseReason" name="reason" rows="2" maxlength="1000" required>${escapeHtml(reason)}</textarea></div>
+        <fieldset class="refunded-stock"><legend>Usable stock to restore</legend><p class="field-hint">Enter a quantity for every item, including 0. Restore only items that can be sold again.</p>${review.stock_items.map(item=>`<div class="refunded-stock-row"><label for="restoreProduct${item.product_id}">${escapeHtml(item.product_name)}<small>Ordered: ${item.quantity} · Eligible: ${item.max_restore}</small></label><input class="input-field" type="number" id="restoreProduct${item.product_id}" data-restore-product="${item.product_id}" min="0" max="${item.max_restore}" step="1" required inputmode="numeric" value="${escapeHtml(item.max_restore===0?'0':quantities.get(String(item.product_id))??'')}" ${item.max_restore===0?'readonly':''} aria-label="Usable quantity for ${escapeHtml(item.product_name)}" /></div>`).join('')}</fieldset>
+        <label class="order-flow-check"><input type="checkbox" name="non_fulfillment_confirmed" required ${confirmed?'checked':''}><span>I confirmed that this order was never handed to a courier or collected, and checked the usable quantities above.</span></label>
+        <div class="order-review-actions"><button type="submit" class="btn-admin" ${refundedClosures.has(String(order.id))?'disabled':''}><i class="fa-solid fa-check" aria-hidden="true"></i>Close refunded order</button></div></form>`:`<p class="field-hint refunded-review-note">${escapeHtml(review.reason||'Loading the stock review…')}</p>`}`;
+    section.querySelector('form')?.addEventListener('submit',async event=>{
+      event.preventDefault();const key=String(order.id),form=event.currentTarget;
+      if(refundedClosures.has(key)||!form.reportValidity())return;
+      const reason=form.querySelector('[name=reason]').value.trim();
+      if(!reason){showPopup('Enter a reason for closing this order.',{title:'Reason required',type:'error'});return;}
+      const stock_items=[...form.querySelectorAll('[data-restore-product]')].map(input=>({product_id:Number(input.dataset.restoreProduct),quantity:Number(input.value)}));
+      refundedClosures.add(key);form.querySelector('button').disabled=true;
+      try {
+        if(!await askConfirm('Close this fully refunded order as Cancelled and restore only the usable quantities you entered? This does not issue another refund.',{title:'Close refunded order',confirmText:'Close order'}))return;
+        const saved=await request('/admin/orders/'+key+'/close-refunded',{method:'POST',body:{reason,non_fulfillment_confirmed:true,stock_items}});
+        refreshMatchingOrderDialogs(saved.data);notifyOrdersRealtimeUpdate({type:'refunded-order-closed',orderId:key});
+        showPopup(saved.message,{title:'Refunded order closed',type:'success'});
+      }catch(error){showPopup(error.message||'Unable to close this order. Your entries are kept.',{title:'Closure not saved',type:'error'});}
+      finally{refundedClosures.delete(key);if(section.dataset.orderId===key)section.querySelector('button[type=submit]')?.removeAttribute('disabled');}
+    });
+  };
+
   const renderIncomingTable = () => {
     state.incomingPage = renderPagedRows({
       rows: state.incoming,
@@ -1814,9 +1852,9 @@ document.addEventListener("DOMContentLoaded", () => {
           order.lifecycle_status || "pending",
         ).toLowerCase();
         const statusClass = lifecycleClass(lifecycle);
-        const canTrack = lifecycle === "pending" && !order.cancel_pending;
+        const canTrack = lifecycle === "pending" && !order.cancel_pending && !order.refund_review?.required;
 
-        const statusCell = order.cancel_pending ? `<button type="button" class="status-pill status-blue status-pill-action" data-cancellation-review="${order.id}">Cancellation requested</button>` : canTrack
+        const statusCell = order.refund_review?.required ? `<button type="button" class="status-pill status-yellow status-pill-action" data-order-view="${order.id}">Refunded — review required</button>` : order.cancel_pending ? `<button type="button" class="status-pill status-blue status-pill-action" data-cancellation-review="${order.id}">Cancellation requested</button>` : canTrack
           ? `<button type="button" class="status-pill ${statusClass} status-pill-action" data-order-track="${order.id}">${escapeHtml(order.lifecycle_status_label || "Pending")}</button>`
           : `<span class="status-pill ${statusClass}">${window.AdminTableValue.html(order.lifecycle_status_label || "Pending")}</span>`;
 

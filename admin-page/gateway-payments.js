@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const detailField = (label, value, full=false) => `<div class="gateway-detail-field${full?' full':''}"><dt>${esc(label)}</dt><dd>${esc(value || 'Not provided')}</dd></div>`;
   const orderDetails = (order, reason='') => `<dl class="form-grid gateway-detail-grid">${detailField('Order',order.order_no_display || order.order_no)}${detailField('Customer',order.customer_name)}${reason?detailField('Reason',reason,true):''}</dl>`;
   const historyStatus = refund => refund.transfer_link ? 'Awaiting claim' : ({requested:'Awaiting approval',submitting:'Sending',pending:'Processing',unknown:'Checking status',succeeded:'Refunded',failed:'Failed',rejected:'Declined'}[refund.status] || readable(refund.status));
-  const refundNextStep = refund => refund.failure_action || (refund.transfer_link ? 'The customer can claim the refund in My Orders.' : ({requested:'Admin must approve this refund.',submitting:'Wait for confirmation.',pending:'Wait for confirmation.',unknown:'Check the refund status.',succeeded:'Refund confirmed.',rejected:'No refund was sent.'}[refund.status] || 'Review the payment before retrying.'));
+  const refundNextStep = refund => (['requested','failed'].includes(refund.status) ? refund.actions?.approve?.reason || refund.actions?.retry?.reason : null) || refund.failure_action || (refund.transfer_link ? 'The customer can claim the refund in My Orders.' : ({requested:'Admin must approve this refund.',submitting:'Wait for confirmation.',pending:'Wait for confirmation.',unknown:'Check the refund status.',succeeded:'Refund confirmed.',rejected:'No refund was sent.'}[refund.status] || 'Review the payment before retrying.'));
   const paymentHistory = (receipts, refunds) => `
     <section class="gateway-detail-section" aria-label="Payments"><h4><i class="fa-regular fa-credit-card" aria-hidden="true"></i> Payments</h4>
       ${receipts.length ? receipts.map(r=>`<article class="gateway-record-card"><div class="gateway-record-heading"><strong>${esc(methodLabel(r.source_type))}</strong><span class="gateway-record-amount">${money(r.amount_centavos)}</span></div><dl class="gateway-record-fields">${detailField('Payment ID',r.provider_payment_id)}</dl></article>`).join('') : '<p class="gateway-detail-empty">No payments recorded.</p>'}
@@ -191,12 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
           const actions=[`<button data-history="${p.order_id}">View details</button>`];
           if(p.cancel_state==='requested')actions.push(`<button class="gateway-primary" data-cancellation-review="${p.order_id}">Review cancellation</button>`);
           for(const r of visible){
-            if(canApprove && r.status==='requested')actions.push(`<button class="gateway-primary" data-approve="${r.id}">Issue refund</button><button data-reject="${r.id}">Decline refund</button>`);
-            if(r.status==='failed' && receipts.some(x=>x.provider_payment_id===r.provider_payment_id && remaining(x)>=Number(r.amount_centavos)))actions.push(`<button data-retry="${r.id}">${canApprove?'Retry refund':'Request retry'}</button>`);
+            if(canApprove && r.status==='requested'){
+              if(r.actions?.approve?.allowed===true)actions.push(`<button class="gateway-primary" data-approve="${r.id}">${r.refund_kind==='extra_payment'?'Return extra payment':'Issue refund'}</button>`);
+              actions.push(`<button data-reject="${r.id}">Decline refund</button>`);
+            }
+            if(r.status==='failed' && r.actions?.retry?.allowed===true && receipts.some(x=>x.provider_payment_id===r.provider_payment_id && remaining(x)>=Number(r.amount_centavos)))actions.push(`<button data-retry="${r.id}">${canApprove?'Retry refund':'Request retry'}</button>`);
             if(r.transfer_link)actions.push(`<button data-copy-claim="${r.id}">Copy claim link</button>`);
             if(canApprove && !r.provider_refund_id && ['unknown','submitting'].includes(r.status))actions.push(`<button data-recoverrefund="${r.id}">Match refund</button>`);
           }
-          if(refundable && ['paid','refunded'].includes(p.status) && p.cancel_state!=='requested' && !visible.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status)))actions.push(`<button data-refund="${p.order_id}">${canApprove?'Issue refund':'Request refund'}</button>`);
+          if(p.refund_action?.allowed===true && refundable && ['paid','refunded'].includes(p.status) && p.cancel_state!=='requested' && !visible.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status)))actions.push(`<button data-refund="${p.order_id}">${esc(p.refund_action.label)}</button>`);
           if(canApprove && data.attempts.some(a=>Number(a.payment_id)===Number(p.id) && !a.checkout_id && ['creating','unknown'].includes(a.status)))actions.push(`<button data-recovercheckout="${p.order_id}">Match checkout</button>`);
           actions.push(`<button data-check="${p.order_id}">Check status</button>`);
           actions.push(`<button data-archive="${p.order_id}" ${canArchive?'':'disabled'}>${canArchive?'Archive refund':esc(p.cancel_state==='requested'?'Review cancellation first.':'Available after refund confirmation.')}</button>`);
@@ -260,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.querySelector('[data-receipt]').hidden = !request;
     modal.querySelector('[name=provider_payment_id]').disabled = !request;
     const payment = payments.find(p => String(p.order_id) === String(id));
-    modal.querySelector('[name=provider_payment_id]').innerHTML = receipts.filter(r => r.payment_id === payment?.id).map(r => '<option value="'+esc(r.provider_payment_id)+'">'+esc(methodLabel(r.source_type))+' — '+esc(r.provider_payment_id)+' — '+money(r.amount_centavos)+'</option>').join('');
+    modal.querySelector('[name=provider_payment_id]').innerHTML = receipts.filter(r => r.payment_id === payment?.id && r.refund_action?.allowed===true).map(r => '<option value="'+esc(r.provider_payment_id)+'">'+esc(methodLabel(r.source_type))+' — '+esc(r.provider_payment_id)+' — '+money(r.amount_centavos)+'</option>').join('');
     const updateRefundAmount = () => {
       const receipt = receipts.find(r => r.provider_payment_id === modal.querySelector('[name=provider_payment_id]').value);
       const reserved = refunds.filter(r => r.provider_payment_id === receipt?.provider_payment_id && !['failed','rejected'].includes(r.status)).reduce((sum,r)=>sum+Number(r.amount_centavos),0);
@@ -271,6 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (request) {
       updateRefundAmount();
       if (['cancelled','rejected'].includes(payment?.lifecycle_status)) modal.querySelector('[name=reason]').value = 'Refund for '+payment.lifecycle_status+' order '+payment.order_no;
+      if(payment?.refund_action?.kind==='extra_payment'){
+        modal.querySelector('[data-title]').textContent='Return extra payment';
+        modal.querySelector('[data-description]').textContent='Return only the verified extra receipt. The valid order payment and fulfillment remain unchanged.';
+      }
     }
     ['amount','reason'].forEach(name => { modal.querySelector('[data-'+name+']').hidden = !request; modal.querySelector('[name='+name+']').disabled = !request; });
     if (type === 'reject') {
@@ -282,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const payment = payments.find(p => p.id === refund?.payment_id);
       const qr = receipts.some(r=>r.provider_payment_id===refund?.provider_payment_id && r.source_type==='qrph');
       modal.querySelector('[data-description]').textContent = 'Refund ' + money(refund?.amount_centavos || 0) + ' for ' + (payment?.order_no || 'this order') + '? ' + (qr ? 'This creates a PayMongo claim link. The customer must complete the form to receive the refund. The merchant wallet needs sufficient available funds. ' : 'Funds return through the original payment method. ') + 'Reason: ' + (refund?.reason || '');
+      if(refund?.refund_kind==='extra_payment')modal.querySelector('[data-title]').textContent='Return extra payment';
     }
     if (type === 'retry') {
       const refund = refunds.find(r => String(r.id) === String(id));
@@ -291,6 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.querySelector('[data-provider]').hidden = !recovering; modal.querySelector('[name=provider_id]').disabled = !recovering;
     if (recovering) { modal.querySelector('[data-title]').textContent = 'Match provider record'; modal.querySelector('[data-description]').textContent = 'Copy the matching checkout or refund ID from the school PayMongo dashboard. FMRC verifies the original request before accepting it.'; }
     modal.querySelector('[type=submit]').textContent = request ? (canApprove?'Issue refund':'Send refund request') : type === 'approve' ? 'Issue refund' : recovering ? 'Verify record' : 'Reject request';
+    if(request && payment?.refund_action?.kind==='extra_payment')modal.querySelector('[type=submit]').textContent='Return extra payment';
+    if(type==='approve' && refunds.find(r=>String(r.id)===String(id))?.refund_kind==='extra_payment')modal.querySelector('[type=submit]').textContent='Return extra payment';
+    if(request && payment?.refund_action?.allowed!==true)modal.querySelector('[type=submit]').hidden=true;
     if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
     if (type === 'archive') {
       modal.querySelector('[data-title]').textContent = 'Archive refund';
@@ -301,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const p=payments.find(p=>String(p.order_id)===String(id));
       const orderReceipts=receipts.filter(r=>Number(r.payment_id)===Number(p?.id));
       const orderRefunds=refunds.filter(r=>Number(r.payment_id)===Number(p?.id));
-      modal.querySelector('[data-title]').textContent='Payment & refund details';
+      modal.querySelector('[data-title]').textContent='Payment details';
       modal.querySelector('[data-description]').textContent='Payment and refund records.';
       modal.querySelector('[data-description]').hidden=true;
       modal.querySelector('[data-context]').hidden=false;
@@ -311,9 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const activeRefund=orderRefunds.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status));
       const refundable=orderReceipts.some(r=>Number(r.amount_centavos)-orderRefunds.filter(f=>f.provider_payment_id===r.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0)>=100);
       const recoverable=canApprove && records?.attempts?.some(a=>Number(a.payment_id)===Number(p?.id) && !a.checkout_id && ['creating','unknown'].includes(a.status));
-      action.next=p?.cancel_state!=='requested' && !activeRefund && refundable && ['paid','refunded'].includes(p?.status) ? 'refund' : recoverable ? 'recovercheckout' : null;
+      action.next=p?.refund_action?.allowed===true && p?.cancel_state!=='requested' && !activeRefund && refundable && ['paid','refunded'].includes(p?.status) ? 'refund' : recoverable ? 'recovercheckout' : null;
       modal.querySelector('[type=submit]').hidden=!action.next;
-      modal.querySelector('[type=submit]').textContent=action.next==='refund' ? (canApprove?'Issue refund':'Request refund') : 'Match checkout';
+      modal.querySelector('[type=submit]').textContent=action.next==='refund' ? p.refund_action.label : 'Match checkout';
       modal.querySelector('[data-cancel]').textContent='Done';
     }
     if(type==='cancelapprove' || type==='canceldecline'){

@@ -50,7 +50,7 @@ final class OrderCompletion
             if (! $receipt || (int) $receipt->amount_centavos !== GatewayPayments::centavos($order->total)) {
                 return 'The payment provider must confirm the full order total.';
             }
-            if (DB::table('payment_refunds')->where('payment_id', $order->payment->id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
+            if (DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('provider_payment_id', $order->payment->paymongo_payment_id)->whereNotIn('status', ['failed', 'rejected'])->exists()) {
                 return 'Resolve the refund before collection.';
             }
         }

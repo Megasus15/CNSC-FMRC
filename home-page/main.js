@@ -9393,7 +9393,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         // To Rate keeps its existing unrated/rated sections in newest-first order.
         const stage = stageKey === "to_rate" ? "completed" : stageKey;
-        return orders.filter(order => !isDeadOrder(order) && !order.awaiting_review && String(order.customer_stage || "") === stage
+        return orders.filter(order => !isDeadOrder(order) && !order.awaiting_review && !order.refund_review?.required && String(order.customer_stage || "") === stage
           && (stageKey !== "to_rate" || !isCustomProductOrder(order)));
       };
 
@@ -9460,6 +9460,7 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        if (order?.refund_review?.required) return {label:order.refund_review.label||'Refunded — FMRC review required',className:'status-to-pay is-review'};
         if (order?.awaiting_review) return {label:"Awaiting FMRC review",className:"status-to-pay is-review"};
         if (order.review?.status === "approved" && lifecycle === "incoming" && isOrderPaymentConfirmed(order)) return {label:"Ready for preparation",className:"status-to-pay is-review"};
         if (lifecycle === "completed" || stage === "completed") {

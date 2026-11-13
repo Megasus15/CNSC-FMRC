@@ -23,6 +23,7 @@ use App\Services\OrderCompletion;
 use App\Support\OrderNotifier;
 use App\Support\OrderApproval;
 use App\Support\OrderReview;
+use App\Support\RefundedOrderReview;
 use App\Support\CancellationHistoryArchive;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -737,12 +738,13 @@ class OrderController extends Controller
         // and therefore has to be able to find again.
         $live = ['rejected', 'cancelled'];
 
+        $working = $data->where('refund_review.required', false);
         $counts = [
             'all'         => $data->count(),
             'awaiting_review' => $data->where('awaiting_review', true)->count(),
-            'to_pay'      => $data->where('customer_stage', 'to_pay')->where('awaiting_review', false)->whereNotIn('lifecycle_status', $live)->count(),
-            'to_ship'     => $data->where('customer_stage', 'to_ship')->whereNotIn('lifecycle_status', $live)->count(),
-            'to_receive'  => $data->where('customer_stage', 'to_receive')->whereNotIn('lifecycle_status', $live)->count(),
+            'to_pay'      => $working->where('customer_stage', 'to_pay')->where('awaiting_review', false)->whereNotIn('lifecycle_status', $live)->count(),
+            'to_ship'     => $working->where('customer_stage', 'to_ship')->whereNotIn('lifecycle_status', $live)->count(),
+            'to_receive'  => $working->where('customer_stage', 'to_receive')->whereNotIn('lifecycle_status', $live)->count(),
             'completed'   => $data->where('customer_stage', 'completed')->whereNotIn('lifecycle_status', $live)->count(),
             'to_rate'     => $data->where('customer_stage', 'completed')->whereNotIn('lifecycle_status', $live)->where('has_rating', false)->count(),
             'cancelled'   => $data->where('lifecycle_status', 'cancelled')->count(),
@@ -1623,8 +1625,8 @@ class OrderController extends Controller
         );
 
         $review = $mapped->where('awaiting_review', true)->values();
-        $incoming = $mapped->where('lifecycle_status', 'incoming')->where('awaiting_review', false)->values();
-        $directory = $mapped->where('lifecycle_status', '!=', 'incoming')->values();
+        $incoming = $mapped->where('lifecycle_status', 'incoming')->where('awaiting_review', false)->where('refund_review.required', false)->values();
+        $directory = $mapped->filter(fn ($row) => $row['lifecycle_status'] !== 'incoming' || $row['refund_review']['required'])->values();
 
         $payments = $orders
             ->map(function (Order $order) {
@@ -1792,7 +1794,7 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-            $orders = $orders->reject(fn ($order) => OrderReview::pending($order));
+            $orders = $orders->reject(fn ($order) => OrderReview::pending($order) || RefundedOrderReview::required($order));
             foreach ($orders as $order) {
                 $order->lifecycle_status = 'rejected';
                 $order->rejected_at = Carbon::now();
@@ -1869,6 +1871,20 @@ class OrderController extends Controller
         $saved = OrderReview::decide($order, $input['decision'], $input['decision'] === 'reject' ? $reason : null, (int) $request->user()->id);
         $saved->load(['items', 'payment', 'trackingEvents', 'latestTrackingEvent']);
         return response()->json(['message' => $input['decision'] === 'approve' ? 'Request approved. Payment is now available.' : 'Request declined. The customer can view your reason.', 'data' => $this->transformOrderDetail($saved)]);
+    }
+
+    public function closeRefunded(Request $request, Order $order): JsonResponse
+    {
+        abort_unless($request->user()?->role === 'admin', 403, 'Only Admin can close a refunded order.');
+        $input = $request->validate(['reason' => 'required|string|max:1000', 'non_fulfillment_confirmed' => 'required|accepted',
+            'stock_items' => 'present|array', 'stock_items.*.product_id' => 'required|integer|min:0', 'stock_items.*.quantity' => 'required|integer|min:0']);
+        $input['reason'] = trim($input['reason']);
+        if (!$input['reason']) throw ValidationException::withMessages(['reason' => 'Enter the reason for closing this refunded order.']);
+        $input = ['reason' => $input['reason'], 'non_fulfillment_confirmed' => true,
+            'stock_items' => collect($input['stock_items'])->map(fn ($item) => ['product_id' => (int) $item['product_id'], 'quantity' => (int) $item['quantity']])->sortBy('product_id')->values()->all()];
+        $saved = RefundedOrderReview::close($order, $input, (int) $request->user()->id);
+        $saved->load(['items', 'payment', 'trackingEvents', 'latestTrackingEvent']);
+        return response()->json(['message' => 'Refunded order closed. The selected usable stock has been restored.', 'data' => $this->transformOrderDetail($saved)]);
     }
 
     public function approve(Request $request, Order $order): JsonResponse
@@ -1953,6 +1969,7 @@ class OrderController extends Controller
             $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($fresh->lifecycle_status, ['incoming','pending'], true), 422, 'This order can no longer be rejected. Refresh its status.');
             abort_if(OrderReview::pending($fresh), 422, 'Review this request individually before using order actions.');
+            abort_if(RefundedOrderReview::required($fresh), 422, 'Use the Admin refunded-order review to confirm fulfillment and usable stock before closure.');
             $order->setRawAttributes($fresh->getAttributes(), true);
             abort_if(AppointmentProducts::custom($order) && $order->appointment_production_status==='ready',422,'Use the assistance and return workflow for a production-ready custom order.');
             $order->lifecycle_status = 'rejected';
@@ -2199,6 +2216,7 @@ class OrderController extends Controller
         }
 
         OrderReview::assertApproved($order);
+        abort_if(RefundedOrderReview::required($order), 422, 'Admin must resolve this refunded order before fulfillment.');
         if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before updating fulfillment.'],422);
 
         $validated = $request->validate([
@@ -3725,6 +3743,7 @@ class OrderController extends Controller
 
         $review = OrderReview::present($order);
         $summary['review'] = $review;
+        $summary['refund_review'] = RefundedOrderReview::state($order);
         $summary['awaiting_review'] = $review['awaiting_review'];
         $summary['payment_eligibility'] = ['allowed' => OrderReview::blockedReason($order) === null && ! $order->hasPendingCancellation() && ! in_array($order->lifecycle_status, ['cancelled', 'rejected', 'completed'], true) && ($payment?->status ?? 'pending') === 'pending', 'reason' => OrderReview::blockedReason($order)];
         if (OrderReview::blockedReason($order)) {
@@ -3747,6 +3766,10 @@ class OrderController extends Controller
         }
         if (strtolower((string) auth()->user()?->role) === 'customer') {
             $summary['history_removal'] = CustomerOrderHistory::state($order);
+        }
+        if ($summary['refund_review']['required']) {
+            $summary['customer_stage_label'] = RefundedOrderReview::LABEL;
+            $summary['can_cancel'] = $summary['can_request_cancel'] = false;
         }
         return $summary;
     }
@@ -3771,6 +3794,8 @@ class OrderController extends Controller
             ))
             ->values()
             ->all();
+
+        if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true)) $summary['refund_review'] = RefundedOrderReview::state($order, true);
 
         if (in_array(strtolower((string) auth()->user()?->role), self::ALLOWED_ADMIN_ROLES, true) && OrderReview::pending($order)) {
             $products = Product::whereIn('id', $order->items->pluck('product_id'))->get()->keyBy('id');
@@ -4143,6 +4168,10 @@ class OrderController extends Controller
     private function transformTimelineEvent(OrderTrackingEvent $event, ?Order $order = null): array
     {
         $time = $event->metadata['time'] ?? null;
+        $metadata = $event->metadata;
+        if (($metadata['source'] ?? '') === RefundedOrderReview::SOURCE && !in_array(auth()->user()?->role, self::ALLOWED_ADMIN_ROLES, true)) {
+            $metadata = ['source' => RefundedOrderReview::SOURCE];
+        }
         return [
             'id' => $event->id,
             'stage' => $event->stage,
@@ -4161,7 +4190,7 @@ class OrderController extends Controller
             'source_label' => match ($event->metadata['source'] ?? '') {
                 'ship24' => 'J&T historical update', '17track' => 'J&T via 17TRACK', default => 'FMRC',
             },
-            'metadata' => $event->metadata,
+            'metadata' => $metadata,
         ];
     }
 
