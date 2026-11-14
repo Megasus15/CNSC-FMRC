@@ -30,7 +30,7 @@
     <script src="admin-form-controls.js?v=1.0" defer></script>
       <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.7" />
-    <link rel="stylesheet" href="appointment-dialogs.css?v=2026.1114.7" />
+    <link rel="stylesheet" href="appointment-dialogs.css?v=2026.1114.8" />
   </head>
   <body data-portal-popups="refined" data-portal-popup-context="Appointments">
     <div class="dashboard-container">
@@ -172,15 +172,17 @@
           </div>
 
           <div class="panel">
-            <div class="panel-header">
+            <div class="panel-header appointment-table-header">
               <h3>Client Appointments</h3>
-              <select id="appointmentWorkFilter" class="filter-select" aria-label="Appointment type"><option value="all">All appointments</option><option value="custom">With custom products</option></select>
-              <select id="appointmentProductStageFilter" class="filter-select" aria-label="Custom-product progress" hidden><option value="all">All custom stages</option><option value="awaiting_consultation">Awaiting consultation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up needed</option><option value="ready_for_quote">Preparing quotation</option><option value="quoted">Quotation ready</option><option value="awaiting_payment">Awaiting payment</option><option value="awaiting_production">Awaiting production</option><option value="in_production">In production</option><option value="ready">Ready for pickup / shipping</option><option value="in_transit">In transit</option><option value="completed">Completed product</option><option value="payment_review">Payment needs review</option><option value="cancelled">Cancelled</option><option value="declined">Unable to fulfill</option></select>
+              <div class="appointment-table-controls" role="group" aria-label="Appointment filters and search">
+              <div class="appointment-filter-field"><select id="appointmentWorkFilter" class="filter-select" aria-label="Appointment type"><option value="all">All appointments</option><option value="custom">With custom products</option></select></div>
+              <div class="appointment-filter-field" id="appointmentStageFilterField" hidden><select id="appointmentProductStageFilter" class="filter-select" aria-label="Custom-product progress" hidden><option value="all">All custom stages</option><option value="awaiting_consultation">Awaiting consultation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up needed</option><option value="ready_for_quote">Preparing quotation</option><option value="quoted">Quotation ready</option><option value="awaiting_payment">Awaiting payment</option><option value="awaiting_production">Awaiting production</option><option value="in_production">In production</option><option value="ready">Ready for pickup / shipping</option><option value="in_transit">In transit</option><option value="completed">Completed product</option><option value="payment_review">Payment needs review</option><option value="cancelled">Cancelled</option><option value="declined">Unable to fulfill</option></select></div>
               <div class="portal-search-field appointment-table-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input
                 class="search-input"
                 id="appointmentSearchInput"
                 type="search" placeholder="Search" aria-label="Search appointments by client, contact, email or purpose"
               /></div>
+              </div>
             </div>
             <div class="table-scroll-hint">
               <i class="fa-solid fa-left-right"></i> This table is horizontally
@@ -285,7 +287,7 @@
               Weekends and past dates are unavailable on the website form.
             </div>
           </div>
-          <div class="admin-calendar-right">
+          <div class="admin-calendar-right" data-portal-detail-scroll tabindex="0" role="region" aria-label="Calendar settings">
             <div class="admin-date-heading">
               <h4 id="adminSelectedDateDisplay">Select a Date</h4>
             </div>
@@ -516,9 +518,9 @@
     <script src="admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1114.7"></script>
-    <script src="portal-detail-dialog.js?v=2026.1114.7"></script>
+    <script src="portal-detail-dialog.js?v=2026.1114.8"></script>
     <script src="appointment-details.js?v=2026.1114.7"></script>
-<script src="appointments.js?v=2026.1114.7"></script>
+<script src="appointments.js?v=2026.1114.8"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
       <script src="../home-page/appointment-products.js?v=2026.1113.2"></script>
 </body>

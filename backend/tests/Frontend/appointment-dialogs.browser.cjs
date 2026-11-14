@@ -70,6 +70,14 @@ test('Appointment dialog rollout preserves calendar, meeting, consultation and a
         assert(g.head.bottom<=g.body.top+1&&g.foot.top>=g.body.bottom-1,'Header and footer are fixed');
         assert.equal(await h.run(`document.querySelectorAll('#${id} [data-portal-detail-close]').length`),['confirm','archive'].includes(kind)?0:1);
         assert.equal(await h.run(`document.body.style.position`),'fixed');
+        if(kind==='calendar'&&width>=1024){
+          const before=await h.run(`(()=>{const l=document.querySelector('#modalCalendar .admin-calendar-left'),r=document.querySelector('#modalCalendar .admin-calendar-right'),b=document.querySelector('#modalCalendar .portal-detail-dialog__body');return{top:l.getBoundingClientRect().top,bottom:l.getBoundingClientRect().bottom,bodyBottom:b.getBoundingClientRect().bottom,left:l.scrollTop,body:b.scrollTop,rightHeight:r.scrollHeight,rightClient:r.clientHeight};})()`);
+          const wheel=await h.run(`(()=>{const r=document.querySelector('#modalCalendar .admin-calendar-right').getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+100};})()`);await h.send('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:300});await h.until(`document.querySelector('#modalCalendar .admin-calendar-right').scrollTop>0`);
+          assert.equal(await h.run(`document.querySelector('#modalCalendar .admin-calendar-left').getBoundingClientRect().top`),before.top,'Calendar stays visible while settings scroll');
+          assert(before.bottom<=before.bodyBottom+1&&before.rightHeight>before.rightClient,'Calendar fits beside the scrollable settings');
+          assert.equal(await h.run(`document.querySelector('#modalCalendar .admin-calendar-left').scrollTop===0&&document.querySelector('#modalCalendar .portal-detail-dialog__body').scrollTop===0&&document.querySelector('#modalCalendar .admin-calendar-right').scrollTop>0`),true,'Only the right pane scrolls');
+          await h.run(`document.querySelector('#modalCalendar .admin-calendar-right').scrollTop=0;document.querySelector('#modalCalendar .admin-calendar-right').focus()`);await key('PageDown');assert.equal(await h.run(`document.querySelector('#modalCalendar .admin-calendar-right').scrollTop>0`),true,'Keyboard scrolling targets the settings pane');await h.run(`document.querySelector('#modalCalendar .admin-calendar-right').scrollTop=0;document.getElementById('appointmentCalendarTitle').focus()`);
+        }
         if([390,1440].includes(width))await h.shot(`appointments-${role}-${kind}-${width}-${theme}`);
         await key('Escape');
         if(kind==='picker'){assert.equal(await h.run(`document.body.style.position`),'fixed');await click('#btnCloseCalendar');}
@@ -77,7 +85,13 @@ test('Appointment dialog rollout preserves calendar, meeting, consultation and a
         await idle();
       }
     }
-    for(const [width,height,scale] of [[852,393,1],[720,450,2]]){await viewport(width,height,scale);await openCalendar();const g=await layout('modalCalendar');assert(g.card.bottom<=height&&!g.overflow&&g.body.bottom>g.body.top+20);await key('Escape');await idle();}
+    for(const width of [320,390,768,1024,1440]){
+      await viewport(width);await input('#appointmentWorkFilter','custom');await h.until(`!document.getElementById('appointmentStageFilterField').hidden&&document.getElementById('appointmentProductStageFilter').parentElement.classList.contains('admin-select-wrap')`);
+      const controls=await h.run(`[...document.querySelectorAll('.appointment-table-controls select,.appointment-table-controls input')].filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect();return{left:r.left,right:r.right,height:r.height,width:r.width};})`);assert.equal(controls.length,3);assert(controls.every(c=>c.left>=0&&c.right<=width&&Math.abs(c.height-44)<1),'Filters and search have balanced control heights');assert(Math.abs(controls[0].width-controls[2].width)<2,'Search width matches the filters');
+      if(width===1440||width===390)await h.shot(`appointments-${role}-filters-${width}`);
+      await input('#appointmentWorkFilter','all');assert.equal(await h.run(`document.getElementById('appointmentStageFilterField').getClientRects().length`),0,'Hidden stage filter has no leftover wrapper or arrow');
+    }
+    for(const [width,height,scale] of [[852,393,1],[720,450,2],[1024,700,1],[1440,768,1]]){await viewport(width,height,scale);await openCalendar();const g=await layout('modalCalendar');assert(g.card.bottom<=height&&!g.overflow&&g.body.bottom>g.body.top+20);if(width>=900)assert.equal(await h.run(`document.querySelector('#modalCalendar .admin-calendar-left').getBoundingClientRect().bottom<=document.querySelector('#modalCalendar .portal-detail-dialog__body').getBoundingClientRect().bottom+1`),true,'Calendar remains fully visible at laptop heights');await key('Escape');await idle();}
     await viewport(1440);await input('#appointmentSearchInput','University request');assert.equal(await h.run(`document.querySelectorAll('#appointmentsTableBody [data-view-id]').length`),1);await input('#appointmentSearchInput','');
     await h.run(`document.querySelector('[data-view-id="1"]').scrollIntoView({block:'center',behavior:'instant'});window.savedY=scrollY;document.querySelector('[data-view-id="1"]').focus();document.querySelector('[data-view-id="1"]').click()`);
     await h.until(`document.querySelector('#modalViewAppointment.show')`);assert.match(await h.run(`document.getElementById('apptViewBody').textContent`),/CCMS[\s\S]*Purchase Request[\s\S]*Purchase request.pdf[\s\S]*Product design.pdf/);

@@ -98,7 +98,8 @@
       else if (!event.shiftKey && (document.activeElement === last || !nodes.includes(document.activeElement))) { event.preventDefault(); focus(first); }
     }
     if (top.matches('[data-portal-detail-dialog]') && !event.target.closest('input,textarea,select,button,a,[contenteditable="true"]')) {
-      const body = top.querySelector('.portal-detail-dialog__body');
+      const region = top.querySelector('[data-portal-detail-scroll]');
+      const body = region && /auto|scroll/.test(getComputedStyle(region).overflowY) ? region : top.querySelector('.portal-detail-dialog__body');
       if (!body) return;
       const delta = {ArrowDown: 40, ArrowUp: -40, PageDown: body.clientHeight * .85, PageUp: -body.clientHeight * .85, ' ': body.clientHeight * (event.shiftKey ? -.85 : .85)}[event.key];
       if (delta !== undefined) { event.preventDefault(); body.scrollTop += delta; }
@@ -135,6 +136,7 @@
       else root.classList.add('show');
       sync();
       if (!wasOpen) root.querySelector('.portal-detail-dialog__body')?.scrollTo({top: 0, behavior: 'instant'});
+      if (!wasOpen) root.querySelectorAll('[data-portal-detail-scroll]').forEach(region => region.scrollTo({top: 0, behavior: 'instant'}));
     },
     handoff(root, target) { if (session?.root === root) session.handoff = target; },
   };

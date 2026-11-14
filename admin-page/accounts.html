@@ -14,7 +14,6 @@
     <title>User Management | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css?v=2026.1108.1" />
     <link rel="stylesheet" href="admin-modules.css?v=2026.1113.5" />
-    <link rel="stylesheet" href="accounts.css?v=2026.1113.10" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -29,8 +28,9 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.7" />
+    <link rel="stylesheet" href="accounts.css?v=2026.1114.8" />
   </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-popup-context="User Management">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -159,11 +159,7 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <input
-                id="accountsSearchInput"
-                class="search-input"
-                placeholder="Search name, username, or Gmail..."
-              />
+              <div class="portal-search-field accounts-table-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="accountsSearchInput" class="search-input" type="search" placeholder="Search" aria-label="Search users and staff requests by name, username or Gmail" /></div>
             </div>
           </div>
 
@@ -291,12 +287,14 @@
             </div>
 
             <div class="panel accounts-form-panel">
-              <div class="panel-header">
-                <h3>Add System User</h3>
+              <div class="panel-header accounts-form-heading">
+                <span class="accounts-panel-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M19 8v6M16 11h6"/></svg></span>
+                <div><h3>Add System User</h3><p class="field-hint">Create a separate account with the appropriate portal access.</p></div>
               </div>
               <form id="adminCreateUserForm" class="accounts-form-grid">
+                <h4 class="accounts-form-section">Account information</h4>
                 <div class="field-stack">
-                  <label for="createUserName">Full Name</label>
+                  <label for="createUserName">Full Name <span class="accounts-required" aria-hidden="true">*</span></label>
                   <input
                     id="createUserName"
                     class="input-field"
@@ -306,7 +304,7 @@
                   />
                 </div>
                 <div class="field-stack">
-                  <label for="createUserRole">Role</label>
+                  <label for="createUserRole">Role <span class="accounts-required" aria-hidden="true">*</span></label>
                   <select id="createUserRole" class="filter-select" required>
                     <option value="customer">Customer</option>
                     <option value="staff">Staff</option>
@@ -314,8 +312,9 @@
                   </select>
                   <p id="createAdminAccessHint" class="field-hint" hidden>Full administrative access, including User Management. This account has its own sign-in and personal settings. The built-in Admin remains protected.</p>
                 </div>
+                <h4 class="accounts-form-section">Sign-in details</h4>
                 <div class="field-stack">
-                  <label for="createUserUsername">Username</label>
+                  <label for="createUserUsername">Username <span class="accounts-required" aria-hidden="true">*</span></label>
                   <input
                     id="createUserUsername"
                     class="input-field"
@@ -327,12 +326,13 @@
                   <select
                     id="createUserUsernameSelect"
                     class="input-field"
+                    aria-label="Username"
                     style="display: none"
                     aria-hidden="true"
                   ></select>
                 </div>
                 <div class="field-stack">
-                  <label for="createUserEmail">Gmail</label>
+                  <label for="createUserEmail">Gmail <span class="accounts-required" aria-hidden="true">*</span></label>
                   <input
                     id="createUserEmail"
                     class="input-field"
@@ -343,7 +343,7 @@
                   />
                 </div>
                 <div class="field-stack">
-                  <label for="createUserPassword">Password</label>
+                  <label for="createUserPassword">Password <span class="accounts-required" aria-hidden="true">*</span></label>
                   <div class="password-field input-icon-group">
                     <input
                       id="createUserPassword"
@@ -375,7 +375,7 @@
                 </div>
                 <div class="field-stack">
                   <label for="createUserPasswordConfirm"
-                    >Confirm Password</label
+                    >Confirm Password <span class="accounts-required" aria-hidden="true">*</span></label
                   >
                   <div class="password-field input-icon-group">
                     <input
@@ -411,141 +411,47 @@
                     <i class="fa-solid fa-user-plus"></i> Create Account
                   </button>
                 </div>
-                <p id="accountsFormStatus" class="field-hint"></p>
+                <p id="accountsFormStatus" class="field-hint" role="status" aria-live="polite"></p>
               </form>
             </div>
           </div>
         </section>
       </main>
     </div>
-    <div
-      class="modal-overlay"
-      id="modalDeleteAccount"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Delete Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to delete
-          <strong id="deleteAccountTargetLabel">this account</strong>.
-        </p>
-        <p class="field-hint">
-          This account will lose sign-in access and leave User Management. Existing orders, agreements and payment records will be preserved.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalDeleteAccount"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnConfirmDeleteAccount" type="button">
-            Delete Account
-          </button>
-        </div>
-      </div>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalDeleteAccount" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+        <header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">User Management</p><h2 class="portal-detail-dialog__title" id="deleteAccountTitle" data-portal-detail-heading tabindex="-1">Delete Account</h2></div></header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Delete Account information"><p class="portal-detail-copy">Delete <strong id="deleteAccountTargetLabel">this account</strong>?</p><p class="field-hint">This account will lose sign-in access and leave User Management. Existing orders, agreements and payment records will be preserved.</p></div>
+        <footer class="portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCancelDeleteAccount">Cancel</button><button type="button" class="btn-admin" id="btnConfirmDeleteAccount">Delete Account</button></footer>
+      </section>
     </div>
-    <div class="modal-overlay" id="modalViewUser" data-backdrop-close="false">
-      <div class="modal-card" style="min-width: 460px; max-width: 560px">
-        <h3 class="modal-title" id="viewUserTitle">User Details</h3>
-        <hr class="confirm-separator" />
-        <div id="viewUserContent" style="margin-bottom: 14px"></div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewUser">
-            Close
-          </button>
-        </div>
-      </div>
+    <div class="modal-overlay portal-detail-dialog" id="modalViewUser" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="viewUserTitle">
+        <header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">User Management</p><h2 class="portal-detail-dialog__title" id="viewUserTitle" data-portal-detail-heading tabindex="-1">User details</h2></div><button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close user details" title="Close user details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+        <div class="portal-detail-dialog__body" id="viewUserContent" tabindex="0" role="region" aria-label="User information"></div>
+        <footer class="portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCloseViewUser">Close</button></footer>
+      </section>
     </div>
-    <!--
-      Approve / Reject confirmations. Same `.modal-overlay > .modal-card
-      .modal-confirm` shell as the delete dialog above, so they inherit its
-      scrim, entrance animation and button row without a line of new CSS.
-    -->
-    <div
-      class="modal-overlay"
-      id="modalApproveRequest"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Approve Account Request</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to approve the request from
-          <strong id="approveRequestTargetLabel">this applicant</strong>.
-        </p>
-        <p class="field-hint">
-          A staff account is created immediately using the username and password
-          the applicant chose, and a confirmation email is sent to their Gmail
-          address.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalApproveRequest"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnConfirmApproveRequest" type="button">
-            Approve Account
-          </button>
-        </div>
-      </div>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalApproveRequest" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="approveRequestTitle">
+        <header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">User Management</p><h2 class="portal-detail-dialog__title" id="approveRequestTitle" data-portal-detail-heading tabindex="-1">Approve Staff Request</h2></div></header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Approve Staff Request information"><p class="portal-detail-copy">Approve the staff account request from <strong id="approveRequestTargetLabel">this applicant</strong>?</p><p class="field-hint">A Staff account will be created using the applicant’s chosen sign-in details. The applicant will receive a confirmation email.</p></div>
+        <footer class="portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCancelApproveRequest">Cancel</button><button type="button" class="btn-admin" id="btnConfirmApproveRequest">Approve Account</button></footer>
+      </section>
     </div>
-    <div
-      class="modal-overlay"
-      id="modalRejectRequest"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Reject Account Request</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to reject the request from
-          <strong id="rejectRequestTargetLabel">this applicant</strong>.
-        </p>
-        <p class="field-hint">
-          No account is created. The applicant is emailed the decision, together
-          with the reason below if you provide one.
-        </p>
-        <div class="field-stack">
-          <label for="rejectRequestNote"
-            >Reason (optional &mdash; included in the applicant&rsquo;s
-            email)</label
-          ><textarea
-            id="rejectRequestNote"
-            class="textarea-field"
-            maxlength="300"
-            placeholder="e.g. We could not confirm your affiliation with the laboratory. Please visit the FMRC office first."
-          ></textarea>
-          <p class="field-hint" id="rejectRequestNoteCount">
-            0 / 300 characters
-          </p>
-        </div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalRejectRequest"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnConfirmRejectRequest" type="button">
-            Reject Request
-          </button>
-        </div>
-      </div>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalRejectRequest" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="rejectRequestTitle">
+        <header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M9 15l6-6"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">User Management</p><h2 class="portal-detail-dialog__title" id="rejectRequestTitle" data-portal-detail-heading tabindex="-1">Reject Staff Request</h2></div></header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Reject Staff Request information"><p class="portal-detail-copy">Reject the staff account request from <strong id="rejectRequestTargetLabel">this applicant</strong>?</p><p class="field-hint">No account will be created. The applicant will receive the decision by email.</p><div class="field-stack accounts-rejection-field"><label for="rejectRequestNote">Reason <span class="field-hint">— Optional</span></label><textarea id="rejectRequestNote" class="textarea-field" maxlength="300" aria-describedby="rejectRequestHelp rejectRequestNoteCount" placeholder="Add a brief explanation"></textarea><p class="field-hint" id="rejectRequestHelp">If provided, this reason is included in the applicant’s email.</p><p class="field-hint accounts-character-count" id="rejectRequestNoteCount" aria-live="polite">0 / 300 characters</p></div></div>
+        <footer class="portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCancelRejectRequest">Cancel</button><button type="button" class="btn-admin" id="btnConfirmRejectRequest">Reject Request</button></footer>
+      </section>
     </div>
     <script src="session-helper.js?v=2026.1113.9"></script>
     <script src="admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1114.7"></script>
-    <script src="portal-detail-dialog.js?v=2026.1114.7"></script>
-    <script src="accounts.js?v=2026.1113.11"></script>
+    <script src="portal-detail-dialog.js?v=2026.1114.8"></script>
+    <script src="accounts.js?v=2026.1114.8"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

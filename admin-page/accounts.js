@@ -74,6 +74,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const accountsTable = document.getElementById("accountsTable");
   const accountsTableFooter = document.getElementById("accountsTableFooter");
   const modalDeleteAccount = document.getElementById("modalDeleteAccount");
+  const modalViewUser = document.getElementById('modalViewUser');
+  let deletingAccount = false, decidingRequest = false;
+  const pendingControls = new WeakMap();
+  const setDialogPending = (root, pending) => {
+    root?.setAttribute('aria-busy', String(pending));
+    if (pending) {
+      const controls = [...root.querySelectorAll('button,input,textarea,select')];
+      pendingControls.set(root, controls.map(control => [control, control.disabled]));
+      controls.forEach(control => { control.disabled = true; });
+    } else {
+      pendingControls.get(root)?.forEach(([control, disabled]) => { control.disabled = disabled; });
+      pendingControls.delete(root);
+    }
+  };
+  const openDialog = (root, options = {}) => {
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(root, options);
+    else root?.classList.add('show');
+  };
   const deleteAccountTargetLabel = document.getElementById(
     "deleteAccountTargetLabel",
   );
@@ -123,6 +141,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const rejectRequestNoteCount = document.getElementById(
     "rejectRequestNoteCount",
   );
+  const closeViewUser = () => modalViewUser?.classList.remove('show');
+  const closeDeleteAccount = () => {
+    if (deletingAccount) return;
+    modalDeleteAccount?.classList.remove('show'); state.activeDeleteId = 0;
+  };
+  const closeRequest = root => {
+    if (decidingRequest) return;
+    root?.classList.remove('show'); state.activeRequestId = 0;
+  };
+  document.getElementById('btnCloseViewUser')?.addEventListener('click', closeViewUser);
+  document.getElementById('btnCancelDeleteAccount')?.addEventListener('click', closeDeleteAccount);
+  document.getElementById('btnCancelApproveRequest')?.addEventListener('click', () => closeRequest(modalApproveRequest));
+  document.getElementById('btnCancelRejectRequest')?.addEventListener('click', () => closeRequest(modalRejectRequest));
+  window.PortalDetailDialog?.registerClose(modalViewUser, closeViewUser);
+  window.PortalDetailDialog?.registerClose(modalDeleteAccount, closeDeleteAccount);
+  window.PortalDetailDialog?.registerClose(modalApproveRequest, () => closeRequest(modalApproveRequest));
+  window.PortalDetailDialog?.registerClose(modalRejectRequest, () => closeRequest(modalRejectRequest));
 
   const REQUEST_COLUMNS = 7;
   const REQUEST_NOTE_LIMIT = 300;
@@ -1030,7 +1065,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   tableBody?.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
 
     const viewBtn = target.closest("[data-user-view]");
     if (viewBtn) {
@@ -1039,36 +1074,30 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!user) return;
       const viewTitle = document.getElementById("viewUserTitle");
       const viewContent = document.getElementById("viewUserContent");
-      const modalViewUser = document.getElementById("modalViewUser");
       if (viewTitle)
-        viewTitle.textContent = escapeHtml(user?.name || "User Details");
+        viewTitle.textContent = 'User details';
       if (viewContent) {
-        const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
+        const roleClass = `role-tag-${['admin','staff','customer'].includes(String(user.role).toLowerCase()) ? String(user.role).toLowerCase() : 'customer'}`;
         const hasCustomPassword = user?.has_custom_password !== false;
         const passwordStatusClass = hasCustomPassword
           ? "password-status-set"
           : "password-status-pending";
         const passwordStatusLabel = hasCustomPassword ? "Set" : "Not set";
         viewContent.innerHTML = `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${escapeHtml(user?.username || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);word-break:break-word;">${escapeHtml(user?.email || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Password Sign-in</div><div><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></div></div>
-            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Google Sign-in</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${user?.signed_with_google === true ? "Enabled" : "Not used"}</div></div>
-            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${formatDate(user?.created_at)}</div></div>
-            ${user?.delete_block_reason ? `<div class="field-hint" style="grid-column:1/-1;">${escapeHtml(user.delete_block_reason)}</div>` : ''}
-          </div>`;
+          <div class="account-detail-intro"><span class="account-detail-avatar" aria-hidden="true">${escapeHtml(String(user.name || 'U').charAt(0).toUpperCase())}</span><div><h3 class="portal-detail-name">${escapeHtml(user.name || 'Name not provided')}</h3><span class="role-tag ${roleClass}">${escapeHtml(toTitleCase(user.role))}</span></div></div>
+          <section class="account-detail-section"><h3>Account information</h3><dl class="account-detail-grid">
+            <div><dt>Full name</dt><dd>${escapeHtml(user.name || 'Not provided')}</dd></div>
+            <div><dt>Username</dt><dd>${escapeHtml(user.username || 'Not provided')}</dd></div>
+            <div><dt>Gmail</dt><dd>${escapeHtml(user.email || 'Not provided')}</dd></div>
+            <div><dt>Date created</dt><dd>${escapeHtml(formatDate(user.created_at))}</dd></div>
+          </dl></section>
+          <section class="account-detail-section"><h3>Sign-in methods</h3><dl class="account-detail-grid">
+            <div><dt>Password sign-in</dt><dd><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></dd></div>
+            <div><dt>Google sign-in</dt><dd>${user.signed_with_google === true ? 'Enabled' : 'Not used'}</dd></div>
+          </dl></section>
+          ${user.delete_block_reason ? `<p class="account-protection-note" role="note">${escapeHtml(user.delete_block_reason)}</p>` : ''}`;
       }
-      modalViewUser?.classList.add("show");
-      document.getElementById("btnCloseViewUser")?.addEventListener(
-        "click",
-        () => {
-          modalViewUser?.classList.remove("show");
-        },
-        { once: true },
-      );
+      openDialog(modalViewUser, {trigger: viewBtn, returnSelector: `[data-user-view="${userId}"]`});
       return;
     }
 
@@ -1092,7 +1121,7 @@ document.addEventListener("DOMContentLoaded", () => {
       deleteAccountTargetLabel.textContent = selected?.name || "this account";
     }
 
-    modalDeleteAccount?.classList.add("show");
+    openDialog(modalDeleteAccount, {trigger: deleteBtn, returnSelector: `[data-user-delete="${userId}"]`});
   });
 
   nextBtn?.addEventListener("click", () => {
@@ -1101,10 +1130,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnConfirmDeleteAccount?.addEventListener("click", async () => {
-    if (!state.activeDeleteId || btnConfirmDeleteAccount.disabled) return;
+    if (!state.activeDeleteId || deletingAccount || btnConfirmDeleteAccount.disabled) return;
 
     const originalDeleteButtonHtml = btnConfirmDeleteAccount.innerHTML;
-    btnConfirmDeleteAccount.disabled = true;
+    deletingAccount = true; setDialogPending(modalDeleteAccount, true);
     btnConfirmDeleteAccount.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
 
@@ -1118,15 +1147,17 @@ document.addEventListener("DOMContentLoaded", () => {
       window.showAdminPopup?.("Account deleted successfully.", {
         title: "Deleted",
       });
+    } catch (error) {
+      window.showAdminPopup?.('The account could not be deleted. Please try again.', {title: 'Delete Failed', type: 'error'});
     } finally {
-      btnConfirmDeleteAccount.disabled = false;
+      deletingAccount = false; setDialogPending(modalDeleteAccount, false);
       btnConfirmDeleteAccount.innerHTML = originalDeleteButtonHtml;
     }
   });
 
   requestsTableBody?.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
 
     const approveBtn = target.closest("[data-request-approve]");
     const rejectBtn = target.closest("[data-request-reject]");
@@ -1149,7 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (approveRequestTargetLabel) {
         approveRequestTargetLabel.textContent = label;
       }
-      modalApproveRequest?.classList.add("show");
+      openDialog(modalApproveRequest, {trigger: approveBtn, returnSelector: `[data-request-approve="${requestId}"]`});
       return;
     }
 
@@ -1158,7 +1189,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (rejectRequestNoteCount) {
       rejectRequestNoteCount.textContent = `0 / ${REQUEST_NOTE_LIMIT} characters`;
     }
-    modalRejectRequest?.classList.add("show");
+    openDialog(modalRejectRequest, {trigger: rejectBtn, returnSelector: `[data-request-reject="${requestId}"]`});
   });
 
   requestsPrevBtn?.addEventListener("click", () => {
@@ -1188,10 +1219,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnConfirmApproveRequest?.addEventListener("click", async () => {
-    if (!state.activeRequestId) return;
+    if (!state.activeRequestId || decidingRequest || btnConfirmApproveRequest.disabled) return;
 
     const originalHtml = btnConfirmApproveRequest.innerHTML;
-    btnConfirmApproveRequest.disabled = true;
+    decidingRequest = true; setDialogPending(modalApproveRequest, true);
     btnConfirmApproveRequest.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Approving...';
 
@@ -1209,18 +1240,20 @@ document.addEventListener("DOMContentLoaded", () => {
       // A new staff account now exists, so the directory is reloaded too. The
       // queue is re-synced quietly behind the row that just left it.
       await Promise.all([loadRequests({ silent: true }), loadAccounts()]);
+    } catch (error) {
+      window.showAdminPopup?.('The request could not be approved. Please try again.', {title: 'Approval Failed', type: 'error'});
     } finally {
-      btnConfirmApproveRequest.disabled = false;
+      decidingRequest = false; setDialogPending(modalApproveRequest, false);
       btnConfirmApproveRequest.innerHTML = originalHtml;
     }
   });
 
   btnConfirmRejectRequest?.addEventListener("click", async () => {
-    if (!state.activeRequestId) return;
+    if (!state.activeRequestId || decidingRequest || btnConfirmRejectRequest.disabled) return;
 
     const note = String(rejectRequestNote?.value || "").trim();
     const originalHtml = btnConfirmRejectRequest.innerHTML;
-    btnConfirmRejectRequest.disabled = true;
+    decidingRequest = true; setDialogPending(modalRejectRequest, true);
     btnConfirmRejectRequest.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Rejecting...';
 
@@ -1237,8 +1270,10 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Rejected",
       });
       await loadRequests({ silent: true });
+    } catch (error) {
+      window.showAdminPopup?.('The request could not be rejected. Please try again.', {title: 'Rejection Failed', type: 'error'});
     } finally {
-      btnConfirmRejectRequest.disabled = false;
+      decidingRequest = false; setDialogPending(modalRejectRequest, false);
       btnConfirmRejectRequest.innerHTML = originalHtml;
     }
   });

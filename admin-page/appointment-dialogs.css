@@ -11,18 +11,20 @@
   margin: 0;
   padding: 0;
 }
-#modalViewAppointment.portal-detail-dialog #apptViewBody { padding: 24px; gap: 22px; }
+#modalViewAppointment.portal-detail-dialog .appointment-view-modal,
+#modalCalendar.portal-detail-dialog .modal-calendar-admin { width: min(1120px, 100%); max-width: 1120px; }
+#modalViewAppointment.portal-detail-dialog #apptViewBody { padding: 28px 32px; gap: 26px; }
 #modalViewAppointment.portal-detail-dialog .portal-detail-dialog__title { color: var(--primary-color, #800000); }
 #modalViewAppointment.portal-detail-dialog .appt-view-header-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 10px 14px; }
 #modalViewAppointment.portal-detail-dialog .appt-view-header-row .status-pill { grid-column: 2; justify-self: start; }
 #modalViewAppointment.portal-detail-dialog .appt-view-avatar { width: 44px; height: 44px; border-radius: 10px; background: var(--portal-accent-soft, #fbf1f2); color: var(--portal-accent, #800000); border: 1px solid var(--portal-accent-border, #ead8db); font-size: 20px; }
 #modalViewAppointment.portal-detail-dialog .appt-view-name { font-size: 22px; font-weight: 600; line-height: 1.4; }
 #modalViewAppointment.portal-detail-dialog .appt-view-ref { font-size: 13px; line-height: 1.6; }
-#modalViewAppointment.portal-detail-dialog .appt-details-section { padding: 18px; border-radius: 8px; }
+#modalViewAppointment.portal-detail-dialog .appt-details-section { padding: 24px; border-radius: 8px; }
 #modalViewAppointment.portal-detail-dialog .appt-details-section-heading { margin-bottom: 16px; }
 #modalViewAppointment.portal-detail-dialog .appt-details-section-heading h4 { font-size: 14px; font-weight: 600; color: var(--portal-accent, #800000); }
 #modalViewAppointment.portal-detail-dialog .appt-details-section-heading p { font-size: 12px; line-height: 1.65; }
-#modalViewAppointment.portal-detail-dialog .appt-view-grid { gap: 18px; }
+#modalViewAppointment.portal-detail-dialog .appt-view-grid { gap: 24px 28px; }
 #modalViewAppointment.portal-detail-dialog .appt-view-field dt { font-size: 12px; line-height: 1.6; }
 #modalViewAppointment.portal-detail-dialog .appt-view-field dd { font-size: 14px; font-weight: 400; line-height: 1.7; white-space: pre-wrap; }
 #modalViewAppointment.portal-detail-dialog :is(.appt-view-notes, .appt-view-empty) { font-size: 14px; line-height: 1.7; }
@@ -41,6 +43,9 @@
 #modalViewAppointment.portal-detail-dialog :is(.ap-btn, .ap-field input, .ap-field select, .ap-field textarea) { min-height: 44px; font-family: inherit; }
 #modalViewAppointment.portal-detail-dialog .ap-btn { font-size: 13px; }
 #modalViewAppointment.portal-detail-dialog :is(.ap-grid, .ap-field, .ap-section, [data-ap-tab-panel]) { min-width: 0; }
+#modalViewAppointment.portal-detail-dialog .ap-panel { padding: 24px; }
+#modalViewAppointment.portal-detail-dialog .ap-workflow { padding: 22px; }
+#modalViewAppointment.portal-detail-dialog .ap-workflow li { padding: 12px; font-size: 12px; line-height: 1.65; overflow-wrap: normal; }
 
 #modalCalendar.portal-detail-dialog .appointment-calendar-guidance { margin: 0 0 20px; }
 #modalCalendar.portal-detail-dialog .admin-calendar-grid { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); align-items: start; gap: 18px; margin: 0; overflow: visible; }
@@ -87,8 +92,27 @@
 #modalCompleteAppointment.portal-detail-dialog, #modalArchiveAppointment.portal-detail-dialog { z-index: 21000; }
 #modalCompleteAppointment.portal-detail-dialog .appt-attendance-confirm { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; margin: 18px 0 0; padding: 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; color: var(--text-main, #2b2b31); background: var(--surface-alt, #f8f4ef); font-size: 13px; line-height: 1.65; }
 #modalCompleteAppointment.portal-detail-dialog .appt-attendance-confirm input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--portal-accent, #800000); }
-.appointment-table-search { flex: 1 1 200px; max-width: 320px; }
+.appointment-table-header { align-items: center; }
+.appointment-table-header > h3 { flex: 0 0 auto; }
+.appointment-table-controls { display: flex; flex: 1 1 600px; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.appointment-filter-field, .appointment-table-search { flex: 0 1 220px; width: 220px; min-width: 0; max-width: 100%; }
+.appointment-filter-field[hidden] { display: none !important; }
+.appointment-filter-field .admin-select-wrap { width: 100% !important; }
+.appointment-filter-field .filter-select, .appointment-table-search .search-input { height: 44px; min-height: 44px; margin: 0; font-size: 13px; }
 [data-portal-popup-context="Appointments"] .panel-header { flex-wrap: wrap; gap: 12px; }
+@media (min-width: 900px) and (min-height: 700px) {
+  #modalCalendar.portal-detail-dialog .modal-calendar-admin { height: min(860px, calc(100dvh - 32px)); }
+  #modalCalendar.portal-detail-dialog .portal-detail-dialog__body { display: flex; flex-direction: column; padding: 24px 28px; overflow: hidden; }
+  #modalCalendar.portal-detail-dialog .appointment-calendar-guidance { flex: 0 0 auto; margin-bottom: 16px; }
+  #modalCalendar.portal-detail-dialog .admin-calendar-grid { flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(360px, .85fr) minmax(0, 1.15fr); gap: 24px; }
+  #modalCalendar.portal-detail-dialog .admin-calendar-left { align-self: start; padding: 16px; overflow: hidden; }
+  #modalCalendar.portal-detail-dialog .cal-day-cell { height: clamp(32px, 5dvh, 44px); min-height: 32px; }
+  #modalCalendar.portal-detail-dialog .calendar-note { margin-top: 10px; }
+  #modalCalendar.portal-detail-dialog .admin-calendar-right { align-self: stretch; height: 100%; min-height: 0; max-height: 100%; padding: 20px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--portal-accent-border, #c8b5ba) transparent; }
+}
+@media (max-width: 1100px) and (min-width: 701px) {
+  #modalViewAppointment.portal-detail-dialog .ap-workflow ol { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @media (max-width: 767px) {
   #modalCalendar.portal-detail-dialog .admin-calendar-grid { grid-template-columns: minmax(0, 1fr); }
   #modalCalendar.portal-detail-dialog .admin-calendar-left { width: min(100%, 400px); justify-self: center; }
@@ -98,6 +122,7 @@
   #modalViewAppointment.portal-detail-dialog #apptViewBody { padding: 20px 16px; gap: 18px; }
   #modalViewAppointment.portal-detail-dialog .appt-view-name { font-size: 20px; }
   #modalViewAppointment.portal-detail-dialog .appt-details-section { padding: 14px 12px; }
+  #modalViewAppointment.portal-detail-dialog :is(.ap-panel, .ap-workflow) { padding: 16px; }
   #modalViewAppointment.portal-detail-dialog :is(.appt-view-grid, .appointment-meeting-fields) { grid-template-columns: minmax(0, 1fr); }
   #modalViewAppointment.portal-detail-dialog .appointment-view-modal-footer { padding: 14px 16px; }
   #modalCalendar.portal-detail-dialog :is(.admin-calendar-left, .admin-calendar-right) { padding: 12px; }
@@ -108,7 +133,8 @@
   #modalTimePicker.portal-detail-dialog .time-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #modalTimePicker.portal-detail-dialog .time-wheel:last-child { grid-column: 1 / -1; }
   #modalTimePicker.portal-detail-dialog .time-wheel-select-period { min-height: 80px; }
-  .appointment-table-search { max-width: none; flex-basis: 100%; }
+  .appointment-table-controls { display: grid; grid-template-columns: minmax(0, 1fr); flex-basis: 100%; }
+  .appointment-filter-field, .appointment-table-search { width: 100%; max-width: none; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
   #modalViewAppointment.portal-detail-dialog .appointment-view-modal, #modalCalendar.portal-detail-dialog .modal-calendar-admin, #modalTimePicker.portal-detail-dialog .modal-time-picker { max-height: calc(100dvh - 16px); }

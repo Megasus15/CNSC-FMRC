@@ -639,7 +639,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   for(const id of ['appointmentWorkFilter','appointmentProductStageFilter'])document.getElementById(id)?.addEventListener('change',()=>{
-    document.getElementById('appointmentProductStageFilter').hidden=document.getElementById('appointmentWorkFilter').value!=='custom';
+    const hidden = document.getElementById('appointmentWorkFilter').value !== 'custom';
+    document.getElementById('appointmentProductStageFilter').hidden = hidden;
+    document.getElementById('appointmentStageFilterField').hidden = hidden;
     searchInput?.dispatchEvent(new Event('input',{bubbles:true}));
   });
   window.addEventListener('fmrc:custom-product-updated',event=>{

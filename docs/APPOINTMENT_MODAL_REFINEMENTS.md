@@ -4,6 +4,11 @@ Release assets: **2026.1114.7**. Frontend-only changes; no endpoint, migration,
 Composer dependency, authorization, appointment status, quotation, payment or
 archive-rule changes are required.
 
+The subsequent [User Management and Appointment spacing rollout](USER_MANAGEMENT_MODAL_REFINEMENTS.md)
+in **2026.1114.8** widens the two main Appointment dialogs, keeps the desktop
+calendar fixed beside a scrolling settings pane and groups the table filters.
+The original rollout below describes the shared owner/workflow integration.
+
 ## Appointment rollout
 
 Admin and Staff share the same dialog markup and `admin-page/appointments.js`
