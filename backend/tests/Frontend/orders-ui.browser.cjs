@@ -47,6 +47,7 @@ for(const role of ['admin','staff'])test(role+' Orders refined dialogs, searches
  assert(compact.length>=5);assert(compact.every(c=>!c.x&&c.body&&c.footer));
  await h.run(`document.querySelector('[data-order-reject="1"]').click()`);await h.until(`document.getElementById('rejectIncomingOrderDialog').open`);
  assert(await h.run(`document.getElementById('rejectIncomingOrderDialog').hasAttribute('data-portal-detail-dialog')`));
+ for(const theme of ['light','dark']){await h.run(`document.documentElement.dataset.theme='${theme}'`);assert.deepEqual(await h.run(`(()=>{let s=getComputedStyle(document.getElementById('rejectIncomingOrderDialog'),'::backdrop');return [s.backgroundColor,s.backdropFilter]})()`),['rgba(17, 24, 39, 0.5)','blur(3px)'],'Native dialog cool glass: '+theme);}
  await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.until(`!document.getElementById('rejectIncomingOrderDialog').open`);
  // Native payment dialog can also open directly through its existing history entry.
  await h.run(`document.querySelector('[data-order-view="1"]').click()`);await h.until(`document.getElementById('modalOrderDetails').classList.contains('show')`);

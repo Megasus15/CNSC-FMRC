@@ -78,6 +78,7 @@ test('Products forms, nested previews, personal notifications and scoped popups 
         if(kind==='preview') await h.run(`AdminMediaViewer.open({url:${JSON.stringify(image)},name:'Product reference image.png',type:'image'})`);
         await h.until(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-hidden')==='false'`);
         const g=await geometry(selector);
+        assert.deepEqual(await h.run(`(()=>{let s=getComputedStyle(document.querySelector(${JSON.stringify(selector)}));return [s.backgroundColor,s.backdropFilter]})()`),['rgba(17, 24, 39, 0.5)','blur(3px)'],'Cool glass scrim: '+kind+' '+theme);
         assert(g.card.left>=0&&g.card.right<=width+1&&g.card.top>=0&&g.card.bottom<=901,`${role} ${kind} ${width}: ${JSON.stringify(g)}`);
         assert(!g.overflow&&g.locked&&g.radius===(kind==='notifications'?'0px':'12px'),`${kind}: ${JSON.stringify(g)}`);
         if(kind==='notifications')assert(g.card.top===0&&g.card.bottom===900&&g.card.right===width,'Notification drawer fills the right edge');

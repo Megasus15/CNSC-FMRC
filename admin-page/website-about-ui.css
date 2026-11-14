@@ -1,0 +1,18 @@
+/* About-only details within the shared website editor design. */
+body[data-portal-about-dialogs] .wm-gal-grid { align-items:start; gap:12px; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-slot { padding:12px; gap:8px; align-self:start; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-slot.is-empty { min-height:150px; justify-content:center; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; gap:6px; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-actions .btn-del-sm { grid-column:1/-1; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-actions button { display:grid; place-items:center; width:100%; min-width:0; min-height:44px; padding:8px; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-gal-thumb { max-width:100%; }
+body[data-portal-about-dialogs] .wm-gal-grid svg { width:20px; height:20px; }
+body[data-portal-about-dialogs] .wm-gal-grid .wm-sdg-actions .btn-del-sm { display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px; }
+body[data-portal-about-dialogs] .about-image-actions { display:flex; flex-wrap:wrap; gap:8px; }
+body[data-portal-about-dialogs] .about-image-actions button { flex:1 1 100px; justify-content:center; white-space:nowrap; }
+body[data-portal-about-dialogs] .about-image-actions:not(:has(button:not([style*="display: none"]))) { display:none; }
+body[data-portal-about-dialogs] .wm-video-upload { padding:14px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-about-dialogs] .wm-video-upload-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+body[data-portal-about-dialogs] .wm-video-upload progress { width:100%; accent-color:var(--primary-color,#800000); }
+body[data-portal-about-dialogs] .wm-form-grid > .field-stack > .btn-del-sm { align-self:flex-end; width:auto; }
+@media(max-width:639px) { body[data-portal-about-dialogs] .wm-gal-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }

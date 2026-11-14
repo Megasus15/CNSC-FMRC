@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
-const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+const png='data:image/png;base64,'+fs.readFileSync(require('node:path').join(__dirname,'../../../images/FMRC Brand Logo.png')).toString('base64');
 for(const role of ['admin','staff'])test(role+' Home editor shares Inventory frames, staged editing and nested image fitting',{skip:!chrome,timeout:180000},async t=>{
  let settings={hero_title:'Fabrication and Manufacturing Research Center',hero_bg_type:'color',hero_bg_color:'#800000',nav_logo_image:png,hero_logo_image:png};
- let services=[{id:1,title:'Laser Engraving',category:'Manufacturing',description:'Precision engraving for personal and university projects.',image_data:png,modal_features:['Retained feature'],sort_order:0}],sdgs=[{id:11,title:'Quality Education',description:'Skills and learning opportunities.',image_data:png,is_visible:true,sort_order:0}],failSave=false;
+ let services=[{id:1,title:'Laser Engraving',category:'Manufacturing',description:'Precision engraving for personal and university projects.',image_data:png,modal_features:['Retained feature'],sort_order:0}],sdgs=[{id:11,title:'Quality Education',description:'Skills and learning opportunities.',image_data:png,is_visible:true,sort_order:0},{id:12,title:'Sustainable communities and responsible innovation',description:'A second badge with a longer title.',image_data:png,is_visible:false,sort_order:1}],failSave=false;
  const writes=[];const font=process.env.FMRC_BROWSER_POPPINS,setup=font?`{let s=document.createElement('style');s.textContent=${JSON.stringify(`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`)};document.head.append(s);}`:'';
  const h=await browserFixture(t,async({req,route,json})=>{
   if(route==='/api/site-settings'){json({data:settings});return true;}
@@ -28,9 +28,11 @@ for(const role of ['admin','staff'])test(role+' Home editor shares Inventory fra
  for(const width of [320,390,768,1024,1440]){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
   assert(await h.run(`document.documentElement.scrollWidth<=innerWidth+1`),'Home layout '+width);
+  assert(await h.run(`(()=>{const grid=document.getElementById('homeSdgGrid'),slot=grid.querySelector('.wm-sdg-slot'),buttons=[...slot.querySelectorAll('.wm-sdg-actions button')],empty=grid.querySelector('.is-empty');return buttons.length===6&&buttons.every(b=>b.getBoundingClientRect().width===44&&b.getBoundingClientRect().height===44&&b.getAttribute('aria-label')&&b.title)&&empty.getBoundingClientRect().height<=170&&slot.getBoundingClientRect().height<300})()`),'Compact SDG cards and equal accessible controls '+width);
   assert(await h.run(`(()=>{let a=document.querySelector('.wm-service-card .card-actions'),b=a.lastElementChild,x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return x.right-y.right>=0&&x.right-y.right<=19&&[...a.children].every(b=>b.getBoundingClientRect().height>=44)})()`),'Service actions align right '+width);
  }
  await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});await shot(role+'-home-workspace');
+ for(const width of [1440,390]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<600});await h.run(`document.getElementById('homeSdgGrid').closest('.wm-section').scrollIntoView({block:'start',behavior:'instant'});scrollBy(0,-90)`);await shot(role+'-home-sdg-'+width);}
  await click('[data-home-service-action=edit]');await h.until(`document.getElementById('serviceModal').classList.contains('show')`);
  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);await checkFrame('serviceModal');if([390,1440].includes(width))await shot(role+'-service-editor-'+width+'-'+theme);

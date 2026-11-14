@@ -1618,7 +1618,7 @@ function openCropModal(target) {
   if (hintEl) {
     const holder = conf && conf.shape === "square" ? "square" : "circle";
     hintEl.textContent = vmConf
-      ? "The frame is the exact shape the home page draws. Drag the photo to choose what stays in view, then resize and rotate."
+      ? "This frame matches the customer website. Drag the photo to position it, then adjust its size and rotation."
       : sdg || logo
         ? `Drag the image to position it within the ${holder}. Use the sliders to resize and rotate.`
         : "Drag the image to position it. Use the sliders to resize and rotate.";
@@ -1626,7 +1626,7 @@ function openCropModal(target) {
 
   applyCropTransform();
   const cropDialog = document.getElementById("cropModal");
-  const cropReturn = logo ? `.wm-logo-actions button[onclick="openLogoUpload('${cropLogoSlot(target)}')"]` : sdg ? '#homeSdgGrid' : '#heroBgCropBtn';
+  const cropReturn = logo ? `.wm-logo-actions button[onclick="openLogoUpload('${cropLogoSlot(target)}')"]` : sdg ? '#homeSdgGrid' : vm ? (vm.mode === 'single' ? `#${vm.kind}ImgPreviewFitBtn` : `#${vmConf.grid}`) : '#heroBgCropBtn';
   if (window.PortalDetailDialog && cropDialog.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(cropDialog, {returnSelector: cropReturn});
   else cropDialog.classList.add("show");
 }
@@ -2125,6 +2125,8 @@ function renderGallerySlots(kind) {
   const grid = document.getElementById(conf.grid);
   if (!grid) return;
   const list = galleryData[kind];
+  const icon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const action = (label, paths, handler, index, disabled = false, remove = false) => `<button type="button" class="${remove ? 'btn-del-sm' : 'btn-edit-sm wm-sdg-move'}" title="${label}" aria-label="${label}: ${conf.label} photo ${index + 1}" onclick="${handler}" ${disabled ? 'disabled' : ''}>${icon(paths)}${remove ? ' Remove' : ''}</button>`;
 
   const filled = list
     .map(
@@ -2133,11 +2135,11 @@ function renderGallerySlots(kind) {
       <span class="wm-sdg-slot-index">Photo ${i + 1}${i === 0 ? " — on top" : ""}</span>
       <div class="wm-sdg-thumb wm-gal-thumb ${conf.shape}"><img src="${sdgEsc(src)}" alt="${conf.label} photo ${i + 1}" /></div>
       <div class="wm-sdg-actions">
-        <button class="btn-edit-sm wm-sdg-move" title="Move earlier" onclick="moveGalleryImage('${kind}', ${i}, -1)" ${i === 0 ? "disabled" : ""}><i class="fa-solid fa-arrow-left"></i></button>
-        <button class="btn-edit-sm wm-sdg-move" title="Move later" onclick="moveGalleryImage('${kind}', ${i}, 1)" ${i === list.length - 1 ? "disabled" : ""}><i class="fa-solid fa-arrow-right"></i></button>
-        <button class="btn-edit-sm wm-sdg-move" title="Adjust how this photo sits in the frame" onclick="adjustGalleryFit('${kind}', ${i})"><i class="fa-solid fa-crop-simple"></i></button>
-        <button class="btn-edit-sm wm-sdg-move" title="Replace this photo" onclick="openGalleryUpload('${kind}', ${i})"><i class="fa-regular fa-image"></i></button>
-        <button class="btn-del-sm" onclick="removeGalleryImage('${kind}', ${i})"><i class="fa-solid fa-trash"></i> Remove</button>
+        ${action('Move earlier','<path d="m12 5-7 7 7 7M5 12h14"/>',`moveGalleryImage('${kind}', ${i}, -1)`,i,i === 0)}
+        ${action('Move later','<path d="m12 5 7 7-7 7M19 12H5"/>',`moveGalleryImage('${kind}', ${i}, 1)`,i,i === list.length - 1)}
+        ${action('Adjust image','<path d="M6 3v13a2 2 0 0 0 2 2h13M3 6h13a2 2 0 0 1 2 2v13"/>',`adjustGalleryFit('${kind}', ${i})`,i)}
+        ${action('Replace image','<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',`openGalleryUpload('${kind}', ${i})`,i)}
+        ${action('Remove photo','<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',`removeGalleryImage('${kind}', ${i})`,i,false,true)}
       </div>
     </div>`,
     )
@@ -2148,8 +2150,8 @@ function renderGallerySlots(kind) {
     (_, i) => `
     <div class="wm-sdg-slot is-empty">
       <span class="wm-sdg-slot-index">Slot ${list.length + i + 1}</span>
-      <button class="wm-sdg-add wm-gal-add ${conf.shape}" type="button" title="Upload a ${conf.label.toLowerCase()} photo"
-              onclick="openGalleryUpload('${kind}', null)"><i class="fa-solid fa-plus"></i></button>
+      <button class="wm-sdg-add wm-gal-add ${conf.shape}" type="button" title="Upload a ${conf.label.toLowerCase()} photo" aria-label="Upload ${conf.label.toLowerCase()} photo ${list.length + i + 1}"
+              onclick="openGalleryUpload('${kind}', null)">${icon('<path d="M12 5v14M5 12h14"/>')}</button>
       <div class="wm-sdg-title" style="color:var(--portal-muted-color,#9ca3af);font-weight:600">Upload photo</div>
     </div>`,
   ).join("");
@@ -2310,6 +2312,8 @@ function renderSdgSlots() {
 
 function sdgSlotHtml(s, i) {
   const isLast = i === sdgsData.length - 1;
+  const icon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const action = (label, paths, handler, disabled = false, remove = false) => `<button type="button" class="${remove ? 'btn-del-sm' : 'btn-edit-sm'}" title="${label}" aria-label="${label}: ${sdgEsc(s.title)}" onclick="${handler}" ${disabled ? 'disabled' : ''}>${icon(paths)}</button>`;
   const thumb = s.image_data
     ? `<img src="${s.image_data}" alt="${sdgEsc(s.title)}" />`
     : '<span style="color:#d1d5db"><i class="fa-regular fa-image"></i></span>';
@@ -2317,15 +2321,15 @@ function sdgSlotHtml(s, i) {
     <div class="wm-sdg-slot">
       <span class="wm-sdg-slot-index">Slot ${i + 1}</span>
       <div class="wm-sdg-thumb">${thumb}</div>
-      <div class="wm-sdg-title">${sdgEsc(s.title)}</div>
+      <div class="wm-sdg-title" title="${sdgEsc(s.title)}">${sdgEsc(s.title)}</div>
       ${s.is_visible ? "" : '<span class="wm-sdg-hidden-tag">Hidden</span>'}
       <div class="wm-sdg-actions">
-        <button class="btn-edit-sm wm-sdg-move" title="Move left" onclick="reorderSdg(${s.id}, -1)" ${i === 0 ? "disabled" : ""}><i class="fa-solid fa-arrow-left"></i></button>
-        <button class="btn-edit-sm wm-sdg-move" title="Move right" onclick="reorderSdg(${s.id}, 1)" ${isLast ? "disabled" : ""}><i class="fa-solid fa-arrow-right"></i></button>
-        <button class="btn-edit-sm" onclick="openSdgModal(${s.id})"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
-        <button class="btn-edit-sm" onclick="adjustSdg(${s.id})" ${s.image_data ? "" : "disabled"}><i class="fa-solid fa-crop-simple"></i> Adjust</button>
-        <button class="btn-edit-sm wm-sdg-move" title="Replace image" onclick="openSdgUpload(${s.id})"><i class="fa-regular fa-image"></i></button>
-        <button class="btn-del-sm" onclick="deleteSdg(${s.id})"><i class="fa-solid fa-trash"></i> Remove</button>
+        ${action('Move left','<path d="m12 5-7 7 7 7M5 12h14"/>',`reorderSdg(${s.id}, -1)`,i === 0)}
+        ${action('Move right','<path d="m12 5 7 7-7 7M19 12H5"/>',`reorderSdg(${s.id}, 1)`,isLast)}
+        ${action('Edit details','<path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14l-1 7 6-2"/>',`openSdgModal(${s.id})`)}
+        ${action('Adjust image','<path d="M6 3v13a2 2 0 0 0 2 2h13M3 6h13a2 2 0 0 1 2 2v13"/>',`adjustSdg(${s.id})`,!s.image_data)}
+        ${action('Replace image','<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/>',`openSdgUpload(${s.id})`)}
+        ${action('Remove badge','<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',`deleteSdg(${s.id})`,false,true)}
       </div>
     </div>`;
 }

@@ -37,7 +37,7 @@ body[data-portal-popup-context="Orders"] { font-family: 'Poppins', sans-serif; }
 .orders-dialog .gateway-action-note { border:1px solid var(--border-color,#e2e8f0); border-radius:8px; }
 .orders-dialog.orders-native-dialog { padding:0; border:0; background:transparent; width:min(1040px,calc(100% - 32px)); max-width:1040px; max-height:calc(100dvh - 32px); overflow:hidden; color:var(--text-main,#2b2b31); }
 .orders-dialog.orders-native-dialog:not([open]) { display:none; }
-.orders-dialog.orders-native-dialog::backdrop { background:rgba(30,20,20,.42); }
+.orders-dialog.orders-native-dialog::backdrop { background:rgba(17,24,39,.5); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
 .orders-dialog.orders-native-dialog > form { margin:0; width:100%; max-height:calc(100dvh - 32px); }
 .orders-dialog.orders-native-dialog.portal-detail-dialog--compact { max-width:480px; }
 .orders-dialog.orders-native-dialog .portal-detail-dialog__body { max-height:none; }

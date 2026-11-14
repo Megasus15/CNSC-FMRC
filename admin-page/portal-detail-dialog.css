@@ -4,8 +4,15 @@
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   overflow: hidden;
   overscroll-behavior: none;
-  background: var(--ux-dlg-scrim, rgba(30, 20, 20, .42));
+  background: rgba(17, 24, 39, .5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
+/* Keep the same cool glass in both themes, above theme scrims; tint each layer once. */
+html[data-portal] :is(.modal-overlay, .admin-system-popup, .all-notif-overlay, .admin-media-viewer, .admin-session-warning).portal-detail-dialog { background:rgba(17,24,39,.5); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+html[data-portal] dialog.portal-detail-dialog::backdrop { background: rgba(17,24,39,.5); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+html[data-portal] .admin-system-popup.portal-detail-dialog .admin-system-popup__backdrop,
+html[data-portal] .all-notif-overlay.portal-detail-dialog .all-notif-backdrop { background:transparent; backdrop-filter:none; -webkit-backdrop-filter:none; }
 .portal-detail-dialog .portal-detail-dialog__card {
   display: flex;
   flex-direction: column;
