@@ -690,12 +690,52 @@
       letterheadSaving: false,
       letterheadFormBuilt: false,
       letterheadPreviousFocus: null,
+      letterheadBaseline: null,
+      letterheadOpenSequence: 0,
       previousFocus: null,
       deferredFocusRestore: null,
       previewScrollLock: null,
       previewTouchStartedInside: false,
       previewPreparing: false,
       previewRenderPromise: null,
+    };
+
+    // Screen-only charts reuse Dashboard's factories; the audited document
+    // renderer continues using its original, self-contained report markup.
+    const reportCharts = {trend: null, breakdown: null};
+    const destroyReportCharts = () => {
+      Object.keys(reportCharts).forEach(key => { reportCharts[key]?.destroy(); reportCharts[key] = null; });
+    };
+    let metricFitFrame = 0;
+    const fitMetricValues = () => {
+      if (metricFitFrame) cancelAnimationFrame(metricFitFrame);
+      metricFitFrame = requestAnimationFrame(() => {
+        metricFitFrame = 0;
+        elements.metrics?.querySelectorAll('.report-metric-value').forEach(value => {
+          value.style.fontSize = '26px'; value.style.whiteSpace = 'nowrap';
+          if (value.clientWidth && value.scrollWidth > value.clientWidth) {
+            value.style.fontSize = `${Math.max(16, Math.floor(26 * value.clientWidth / value.scrollWidth))}px`;
+            if (value.scrollWidth > value.clientWidth) value.style.whiteSpace = 'normal';
+          }
+        });
+      });
+    };
+    if (elements.metrics && typeof ResizeObserver === 'function') {
+      let previousWidth = -1;
+      new ResizeObserver(([entry]) => {
+        if (entry.contentRect.width !== previousWidth) { previousWidth = entry.contentRect.width; fitMetricValues(); }
+      }).observe(elements.metrics);
+      document.fonts?.ready.then(fitMetricValues);
+    }
+    const metricSymbol = metric => {
+      const name = metricIcon(metric.key, metric.label);
+      const path = name.includes('peso') ? '<path d="M8 21V3h6a5 5 0 0 1 0 10H8M5 6h14M5 10h14"/>'
+        : name.includes('calendar') ? '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18m-11 5 2 2 4-4"/>'
+        : name.includes('circle-check') ? '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'
+        : name.includes('box') ? '<path d="m3 7 9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/>'
+        : name.includes('percent') ? '<path d="m5 19 14-14"/><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/>'
+        : '<path d="M3 3v18h18M7 14v3M12 9v8M17 5v12"/>';
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
     };
 
     const getToken = () =>
@@ -972,6 +1012,8 @@
 
     const renderMetrics = (metrics) => {
       elements.metrics.setAttribute("aria-busy", "false");
+      const columns = metrics.length <= 3 ? Math.max(1, metrics.length) : metrics.length === 4 ? 2 : metrics.length >= 7 ? 4 : 3;
+      elements.metrics.style.setProperty('--report-metric-columns', columns);
       if (!metrics.length) {
         elements.metrics.innerHTML = surfaceState(
           "No summary metrics are available for this report period.",
@@ -983,7 +1025,7 @@
         .map(
           (metric) => `
             <article class="report-metric-card">
-              <span class="report-metric-icon" aria-hidden="true"><i class="${metricIcon(metric.key, metric.label)}"></i></span>
+              <span class="report-metric-icon" aria-hidden="true">${metricSymbol(metric)}</span>
               <div class="report-metric-copy">
                 <strong class="report-metric-value">${escapeHtml(formatValue(metric.value, metric.format))}</strong>
                 <span class="report-metric-label">${escapeHtml(metric.label)}</span>
@@ -991,6 +1033,7 @@
             </article>`,
         )
         .join("");
+      fitMetricValues();
     };
 
     const renderBreakdown = (breakdown) => {
@@ -1008,13 +1051,13 @@
         ...breakdown.items.map((item) => Math.abs(asFiniteNumber(item.value))),
       );
       elements.breakdown.innerHTML = breakdown.items
-        .map((item) => {
+        .map((item, index) => {
           const width = Math.max(
             0,
             Math.min(100, (Math.abs(asFiniteNumber(item.value)) / maxValue) * 100),
           );
           return `
-            <div class="report-breakdown-item">
+            <div class="report-breakdown-item" style="--report-series-color:${SERIES_COLORS[index % SERIES_COLORS.length]}">
               <div class="report-breakdown-copy">
                 <span class="report-breakdown-label" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
                 <strong class="report-breakdown-value">${escapeHtml(formatValue(item.value, breakdown.value_type))}</strong>
@@ -1026,6 +1069,75 @@
         })
         .join("");
     };
+
+    const renderScreenCharts = data => {
+      destroyReportCharts();
+      elements.breakdown.classList.remove('has-chart');
+      const fallback = document.createElement('div');
+      fallback.innerHTML = buildChartMarkup(data.chart);
+      elements.chart.replaceChildren(fallback);
+      if (!window.Chart || !window.AnalyticsCharts) return;
+      const palette = window.AnalyticsCharts.PALETTE;
+      const accent = getComputedStyle(elements.chart).getPropertyValue('--portal-accent').trim() || palette[0];
+      const colors = [accent, ...palette.slice(1)];
+      const frame = (host, label) => {
+        const box = document.createElement('div'); box.className = 'reports-chart-frame';
+        const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', label);
+        box.append(canvas); host.append(box); return {box, canvas};
+      };
+      const theme = chart => {
+        const muted = getComputedStyle(elements.chart).getPropertyValue('--portal-muted-color').trim() || '#6b7280';
+        chart.options.animation = false;
+        for (const axis of Object.values(chart.options.scales || {})) {
+          if (axis.ticks) axis.ticks.color = muted;
+          if (axis.grid) axis.grid.color = 'rgba(128,128,128,.15)';
+        }
+      };
+      if (data.chart.labels.length && data.chart.series.length) {
+        const {box, canvas} = frame(elements.chart, `${data.chart.title}. Complete values follow this chart.`);
+        try {
+          const first = data.chart.series[0];
+          const chart = window.AnalyticsCharts.renderLine(canvas.getContext('2d'), {labels: data.chart.labels, data: first.values, label: first.name, currency: data.chart.value_type === 'currency', area: data.chart.series.length === 1});
+          if (chart) {
+            reportCharts.trend = chart;
+            const common = {...chart.data.datasets[0]};
+            chart.data.datasets = data.chart.series.map((series, index) => ({...common, label: series.name, data: series.values, borderColor: colors[index % colors.length], pointBackgroundColor: colors[index % colors.length], fill: data.chart.series.length === 1}));
+            chart.options.plugins.tooltip.displayColors = data.chart.series.length > 1;
+            chart.options.plugins.tooltip.callbacks.label = item => `${item.dataset.label}: ${formatValue(item.parsed.y, data.chart.value_type)}`;
+            chart.options.scales.x.ticks.autoSkip = true;
+            chart.options.scales.x.ticks.font.size = 10;
+            theme(chart); chart.update('none'); reportCharts.trend = chart;
+            const legend = fallback.querySelector('.report-chart-legend')?.cloneNode(true);
+            const accessible = fallback.querySelector('.admin-loading-sr-only')?.cloneNode(true);
+            legend?.querySelectorAll('.report-chart-swatch').forEach((swatch, index) => swatch.style.setProperty('--report-series-color', colors[index % colors.length]));
+            if (legend) elements.chart.insertBefore(legend, box);
+            if (accessible) elements.chart.append(accessible);
+            fallback.hidden = true;
+          } else box.remove();
+        } catch { reportCharts.trend?.destroy(); reportCharts.trend = null; box.remove(); }
+      }
+      if (data.breakdown.items.length) {
+        const {box, canvas} = frame(elements.breakdown, `${data.breakdown.title}. Exact amounts are listed below.`);
+        elements.breakdown.prepend(box);
+        try {
+          const chart = window.AnalyticsCharts.renderBar(canvas.getContext('2d'), {horizontal: true, labels: data.breakdown.items.map(item => item.label), data: data.breakdown.items.map(item => item.value), colors, tooltip: {callbacks: {label: item => formatValue(item.parsed.x, data.breakdown.value_type)}}});
+          if (chart) {
+            reportCharts.breakdown = chart;
+            theme(chart); chart.options.scales.x.ticks.callback = value => data.breakdown.value_type === 'currency' ? `₱${Number(value).toLocaleString('en-PH', {notation: 'compact', maximumFractionDigits: 1})}` : value;
+            chart.update('none'); reportCharts.breakdown = chart; elements.breakdown.classList.add('has-chart');
+            elements.breakdown.querySelectorAll('.report-breakdown-item').forEach((item, index) => item.style.setProperty('--report-series-color', colors[index % colors.length]));
+          } else box.remove();
+        } catch { reportCharts.breakdown?.destroy(); reportCharts.breakdown = null; box.remove(); }
+      }
+    };
+    if (!documentOnly) {
+      new MutationObserver(() => { if (state.reportData) { renderBreakdown(state.reportData.breakdown); renderScreenCharts(state.reportData); } }).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+      window.addEventListener('pageshow', event => { if (event.persisted && state.reportData) { renderBreakdown(state.reportData.breakdown); renderScreenCharts(state.reportData); } });
+      // Chart.js loads asynchronously so report tables and filters stay usable
+      // when its CDN is slow or unavailable. Upgrade the fallback when ready.
+      window.addEventListener('load', () => { if (state.reportData && window.Chart) { renderBreakdown(state.reportData.breakdown); renderScreenCharts(state.reportData); } });
+    }
+    window.addEventListener('pagehide', destroyReportCharts);
 
     const activeReportTable = () => {
       const tables = state.reportData ? [state.reportData.table, ...state.reportData.additional_tables] : [];
@@ -1088,7 +1200,7 @@
           : report.period_label;
       elements.resultPeriod.textContent = report.scope === "current_snapshot"
         ? `Current snapshot · ${formatDateValue(report.snapshot_at || report.generated_at, true)}`
-        : `${report.period_label} · ${dateRange}`;
+        : [...new Set([report.period_label, dateRange].filter(Boolean))].join(' · ');
       elements.resultMeta.innerHTML = `
         <div><dt>Report ID</dt><dd>${escapeHtml(report.id)}</dd></div>
         <div><dt>Generated by</dt><dd>${escapeHtml(report.generated_by)}</dd></div>
@@ -1103,8 +1215,8 @@
       renderResultHeader(data.report);
       renderMetrics(data.metrics);
       elements.chartTitle.textContent = data.chart.title;
-      elements.chart.innerHTML = buildChartMarkup(data.chart);
       renderBreakdown(data.breakdown);
+      renderScreenCharts(data);
       if(state.tableCategory!==data.report.category){state.tableIndex=0;state.currentPage=1;state.tableCategory=data.report.category;}
       const tables=[data.table,...data.additional_tables];
       state.tableIndex=Math.min(state.tableIndex,tables.length-1);
@@ -1567,14 +1679,17 @@
     };
 
     /** Mirror the stored (not resolved) values back into the editor inputs. */
-    const syncLetterheadForm = () => {
+    const letterheadSnapshot = () => JSON.stringify([...elements.letterheadFields?.querySelectorAll('[data-letterhead-key]') || []].map(input => input.value));
+    const syncLetterheadForm = ({force = false} = {}) => {
       if (!state.letterheadFormBuilt || !elements.letterheadFields) return;
+      if (!force && elements.letterheadModal?.classList.contains('show') && state.letterheadBaseline !== null && letterheadSnapshot() !== state.letterheadBaseline) return;
       REPORT_LETTERHEAD_FIELDS.forEach((field) => {
         const input = elements.letterheadFields.querySelector(
           `[data-letterhead-key="${field.key}"]`,
         );
         if (input) input.value = String(state.letterheadStored[field.key] ?? "");
       });
+      state.letterheadBaseline = letterheadSnapshot();
     };
 
     const setLetterheadError = (message) => {
@@ -1597,11 +1712,13 @@
 
     const openLetterheadEditor = async () => {
       if (!elements.letterheadModal) return;
+      const sequence = ++state.letterheadOpenSequence;
       state.letterheadPreviousFocus =
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : elements.letterheadBtn;
       buildLetterheadForm();
+      state.letterheadBaseline = null;
       setLetterheadError("");
       if (elements.letterheadModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) {
         window.PortalDetailDialog.registerClose(elements.letterheadModal, closeLetterheadEditor);
@@ -1610,6 +1727,7 @@
       elements.letterheadModal.setAttribute("aria-hidden", "false");
       syncLetterheadForm();
       await loadLetterhead(false);
+      if (sequence !== state.letterheadOpenSequence || !elements.letterheadModal.classList.contains('show')) return;
       syncLetterheadForm();
       const firstInput = elements.letterheadFields?.querySelector("input");
       try {
@@ -1622,6 +1740,8 @@
     const closeLetterheadEditor = () => {
       if (!elements.letterheadModal?.classList.contains("show")) return;
       if (state.letterheadSaving) return;
+      ++state.letterheadOpenSequence;
+      state.letterheadBaseline = null;
       elements.letterheadModal.classList.remove("show");
       elements.letterheadModal.setAttribute("aria-hidden", "true");
       setLetterheadError("");
@@ -1665,6 +1785,12 @@
 
       const button = clearAll ? elements.letterheadReset : elements.letterheadSave;
       state.letterheadSaving = true;
+      if (elements.letterheadModal?.hasAttribute('data-portal-detail-dialog')) {
+        elements.letterheadModal.setAttribute('aria-busy', 'true');
+        if (elements.letterheadFields) elements.letterheadFields.inert = true;
+        if (elements.letterheadCloseIcon) elements.letterheadCloseIcon.disabled = true;
+        if (elements.letterheadCancel) elements.letterheadCancel.disabled = true;
+      }
       setLetterheadError("");
       setButtonPending(button, true, clearAll ? "Restoring..." : "Saving...");
       if (elements.letterheadSave) elements.letterheadSave.disabled = true;
@@ -1700,7 +1826,7 @@
             ]),
           ),
         );
-        syncLetterheadForm();
+        syncLetterheadForm({force: true});
         await loadLetterhead(false);
         if (typeof window.BroadcastChannel === "function") {
           try {
@@ -1730,6 +1856,12 @@
         );
       } finally {
         state.letterheadSaving = false;
+        if (elements.letterheadModal?.hasAttribute('data-portal-detail-dialog')) {
+          elements.letterheadModal.setAttribute('aria-busy', 'false');
+          if (elements.letterheadFields) elements.letterheadFields.inert = false;
+          if (elements.letterheadCloseIcon) elements.letterheadCloseIcon.disabled = false;
+          if (elements.letterheadCancel) elements.letterheadCancel.disabled = false;
+        }
         setButtonPending(button, false);
         if (elements.letterheadSave) elements.letterheadSave.disabled = false;
         if (elements.letterheadReset) elements.letterheadReset.disabled = false;
@@ -2421,6 +2553,7 @@
     };
 
     const lockPreviewEnvironment = () => {
+      if (elements.previewModal?.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) return;
       if (state.previewScrollLock) return;
       const html = document.documentElement;
       const body = document.body;
@@ -2521,7 +2654,10 @@
           : elements.preview;
       setButtonPending(elements.preview, true, "Preparing...");
       syncActionButtons();
-      elements.previewModal.classList.add("show");
+      if (elements.previewModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) {
+        window.PortalDetailDialog.registerClose(elements.previewModal, closePreview);
+        window.PortalDetailDialog.open(elements.previewModal, {trigger: state.previousFocus});
+      } else elements.previewModal.classList.add('show');
       elements.previewModal.setAttribute("aria-hidden", "false");
       elements.previewContent.innerHTML = surfaceState(
         "Preparing the official report pages...",
@@ -3108,13 +3244,13 @@
     elements.preview?.addEventListener("click", () => void openPreview());
     elements.csv?.addEventListener("click", () => void exportCsv());
     elements.excel?.addEventListener('click',()=>void exportExcel());
-    elements.previewCloseIcon?.addEventListener("click", closePreview);
+    if (!elements.previewCloseIcon?.hasAttribute('data-portal-detail-close')) elements.previewCloseIcon?.addEventListener('click', closePreview);
     elements.previewClose?.addEventListener("click", closePreview);
     elements.print?.addEventListener("click", () => void printReport());
     elements.letterheadBtn?.addEventListener("click", () =>
       void openLetterheadEditor(),
     );
-    elements.letterheadCloseIcon?.addEventListener("click", closeLetterheadEditor);
+    if (!elements.letterheadCloseIcon?.hasAttribute('data-portal-detail-close')) elements.letterheadCloseIcon?.addEventListener('click', closeLetterheadEditor);
     elements.letterheadCancel?.addEventListener("click", closeLetterheadEditor);
     elements.letterheadSave?.addEventListener("click", () => void saveLetterhead(false));
     elements.letterheadReset?.addEventListener("click", () => {
@@ -3166,6 +3302,7 @@
     });
     document.addEventListener("keydown", (event) => {
       if (!elements.previewModal?.classList.contains("show")) return;
+      if (elements.previewModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) return;
       if (event.key === "Escape") {
         closePreview();
         return;
