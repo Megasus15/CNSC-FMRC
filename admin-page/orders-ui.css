@@ -1,0 +1,57 @@
+/* Orders opts into the established Inventory dialog language. */
+body[data-portal-popup-context="Orders"] { font-family: 'Poppins', sans-serif; }
+.orders-dialog :is(input,textarea,select,button) { font-family: inherit; }
+.orders-dialog .portal-detail-dialog__card { max-width: 1040px; width: min(1040px,100%); }
+#modalOrderDetails.orders-dialog .portal-detail-dialog__card { width:min(1040px,100%); max-width:1040px; max-height:calc(100dvh - 32px); overflow:hidden; padding:0; }
+:is(#modalOrderDetails,#modalTrackingUpdate).orders-dialog :where(:not(i)) { font-family:'Poppins',sans-serif!important; }
+.orders-dialog .portal-detail-dialog__card { padding:0; }
+.orders-dialog:is(#modalAddWalkInOrder,#modalReturnAction,#rejectIncomingOrderDialog) .portal-detail-dialog__card { max-width:800px; }
+.orders-dialog.portal-detail-dialog--compact .portal-detail-dialog__card { max-width:480px; }
+.orders-dialog .portal-detail-dialog__header { margin:0; }
+.orders-dialog .orders-section-icon { display:inline-grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border-radius:8px; background:var(--portal-accent-soft,#fbf1f2); color:var(--primary-color,#800000); }
+.orders-dialog .orders-section-icon svg { width:18px; height:18px; }
+.orders-dialog .portal-detail-dialog__body { padding:28px 32px; }
+.orders-dialog .portal-detail-dialog__body > .form-grid { padding:0; margin:0; gap:20px 24px; }
+.orders-dialog .portal-detail-dialog__body :is(.field-stack,.field) { min-width:0; }
+.orders-dialog .portal-detail-dialog__body :is(.order-section-title,h4) { color:var(--primary-color,#800000); }
+.orders-dialog :is(.form-grid,.gateway-detail-grid) { min-width:0; }
+.orders-dialog :is(.field-hint,.confirm-text,.gateway-intro) { line-height:1.7; }
+.orders-dialog .portal-detail-dialog__footer { padding:16px 32px; }
+.orders-dialog .portal-detail-dialog__footer button { min-height:44px; width:auto; white-space:normal; font-size:14px; font-weight:600; border-radius:8px; }
+.orders-dialog .portal-detail-dialog__footer .btn-admin:not(.btn-secondary) { background:var(--primary-color,#800000); border-color:var(--primary-color,#800000); }
+.orders-dialog .portal-detail-dialog__footer .btn-admin.btn-secondary:not(:disabled) { background:var(--surface,#fdfaf6); color:var(--primary-color,#800000); border:1px solid var(--primary-color,#800000); opacity:1; }
+.orders-dialog .portal-detail-dialog__footer .btn-admin.btn-secondary:not(:disabled):hover { background:var(--portal-accent-soft,#fbf1f2); }
+.orders-dialog.portal-detail-dialog--compact :is(.portal-detail-dialog__header,.portal-detail-dialog__footer) { border:0; }
+.orders-dialog.portal-detail-dialog--compact .portal-detail-dialog__body { padding-top:4px; padding-bottom:12px; }
+.orders-dialog.portal-detail-dialog--compact hr { display:none; }
+.orders-dialog.portal-detail-dialog--compact .portal-detail-dialog__close { display:none; }
+.orders-dialog .gateway-modal-error:empty { display:none; }
+.orders-dialog .gateway-action-note { border:1px solid var(--border-color,#e2e8f0); border-radius:8px; }
+.orders-dialog.orders-native-dialog { padding:0; border:0; background:transparent; width:min(1040px,calc(100% - 32px)); max-width:1040px; max-height:calc(100dvh - 32px); overflow:hidden; color:var(--text-main,#2b2b31); }
+.orders-dialog.orders-native-dialog:not([open]) { display:none; }
+.orders-dialog.orders-native-dialog::backdrop { background:rgba(30,20,20,.42); }
+.orders-dialog.orders-native-dialog > form { margin:0; width:100%; max-height:calc(100dvh - 32px); }
+.orders-dialog.orders-native-dialog.portal-detail-dialog--compact { max-width:480px; }
+.orders-dialog.orders-native-dialog .portal-detail-dialog__body { max-height:none; }
+body[data-portal-popup-context="Orders"] .orders-layout-stack .panel-header { display:flex; align-items:center; flex-wrap:wrap; gap:16px; }
+body[data-portal-popup-context="Orders"] .orders-layout-stack .panel-header h3 { color:var(--primary-color,#800000); }
+body[data-portal-popup-context="Orders"] .orders-layout-stack .panel-header > :is(.filters-row,.gateway-toolbar,.orders-search) { margin-left:auto; }
+body[data-portal-popup-context="Orders"] .orders-layout-stack :is(.filters-row,.gateway-toolbar) { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:10px; }
+body[data-portal-popup-context="Orders"] .orders-layout-stack .orders-search { order:10; width:260px; max-width:100%; flex:0 1 260px; min-width:0; margin-bottom:0; }
+body[data-portal-popup-context="Orders"] .orders-layout-stack .orders-search input { width:100%; min-width:0; margin:0; padding-left:42px; min-height:44px; }
+body[data-portal-popup-context="Orders"] .gateway-search { order:10; width:260px; flex:0 1 260px; min-width:0; }
+body[data-portal-popup-context="Orders"] .gateway-search .orders-search { width:100%; }
+body[data-portal-popup-context="Orders"] #ordersModuleTabs { display:flex; flex-wrap:wrap; gap:10px; }
+body[data-portal-popup-context="Orders"] #ordersModuleTabs button { min-height:44px; font:600 14px 'Poppins',sans-serif; padding:10px 16px; border-radius:8px; display:inline-flex; gap:8px; align-items:center; justify-content:center; }
+.orders-review-priority { display:inline-flex; margin-left:8px; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:600; color:var(--primary-color,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+#orderReviewCount { display:none; }
+@media(max-width:639px) {
+ .orders-dialog .portal-detail-dialog__body { padding:20px; }
+ .orders-dialog .portal-detail-dialog__footer { padding:16px 20px; flex-wrap:wrap; }
+ .orders-dialog .portal-detail-dialog__footer button { flex:1 1 0; min-width:0; }
+ .orders-dialog .form-grid { grid-template-columns:minmax(0,1fr); }
+ .orders-dialog .form-grid > .full { grid-column:1/-1; }
+ body[data-portal-popup-context="Orders"] .orders-layout-stack .panel-header > :is(.filters-row,.gateway-toolbar,.orders-search) { width:100%; flex-basis:100%; }
+ body[data-portal-popup-context="Orders"] .orders-layout-stack :is(.filters-row,.gateway-toolbar) > * { max-width:100%; }
+ body[data-portal-popup-context="Orders"] .gateway-search { flex-basis:100%; width:100%; }
+}

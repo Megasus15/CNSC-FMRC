@@ -67,6 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const reviewFooter = document.getElementById('orderReviewFooter');
   const reviewSearch = document.getElementById('orderReviewSearch');
   const incomingOrdersTable = document.getElementById("incomingOrdersTable");
+  const incomingSearch = document.getElementById("incomingOrdersSearch");
   const incomingOrdersTbody = incomingOrdersTable?.querySelector("tbody");
   const incomingOrdersFooter = document.getElementById("incomingOrdersFooter");
 
@@ -1802,9 +1803,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  incomingSearch?.addEventListener("input", () => { state.incomingPage = 1; renderIncomingTable(); });
+
   const renderIncomingTable = () => {
     state.incomingPage = renderPagedRows({
-      rows: state.incoming,
+      rows: state.incoming.filter(order => [order.order_no, order.order_no_display, order.customer_name, order.product_name, ...(order.items || []).map(item => item.product_name)].join(" ").toLowerCase().includes((incomingSearch?.value || "").trim().toLowerCase())),
       tbody: incomingOrdersTbody,
       colCount: 10,
       footer: incomingOrdersFooter,
@@ -2525,7 +2528,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderWalkInTable();
 
     renderOrdersTabCounts();
-    window.dispatchEvent(new CustomEvent("fmrc:orders-synced",{detail:{orders:[...state.review,...state.incoming,...state.directory]}}));
+    window.dispatchEvent(new CustomEvent("fmrc:orders-synced",{detail:{orders:[...new Map([...state.review,...state.incoming,...state.directory].map(order => [String(order.id), order])).values()]}}));
   };
 
   const renderOrdersLoading = () => {
@@ -4263,7 +4266,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `${ids.length} selected orders. Each customer will receive the same reason.`
       : [order?.order_no_display || order?.order_no || `Order #${ids[0]}`, order?.customer_name].filter(Boolean).join(" · ");
     incomingRejectionSubmit.textContent = bulk ? "Reject orders" : "Reject order";
-    incomingRejectionDialog.showModal();
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(incomingRejectionDialog); else incomingRejectionDialog.showModal();
     incomingRejectionReason.focus();
   };
 
@@ -4989,9 +4992,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetWalkInOrderForm = () => {
     activeWalkInOrderId = null;
     const title = document.getElementById("walkInModalTitle");
-    if (title) title.textContent = "Add Walk-in Customer";
+    if (title) title.textContent = "Add Walk-in Sale";
     if (saveWalkInOrderBtn)
-      saveWalkInOrderBtn.innerText = "Save Walk-in Customer";
+      saveWalkInOrderBtn.innerText = "Save Sale";
 
     if (walkInOrderNoInput) walkInOrderNoInput.value = "";
     if (walkInCustomerNameInput) walkInCustomerNameInput.value = "";
@@ -5024,9 +5027,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (order) {
       activeWalkInOrderId = order.id;
       const title = document.getElementById("walkInModalTitle");
-      if (title) title.textContent = "Edit Walk-in Customer";
+      if (title) title.textContent = "Edit Walk-in Sale";
       if (saveWalkInOrderBtn)
-        saveWalkInOrderBtn.innerText = "Update Walk-in Customer";
+        saveWalkInOrderBtn.innerText = "Update Sale";
 
       if (walkInOrderNoInput) walkInOrderNoInput.value = order.order_no || "";
       if (walkInCustomerNameInput)
@@ -5279,8 +5282,8 @@ document.addEventListener("DOMContentLoaded", () => {
       queueSuccessFlash(
         payload?.message ||
           (activeWalkInOrderId
-            ? "Walk-in customer record updated successfully."
-            : "Walk-in customer record added successfully."),
+            ? "Walk-in sale record updated successfully."
+            : "Walk-in sale record added successfully."),
         "Success",
       );
       window.location.reload();
@@ -5297,8 +5300,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const isUpdating = !!activeWalkInOrderId;
         saveWalkInOrderBtn.disabled = false;
         saveWalkInOrderBtn.innerText = isUpdating
-          ? "Update Walk-in Customer"
-          : "Save Walk-in Customer";
+          ? "Update Sale"
+          : "Save Sale";
       }
     }
   };

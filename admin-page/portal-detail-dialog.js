@@ -7,9 +7,9 @@
   const closeHandlers = new WeakMap();
   let session = null;
   const visible = node => node?.isConnected && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
-  const isOpen = node => node.dataset.portalDetailVisibility === 'hidden' ? !node.hidden && visible(node) : node.classList.contains('show') && visible(node);
+  const isOpen = node => node.dataset.portalDetailVisibility === 'native' ? node.open && visible(node) : node.dataset.portalDetailVisibility === 'hidden' ? !node.hidden && visible(node) : node.classList.contains('show') && visible(node);
   const layers = () => [...document.querySelectorAll(layerSelector)].filter(node => node.matches('[data-portal-detail-dialog]') ? isOpen(node) : visible(node))
-    .sort((a, b) => (parseInt(getComputedStyle(a).zIndex) || 0) - (parseInt(getComputedStyle(b).zIndex) || 0));
+    .sort((a, b) => Number(a.matches('dialog[open]')) - Number(b.matches('dialog[open]')) || (parseInt(getComputedStyle(a).zIndex) || 0) - (parseInt(getComputedStyle(b).zIndex) || 0));
   const controls = layer => [...layer.querySelectorAll(tabbable)].filter(node => visible(node) && !node.closest('[inert]') && node.getAttribute('aria-disabled') !== 'true');
   const capture = (node, properties) => properties.map(name => [name, node.style.getPropertyValue(name), node.style.getPropertyPriority(name)]);
   const restore = (node, properties) => properties.forEach(([name, value, priority]) => value ? node.style.setProperty(name, value, priority) : node.style.removeProperty(name));
@@ -132,7 +132,8 @@
       if (!root?.matches('[data-portal-detail-dialog]')) return;
       const wasOpen = isOpen(root);
       begin(root, options);
-      if (root.dataset.portalDetailVisibility === 'hidden') root.hidden = false;
+      if (root.dataset.portalDetailVisibility === 'native') { if (!root.open) root.showModal(); }
+      else if (root.dataset.portalDetailVisibility === 'hidden') root.hidden = false;
       else root.classList.add('show');
       sync();
       if (!wasOpen) root.querySelector('.portal-detail-dialog__body')?.scrollTo({top: 0, behavior: 'instant'});

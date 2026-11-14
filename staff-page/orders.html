@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
     <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.7" />
   </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-popup-context="Orders">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -166,11 +166,11 @@
             </button>
 
 <button class="archive-tab-btn" data-tab="records" type="button">
-              <i class="fa-solid fa-rotate-left"></i> Rejected, Returns &amp; Payments
+              <i class="fa-solid fa-rotate-left"></i> Order Records
               <span class="tab-count" id="tabCountOrdersRecords">0</span>
             </button>
             <button class="archive-tab-btn" data-tab="walkin" type="button">
-              <i class="fa-solid fa-cash-register"></i> Walk-in Customers
+              <i class="fa-solid fa-cash-register"></i> Walk-in Sales
               <span class="tab-count" id="tabCountOrdersWalkin">0</span>
             </button>
           </div>
@@ -178,7 +178,7 @@
           <div class="orders-layout-stack">
             <section class="archive-section active" id="sectionOrders">
             <article class="panel" id="orderReviewPanel">
-              <div class="panel-header"><div><h3>Awaiting FMRC Review <span class="status-pill status-yellow" id="orderReviewCount">0</span></h3><p class="incoming-subtitle">Review availability and details before unlocking payment.</p></div><input class="search-input" id="orderReviewSearch" type="search" aria-label="Search order requests" placeholder="Search order, customer, or item..." /></div>
+              <div class="panel-header"><div><h3>Awaiting FMRC Review <span class="orders-review-priority">Priority review</span><span id="orderReviewCount" aria-hidden="true">0</span></h3><p class="incoming-subtitle">Review availability and details before unlocking payment.</p></div><input class="search-input" id="orderReviewSearch" type="search" aria-label="Search order requests" placeholder="Search order, customer, or item..." /></div>
               <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div>
               <div class="table-wrapper"><table class="admin-table" id="orderReviewTable" data-page-size="10"><thead><tr><th>Order No.</th><th>Customer</th><th>Items / Quantity</th><th>Fulfillment</th><th>Payment Method</th><th>Total</th><th>Submitted Date</th><th>Status</th><th class="sticky-action">Action</th></tr></thead><tbody></tbody></table></div>
               <div class="table-footer" id="orderReviewFooter"><div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div><div class="table-pagination"><button class="page-btn" type="button" aria-label="Previous review page"><i class="fa-solid fa-chevron-left"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to review page" /><button class="page-btn" type="button" aria-label="Next review page"><i class="fa-solid fa-chevron-right"></i></button></div></div>
@@ -186,12 +186,12 @@
             <article class="panel incoming-orders-panel">
               <div class="panel-header incoming-panel-header">
                 <div>
-                  <h3>Incoming Orders <span class="status-pill status-yellow incoming-urgent">Urgent Review</span></h3>
+                  <h3>Incoming Orders</h3>
                   <p class="incoming-subtitle">
-                    Prioritized queue. Review first, then move orders to
-                    processing.
+                    Approved requests. Confirm payment requirements before starting preparation.
                   </p>
                 </div>
+                <input class="search-input" id="incomingOrdersSearch" type="search" placeholder="Search" aria-label="Search incoming orders" />
 
               </div>
 
@@ -519,7 +519,7 @@
             <section class="archive-section" id="sectionWalkin">
             <article class="panel" id="walkInOrdersPanel">
               <div class="panel-header">
-                <h3>Walk-in Customers</h3>
+                <h3>Walk-in Sales</h3>
                 <div class="filters-row">
                   <input class="search-input" id="walkInOrdersSearch" type="search" maxlength="180" placeholder="Search walk-in orders..." aria-label="Search walk-in orders" />
                   <select class="filter-select" id="walkInOrdersStatusFilter" aria-label="Filter walk-in orders by status">
@@ -1177,7 +1177,7 @@
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
           <h3 class="modal-title" id="walkInModalTitle">
-            Add Walk-in Customer
+            Add Walk-in Sale
           </h3>
         </div>
         <div class="modal-body-scroll">
@@ -1334,7 +1334,7 @@
             Cancel
           </button>
           <button class="btn-admin" id="saveWalkInOrderBtn" type="button">
-            Save Walk-in Customer
+            Save Sale
           </button>
         </div>
       </div>
@@ -1347,7 +1347,7 @@
     >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title">Walk-in Customer Details</h3>
+          <h3 class="modal-title">Walk-in Sale Details</h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
@@ -1738,15 +1738,17 @@
     <script src="../admin-page/admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=2026.1114.7"></script>
-    <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.8"></script>
+    <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.10"></script>
     <script src="../admin-page/jnt-tracking.js?v=2026.1111.8"></script>
 <script src="../admin-page/courier-shipments.js?v=2026.1110.1"></script>
-<script src="../admin-page/orders.js?v=2026.1113.9"></script>
+<script src="../admin-page/orders.js?v=2026.1114.10"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
   <link rel="stylesheet" href="../admin-page/gateway-payments.css?v=2026.1104.5">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script src="../admin-page/gateway-payments.js?v=2026.1113.5"></script>
+    <script src="../admin-page/gateway-payments.js?v=2026.1114.10"></script>
 
     <script src="../home-page/appointment-products.js?v=2026.1113.2"></script>
+    <link rel="stylesheet" href="../admin-page/orders-ui.css?v=2026.1114.10">
+    <script src="../admin-page/orders-ui.js?v=2026.1114.10"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!target) return;
   const base = (window.APP_API_BASE_URL || ((['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000') ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
   const panel = document.createElement('article'); panel.className = 'panel gateway-team';
-  panel.innerHTML = `<div class="panel-header"><h3>Online refunds</h3></div>
+  panel.innerHTML = `<div class="panel-header"><h3>Online Refunds</h3></div>
     <div class="gateway-content">
     <div class="gateway-stats" data-gateway-stats aria-label="Refund overview"></div>
     <div class="gateway-health" data-gateway-health role="status">Loading refund status...</div>
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let realtimeChannel;
   try { if(typeof window.BroadcastChannel==='function') realtimeChannel=new window.BroadcastChannel('fmrc-orders-realtime'); } catch {}
   const refundShortcut = document.createElement('button');
-  refundShortcut.type = 'button'; refundShortcut.className = 'archive-tab-btn gateway-refund-shortcut'; refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online refunds';
+  refundShortcut.type = 'button'; refundShortcut.className = 'archive-tab-btn gateway-refund-shortcut'; refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online Refunds';
   refundShortcut.dataset.tab = 'refunds'; refundShortcut.setAttribute('aria-pressed','false');
   document.getElementById('ordersModuleTabs')?.append(refundShortcut);
   const cancelShortcut=document.createElement('button');cancelShortcut.type='button';cancelShortcut.className='archive-tab-btn gateway-cancellations-shortcut';cancelShortcut.dataset.tab='cancellations';cancelShortcut.innerHTML='<i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations';cancelShortcut.setAttribute('aria-pressed','false');
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderCancellations=()=>{
     currentCancellations=currentCancellations.filter(o=>!o.cancellation_archive?.archived);
     const pending=currentCancellations.filter(o=>o.cancel_pending);
-    cancelShortcut.innerHTML='<i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations <span class="tab-count">'+pending.length+'</span>';
+    cancelShortcut.innerHTML='<i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations <span class="tab-count">'+currentCancellations.length+'</span>';
     cancelAlert.hidden=!pending.length;cancelAlert.textContent=pending.length+' customer cancellation'+(pending.length===1?'':'s')+' awaiting a decision. View requests';
     const term=cancelWorkspace.querySelector('[data-cancel-search]').value.toLowerCase();
     const filter=cancelWorkspace.querySelector('[data-cancel-filter]').value;
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (page > data.payments.last_page) { page = Math.max(1, data.payments.last_page); snapshot=''; reloadPending=true; return; }
       if (reloadPending) return;
       currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations(); renderRejectedPaymentReviews();
-      refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online refunds <span class="tab-count">'+Number(data.refunds_awaiting_approval || 0)+'</span>';
+      refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online Refunds <span class="tab-count">'+Number(data.refunds_awaiting_approval || 0)+'</span>';
       refundShortcut.title = 'Refund requests awaiting Admin approval';
       const stats=data.refund_summary || {};
       panel.querySelector('[data-gateway-stats]').innerHTML=[['Awaiting approval',stats.requested||0],['Processing',stats.processing||0],['Needs attention',stats.failed||0],['Returned to customers',money(stats.refunded_centavos||0)]].map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('');
@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
     if (type === 'archive') {
       modal.querySelector('[data-title]').textContent = 'Archive refund';
-      modal.querySelector('[data-description]').textContent = 'Move the refund record for '+(payment?.order_no || 'this order')+' to Archives > Online refunds? You can restore it anytime. The payment history and totals stay available.';
+      modal.querySelector('[data-description]').textContent = 'Move the refund record for '+(payment?.order_no || 'this order')+' to Archives > Online Refunds? You can restore it anytime. The payment history and totals stay available.';
       modal.querySelector('[type=submit]').textContent = 'Archive refund';
     }
     if(type==='history'){
@@ -340,7 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.querySelector('[name=reason]').disabled=false;modal.querySelector('[name=reason]').required=type==='canceldecline';
       modal.querySelector('[type=submit]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel & refund':o.payment_is_automated && o.payment_status==='paid'?'Cancel & request refund':'Approve cancellation';
     }
-    if (!modal.open) modal.showModal();
+    modal.classList.toggle('portal-detail-dialog--compact', ['approve','reject','retry','archive','cancelapprove','canceldecline'].includes(type));
+    if (!modal.open) { if (window.PortalDetailDialog && modal.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(modal); else modal.showModal(); }
   };
   modal.querySelector('form').onsubmit = async e => {
     e.preventDefault();
@@ -365,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(result.order)currentCancellations=currentCancellations.map(o=>String(o.id)===String(result.order.id)?result.order:o);
         const feedback=cancelWorkspace.querySelector('[data-cancel-result]');feedback.hidden=false;
         const states=(result.refunds || []).map(r=>refundLabel(r.status)).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
-        feedback.textContent=result.refund_issue_error || result.message+(states?' Refund: '+states+'. Open Online refunds for details.':'');
+        feedback.textContent=result.refund_issue_error || result.message+(states?' Refund: '+states+'. Open Online Refunds for details.':'');
         renderCancellations();
       }
       else if (action.type === 'refund'){
