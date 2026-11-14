@@ -83,6 +83,8 @@ document.addEventListener("DOMContentLoaded", () => {
     realtimeChannel: null,
   };
   let inquiryBulkController = null;
+  let resolvingId = null;
+  let detailDecisionOpen = false;
 
   if (!tableBody) return;
 
@@ -376,15 +378,24 @@ document.addEventListener("DOMContentLoaded", () => {
     detailSenderEmail.textContent = row.sender_email || "-";
     detailSubmittedAt.textContent = formatDateTime(row.created_at);
     detailStatus.textContent = row.status === "resolved" ? "Resolved" : "New";
+    detailStatus.className = 'status-pill ' + (row.status === 'resolved' ? 'status-green' : 'status-yellow');
     detailMessage.textContent = row.message || "-";
     detailResolveBtn.disabled = row.status === "resolved";
 
-    detailModal.classList.add("show");
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(detailModal);
+    else detailModal.classList.add("show");
   };
 
   const closeDetail = () => {
+    if (resolvingId !== null && String(resolvingId) === String(state.selectedId)) return;
     detailModal.classList.remove("show");
   };
+  window.PortalDetailDialog?.registerClose(detailModal, closeDetail);
+  detailModal.addEventListener('click', event => {
+    if (event.target.closest('[data-modal-close]') && resolvingId !== null && String(resolvingId) === String(state.selectedId)) {
+      event.preventDefault(); event.stopImmediatePropagation();
+    }
+  }, true);
 
   const syncData = async (isSilent = false) => {
     if (!token) {
@@ -444,6 +455,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const resolveInquiry = async (id, silent = false) => {
+    if (resolvingId !== null) return false;
+    resolvingId = id;
+    if (String(id) === String(state.selectedId)) {
+      detailModal.setAttribute('aria-busy', 'true');
+      detailResolveBtn.disabled = true;
+    }
     try {
       await request(`/admin/customer-messages/${id}/resolve`, {
         method: "PATCH",
@@ -453,12 +470,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!silent) {
         showPopup("Inquiry marked as resolved.", { title: "Resolved" });
       }
+      return true;
     } catch (error) {
-      if (!silent) {
-        showPopup(error.message || "Unable to resolve inquiry.", {
-          title: "Update Failed",
-        });
-      }
+      showPopup(error.message || "Unable to resolve inquiry.", { title: "Update Failed" });
+      return false;
+    } finally {
+      resolvingId = null;
+      detailModal.removeAttribute('aria-busy');
+      detailResolveBtn.disabled = state.rows.find(row => String(row.id) === String(state.selectedId))?.status === 'resolved';
     }
   };
 
@@ -559,15 +578,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   detailResolveBtn?.addEventListener("click", async () => {
     const id = state.selectedId;
-    if (!id) return;
+    if (!id || detailDecisionOpen || resolvingId !== null) return;
+    detailDecisionOpen = true;
 
     const ok = await askConfirm("Mark this inquiry as resolved?", {
       title: "Resolve Inquiry",
       confirmText: "Resolve",
     });
+    detailDecisionOpen = false;
     if (!ok) return;
 
-    await resolveInquiry(id, true);
+    if (!await resolveInquiry(id, true)) return;
     closeDetail();
     showPopup("Inquiry marked as resolved.", { title: "Resolved" });
   });

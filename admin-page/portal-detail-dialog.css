@@ -198,7 +198,6 @@ body[data-portal-product-dialogs].admin-media-viewer-open { color: var(--text-ma
 .admin-session-warning.portal-detail-dialog .admin-session-warning__status:empty { display: none; }
 .admin-session-warning.portal-detail-dialog .admin-session-warning__stay { margin: 0; font-weight: 500; }
 .admin-success-notification--refined { grid-template-columns: 42px minmax(0, 1fr) auto; border-radius: 12px; background: var(--surface, #fdfaf6); color: var(--text-main, #2b2b31); }
-.admin-success-notification--refined .admin-success-notification__close { align-self: center; width: auto; min-width: 64px; height: 44px; margin: 0; padding: 8px; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--primary-color, #800000); }
 .portal-detail-dialog[data-portal-detail-visibility="hidden"]:not([hidden]) .portal-detail-dialog__card { animation: portalDetailEnter 160ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .portal-detail-dialog[data-portal-detail-visibility="hidden"] .portal-detail-dialog__card, .portal-detail-dialog .photo-editor-canvas-wrap img { animation: none; transition: none; } }
 html[data-portal-motion="reduced"] .portal-detail-dialog[data-portal-detail-visibility="hidden"] .portal-detail-dialog__card, html[data-portal-motion="reduced"] .portal-detail-dialog .photo-editor-canvas-wrap img { animation: none; transition: none; }

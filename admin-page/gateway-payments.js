@@ -293,8 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (type === 'retry') {
       const refund = refunds.find(r => String(r.id) === String(id));
-      modal.querySelector('[data-title]').textContent = 'Review refund retry';
-      modal.querySelector('[data-description]').textContent = (refund?.failure_action || 'Check PayMongo for any existing refund before retrying.') + ' ' + (canApprove ? 'Submit a new refund of ' : 'Request Admin approval to refund ') + money(refund?.amount_centavos || 0) + '. For QR Ph, the customer must claim it through PayMongo and the merchant wallet must be funded. A scheduled payout is not an available wallet balance.';
+      modal.querySelector('[data-cancel]').textContent = 'Cancel';
+      modal.querySelector('[data-title]').textContent = 'Retry refund';
+      modal.querySelector('[data-description]').textContent = 'Confirm in PayMongo that the previous refund failed before retrying ' + money(refund?.amount_centavos || 0) + '.' + (canApprove ? ' Ensure the merchant wallet has enough funds.' : ' Admin approval is required.') + ' For QR Ph, the customer must claim the refund through PayMongo.';
     }
     modal.querySelector('[data-provider]').hidden = !recovering; modal.querySelector('[name=provider_id]').disabled = !recovering;
     if (recovering) { modal.querySelector('[data-title]').textContent = 'Match provider record'; modal.querySelector('[data-description]').textContent = 'Copy the matching checkout or refund ID from the school PayMongo dashboard. FMRC verifies the original request before accepting it.'; }
@@ -302,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(request && payment?.refund_action?.kind==='extra_payment')modal.querySelector('[type=submit]').textContent='Return extra payment';
     if(type==='approve' && refunds.find(r=>String(r.id)===String(id))?.refund_kind==='extra_payment')modal.querySelector('[type=submit]').textContent='Return extra payment';
     if(request && payment?.refund_action?.allowed!==true)modal.querySelector('[type=submit]').hidden=true;
-    if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
+    if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry refund' : 'Request retry';
     if (type === 'archive') {
       modal.querySelector('[data-title]').textContent = 'Archive refund';
       modal.querySelector('[data-description]').textContent = 'Move the refund record for '+(payment?.order_no || 'this order')+' to Archives > Online Refunds? You can restore it anytime. The payment history and totals stay available.';

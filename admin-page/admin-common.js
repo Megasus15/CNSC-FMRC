@@ -4083,13 +4083,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <path class="admin-success-notification__progress-path"></path>
       </svg>
     `;
-    if (document.body.dataset.portalPopups === 'refined') {
-      const dismiss = notification.querySelector('.admin-success-notification__close');
-      dismiss.textContent = 'Dismiss';
-      dismiss.setAttribute('aria-label', 'Dismiss success notification');
-      dismiss.title = 'Dismiss notification';
-      notification.classList.add('admin-success-notification--refined');
-    }
     notification.querySelector(
       ".admin-success-notification__title",
     ).textContent = title;

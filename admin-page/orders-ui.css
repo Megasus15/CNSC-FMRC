@@ -11,6 +11,14 @@ body[data-portal-popup-context="Orders"] { font-family: 'Poppins', sans-serif; }
 .orders-dialog .orders-section-icon { display:inline-grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border-radius:8px; background:var(--portal-accent-soft,#fbf1f2); color:var(--primary-color,#800000); }
 .orders-dialog .orders-section-icon svg { width:18px; height:18px; }
 .orders-dialog .portal-detail-dialog__body { padding:28px 32px; }
+.orders-dialog .portal-detail-dialog__body { scrollbar-color:#aaa6a2 transparent; }
+.orders-dialog .portal-detail-dialog__body::-webkit-scrollbar { width:6px; }
+.orders-dialog .portal-detail-dialog__body::-webkit-scrollbar-thumb { background:#aaa6a2; border-radius:6px; }
+.orders-dialog .portal-detail-dialog__body::-webkit-scrollbar-track { background:transparent; }
+.orders-dialog .order-cancellation-notice { border:1px solid var(--border-color,#e2e8f0); }
+.orders-dialog label:has(> input[type="checkbox"]) { display:grid!important; grid-template-columns:18px minmax(0,1fr); align-items:start; gap:10px; line-height:1.6; }
+.orders-dialog label:has(> input[type="checkbox"]) > span { min-width:0; }
+:is(#modalOrderDetails,#modalTrackingUpdate).orders-dialog input[type="checkbox"],.orders-dialog input[type="checkbox"] { appearance:auto; width:18px; min-width:18px; height:18px; min-height:18px; max-height:18px; padding:0; margin:3px 0 0; align-self:start; box-shadow:none; accent-color:var(--primary-color,#800000); }
 .orders-dialog .portal-detail-dialog__body > .form-grid { padding:0; margin:0; gap:20px 24px; }
 .orders-dialog .portal-detail-dialog__body :is(.field-stack,.field) { min-width:0; }
 .orders-dialog .portal-detail-dialog__body :is(.order-section-title,h4) { color:var(--primary-color,#800000); }
