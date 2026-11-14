@@ -27,7 +27,7 @@
     const sync=()=>{form.querySelector('fieldset').disabled=busy||blocked;form.querySelector('[type=submit]').disabled=busy||blocked||JSON.stringify(values())===baseline;form.setAttribute('aria-busy',String(busy));};
     form.oninput=sync;
     form.onsubmit=event=>{
-      event.preventDefault();if(busy||blocked||!form.reportValidity())return;const input=values();
+      event.preventDefault();if(busy||blocked||!form.reportValidity())return;const input=values();if(JSON.stringify(input)===baseline)return;
       if(input.meeting_url){try{const url=new URL(input.meeting_url);if(url.protocol!=='https:'||url.username||url.password||!input.platform)throw Error();}catch{form.querySelector('[data-meeting-status]').textContent='Enter a platform name and a valid HTTPS meeting link.';return;}}
       window.showAdminConfirmPopup('Save the online meeting details for this appointment?',{title:'Save Meeting Details',confirmText:'Save details',onConfirm:async()=>{
         if(busy)return;busy=true;sync();const status=form.querySelector('[data-meeting-status]');status.textContent='Saving meeting information…';

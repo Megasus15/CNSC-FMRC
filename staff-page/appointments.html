@@ -29,9 +29,10 @@
   <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
       <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
-    <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.6" />
+    <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.7" />
+    <link rel="stylesheet" href="../admin-page/appointment-dialogs.css?v=2026.1114.7" />
   </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-popup-context="Appointments">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -162,7 +163,7 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin" data-modal-open="#modalCalendar">
+              <button class="btn-admin" id="btnOpenCalendar">
                 <i class="fa-regular fa-calendar-check"></i> Manage Calendar
               </button>
             </div>
@@ -173,11 +174,11 @@
               <h3>Client Appointments</h3>
               <select id="appointmentWorkFilter" class="filter-select" aria-label="Appointment type"><option value="all">All appointments</option><option value="custom">With custom products</option></select>
               <select id="appointmentProductStageFilter" class="filter-select" aria-label="Custom-product progress" hidden><option value="all">All custom stages</option><option value="awaiting_consultation">Awaiting consultation</option><option value="needs_information">More information needed</option><option value="follow_up">Follow-up needed</option><option value="ready_for_quote">Preparing quotation</option><option value="quoted">Quotation ready</option><option value="awaiting_payment">Awaiting payment</option><option value="awaiting_production">Awaiting production</option><option value="in_production">In production</option><option value="ready">Ready for pickup / shipping</option><option value="in_transit">In transit</option><option value="completed">Completed product</option><option value="payment_review">Payment needs review</option><option value="cancelled">Cancelled</option><option value="declined">Unable to fulfill</option></select>
-              <input
+              <div class="portal-search-field appointment-table-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input
                 class="search-input"
                 id="appointmentSearchInput"
-                placeholder="Search client, contact, email, or purpose..."
-              />
+                type="search" placeholder="Search" aria-label="Search appointments by client, contact, email or purpose"
+              /></div>
             </div>
             <div class="table-scroll-hint">
               <i class="fa-solid fa-left-right"></i> This table is horizontally
@@ -245,15 +246,13 @@
       </main>
     </div>
 
-    <div class="modal-overlay" id="modalCalendar" data-backdrop-close="false">
-      <div class="modal-card modal-calendar-admin">
-        <div class="calendar-modal-header">
-          <h3 class="modal-title">Manage Calendar</h3>
-          <p class="field-hint">
-            This panel controls website Step 3 availability. You can block whole
-            dates or specific time slots.
-          </p>
-        </div>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded id="modalCalendar" data-backdrop-close="false">
+      <div class="modal-card modal-calendar-admin portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="appointmentCalendarTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Appointments</p><h2 class="portal-detail-dialog__title" id="appointmentCalendarTitle" data-portal-detail-heading tabindex="-1">Manage Calendar</h2></div>
+          <button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close manage calendar" title="Close manage calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+        </header><div class="modal-body-scroll portal-detail-dialog__body" tabindex="0" role="region" aria-label="Calendar availability"><p class="field-hint appointment-calendar-guidance">Manage dates and time slots available when customers book an appointment.</p>
         <div class="admin-calendar-grid">
           <div class="admin-calendar-left">
             <div class="cal-navigation">
@@ -263,7 +262,7 @@
                 class="page-btn"
                 aria-label="Previous month"
               >
-                <i class="fa-solid fa-chevron-left"></i>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
               </button>
               <h4 id="adminCalMonthYear">March 2026</h4>
               <button
@@ -272,7 +271,7 @@
                 class="page-btn"
                 aria-label="Next month"
               >
-                <i class="fa-solid fa-chevron-right"></i>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
               </button>
             </div>
             <div class="cal-days-header">
@@ -291,30 +290,29 @@
 
             <div class="admin-calendar-actions admin-calendar-actions-main">
               <button type="button" class="btn-admin" id="btnToggleBlockDay">
-                Block Whole Day
+                Block day
               </button>
               <button
                 type="button"
                 class="btn-admin btn-secondary btn-clear-day-blocks"
                 id="btnClearDayBlocks"
               >
-                Clear Day Blocks
+                Clear day changes
               </button>
             </div>
 
             <div class="admin-event-input-group admin-calendar-card">
               <label for="adminEventInput"
-                >Add Note / Reason for this Date:</label
+                >Date note</label
               >
               <p class="admin-inline-help">
-                This note will be visible to users. Example: "System
-                Maintenance" or "2:00 PM blocked for staff meeting".
+                Visible to customers. For example, “Closed for maintenance.”
               </p>
               <div class="admin-event-input-row">
                 <input
                   type="text"
-                  id="adminEventInput"
-                  placeholder="Enter reason here..."
+                  id="adminEventInput" class="input-field"
+                  placeholder="Enter a date note"
                 />
                 <button
                   type="button"
@@ -329,10 +327,10 @@
 
             <div class="admin-calendar-card admin-day-slot-editor">
               <label class="admin-slot-manager-label" for="adminDaySlotLabel"
-                >Add Specific Time Slot for Selected Date Only</label
+                >Additional time slots</label
               >
               <p class="admin-inline-help">
-                This slot is day-only and will not be added to other dates.
+                These slots apply only to the selected date.
               </p>
               <div class="admin-slot-manager-row">
                 <button
@@ -345,7 +343,7 @@
                 <input id="adminDaySlotLabel" type="hidden" value="" />
                 <input id="adminDaySlotType" type="hidden" value="AM" />
                 <button id="btnAddDaySlot" type="button" class="btn-admin">
-                  Add Day Slot
+                  Add slot
                 </button>
               </div>
               <div id="adminDaySlotList" class="admin-slot-list"></div>
@@ -357,127 +355,82 @@
 
             <div class="admin-time-slots-wrap">
               <div class="admin-slot-heading">
-                Available Time Slots for Selected Date
+                Time-slot availability
               </div>
               <p class="field-hint admin-slot-hint">
-                Click any time slot below to block or unblock for this date
-                only.
+                Select a time slot to block or unblock it for this date.
               </p>
               <div class="time-slots-container" id="adminTimeSlotsContainer">
                 <p class="time-placeholder">Please pick a date first.</p>
               </div>
             </div>
+            <!-- Manage Time slots (Global) attaches here via JS -->
           </div>
         </div>
-        <div class="modal-actions modal-actions-sticky">
+        </div><footer class="portal-detail-dialog__footer">
           <button
             class="btn-admin btn-secondary"
-            data-modal-close="#modalCalendar"
+            id="btnCloseCalendar"
           >
             Close
           </button>
           <button class="btn-admin" id="btnSaveCalendarChanges" type="button">
             Save Changes
           </button>
-        </div>
+        </footer>
       </div>
     </div>
 
     <!-- ────────────── APPOINTMENT VIEW MODAL ────────────── -->
-    <div class="modal-overlay" id="modalViewAppointment" data-backdrop-close="true">
-      <div class="modal-card appointment-view-modal" role="dialog" aria-modal="true" aria-labelledby="apptViewTitle">
-        <header class="appointment-view-modal-header">
-          <div>
-            <p class="appointment-view-eyebrow">FMRC appointments</p>
-            <h3 class="modal-title" id="apptViewTitle">Appointment details</h3>
-            <p class="appointment-view-subtitle">Schedule, client information, and meeting details.</p>
-          </div>
-          <button id="btnCloseApptView" class="appointment-view-close" type="button" aria-label="Close appointment details">×</button>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded id="modalViewAppointment" data-backdrop-close="false">
+      <div class="modal-card appointment-view-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="apptViewTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Appointments</p><h2 class="portal-detail-dialog__title" id="apptViewTitle" data-portal-detail-heading tabindex="-1">Appointment details</h2></div>
+          <button type="button" class="portal-detail-dialog__close" data-portal-detail-close id="btnCloseApptView" aria-label="Close appointment details" title="Close appointment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         </header>
-        <div class="modal-body-scroll" id="apptViewBody"><!-- Populated by JS --></div>
-        <footer class="modal-actions modal-actions-sticky appointment-view-modal-footer">
+        <div class="modal-body-scroll portal-detail-dialog__body" id="apptViewBody" tabindex="0" role="region" aria-label="Appointment information"><!-- Populated by JS --></div>
+        <footer class="portal-detail-dialog__footer appointment-view-modal-footer">
           <p class="appointment-archive-help" id="appointmentArchiveReason" aria-live="polite"></p>
           <button class="btn-admin btn-secondary" id="btnCloseApptView2" type="button">Close</button>
-          <button class="btn-admin" id="btnArchiveFromView" type="button"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Archive appointment</button>
+          <button class="btn-admin" id="btnArchiveFromView" type="button"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Archive</button>
         </footer>
       </div>
     </div>
 
     <!-- ────────────── APPOINTMENT ARCHIVE MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalArchiveAppointment"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-          "
-        >
-          <div
-            style="
-              width: 42px;
-              height: 42px;
-              border-radius: 10px;
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-          >
-            <i
-              class="fa-solid fa-box-archive"
-              style="color: #f7f2ec; font-size: 1.1rem"
-            ></i>
-          </div>
-          <h3 class="modal-title" style="margin-bottom: 0">
-            Archive Appointment
-          </h3>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalArchiveAppointment" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="appointmentArchiveTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v12h14V8M10 12h4"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Appointments</p><h2 class="portal-detail-dialog__title" id="appointmentArchiveTitle" data-portal-detail-heading tabindex="-1">Archive Appointment</h2></div>
+
+        </header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Archive Appointment information">
+          <p class="portal-detail-copy">Archive <strong id="archiveAppointmentTargetLabel">this appointment</strong>?</p>
+          <p class="field-hint">This appointment will move to Archives. Its saved record remains available.</p>
+
         </div>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to archive
-          <strong id="archiveAppointmentTargetLabel">this appointment</strong>.
-        </p>
-        <p class="field-hint">
-          The appointment will be moved to the Archives page and removed from
-          the active list.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchiveAppt">
-            Cancel
-          </button>
-          <button
-            class="btn-admin"
-            id="btnConfirmArchiveAppt"
-            type="button"
-            style="
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              border-color: #dc2626;
-            "
-          >
-            <i class="fa-solid fa-box-archive"></i> Archive
-          </button>
-        </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button type="button" class="btn-admin btn-secondary" id="btnCancelArchiveAppt">Cancel</button>
+          <button type="button" class="btn-admin" id="btnConfirmArchiveAppt" >Archive</button>
+        </footer>
+      </section>
     </div>
 
-    <div class="modal-overlay" id="modalTimePicker" data-backdrop-close="false">
-      <div class="modal-card modal-time-picker">
-        <h3 class="modal-title" id="timePickerTitle">Choose Time Slot</h3>
-        <hr class="confirm-separator" />
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded id="modalTimePicker" data-backdrop-close="false">
+      <div class="modal-card modal-time-picker portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="timePickerTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Appointments</p><h2 class="portal-detail-dialog__title" id="timePickerTitle" data-portal-detail-heading tabindex="-1">Choose Time Slot</h2></div>
+          <button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close choose time slot" title="Close choose time slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+        </header><div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Time-slot selection">
         <p class="field-hint">
-          Scroll each column and pick a time range for this slot.
+          Choose the start and end time for this slot.
         </p>
         <div class="time-picker-grid">
           <div class="time-wheel">
-            <label for="pickerStartHour">Start Hour</label>
+            <label for="pickerStartHour">Start hour</label>
             <select
               id="pickerStartHour"
               size="5"
@@ -485,7 +438,7 @@
             ></select>
           </div>
           <div class="time-wheel">
-            <label for="pickerStartMinute">Start Min</label>
+            <label for="pickerStartMinute">Start minute</label>
             <select
               id="pickerStartMinute"
               size="5"
@@ -493,7 +446,7 @@
             ></select>
           </div>
           <div class="time-wheel">
-            <label for="pickerEndHour">End Hour</label>
+            <label for="pickerEndHour">End hour</label>
             <select
               id="pickerEndHour"
               size="5"
@@ -501,7 +454,7 @@
             ></select>
           </div>
           <div class="time-wheel">
-            <label for="pickerEndMinute">End Min</label>
+            <label for="pickerEndMinute">End minute</label>
             <select
               id="pickerEndMinute"
               size="5"
@@ -523,94 +476,47 @@
         <p class="time-picker-preview" id="timePickerPreview">
           Selected: 9:00 - 10:00 AM
         </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
+        </div><footer class="portal-detail-dialog__footer">
           <button
             class="btn-admin btn-secondary"
-            data-modal-close="#modalTimePicker"
+            id="btnCancelTimePicker"
           >
             Cancel
           </button>
           <button class="btn-admin" id="btnConfirmTimePicker" type="button">
             Use Time Slot
           </button>
-        </div>
+        </footer>
       </div>
     </div>
 
     <!-- ────────────── MARK AS DONE MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalCompleteAppointment"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-          "
-        >
-          <div
-            style="
-              width: 42px;
-              height: 42px;
-              border-radius: 10px;
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-          >
-            <i
-              class="fa-solid fa-circle-check"
-              style="color: #f7f2ec; font-size: 1.1rem"
-            ></i>
-          </div>
-          <h3 class="modal-title" style="margin-bottom: 0">
-            Confirm consultation
-          </h3>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalCompleteAppointment" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="appointmentCompleteTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Appointments</p><h2 class="portal-detail-dialog__title" id="appointmentCompleteTitle" data-portal-detail-heading tabindex="-1">Confirm consultation</h2></div>
+
+        </header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Confirm consultation information">
+          <p class="portal-detail-copy">Confirm the consultation for <strong id="completeAppointmentTargetLabel">this appointment</strong>?</p>
+          <p class="field-hint">Confirm only after the meeting has taken place. The consultation record will remain available.</p>
+          <label class="appt-attendance-confirm"><input type="checkbox" id="confirmConsultationAttendance" /><span>I confirm that this meeting took place.</span></label>
         </div>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          Confirm the consultation for
-          <strong id="completeAppointmentTargetLabel">this appointment</strong>
-          after the meeting has taken place.
-        </p>
-        <p class="field-hint">
-          This completes the consultation and keeps its record available.
-        </p>
-        <label class="appt-attendance-confirm">
-          <input type="checkbox" id="confirmConsultationAttendance" />
-          <span>I confirm that this meeting took place.</span>
-        </label>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelCompleteAppt">
-            Cancel
-          </button>
-          <button
-            class="btn-admin"
-            id="btnConfirmCompleteAppt"
-            type="button"
-            disabled
-          >
-            <i class="fa-solid fa-circle-check"></i> Confirm consultation
-          </button>
-        </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button type="button" class="btn-admin btn-secondary" id="btnCancelCompleteAppt">Cancel</button>
+          <button type="button" class="btn-admin" id="btnConfirmCompleteAppt" disabled>Confirm consultation</button>
+        </footer>
+      </section>
     </div>
 
     <script src="../admin-page/session-helper.js?v=2026.1113.9"></script>
     <script src="../admin-page/admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=2026.1114.6"></script>
-    <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.6"></script>
-    <script src="../admin-page/appointment-details.js?v=2026.1113.2"></script>
-<script src="../admin-page/appointments.js?v=2026.1113.2"></script>
+    <script src="../admin-page/admin-common.js?v=2026.1114.7"></script>
+    <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.7"></script>
+    <script src="../admin-page/appointment-details.js?v=2026.1114.7"></script>
+<script src="../admin-page/appointments.js?v=2026.1114.7"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
       <script src="../home-page/appointment-products.js?v=2026.1113.2"></script>
 </body>

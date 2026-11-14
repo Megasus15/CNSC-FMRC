@@ -50,10 +50,10 @@ for (const portal of ['admin', 'staff']) test(portal + ' manages consultations, 
   assert.equal(await h.run(`document.getElementById('btnCancelCompleteAppt').disabled`), true);
   releaseConfirmation();
   await h.until(`!document.getElementById('modalCompleteAppointment').classList.contains('show')&&!document.querySelector('[data-confirm-consultation]')`);
-  assert.equal(await h.run(`document.getElementById('modalViewAppointment').classList.contains('show')&&document.documentElement.classList.contains('appointment-details-open')`), true);
+  assert.equal(await h.run(`document.getElementById('modalViewAppointment').classList.contains('show')&&document.body.style.position==='fixed'`), true);
   assert.deepEqual(await h.run(`[...document.querySelectorAll('#appointmentsTableBody [data-view-id]')].map(n=>Number(n.dataset.viewId))`), [51, 52, 53, 54]);
   await h.run(`document.getElementById('btnCloseApptView').click()`);
-  await h.until(`!document.documentElement.classList.contains('appointment-details-open')`);
+  await h.until(`document.body.style.position!=='fixed'`);
   assert.equal(await h.run(`scrollY===backgroundBefore`), true);
 
   await h.run(`document.querySelector('[data-view-id="51"]').click()`);
@@ -64,7 +64,7 @@ for (const portal of ['admin', 'staff']) test(portal + ' manages consultations, 
     await h.run(`document.documentElement.dataset.theme='${theme}';document.querySelector('[data-ap-tab="0"]').click();document.querySelector('[data-ap-quotation-editor]').open=false;document.getElementById('apptViewBody').scrollTop=0;document.querySelector('[data-ap-go-quote="prepare"]').click()`);
     await h.until(`document.querySelector('[data-ap-quotation-editor]').open&&document.querySelector('[data-ap-tab="1"]').getAttribute('aria-selected')==='true'`);
     await h.pause(800);
-    const fit = await h.run(`(()=>{const body=document.getElementById('apptViewBody').getBoundingClientRect(),target=document.querySelector('[data-ap-quotation-editor] summary').getBoundingClientRect();return {inside:target.top>=body.top&&target.bottom<=body.bottom,overflow:document.documentElement.scrollWidth>innerWidth+1,page:scrollY===backgroundBefore};})()`);
+    const fit = await h.run(`(()=>{const body=document.getElementById('apptViewBody').getBoundingClientRect(),target=document.querySelector('[data-ap-quotation-editor] summary').getBoundingClientRect();return {inside:target.top>=body.top&&target.bottom<=body.bottom,overflow:document.documentElement.scrollWidth>innerWidth+1,page:document.body.style.position==='fixed'&&Math.abs(-parseFloat(document.body.style.top)-backgroundBefore)<2};})()`);
     assert.deepEqual(fit, { inside: true, overflow: false, page: true });
     await h.shot(portal + '-prepare-' + theme + '-' + width);
   }
@@ -81,7 +81,7 @@ for (const portal of ['admin', 'staff']) test(portal + ' manages consultations, 
   await h.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'End', windowsVirtualKeyCode: 35 });
   await h.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'End' });
   assert.equal(await h.run(`document.querySelector('[data-ap-place=province] [role=listbox]').scrollTop>0`), true);
-  assert.equal(await h.run(`Math.abs(document.getElementById('apptViewBody').scrollTop-modalBefore)<2&&scrollY===backgroundBefore`), true);
+  assert.equal(await h.run(`Math.abs(document.getElementById('apptViewBody').scrollTop-modalBefore)<2&&document.body.style.position==='fixed'&&Math.abs(-parseFloat(document.body.style.top)-backgroundBefore)<2`), true);
   const menuFits = await h.run(`(()=>{const r=document.querySelector('[data-ap-place=province] [role=listbox]').getBoundingClientRect(),b=document.getElementById('apptViewBody').getBoundingClientRect();return r.top>=b.top&&r.bottom<=b.bottom;})()`);
   assert.equal(menuFits, true);
   await h.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', windowsVirtualKeyCode: 27 });

@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "btnSaveCalendarChanges",
   );
   const btnOpenCalendar = document.querySelector(
-    '[data-modal-open="#modalCalendar"]',
+    '#btnOpenCalendar',
   );
   const modalCalendar = document.getElementById("modalCalendar");
   const modalTimePicker = document.getElementById("modalTimePicker");
@@ -122,6 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let consultationRequestPending = false;
   let archivingAppointmentId = null;
   let archiveRequestPending = false;
+  let calendarLoading = false, calendarSaving = false, calendarReadGeneration = 0;
+  let calendarSaveState = null, calendarDiscardGuard = null;
+  const openPortalModal = (modal, options = {}) => {
+    if (window.PortalDetailDialog && modal?.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(modal, options);
+    else modal?.classList.add('show');
+  };
   let appointmentReadVersion = 0;
   const forgetArchivedAppointments = (ids) => {
     ++appointmentReadVersion; // Invalidate reads started before the mutation completed.
@@ -377,7 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pickerPeriod) pickerPeriod.value = picked.period;
 
     updateTimePickerPreview();
-    modalTimePicker?.classList.add("show");
+    openPortalModal(modalTimePicker);
     setTimeout(() => {
       centerAllPickers(false);
       syncActiveWheel(pickerStartHour);
@@ -504,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
     container.id = "adminSlotManager";
     container.className = "admin-slot-manager";
     container.innerHTML = `
-      <label class="admin-slot-manager-label">Global Default System Time Slots: (Affects All Dates)</label>
+      <h3 class="admin-slot-manager-label">Default time slots</h3><p class="field-hint">These slots apply to every available date.</p>
       <div class="admin-slot-manager-row" style="display: flex; gap: 8px;">
         <button id="btnOpenGlobalTimePicker" type="button" class="btn-admin btn-secondary btn-open-time-picker">Choose Time Slot</button>
         <input id="adminSlotLabel" type="hidden" value="" />
@@ -546,7 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.appointments = sortAppointments(appointments);
   };
 
-  const fetchCalendar = async () => {
+  const fetchCalendar = async ({applyIf = () => true} = {}) => {
     const headers = { Accept: "application/json" };
     // This public GET can seed calendar slots. Identify presentation reads so
     // the server can skip that initialization for the spectator account.
@@ -555,11 +561,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (token) headers.Authorization = `Bearer ${token}`;
     }
     const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
+      cache: 'no-store',
       headers,
     });
     if (!response.ok) throw new Error("Failed to fetch calendar");
 
     const payload = await response.json();
+    if (!applyIf()) return false;
     const timeSlots = Array.isArray(payload?.time_slots)
       ? payload.time_slots
       : [];
@@ -596,6 +604,7 @@ document.addEventListener("DOMContentLoaded", () => {
       payload?.booked_slots && typeof payload.booked_slots === "object"
         ? payload.booked_slots
         : {};
+    return true;
   };
 
   const filteredAppointments = () => {
@@ -819,15 +828,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!btnToggleBlockDay) return;
     if (!selectedDateKey) {
       btnToggleBlockDay.disabled = true;
-      btnToggleBlockDay.textContent = "Block Whole Day";
+      btnToggleBlockDay.textContent = "Block day";
       return;
     }
 
     const day = state.calendar.day_settings[selectedDateKey];
     btnToggleBlockDay.disabled = false;
     btnToggleBlockDay.textContent = day?.is_blocked
-      ? "Unblock Whole Day"
-      : "Block Whole Day";
+      ? "Unblock day"
+      : "Block day";
   };
 
   const updateDateIndicators = (cell, dateKey) => {
@@ -883,16 +892,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     for (let day = 1; day <= daysInMonth; day += 1) {
-      const cell = document.createElement("div");
-      cell.classList.add("cal-day-cell");
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.classList.add('cal-day-cell');
       cell.textContent = String(day);
 
       const dateKey = getDateKey(currentYear, currentMonth, day);
+      cell.dataset.calendarDate = dateKey;
+      cell.setAttribute('aria-label', `${months[currentMonth]} ${day}, ${currentYear}`);
+      cell.setAttribute('aria-pressed', String(dateKey === selectedDateKey));
       const dateObj = new Date(currentYear, currentMonth, day);
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
 
       if (isWeekend || isPastDate(currentYear, currentMonth, day)) {
-        cell.classList.add("disabled", "unavailable");
+        cell.classList.add('disabled', 'unavailable');
+        cell.disabled = true;
         cell.setAttribute(
           "title",
           isWeekend ? "Unavailable: Weekend" : "Unavailable: Past Date",
@@ -905,6 +919,7 @@ document.addEventListener("DOMContentLoaded", () => {
           renderTimeSlots();
           renderEvents();
           renderDaySlotList();
+          calGrid.querySelector(`[data-calendar-date="${dateKey}"]`)?.focus({preventScroll: true});
         });
       }
 
@@ -1012,7 +1027,7 @@ document.addEventListener("DOMContentLoaded", () => {
     daySettings.events.forEach((eventText, index) => {
       const item = document.createElement("div");
       item.className = "admin-event-item";
-      item.innerHTML = `<span>${eventText}</span><button type="button" class="admin-event-remove">X</button>`;
+      item.innerHTML = `<span>${escapeAttribute(eventText)}</span><button type="button" class="admin-event-remove" aria-label="Remove date note" title="Remove date note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>`;
       item.querySelector("button")?.addEventListener("click", () => {
         daySettings.events.splice(index, 1);
         state.calendar.day_settings[selectedDateKey] = daySettings;
@@ -1070,43 +1085,76 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const saveCalendarChanges = async () => {
+  const closeCalendar = () => {
+    if (calendarSaving || calendarLoading) return;
+    calendarReadGeneration++;
+    modalCalendar?.classList.remove('show');
+  };
+  const calendarSnapshot = () => {
     const payload = collectCalendarPayload();
+    payload.day_settings.forEach(day => { day.blocked_slots = [...day.blocked_slots].sort(); });
+    return payload;
+  };
+  const calendarDraft = () => ({
+    calendar: calendarSnapshot(),
+    note: String(adminEventInput?.value || '').trim(),
+    daySlot: String(adminDaySlotLabel?.value || ''),
+    globalSlot: String(document.getElementById('adminSlotLabel')?.value || ''),
+  });
+  const setCalendarPending = () => {
+    const pending = calendarLoading || calendarSaving;
+    modalCalendar?.setAttribute('aria-busy', String(pending));
+    const body = modalCalendar?.querySelector('.portal-detail-dialog__body'); if (body) body.inert = pending;
+    modalCalendar?.querySelectorAll('[data-portal-detail-close],#btnCloseCalendar').forEach(button => { button.disabled = pending; });
+    calendarSaveState?.sync();
+  };
+  calendarDiscardGuard = window.createAdminFormDiscardGuard?.({getSnapshot: calendarDraft, close: closeCalendar});
+  calendarSaveState = window.AdminEditSave?.bind({root: modalCalendar, button: btnSaveCalendarChanges, getSnapshot: calendarSnapshot, isBlocked: () => calendarLoading || calendarSaving});
+  const requestCalendarClose = () => {
+    if (calendarSaving || calendarLoading) return;
+    if (calendarDiscardGuard) calendarDiscardGuard.cancel(); else closeCalendar();
+  };
+  document.getElementById('btnCloseCalendar')?.addEventListener('click', requestCalendarClose);
+  window.PortalDetailDialog?.registerClose(modalCalendar, requestCalendarClose);
+  const closeTimePicker = () => { activeTimePickerContext = null; modalTimePicker?.classList.remove('show'); };
+  document.getElementById('btnCancelTimePicker')?.addEventListener('click', closeTimePicker);
+  window.PortalDetailDialog?.registerClose(modalTimePicker, closeTimePicker);
+  window.PortalDetailDialog?.registerClose(document.getElementById('modalArchiveAppointment'), () => document.getElementById('btnCancelArchiveAppt')?.click());
+  window.PortalDetailDialog?.registerClose(document.getElementById('modalCompleteAppointment'), () => document.getElementById('btnCancelCompleteAppt')?.click());
 
-    const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const message = result?.message || "Unable to save calendar changes.";
-      window.showAdminPopup?.(message, { title: "Save Failed" });
-      return;
+  const saveCalendarChanges = async () => {
+    if (!calendarSaveState?.canSave()) return;
+    const payload = collectCalendarPayload();
+    calendarSaving = true; setCalendarPending();
+    const original = btnSaveCalendarChanges.innerHTML; btnSaveCalendarChanges.textContent = 'Saving…';
+    try {
+      const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw Error(result?.message || 'Calendar changes could not be saved. Please try again.');
+      calendarSaving = false;
+      closeCalendar();
+      calendarDiscardGuard?.clear();
+      window.showAdminPopup?.('Calendar changes saved successfully.', {title: 'Saved', type: 'success'});
+      // The write is confirmed. A failed or superseded readback must not report
+      // a failed save or redraw a new draft that has opened in the meantime.
+      const applied = await fetchCalendar({applyIf: () => !modalCalendar?.classList.contains('show')}).catch(() => false);
+      if (applied && !modalCalendar?.classList.contains('show')) {
+        renderCalendar(); renderTimeSlots(); renderEvents(); renderDaySlotList(); renderSlotManager();
+      }
+    } catch (error) {
+      window.showAdminPopup?.(error?.message || 'Calendar changes could not be saved. Please try again.', {title: 'Save Failed', type: 'error'});
+    } finally {
+      calendarSaving = false; setCalendarPending(); btnSaveCalendarChanges.innerHTML = original;
     }
-
-    window.showAdminPopup?.("Calendar changes saved successfully.", {
-      title: "Saved",
-      onOk: () => {
-        modalCalendar?.classList.remove("show");
-      },
-    });
-    await fetchCalendar();
-    renderCalendar();
-    renderTimeSlots();
-    renderEvents();
-    renderDaySlotList();
-    renderSlotManager();
   };
 
   // ─── Appointment View Modal ─────────────────────────────────────────────────
   // A nested confirmation must not unlock the page beneath Appointment details.
   let lockedPagePosition = null;
   const syncAppointmentScrollLock = () => {
+    if (window.PortalDetailDialog && document.getElementById('modalViewAppointment')?.hasAttribute('data-portal-detail-dialog')) return;
     const detailsOpen = document.getElementById('modalViewAppointment')?.classList.contains('show');
     const nestedOpen = ['modalCompleteAppointment', 'modalArchiveAppointment'].some(id => document.getElementById(id)?.classList.contains('show'));
     if (detailsOpen && !lockedPagePosition) {
@@ -1231,7 +1279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     window.AdminAppointmentDetails?.render(appt,body);
-    modal.classList.add("show");
+    openPortalModal(modal, {returnSelector: `[data-view-id="${Number(appt.id)}"]`});
     syncAppointmentScrollLock();
     if(sameAppointment && body){
       const target=focused?.isConnected ? focused : focusForm && focusName ? body.querySelector(`[data-ap-form="${CSS.escape(focusForm)}"] [name="${CSS.escape(focusName)}"]`) : null;
@@ -1244,11 +1292,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;++appointmentReadVersion;state.appointments=sortAppointments(state.appointments.map(row=>row.id===item.id?item:row));renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
 
-  ["btnCloseApptView", "btnCloseApptView2"].forEach(id => document.getElementById(id)?.addEventListener("click", async () => {
-    if(window.FMRCAppointmentProducts&&!await window.FMRCAppointmentProducts.allowLeave(document.getElementById("apptViewBody")))return;
-    document.getElementById("modalViewAppointment")?.classList.remove("show");
+  const closeAppointmentView = async () => {
+    const body = document.getElementById('apptViewBody');
+    if (body?.querySelector('form[aria-busy="true"], [data-ap-appointment][aria-busy="true"]')) return;
+    if (window.FMRCAppointmentProducts && !await window.FMRCAppointmentProducts.allowLeave(body)) return;
+    document.getElementById('modalViewAppointment')?.classList.remove('show');
     viewingAppointment = null;
-  }));
+  };
+  document.getElementById('btnCloseApptView2')?.addEventListener('click', closeAppointmentView);
+  window.PortalDetailDialog?.registerClose(document.getElementById('modalViewAppointment'), closeAppointmentView);
 
   document
     .getElementById("btnArchiveFromView")
@@ -1273,7 +1325,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const labelEl = document.getElementById("archiveAppointmentTargetLabel");
     if (labelEl)
       labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
-    document.getElementById("modalArchiveAppointment")?.classList.add("show");
+    openPortalModal(document.getElementById('modalArchiveAppointment'));
   };
 
   document
@@ -1384,7 +1436,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const tasks = [fetchAppointments()];
       if (!isCalendarOpen) {
-        tasks.push(fetchCalendar());
+        tasks.push(fetchCalendar({applyIf: () => !modalCalendar?.classList.contains('show')}));
       }
 
       await Promise.all(tasks);
@@ -1396,7 +1448,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if(linked){state.productDeepLinkOpened=true;openAppointmentViewModal(linked);}
       }
 
-      if (!isCalendarOpen) {
+      if (!isCalendarOpen && !modalCalendar?.classList.contains('show')) {
         renderCalendar();
         renderTimeSlots();
         renderEvents();
@@ -1433,7 +1485,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((slot) => {
         const key = slot.id || slot.sort_order;
         return `<div class="admin-slot-list-item">
-          <span class="admin-slot-list-text">${slot.label} <strong class="admin-slot-list-type">${slot.type}</strong></span>
+          <span class="admin-slot-list-text">${escapeAttribute(slot.label)} <strong class="admin-slot-list-type">${escapeAttribute(slot.type)}</strong></span>
           <span class="admin-slot-list-actions">
             <button type="button" class="btn-admin btn-secondary admin-slot-inline-btn" data-slot-edit="${key}">Edit</button>
             <button type="button" class="btn-admin admin-slot-inline-btn admin-slot-remove-btn" data-slot-remove="${key}">Remove</button>
@@ -1464,7 +1516,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(
         (slot, index) => `
           <div class="admin-slot-list-item">
-            <span class="admin-slot-list-text">${slot.label} <strong class="admin-slot-list-type">${slot.type}</strong></span>
+            <span class="admin-slot-list-text">${escapeAttribute(slot.label)} <strong class="admin-slot-list-type">${escapeAttribute(slot.type)}</strong></span>
             <span class="admin-slot-list-actions">
               <button type="button" class="btn-admin admin-slot-inline-btn admin-slot-remove-btn" data-day-slot-remove="${index}">Remove</button>
             </span>
@@ -1550,7 +1602,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
 
     const editBtn = target.closest("[data-slot-edit]");
     if (editBtn) {
@@ -1774,15 +1826,26 @@ document.addEventListener("DOMContentLoaded", () => {
     void saveCalendarChanges();
   });
 
-  btnOpenCalendar?.addEventListener("click", async () => {
+  btnOpenCalendar?.addEventListener('click', async () => {
+    if (calendarLoading || calendarSaving) return;
+    const generation = ++calendarReadGeneration;
     selectedDateKey = null;
-    if (selectedDateDisplay) selectedDateDisplay.textContent = "Select a Date";
-    await fetchCalendar();
-    renderCalendar();
-    renderTimeSlots();
-    renderEvents();
-    renderDaySlotList();
-    renderSlotManager();
+    if (adminEventInput) adminEventInput.value = '';
+    if (adminDaySlotLabel) adminDaySlotLabel.value = '';
+    resetSlotForm();
+    if (selectedDateDisplay) selectedDateDisplay.textContent = 'Select a date';
+    calendarLoading = true; setCalendarPending();
+    openPortalModal(modalCalendar, {trigger: btnOpenCalendar});
+    try {
+      await fetchCalendar({applyIf: () => generation === calendarReadGeneration && modalCalendar.classList.contains('show')});
+      if (generation !== calendarReadGeneration || !modalCalendar.classList.contains('show')) return;
+      renderCalendar(); renderTimeSlots(); renderEvents(); renderDaySlotList(); renderSlotManager();
+      calendarDiscardGuard?.capture(); calendarSaveState?.capture();
+    } catch (error) {
+      window.showAdminPopup?.('Calendar availability could not be loaded. Close this dialog and try again.', {title: 'Calendar unavailable', type: 'error', onOk: () => { calendarLoading = false; closeCalendar(); }});
+    } finally {
+      if (generation === calendarReadGeneration) { calendarLoading = false; setCalendarPending(); }
+    }
   });
 
   ensureSlotManagerUi();
@@ -1808,7 +1871,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   modalTimePicker?.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
     if (target.matches('[data-modal-close="#modalTimePicker"]')) {
       activeTimePickerContext = null;
     }
@@ -1825,7 +1888,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (attendance) attendance.checked = false;
     const confirm = document.getElementById("btnConfirmCompleteAppt");
     if (confirm) confirm.disabled = true;
-    document.getElementById("modalCompleteAppointment")?.classList.add("show");
+    openPortalModal(document.getElementById('modalCompleteAppointment'));
     attendance?.focus({ preventScroll: true });
   };
 

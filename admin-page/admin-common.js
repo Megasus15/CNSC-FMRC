@@ -3001,8 +3001,29 @@ document.addEventListener("DOMContentLoaded", () => {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
 
+    // Keep customer-entered messages and references verbatim. Standard system
+    // headings use concise sentence case in both feeds and accessible names.
+    const notificationHeading = notification => {
+      let title = String(notification.title || 'System update').trim();
+      const labels = [
+        [/^Order Cancelled by Customer\b/i, 'Customer cancelled an order'],
+        [/^New Order\b/i, 'New order'], [/^Order Approved\b/i, 'Order approved'],
+        [/^Order Rejected\b/i, 'Order declined'], [/^Order Cancelled\b/i, 'Order cancelled'],
+        [/^Cancellation Request Received\b/i, 'Cancellation requested'],
+        [/^Cancellation Not Approved\b/i, 'Cancellation not approved'],
+        [/^New Appointment\b/i, 'New appointment'], [/^Appointment Cancelled\b/i, 'Appointment cancelled'],
+        [/^Appointment Rescheduled\b/i, 'Appointment rescheduled'], [/^Appointment Completed\b/i, 'Consultation completed'],
+        [/^New Customer Inquiry\b/i, 'New customer inquiry'], [/^New Staff Request\b/i, 'New staff request'],
+        [/^Low Stock Alert\b/i, 'Low stock'], [/^Payment Received\b/i, 'Payment received'],
+        [/^Refund Request\b/i, 'Refund requested'], [/^Return Request\b/i, 'Return requested'],
+      ];
+      for (const [pattern, label] of labels) if (pattern.test(title)) { title = title.replace(pattern, label); break; }
+      return title;
+    };
+
     const buildNotifItemHTML = (n) => {
       const target = resolveNotifTarget(n);
+      const heading = notificationHeading(n);
       // Return/refund rows get the category icon so every one of them reads the
       // same; the rest keep their type icon, which already carries meaning
       // (green check for an approval, amber warning for a rejection).
@@ -3014,10 +3035,10 @@ document.addEventListener("DOMContentLoaded", () => {
         : "notif-type-info";
       const readClass = n.is_read ? "" : " notif-unread";
       return `
-        <div class="notif-item notif-clickable${readClass}" data-notif-id="${n.id}" data-notif-kind="${target.kind}" role="link" tabindex="0" title="Open ${escHtml(target.label)}" aria-label="${escHtml(n.title)}. Open ${escHtml(target.label)}.">
+        <div class="notif-item notif-clickable${readClass}" data-notif-id="${n.id}" data-notif-kind="${target.kind}" role="link" tabindex="0" title="Open ${escHtml(target.label)}" aria-label="${escHtml(heading)}. Open ${escHtml(target.label)}.">
           <div class="notif-type-dot ${typeClass}"><i class="fa-solid ${icon}"></i></div>
           <div class="notif-item-body">
-            <div class="notif-item-title">${escHtml(n.title)}</div>
+            <div class="notif-item-title" title="${escHtml(heading)}">${escHtml(heading)}</div>
             <div class="notif-item-msg">${escHtml(n.message)}</div>
             <div class="notif-item-meta">
               <span class="notif-item-time">${formatRelTime(n.created_at)}</span>
@@ -3025,8 +3046,8 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
           <div class="notif-item-actions">
-            ${!n.is_read ? `<button class="notif-read-btn" title="Mark as read" data-notif-id="${n.id}"><i class="fa-solid fa-check"></i></button>` : '<div class="notif-unread-dot" style="visibility:hidden"></div>'}
-            <button class="notif-del-btn" title="Dismiss" data-notif-id="${n.id}"><i class="fa-solid fa-xmark"></i></button>
+            ${!n.is_read ? `<button type="button" class="notif-read-btn" title="Mark as read" aria-label="Mark notification as read" data-notif-id="${n.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>` : '<div class="notif-unread-dot" style="visibility:hidden"></div>'}
+            <button type="button" class="notif-del-btn" title="Remove notification" aria-label="Remove notification" data-notif-id="${n.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
           </div>
         </div>`;
     };
@@ -3474,7 +3495,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ?.addEventListener("click", closeAllNotifPanel);
         document
           .getElementById("allNotifBackdrop")
-          ?.addEventListener("click", () => { if (!overlay.hasAttribute('data-portal-detail-dialog')) closeAllNotifPanel(); });
+          ?.addEventListener("click", () => { if (!overlay.inert && overlay.classList.contains('show')) closeAllNotifPanel(); });
 
         // Mark all read — optimistic
         document

@@ -88,7 +88,7 @@
     if (top.hasAttribute('data-portal-detail-keyboard-owner')) return;
     if (event.key === 'Escape' && top.matches('[data-portal-detail-dialog]')) {
       // Let a form's expanded picker consume Escape before closing its owner.
-      if (event.target.closest('[data-portal-detail-escape-owner]')) return;
+      if (event.target.closest('[data-portal-detail-escape-owner]') || event.target.matches('[role="combobox"][aria-expanded="true"]')) return;
       event.preventDefault(); event.stopImmediatePropagation(); requestClose(top); return;
     }
     if (event.key === 'Tab') {

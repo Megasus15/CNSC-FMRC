@@ -60,8 +60,9 @@ large cover-image data on each keystroke.
 
 ## Adoption pattern for subsequent pages
 
-Appointment dialogs are the next planned rollout; their fields and workflows
-are not adopted in this release. Future pages should adopt one owner at a time:
+The subsequent [Appointment rollout](APPOINTMENT_MODAL_REFINEMENTS.md) adopts
+the shared frame and calendar save rule in **2026.1114.7**, while preserving its
+operational workflows. Future pages should adopt one owner at a time:
 
 ```js
 const saveState = AdminEditSave.bind({

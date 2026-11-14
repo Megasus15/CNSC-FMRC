@@ -418,3 +418,16 @@ html[data-portal-motion="reduced"] .portal-detail-dialog--form .stock-rule-guide
   .portal-detail-dialog--form .campaign-product-code { flex-basis: calc(100% - 26px); margin-left: 26px; }
   .campaign-table-search { flex-basis: 100%; width: 100%; }
 }
+
+/* Shared header notifications: a compact action rail leaves room for the feed
+   text while preserving 44px hit areas and the existing personal actions. */
+.notification-dropdown .notif-item { gap: 10px; padding: 12px; }
+.notification-dropdown .notif-type-dot { flex: 0 0 30px; width: 30px; height: 30px; }
+.notification-dropdown .notif-item-actions { flex: 0 0 44px; width: 44px; flex-direction: column; align-items: center; gap: 2px; padding: 0; }
+.notification-dropdown .notif-item-actions > .notif-unread-dot { display: none; }
+.notification-dropdown :is(.notif-read-btn, .notif-del-btn) { border-radius: 8px; background: transparent; border-color: transparent; font-size: 12px; }
+.notif-item-actions :is(.notif-read-btn, .notif-del-btn) svg { width: 16px; height: 16px; pointer-events: none; }
+.notification-dropdown :is(.notif-read-btn, .notif-del-btn):hover { transform: none; box-shadow: none; background: var(--surface-alt, #f8f4ef); border-color: var(--border-color, #e2e8f0); }
+.notification-dropdown .notif-item-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; line-height: 1.55; }
+.notification-dropdown .notif-item-msg { -webkit-line-clamp: 3; overflow-wrap: anywhere; }
+.campaign-preview-heading, .campaign-preview-heading i { color: var(--portal-accent, #800000) !important; }
