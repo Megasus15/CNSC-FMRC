@@ -49,6 +49,9 @@ body[data-portal-popup-context="Orders"] .orders-layout-stack .orders-search { o
 body[data-portal-popup-context="Orders"] .orders-layout-stack .orders-search input { width:100%; min-width:0; margin:0; padding-left:42px; min-height:44px; }
 body[data-portal-popup-context="Orders"] .gateway-search { order:10; width:260px; flex:0 1 260px; min-width:0; }
 body[data-portal-popup-context="Orders"] .gateway-search .orders-search { width:100%; }
+body[data-portal-popup-context="Orders"] #walkInOrdersPanel .orders-search { order:1; }
+body[data-portal-popup-context="Orders"] #walkInOrdersPanel .filters-row > :is(.admin-select-wrap,select) { order:0; }
+body[data-portal-popup-context="Orders"] #walkInOrdersPanel #openWalkInOrderModalBtn { order:2; flex:0 0 auto; min-height:44px; }
 body[data-portal-popup-context="Orders"] #ordersModuleTabs { display:flex; flex-wrap:wrap; gap:10px; }
 body[data-portal-popup-context="Orders"] #ordersModuleTabs button { min-height:44px; font:600 14px 'Poppins',sans-serif; padding:10px 16px; border-radius:8px; display:inline-flex; gap:8px; align-items:center; justify-content:center; }
 .orders-review-priority { display:inline-flex; margin-left:8px; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:600; color:var(--primary-color,#800000); background:var(--portal-accent-soft,#fbf1f2); }
@@ -62,4 +65,8 @@ body[data-portal-popup-context="Orders"] #ordersModuleTabs button { min-height:4
  body[data-portal-popup-context="Orders"] .orders-layout-stack .panel-header > :is(.filters-row,.gateway-toolbar,.orders-search) { width:100%; flex-basis:100%; }
  body[data-portal-popup-context="Orders"] .orders-layout-stack :is(.filters-row,.gateway-toolbar) > * { max-width:100%; }
  body[data-portal-popup-context="Orders"] .gateway-search { flex-basis:100%; width:100%; }
+ body[data-portal-popup-context="Orders"] #walkInOrdersPanel .filters-row { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+ body[data-portal-popup-context="Orders"] #walkInOrdersPanel .filters-row > :is(.admin-select-wrap,select) { grid-column:1/-1; width:100%; }
+ body[data-portal-popup-context="Orders"] #walkInOrdersPanel .orders-search { grid-column:1; grid-row:2; width:100%; }
+ body[data-portal-popup-context="Orders"] #walkInOrdersPanel #openWalkInOrderModalBtn { grid-column:2; grid-row:2; }
 }

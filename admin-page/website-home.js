@@ -1095,7 +1095,9 @@ function openAddService() {
   document.getElementById("serviceEditId").value = "";
   document.getElementById("serviceModalTitle").textContent = "Add Service Card";
   clearServiceModal();
-  document.getElementById("serviceModal").classList.add("show");
+  const serviceDialog = document.getElementById("serviceModal");
+  if (window.PortalDetailDialog && serviceDialog.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(serviceDialog, {returnSelector: '#btnAddService'});
+  else serviceDialog.classList.add("show");
   serviceModalDraft?.capture();
 }
 
@@ -1120,7 +1122,9 @@ function openEditService(id) {
     resetImgPreview("svcImgPreview", "svcImgPlaceholder");
   }
 
-  document.getElementById("serviceModal").classList.add("show");
+  const serviceDialog = document.getElementById("serviceModal");
+  if (window.PortalDetailDialog && serviceDialog.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(serviceDialog, {returnSelector: `[data-home-service-action="edit"][data-service-id="${id}"]`});
+  else serviceDialog.classList.add("show");
   serviceModalDraft?.capture();
 }
 
@@ -1621,7 +1625,10 @@ function openCropModal(target) {
   }
 
   applyCropTransform();
-  document.getElementById("cropModal").classList.add("show");
+  const cropDialog = document.getElementById("cropModal");
+  const cropReturn = logo ? `.wm-logo-actions button[onclick="openLogoUpload('${cropLogoSlot(target)}')"]` : sdg ? '#homeSdgGrid' : '#heroBgCropBtn';
+  if (window.PortalDetailDialog && cropDialog.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(cropDialog, {returnSelector: cropReturn});
+  else cropDialog.classList.add("show");
 }
 
 /** Back to the fully-contained default: whole badge visible, no offset/rotation. */
@@ -2374,7 +2381,8 @@ function openSdgModal(id, presetImage) {
     resetImgPreview("sdgImgPreview", "sdgImgPlaceholder");
   }
 
-  modal.classList.add("show");
+  if (window.PortalDetailDialog && modal.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(modal, {returnSelector: '#homeSdgGrid'});
+  else modal.classList.add("show");
   sdgModalDraft?.capture();
 }
 

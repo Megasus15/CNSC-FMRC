@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="gateway-health" data-gateway-health role="status">Loading refund status...</div>
     <div class="gateway-toolbar"><label class="gateway-search"><input type="search" maxlength="100" placeholder="Order number or customer name" aria-label="Search online refunds" data-gateway-search></label>
       <label class="gateway-filter"><select aria-label="Filter refunds by status" data-gateway-status-filter><option value="">All statuses</option><option value="requested">Awaiting approval</option><option value="processing">Processing</option><option value="failed">Needs attention</option><option value="succeeded">Refund confirmed</option></select></label>
-      <button type="button" data-gateway-all>Clear filters</button></div>
+      </div>
     <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="gatewayPaymentsTable"><thead><tr><th>Order / customer</th><th>Cancellation / reason</th><th>Received</th><th>Refunded</th><th>Refund status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-payment-list><tr><td colspan="6">Loading refunds...</td></tr></tbody></table></div>
     <div class="table-footer"><span class="table-footer-meta" data-page aria-live="polite"></span><div class="table-pagination"><button class="page-btn" type="button" data-prev aria-label="Previous refunds page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to online refunds page" data-payment-page><button class="page-btn" type="button" data-next aria-label="Next refunds page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></div></div>`;
   const workspace = document.createElement('section'); workspace.id='sectionRefunds'; workspace.className='archive-section'; workspace.hidden=true; workspace.append(panel);
@@ -392,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
       catch {checkResult.textContent='Copy unavailable. The customer can open the claim link in My Orders > Payment details.';}
       checkResult.hidden=false;return;
     }
-    if (b.hasAttribute('data-gateway-all')) { page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; return load(); }
     if (b.hasAttribute('data-prev')) { page--; snapshot=''; return load(); }
     if (b.hasAttribute('data-next')) { page++; snapshot=''; return load(); }
     for (const type of ['refund','retry','approve','reject','history','recovercheckout','recoverrefund','archive']) if (b.dataset[type]) return show(type,b.dataset[type]);
