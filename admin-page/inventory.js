@@ -83,6 +83,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "stockRuleCategoryFilter",
   );
   const stockRuleSearch = document.getElementById("stockRuleSearch");
+  const stockRuleGuide = document.getElementById("stockRuleGuide");
+  const stockRuleGuideToggle = document.getElementById("stockRuleGuideToggle");
   const btnCancelStockRules = document.getElementById("btnCancelStockRules");
   const btnSaveStockRules = document.getElementById("btnSaveStockRules");
 
@@ -1778,10 +1780,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     activeDeductItem = null;
   });
+  window.PortalDetailDialog?.registerClose(modalDeduct, () => btnCancelDeduct?.click());
 
   // ─── Deduct Mode Toggle (Add / Deduct) ────────────────────────────────
   const setDeductMode = (mode) => {
     deductMode = mode;
+    btnModeAdd?.setAttribute('aria-pressed', String(mode === 'add'));
+    btnModeDeduct?.setAttribute('aria-pressed', String(mode === 'deduct'));
     if (mode === "add") {
       if (btnModeAdd) btnModeAdd.classList.add("active");
       if (btnModeDeduct) btnModeDeduct.classList.remove("active");
@@ -1918,7 +1923,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showPopup("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveDeduct.disabled = false;
-      btnSaveDeduct.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
+      btnSaveDeduct.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes';
     }
   });
 
@@ -2100,7 +2105,8 @@ document.addEventListener("DOMContentLoaded", () => {
         setDeductMode("add");
         // store viewing id in modal dataset
         modalDeduct?.setAttribute("data-inv-id", String(item.id));
-        openModal(modalDeduct);
+        if (window.PortalDetailDialog) window.PortalDetailDialog.open(modalDeduct, {trigger: deductBtn, returnSelector: `[data-inv-deduct="${Number(item.id)}"]`});
+        else openModal(modalDeduct);
       }
       return;
     }
@@ -2482,8 +2488,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // Opens instantly (same feel as "Add New Item") by rendering the rules that
   // were already cached on page load, then syncing with the server in the
   // background instead of blocking the modal behind a fetch.
+  const setStockRuleGuideExpanded = expanded => {
+    if (stockRuleGuide) stockRuleGuide.hidden = !expanded;
+    stockRuleGuideToggle?.setAttribute('aria-expanded', String(expanded));
+    const label = stockRuleGuideToggle?.querySelector('span');
+    if (label) label.textContent = expanded ? 'Hide guide' : 'Show guide';
+  };
+  stockRuleGuideToggle?.addEventListener('click', () => {
+    setStockRuleGuideExpanded(stockRuleGuideToggle.getAttribute('aria-expanded') !== 'true');
+  });
+
   const openStockRulesModal = () => {
     if (!modalStockRules) return;
+    setStockRuleGuideExpanded(false);
 
     stockRuleDraft = cloneStockRules(stockRules);
     stockRuleOpenSnapshot = JSON.stringify(stockRuleDraft);

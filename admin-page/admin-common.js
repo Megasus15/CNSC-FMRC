@@ -3821,7 +3821,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <p class="portal-detail-dialog__eyebrow">Inventory</p>
             <h3 id="adminSystemPopupTitle" class="portal-detail-dialog__title" data-portal-detail-heading tabindex="-1">Archive Item</h3>
           </div>
-          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close archive confirmation" title="Close archive confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
         </header>
         <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Archive confirmation details"><p id="adminSystemPopupMessage" class="portal-detail-copy"></p></div>
         <footer class="admin-system-popup__actions portal-detail-dialog__footer">
@@ -3855,9 +3854,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cancelBtn = popup.querySelector("#adminSystemPopupCancel");
     const actions = popup.querySelector(".admin-system-popup__actions");
     const backdrop = popup.querySelector(".admin-system-popup__backdrop");
-    const closeIcon = popup.querySelector("[data-portal-detail-close]");
     let confirmPending = false;
-    if (closeIcon) closeIcon.disabled = false;
     if (inventoryPresentation) popup.setAttribute("aria-busy", "false");
 
     if (titleEl) titleEl.textContent = options.title || "System Message";
@@ -3872,7 +3869,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const setConfirmLoading = (isLoading) => {
       confirmPending = isLoading;
-      if (closeIcon) closeIcon.disabled = isLoading;
       if (inventoryPresentation) popup.setAttribute("aria-busy", String(isLoading));
       if (!okBtn) return;
       if (isLoading) {

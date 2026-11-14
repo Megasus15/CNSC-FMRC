@@ -1,10 +1,10 @@
 # Shared Inventory and Product dialogs
 
 The shared design covers Inventory **View Item**, **Add New Item / Edit Item**,
-**Stock Level Rules**, **Edit Letterhead**, and single/bulk **Archive**
+**Adjust Stocks**, **Stock Level Rules**, **Edit Letterhead**, and single/bulk **Archive**
 confirmation in Admin and Staff, plus Products **View Product**. It uses the
 opt-in `portal-detail-dialog.css` / `portal-detail-dialog.js` assets and the
-existing shared Admin renderers. Deduct Stock, generated-report previews and
+existing shared Admin renderers. Generated-report previews and
 other pages' dialog presentations retain their existing appearance. Further
 rollout remains one dialog at a time.
 
@@ -19,10 +19,27 @@ have explicit empty states. Products retain their existing gallery editor.
 Inventory/product data, stock rules and editing permissions are unchanged.
 
 Inventory form dialogs use the same 800px maximum frame. Archive confirmation
-uses a compact 480px frame without body separator rules. Restore defaults is
+uses a compact 480px frame without an X button or body separator rules. Cancel
+and Archive remain available, with Escape following Cancel when not pending.
+Restore defaults is
 above the Letterhead fields, leaving Cancel and Save Letterhead in the fixed
 footer. Empty/hidden errors take no space; real failed-save errors remain
-visible. Stock-rule lists have no separate vertical scroll areas.
+visible. Stock-rule lists have no separate vertical scroll areas. The guide
+starts collapsed on every open and uses a keyboard-accessible Show/Hide guide
+button with double chevrons below the introductory card text. Toggling the
+guide does not reload rules or alter a draft.
+
+Adjust Stocks retains the existing add/deduct and variant-selection workflow,
+signed adjustment payloads, journal metadata, validation and failure recovery.
+Its Close icon and Escape use the existing Cancel handler. Mode buttons expose
+their pressed state, and the form uses the same fixed footer and body scrolling.
+
+Letterhead fields align at the top with uniform 44px inputs, so helper text
+cannot stretch an adjacent field. Desktop pairs use equal columns; an odd final
+field spans the full row. Phones stack the fields. Names, positions, hints and
+stored values keep their existing bindings. Both Inventory search fields use
+the compact Search placeholder, a decorative search icon and descriptive
+accessible names; filtering behavior remains unchanged.
 
 `PortalDetailDialog.registerClose(root, handler)` routes header Close and Escape
 through the existing Cancel/discard or saving guard. Guarded dialogs cannot be
@@ -68,7 +85,9 @@ directory containing desktop and mobile screenshots. These checks do not prove
 authenticated hosted behavior. Inventory form checks additionally cover
 guarded Close/Escape, direct SVG icon clicks, fixed/percentage overrides,
 inheritance, filtering, delayed reads, failed saves, Letterhead restore and
-pending guards, single/bulk archive, and global-popup presentation isolation.
+pending guards, single/bulk archive, global-popup presentation isolation,
+collapsed-guide keyboard controls, search/icon spacing, Letterhead pair
+alignment and single-item/variant stock adjustments with signed payloads.
 
 ## Release
 
@@ -86,13 +105,14 @@ Commit and push these files through the existing online deployment workflow:
 - The browser test and this document
 - Other Admin/Staff HTML consumers with updated shared-script cache versions
 
-Shared dialog assets, Inventory renderer, shared confirmation helper and Reports
-script now use **2026.1114.3**. Their HTML consumers have matching version
-references. The unchanged Products renderer and Staff Products loader remain
-on **2026.1114.2**. Release the
+The shared stylesheet, Inventory renderer and confirmation helper now use
+**2026.1114.4**. Their HTML consumers have matching version references. The
+unchanged shared dialog controller and Reports script remain on **2026.1114.3**;
+the Products renderer and Staff Products loader remain on **2026.1114.2**. Release the
 matching shells, stylesheet, behavior and renderer together. No database
 migration, Composer install or ZIP upload is needed. After deployment, check
-View Item, View Product, Add/Edit Item, Stock Level Rules, Letterhead save/reset
+View Item, View Product, Add/Edit Item, Adjust Stocks, Stock Level Rules and its
+collapsed guide, Letterhead field alignment/save/reset
 and archive confirmation in authenticated Admin and Staff sessions. Confirm
 that report PDFs and unrelated confirmations still use their existing layouts.
 Additional dialogs can adopt the design individually when requested.

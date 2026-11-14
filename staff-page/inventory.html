@@ -708,7 +708,7 @@
     <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
-    <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.3" />
+    <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1114.4" />
   </head>
   <body data-report-document-host>
     <div class="dashboard-container">
@@ -918,11 +918,10 @@
                     Electronics &amp; Electrical Equipments
                   </option>
                 </select>
-                <input
-                  class="search-input"
-                  id="inventorySearchInput"
-                  placeholder="Search item name or description..."
-                />
+                <div class="inv-search-field">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+                  <input class="search-input" id="inventorySearchInput" type="search" aria-label="Search inventory items by name or description" placeholder="Search" />
+                </div>
               </div>
             </div>
           </div>
@@ -1090,194 +1089,69 @@
       </section>
     </div>
 
-    <div
-      class="modal-overlay"
-      id="modalDeductInventoryItem"
-      data-backdrop-close="false"
-    >
-      <div
-        class="modal-card"
-        style="
-          min-width: 420px;
-          max-width: 640px;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          max-height: 90vh;
-        "
-      >
-        <div
-          class="modal-header-fixed"
-          style="
-            padding: 16px 18px;
-            border-bottom: 1px solid var(--border-color, #e5e7eb);
-            flex-shrink: 0;
-          "
-        >
-          <h3
-            class="modal-title"
-            id="deductModalTitle"
-            style="margin-bottom: 0; font-size: 1.2rem; font-weight: 700"
-          >
-            Adjust Stocks
-          </h3>
-          <p class="field-hint" style="margin-bottom: 0; margin-top: 4px">
-            Select whether to add or deduct stock for the selected inventory
-            item or its variant.
-          </p>
-        </div>
-        <div
-          class="modal-body-scroll"
-          style="
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 0;
-          "
-        >
-          <div class="form-grid" style="padding: 12px 18px">
-            <div class="field-stack full">
-              <label>Category</label
-              ><input
-                class="input-field"
-                id="deductCategory"
-                readonly
-                disabled
-              />
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" id="modalDeductInventoryItem" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false" aria-hidden="true">
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="deductModalTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 3v8M16 13v8"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Inventory</p><h2 class="portal-detail-dialog__title" id="deductModalTitle" data-portal-detail-heading tabindex="-1">Adjust Stocks</h2></div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close stock adjustment" title="Close stock adjustment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body">
+          <p class="portal-detail-copy inv-form-guidance">Add or deduct stock for this item or a selected variant.</p>
+          <div class="form-grid">
+            <div class="field-stack">
+              <label for="deductCategory">Category</label>
+              <input class="input-field" id="deductCategory" readonly disabled />
             </div>
-            <div class="field-stack full">
-              <label>Item Name</label
-              ><input
-                class="input-field"
-                id="deductItemName"
-                readonly
-                disabled
-              />
+            <div class="field-stack">
+              <label for="deductItemName">Item name</label>
+              <input class="input-field" id="deductItemName" readonly disabled />
             </div>
-            <div
-              class="field-stack full highlight-field"
-              id="deductTargetWrap"
-              style="display: none"
-            >
-              <label>Apply To</label>
+            <div class="field-stack full" id="deductTargetWrap" style="display: none">
+              <label for="deductTarget">Apply to</label>
               <select class="filter-select" id="deductTarget"></select>
-              <div class="field-hint" id="deductTargetHint">
-                Choose a variant to update.
+              <div class="field-hint" id="deductTargetHint">Choose a variant to update.</div>
+            </div>
+            <div class="field-stack">
+              <label for="deductOnHand">Stock on hand</label>
+              <input class="input-field" id="deductOnHand" readonly disabled />
+            </div>
+            <div class="field-stack">
+              <label>Adjustment type</label>
+              <div class="adjust-amount-mode-toggle" role="group" aria-label="Stock adjustment type">
+                <button class="mode-toggle-btn active" id="btnModeAdd" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add Stock</button>
+                <button class="mode-toggle-btn" id="btnModeDeduct" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>Deduct Stock</button>
               </div>
             </div>
-            <div class="field-stack highlight-field">
-              <label>Stocks On Hand</label
-              ><input class="input-field" id="deductOnHand" readonly disabled />
+            <div class="field-stack adjust-amount-fields active" id="deductAddFields">
+              <label for="deductAmountAdd">Quantity to add <span style="color: #dc2626">*</span></label>
+              <input class="input-field" id="deductAmountAdd" type="number" min="1" placeholder="e.g. 5" />
+              <div class="field-hint">Enter a positive quantity.</div>
             </div>
-
-            <!-- ─── ADD/DEDUCT Mode Toggle ───────────────────────────────── -->
+            <div class="field-stack adjust-amount-fields" id="deductDeductFields">
+              <label for="deductAmountDeduct">Quantity to deduct <span style="color: #dc2626">*</span></label>
+              <input class="input-field" id="deductAmountDeduct" type="number" min="1" placeholder="e.g. 5" />
+              <div class="field-hint">Enter a positive quantity.</div>
+            </div>
+            <div class="field-stack">
+              <label for="deductName">Adjusted by</label>
+              <input class="input-field" id="deductName" placeholder="Authorized person" />
+            </div>
             <div class="field-stack full">
-              <div class="adjust-amount-mode-toggle">
-                <button
-                  class="mode-toggle-btn active"
-                  id="btnModeAdd"
-                  type="button"
-                >
-                  <i class="fa-solid fa-plus"></i> Add Stock
-                </button>
-                <button
-                  class="mode-toggle-btn"
-                  id="btnModeDeduct"
-                  type="button"
-                >
-                  <i class="fa-solid fa-minus"></i> Deduct Stock
-                </button>
-              </div>
+              <label for="deductPurpose">Purpose</label>
+              <input class="input-field" id="deductPurpose" placeholder="Reason for adjustment" />
             </div>
-
-            <!-- ─── ADD Amount Field ───────────────────────────────────── -->
-            <div
-              class="field-stack full adjust-amount-fields active"
-              id="deductAddFields"
-            >
-              <label>Add Amount <span style="color: #dc2626">*</span></label>
-              <input
-                class="input-field"
-                id="deductAmountAdd"
-                type="number"
-                min="1"
-                placeholder="Enter quantity to add"
-              />
-              <div class="field-hint">
-                <i class="fa-solid fa-circle-info" style="margin-right: 4px"></i
-                >Enter a positive number only
-              </div>
-            </div>
-
-            <!-- ─── DEDUCT Amount Field ───────────────────────────────────── -->
-            <div
-              class="field-stack full adjust-amount-fields"
-              id="deductDeductFields"
-            >
-              <label>Deduct Amount <span style="color: #dc2626">*</span></label>
-              <input
-                class="input-field"
-                id="deductAmountDeduct"
-                type="number"
-                min="1"
-                placeholder="Enter quantity to deduct"
-              />
-              <div class="field-hint">
-                <i class="fa-solid fa-circle-info" style="margin-right: 4px"></i
-                >Enter a positive number only
-              </div>
-            </div>
-
-            <div class="field-stack full highlight-field">
-              <label>By (Name)</label
-              ><input
-                class="input-field"
-                id="deductName"
-                placeholder="Authorized person"
-              />
-            </div>
-            <div class="field-stack full highlight-field">
-              <label>Purpose</label
-              ><input
-                class="input-field"
-                id="deductPurpose"
-                placeholder="Reason for stock adjustment"
-              />
-            </div>
-            <div class="field-stack full highlight-field">
-              <label>Remarks</label
-              ><input
-                class="input-field"
-                id="deductRemarks"
-                placeholder="Additional remarks"
-              />
+            <div class="field-stack full">
+              <label for="deductRemarks">Remarks</label>
+              <input class="input-field" id="deductRemarks" placeholder="Optional remarks" />
             </div>
           </div>
         </div>
-        <div
-          class="modal-footer-fixed"
-          style="
-            padding: 12px 18px;
-            border-top: 1px solid var(--border-color, #e5e7eb);
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            background: #fdfaf6;
-            flex-shrink: 0;
-            box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
-            position: relative;
-            z-index: 2;
-          "
-        >
-          <button class="btn-admin btn-secondary" id="btnCancelDeduct">
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnSaveDeduct" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-        </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="btnCancelDeduct" type="button">Cancel</button>
+          <button class="btn-admin" id="btnSaveDeduct" type="button"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes</button>
+        </footer>
+      </section>
     </div>
 
     <!-- ────────────── STOCK LEVEL RULES MODAL ────────────── -->
@@ -1289,8 +1163,11 @@
           <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close stock level rules" title="Close stock level rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
         </header>
         <div class="modal-body-scroll portal-detail-dialog__body">
-          <p class="portal-detail-copy inv-form-guidance">Set the threshold that determines when available stock becomes Low Stock.</p>
-          <ul class="stock-rule-guide">
+          <div class="stock-rule-help">
+            <p class="portal-detail-copy">Set the threshold that determines when available stock becomes Low Stock.</p>
+            <button class="stock-rule-guide-toggle" id="stockRuleGuideToggle" type="button" aria-expanded="false" aria-controls="stockRuleGuide"><span>Show guide</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 6 5 5 5-5M7 12l5 5 5-5"/></svg></button>
+          </div>
+          <ul class="stock-rule-guide" id="stockRuleGuide" hidden>
             <li>
               <i class="fa-solid fa-circle-check"></i>
               <span
@@ -1402,11 +1279,10 @@
                   Electronics &amp; Electrical Equipments
                 </option>
               </select>
-              <input
-                class="search-input"
-                id="stockRuleSearch" aria-label="Search item or variant rules"
-                placeholder="Search item or variant name..."
-              />
+              <div class="inv-search-field">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+                <input class="search-input" id="stockRuleSearch" type="search" aria-label="Search item or variant rules" placeholder="Search" />
+              </div>
             </div>
             <div class="stock-rule-list" id="stockRuleItemList"></div>
           </div>
@@ -1499,11 +1375,11 @@
     <script src="../admin-page/session-helper.js?v=2026.1113.9"></script>
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=2026.1114.3"></script>
+    <script src="../admin-page/admin-common.js?v=2026.1114.4"></script>
     <script src="../admin-page/reports.js?v=2026.1114.3"></script>
     <script src="../admin-page/inventory-report.js?v=1.1"></script>
     <script src="../admin-page/portal-detail-dialog.js?v=2026.1114.3"></script>
-    <script src="../admin-page/inventory.js?v=2026.1114.3"></script>
+    <script src="../admin-page/inventory.js?v=2026.1114.4"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>
