@@ -44,7 +44,7 @@ image uploads, feature chips, category/service removal, failed-save recovery
 and explicit publishing/readback. Existing Home/About suites check SDG card
 geometry and image/save regressions; `website-editor-outlines.browser.cjs`
 checks Home/About hover styles in both roles/themes. Products keeps an
-unopted Footer editor regression check. Shared page-draft and backend content
+unopted Payment Methods editor regression check. Shared page-draft and backend content
 tests cover persistence.
 
 Update all consumers of the changed shared editor assets, commit and push using

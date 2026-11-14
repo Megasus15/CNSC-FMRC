@@ -2640,17 +2640,75 @@ document.addEventListener("DOMContentLoaded", () => {
   })();
 
   if (userProfile && profilePopup) {
+    // Keep each page's account links and authenticated identity; share one popover.
+    const profileSvg = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    const profileTrigger = document.createElement('button');
+    profileTrigger.type = 'button'; profileTrigger.id = 'profileMenuTrigger'; profileTrigger.className = 'profile-menu-trigger';
+    profileTrigger.setAttribute('aria-controls',profilePopup.id); profileTrigger.setAttribute('aria-expanded','false'); profileTrigger.setAttribute('aria-label','Account menu');
+    const profileAvatar = [...userProfile.children].find(node => node.matches('.profile-icon,.profile-initial'));
+    if (profileAvatar) profileTrigger.append(profileAvatar); else profileTrigger.textContent = 'Account';
+    userProfile.insertBefore(profileTrigger,profilePopup); profilePopup.classList.add('portal-profile-menu'); profilePopup.setAttribute('role','region'); profilePopup.setAttribute('aria-label','Account menu');
+    const identity = profilePopup.querySelector('.popup-identity');
+    if (identity) { const label = document.createElement('p'); label.className = 'profile-menu-caption'; label.textContent = 'Signed in as'; identity.before(label); }
+    profilePopup.querySelectorAll('.profile-popup-link').forEach(link => {
+      const settings = link.getAttribute('href') === 'settings.html';
+      const old = link.querySelector('i');
+      if (settings && old) {
+        const sidebarGear = sidebarNav?.querySelector('a[href="settings.html"] i');
+        if (sidebarGear) { const gear = sidebarGear.cloneNode(true); gear.removeAttribute('style'); gear.setAttribute('aria-hidden','true'); old.replaceWith(gear); }
+        else { old.className = 'fa-solid fa-gear'; old.setAttribute('aria-hidden','true'); }
+      } else if (old) old.outerHTML = profileSvg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5 17v-1a3 3 0 0 1 6 0v1M15 9h3M15 13h3"/>');
+      if (new URL(link.href,location.href).pathname === location.pathname) link.setAttribute('aria-current','page');
+    });
+    const logoutIcon = profilePopup.querySelector('.logout-btn i');
+    if (logoutIcon) logoutIcon.outerHTML = profileSvg('<path d="M10 4H4v16h6M14 8l4 4-4 4M8 12h12"/>');
+    const positionProfileMenu = () => {
+      if (!profilePopup.classList.contains('show')) return;
+      const rect = profileTrigger.getBoundingClientRect(), gap = 10, edge = 12;
+      const width = Math.min(344,innerWidth-edge*2), top = Math.min(rect.bottom+gap,Math.max(edge,innerHeight-120));
+      profilePopup.style.left = `${Math.max(edge,Math.min(rect.right-width,innerWidth-width-edge))}px`;
+      profilePopup.style.top = `${top}px`; profilePopup.style.width = `${width}px`; profilePopup.style.maxHeight = `${Math.max(80,innerHeight-top-edge)}px`;
+    };
+    const syncProfileMenu = () => {
+      const open = profilePopup.classList.contains('show');
+      profileTrigger.setAttribute('aria-expanded',String(open)); profilePopup.setAttribute('aria-hidden',String(!open)); profilePopup.inert = !open;
+      if (open) positionProfileMenu();
+    };
+    const closeProfileMenu = (restoreFocus = false) => {
+      profilePopup.classList.remove('show'); syncProfileMenu();
+      if (restoreFocus) profileTrigger.focus({preventScroll:true});
+    };
+    new MutationObserver(syncProfileMenu).observe(profilePopup,{attributes:true,attributeFilter:['class']});
+    syncProfileMenu();
+    window.addEventListener('resize',positionProfileMenu);
+    window.addEventListener('scroll',positionProfileMenu,{passive:true});
     userProfile.addEventListener("click", (e) => {
       e.stopPropagation();
       document.getElementById("notificationDropdown")?.classList.remove("show");
       profilePopup.classList.toggle("show");
+      syncProfileMenu();
     });
 
     document.addEventListener("click", (e) => {
       if (!userProfile.contains(e.target)) {
-        profilePopup.classList.remove("show");
+        closeProfileMenu();
       }
     });
+
+    document.addEventListener('focusin',event => {
+      if (profilePopup.classList.contains('show') && !userProfile.contains(event.target)) closeProfileMenu();
+    });
+    profileTrigger.addEventListener('keydown',event => {
+      if (event.key !== 'ArrowDown') return;
+      event.preventDefault(); profilePopup.classList.add('show'); syncProfileMenu(); profilePopup.querySelector('a,button')?.focus({preventScroll:true});
+    });
+    userProfile.addEventListener('keydown',event => {
+      if (event.key === 'Escape' && profilePopup.classList.contains('show')) { event.preventDefault(); event.stopPropagation(); closeProfileMenu(true); }
+    });
+    // Capture the existing logout opener before its confirmation takes focus.
+    profilePopup.addEventListener('click',event => {
+      if (event.target.closest('.logout-btn')) closeProfileMenu(true);
+    },true);
 
     profilePopup.addEventListener("click", (e) => {
       e.stopPropagation();

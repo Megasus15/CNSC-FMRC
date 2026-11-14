@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.showAdminConfirmPopup(
       "Save all Footer changes? This updates the footer across all customer pages.",
       {
-        title: "Save Footer Changes",
+        title: "Save All Changes",
         confirmText: "Save",
         onConfirm: doSave,
       },
@@ -142,13 +142,15 @@ function addLinkRow(link = { label: "", url: "" }, insertIdx = null) {
   const row = document.createElement("div");
   row.className = "ql-row";
   row.innerHTML = `
-    <input type="text" class="ql-label wm-input" placeholder="Label (e.g. Home)" value="${escHtml(link.label)}" />
-    <input type="text" class="ql-url wm-input" placeholder="URL (e.g. /home-page/)" value="${escHtml(link.url)}" />
-    <button class="ql-del" title="Remove link">×</button>
+    <label class="field-stack"><span class="footer-link-label">Link Label</span><input type="text" class="ql-label wm-input" placeholder="e.g. Home" /></label>
+    <label class="field-stack"><span class="footer-link-label">Link URL</span><input type="text" class="ql-url wm-input" placeholder="e.g. /home-page/" /></label>
+    <button type="button" class="ql-del" title="Remove link" aria-label="Remove quick link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button>
   `;
+  row.querySelector('.ql-label').value = link.label || '';
+  row.querySelector('.ql-url').value = link.url || '';
   row.querySelector(".ql-del").addEventListener("click", () => {
-    window.showAdminConfirmPopup("Remove this quick link?", {
-      title: "Remove Link",
+    window.showAdminConfirmPopup("Remove this quick link from your draft? Publish the change with Save All Changes.", {
+      title: "Remove Quick Link",
       confirmText: "Remove",
       onConfirm: () => row.remove(),
     });

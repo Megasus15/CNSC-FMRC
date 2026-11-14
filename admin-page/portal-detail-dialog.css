@@ -1,4 +1,31 @@
 /* Opt-in detail-dialog design. Existing portal dialogs keep their own design. */
+/* Shared account popover on every authenticated Admin/Staff page. */
+html[data-portal] .user-profile .profile-menu-trigger { display:flex; align-items:center; justify-content:center; gap:10px; min-width:44px; min-height:44px; padding:0; border:0; border-radius:8px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+html[data-portal] .user-profile .profile-menu-trigger:focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:5px; }
+html[data-portal] .user-profile .portal-profile-menu { position:fixed; right:auto; width:min(344px,calc(100vw - 24px)); padding:8px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface,#fdfaf6); color:var(--text-main,#2b2b31); box-shadow:0 16px 44px #11182726; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; transform:translateY(4px); transition:opacity 140ms ease,visibility 140ms ease,transform 140ms ease; font-family:inherit; cursor:default; z-index:120; }
+html[data-portal] .user-profile .portal-profile-menu.show { transform:none; }
+html[data-portal] .user-profile .portal-profile-menu::before,html[data-portal] .user-profile .portal-profile-menu::after { display:none; }
+html[data-portal] .portal-profile-menu .popup-header { margin:0 0 6px; padding:10px 10px 16px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+html[data-portal] .portal-profile-menu .popup-profile-row { align-items:center; gap:12px; }
+html[data-portal] .portal-profile-menu .popup-profile-icon { flex:0 0 44px; width:44px; height:44px; border:1px solid var(--portal-accent-border,#ead8db); border-radius:12px; background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); font-size:18px; font-weight:600; box-shadow:none; }
+html[data-portal] .portal-profile-menu .popup-profile-meta { flex:1; min-width:0; }
+html[data-portal] .portal-profile-menu .profile-menu-caption { margin:0 0 3px; font-size:12px; font-weight:400; line-height:1.5; color:var(--portal-muted-color,#6b6269); }
+html[data-portal] .portal-profile-menu .popup-identity { margin:0 0 6px; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; font-size:14px; font-weight:600; line-height:1.6; color:var(--text-main,#2b2b31); }
+html[data-portal] .portal-profile-menu .popup-role { padding:3px 8px; border:1px solid var(--portal-accent-border,#ead8db); border-radius:999px; background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); font-size:12px; font-weight:600; line-height:1.5; }
+html[data-portal] .portal-profile-menu .profile-popup-link { display:flex; align-items:center; gap:12px; min-height:46px; margin:2px 0; padding:10px; border:0; border-radius:8px; color:var(--text-main,#2b2b31); background:transparent; font-size:14px; font-weight:500; line-height:1.5; text-decoration:none; box-shadow:none; }
+html[data-portal] .portal-profile-menu .profile-popup-link svg { flex:0 0 20px; width:20px; height:20px; color:var(--portal-accent,#800000); }
+html[data-portal] .portal-profile-menu .profile-popup-link i { display:inline-flex; align-items:center; justify-content:center; flex:0 0 20px; width:20px; height:20px; font-size:18px; color:var(--portal-accent,#800000); }
+html[data-portal] .portal-profile-menu .profile-popup-link:is(:hover,[aria-current="page"]) { background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+html[data-portal] .portal-profile-menu hr { margin:8px 2px; border:0; border-top:1px solid var(--border-color,#e2e8f0); }
+html[data-portal] .portal-profile-menu .popup-logout { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:44px; padding:10px 12px; margin:0; border:1px solid var(--portal-action,#800000); border-radius:8px; color:var(--on-primary,#fff); background:var(--portal-action,#800000); font-family:inherit; font-size:14px; font-weight:600; line-height:1.5; box-shadow:none; transform:none; }
+html[data-portal] .portal-profile-menu .popup-logout svg { width:18px; height:18px; }
+html[data-portal] .portal-profile-menu .popup-logout:hover { background:var(--portal-action-hover,#650d20); border-color:var(--portal-action-hover,#650d20); box-shadow:none; transform:none; }
+html[data-portal] .portal-profile-menu :is(a,button):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:-2px; }
+html[data-portal][data-theme="dark"] .portal-profile-menu :is(.popup-profile-icon,.popup-role) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] .portal-profile-menu .profile-popup-link:is(:hover,[aria-current="page"]) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] .portal-profile-menu .profile-popup-link i { color:var(--portal-accent) !important; }
+@media(prefers-reduced-motion:reduce) { html[data-portal] .user-profile .portal-profile-menu { transition:none; transform:none; } }
+html[data-portal-motion="reduced"] .user-profile .portal-profile-menu { transition:none; transform:none; }
 :is(.modal-overlay, .admin-system-popup, .all-notif-overlay, .admin-media-viewer, .admin-session-warning).portal-detail-dialog {
   --portal-detail-muted: var(--portal-muted-color, #6b6269);
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));

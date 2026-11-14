@@ -38,7 +38,7 @@ refresh discard protection, failed-save retention, duplicate-save protection,
 unchanged payload fields and readback. Shared editor suites check semibold
 labels, hover outlines, SDG/gallery geometry, gallery ordering/removal, fitting
 exports, staged publishing and failure recovery. Products uses the unopted
-Footer editor to keep its presentation-boundary regression check.
+Payment Methods editor to keep its presentation-boundary regression check.
 
 Release matching shells, shared stylesheet/gallery script and Contact adapter
 through commit, push and the existing online deployment. All changed asset

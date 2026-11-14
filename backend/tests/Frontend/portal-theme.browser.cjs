@@ -112,6 +112,24 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       await main.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
       if (options.profile) await evaluate('document.querySelector(".user-profile").click()');
       await evaluate(`document.querySelector(${JSON.stringify(options.profile ? '.profile-popup .logout-btn' : '.sidebar-footer .logout-btn')}).click()`);
+      if (await evaluate(`document.body.dataset.portalPopups === 'refined'`)) {
+        await wait(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Log out'`);
+        const check = async active => {
+          await wait(`getComputedStyle(document.querySelector('#adminSystemPopup .portal-detail-dialog__card')).backgroundColor === '${active==='dark'?'rgb(30, 34, 43)':'rgb(253, 250, 246)'}'`);
+          assert(await evaluate(`(()=>{const p=document.getElementById('adminSystemPopup'),r=p.querySelector('.portal-detail-dialog__card').getBoundingClientRect();return !p.querySelector('[data-portal-detail-close],hr')&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&document.body.style.position==='fixed'})()`),label+': refined logout fits and has no X');
+        };
+        await check(theme);
+        if (options.live) {
+          const alternate=theme==='dark'?'light':'dark';
+          await evaluate(`window.AdminPreferences.set({theme:'${alternate}'})`);await wait(`document.documentElement.dataset.theme==='${alternate}'`);await check(alternate);
+          await evaluate(`window.AdminPreferences.set({theme:'${theme}'})`);await wait(`document.documentElement.dataset.theme==='${theme}'`);await check(theme);
+          await wait('JSON.parse(localStorage.getItem("fmrc-portal-preferences:user:"+(location.pathname.includes("staff-page")?22:11)))._pending === false');
+        }
+        if (options.screenshot) await shot(options.screenshot);
+        await evaluate(`document.getElementById('adminSystemPopupCancel').click()`);await wait(`!document.getElementById('adminSystemPopup').classList.contains('show')`);
+        assert.deepEqual(await evaluate('({path:location.pathname,token:window.AdminSession.getToken()})'),session,label+': Cancel preserves the session and page');
+        return;
+      }
       await wait('document.querySelector(".admin-logout-modal") && getComputedStyle(document.querySelector(".admin-logout-modal")).opacity === "1"');
       const palette = async active => {
         const dark = active === 'dark';

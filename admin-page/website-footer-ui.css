@@ -1,0 +1,21 @@
+body[data-portal-footer-dialogs] .section-stack { gap:24px; }
+body[data-portal-footer-dialogs] .toolbar-title h2 { color:var(--primary-color,#800000); font-size:22px; font-weight:600; line-height:1.5; }
+body[data-portal-footer-dialogs] .toolbar-title p { font-size:13px; line-height:1.7; color:var(--text-muted,#6b6269); }
+body[data-portal-footer-dialogs] .toolbar-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+body[data-portal-footer-dialogs] .toolbar-actions .btn-admin { min-height:44px; text-decoration:none; white-space:nowrap; }
+body[data-portal-footer-dialogs] #quickLinksContainer { display:grid; gap:12px; }
+body[data-portal-footer-dialogs] .ql-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr) 44px; align-items:end; gap:12px; padding:14px; margin:0; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-footer-dialogs] .footer-link-label { font-size:14px; font-weight:600; line-height:1.5; color:var(--text-main,#2b2b31); }
+body[data-portal-footer-dialogs] .ql-del { display:grid; place-items:center; width:44px; height:44px; min-height:44px; padding:10px; border:1px solid var(--portal-accent,#800000); border-radius:8px; color:var(--portal-accent,#800000); background:var(--surface,#fdfaf6); }
+body[data-portal-footer-dialogs] .ql-del svg { width:20px; height:20px; }
+body[data-portal-footer-dialogs] .btn-add-link { min-height:44px; padding:10px 14px; border:1px solid var(--portal-accent,#800000); border-radius:8px; color:var(--portal-accent,#800000); background:var(--surface,#fdfaf6); font-family:inherit; font-size:13px; font-weight:600; line-height:1.5; }
+body[data-portal-footer-dialogs] :is(.ql-del,.btn-add-link):hover:not(:disabled) { border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-footer-dialogs] :is(.ql-del,.btn-add-link):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+html[data-portal][data-theme="dark"] body[data-portal-footer-dialogs] :is(.ql-del,.btn-add-link) { border:1px solid var(--portal-accent) !important; color:var(--portal-accent) !important; background:var(--surface) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-footer-dialogs] :is(.ql-del,.btn-add-link):hover:not(:disabled) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; border-color:var(--portal-accent) !important; }
+@media(max-width:639px) {
+ body[data-portal-footer-dialogs] .ql-row { grid-template-columns:minmax(0,1fr) 44px; padding:12px; gap:10px; }
+ body[data-portal-footer-dialogs] .ql-row > label { grid-column:1; }
+ body[data-portal-footer-dialogs] .ql-del { grid-column:2; grid-row:1 / span 2; align-self:center; }
+ body[data-portal-footer-dialogs] .toolbar-actions .btn-admin { flex:1 1 0; justify-content:center; }
+}
