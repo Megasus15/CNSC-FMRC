@@ -707,7 +707,7 @@
     <script src="portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.2" />
+    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.3" />
   </head>
   <body data-report-document-host>
     <div class="dashboard-container">
@@ -938,21 +938,28 @@
 
     <!-- ────────────── ADD / EDIT ITEM MODAL ────────────── -->
     <div
-      class="modal-overlay"
+      class="modal-overlay portal-detail-dialog portal-detail-dialog--form"
       id="modalAddInventoryItem"
-      data-backdrop-close="false"
+      data-portal-detail-dialog data-portal-detail-guarded
+      data-backdrop-close="false" aria-hidden="true"
     >
-      <div class="modal-card product-modal">
-        <div class="modal-header-fixed">
-          <h3 class="modal-title" id="invModalTitle">
-            <i class="fa-solid fa-plus" style="margin-right: 6px"></i>Add New
-            Item
-          </h3>
-        </div>
-        <div class="modal-body-scroll">
+      <section class="modal-card product-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="invModalTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true">
+            <svg data-inv-form-icon="add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            <svg data-inv-form-icon="edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" hidden><path d="m16 3 5 5-12 12-6 1 1-6L16 3ZM13 6l5 5"/></svg>
+          </span>
+          <div class="portal-detail-dialog__heading">
+            <p class="portal-detail-dialog__eyebrow">Inventory</p>
+            <h2 class="portal-detail-dialog__title" id="invModalTitle" data-portal-detail-heading tabindex="-1">Add New Item</h2>
+          </div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close item editor" title="Close item editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body">
+          <div class="portal-detail-section-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 4h16v16H4ZM8 8h8M8 12h8M8 16h5"/></svg><h4>Item information</h4></div>
           <div class="form-grid">
             <div class="field-stack full">
-              <label>Category <span style="color: #dc2626">*</span></label>
+              <label for="invFormCategory">Category <span style="color: #dc2626">*</span></label>
               <select class="filter-select" id="invFormCategory">
                 <option value="Consumable Materials">
                   Consumable Materials
@@ -965,7 +972,7 @@
               </select>
             </div>
             <div class="field-stack full">
-              <label>Item Name <span style="color: #dc2626">*</span></label
+              <label for="invFormItemName">Item name <span style="color: #dc2626">*</span></label
               ><input
                 class="input-field"
                 id="invFormItemName"
@@ -974,7 +981,7 @@
               />
             </div>
             <div class="field-stack full base-item-fields">
-              <label>Description</label
+              <label for="invFormDescription">Description</label
               ><input
                 class="input-field"
                 id="invFormDescription"
@@ -983,7 +990,7 @@
               />
             </div>
             <div class="field-stack base-item-fields">
-              <label
+              <label for="invFormUnit"
                 >Unit
                 <span id="unitRequiredTag" style="color: #dc2626"
                   >*</span
@@ -1002,8 +1009,8 @@
               </select>
             </div>
             <div class="field-stack base-item-fields">
-              <label
-                >Stocks On Hand
+              <label for="invFormOnHand"
+                >Stock on hand
                 <span id="onHandRequiredTag" style="color: #dc2626"
                   >*</span
                 ></label
@@ -1016,7 +1023,7 @@
               />
             </div>
             <div class="field-stack full base-item-fields">
-              <label>Remarks</label>
+              <label for="invFormRemarks">Remarks</label>
               <input
                 class="input-field"
                 id="invFormRemarks"
@@ -1050,15 +1057,11 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCancelInvForm">
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnSaveInvForm" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Add to Inventory
-          </button>
-        </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="btnCancelInvForm" type="button">Cancel</button>
+          <button class="btn-admin" id="btnSaveInvForm" type="button"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Add Item</button>
+        </footer>
+      </section>
     </div>
 
     <!-- ────────────── VIEW ITEM MODAL ────────────── -->
@@ -1282,65 +1285,61 @@
     </div>
 
     <!-- ────────────── STOCK LEVEL RULES MODAL ────────────── -->
-    <div class="modal-overlay" id="modalStockRules" data-backdrop-close="false">
-      <div class="modal-card product-modal" style="width: min(820px, 96%)">
-        <div class="modal-header-fixed">
-          <h3 class="modal-title">
-            <i class="fa-solid fa-sliders" style="margin-right: 6px"></i>Stock
-            Level Rules
-          </h3>
-          <p class="field-hint" style="margin: 4px 0 0">
-            Pick the point where an item is tagged
-            <strong>Low Stock</strong> instead of <strong>Good</strong>.
-          </p>
-        </div>
-        <div class="modal-body-scroll">
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" id="modalStockRules" data-portal-detail-dialog data-portal-detail-guarded data-backdrop-close="false" aria-hidden="true">
+      <section class="modal-card product-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="stockRulesHeading">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor"/><circle cx="15" cy="17" r="3" fill="currentColor"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Inventory</p><h2 class="portal-detail-dialog__title" id="stockRulesHeading" data-portal-detail-heading tabindex="-1">Stock Level Rules</h2></div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close stock level rules" title="Close stock level rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body">
+          <p class="portal-detail-copy inv-form-guidance">Set the threshold that determines when available stock becomes Low Stock.</p>
           <ul class="stock-rule-guide">
             <li>
               <i class="fa-solid fa-circle-check"></i>
               <span
-                ><strong>Good</strong> &mdash; more stock left than your
-                number.</span
+                ><strong>Good</strong> &mdash; available quantity is above the
+                threshold.</span
               >
             </li>
             <li>
               <i class="fa-solid fa-triangle-exclamation"></i>
               <span
-                ><strong>Low Stock</strong> &mdash; stock left is the same as
-                your number, or under it.</span
+                ><strong>Low Stock</strong> &mdash; available quantity is at or
+                below the threshold.</span
               >
             </li>
             <li>
               <i class="fa-solid fa-circle-xmark"></i>
               <span
-                ><strong>Out of Stock</strong> &mdash; nothing left. This one
-                never changes.</span
+                ><strong>Out of Stock</strong> &mdash; no stock remains,
+                regardless of the threshold.</span
               >
             </li>
             <li>
               <i class="fa-solid fa-hashtag"></i>
               <span
-                ><strong>Pieces</strong> &mdash; you type the count itself.
-                Type <span class="stock-rule-guide-sample">5</span> and an item
-                is Low Stock at 5 left or fewer.</span
+                ><strong>Fixed quantity</strong> &mdash; use a remaining-stock count.
+                A threshold of <span class="stock-rule-guide-sample">5</span> marks
+                an item Low Stock at 5 units or fewer.</span
               >
             </li>
             <li>
               <i class="fa-solid fa-percent"></i>
               <span
-                ><strong>Percent</strong> &mdash; you type a share of the
-                starting stock, so big items get a bigger number. Type
-                <span class="stock-rule-guide-sample">20</span> and an item
-                that started at 100 is Low Stock at 20 left or fewer, while one
-                that started at 10 is Low Stock at 2 left or fewer.</span
+                ><strong>Percentage</strong> &mdash; use a share of the
+                starting quantity. A threshold of
+                <span class="stock-rule-guide-sample">20%</span> marks an item
+                Low Stock at 20 units remaining from an initial 100, or
+                2 units remaining from an initial 10.</span
               >
             </li>
             <li>
               <i class="fa-solid fa-arrow-down-short-wide"></i>
               <span
-                >The closest rule wins: variant first, then item, then
-                category, then the default below. Leave a box empty and it just
-                follows the wider rule.</span
+                >Rules apply in this order: variant, item, category,
+                then default. Leave an override empty to inherit the next
+                applicable rule.</span
               >
             </li>
           </ul>
@@ -1353,14 +1352,14 @@
             </div>
             <div class="form-grid">
               <div class="field-stack">
-                <label>Count by</label>
+                <label for="stockRuleGlobalMode">Threshold type</label>
                 <select class="filter-select" id="stockRuleGlobalMode">
-                  <option value="fixed">Pieces left</option>
+                  <option value="fixed">Fixed quantity</option>
                   <option value="percent">Percent of starting stock</option>
                 </select>
               </div>
               <div class="field-stack">
-                <label>
+                <label for="stockRuleGlobalThreshold">
                   Low Stock at <span style="color: #dc2626">*</span>
                 </label>
                 <input
@@ -1396,7 +1395,7 @@
               <span class="stock-rule-chip">Closest rule wins</span>
             </div>
             <div class="stock-rule-toolbar">
-              <select class="filter-select" id="stockRuleCategoryFilter">
+              <select class="filter-select" id="stockRuleCategoryFilter" aria-label="Filter stock rules by category">
                 <option value="all">All Categories</option>
                 <option value="Consumable Materials">
                   Consumable Materials
@@ -1409,22 +1408,18 @@
               </select>
               <input
                 class="search-input"
-                id="stockRuleSearch"
+                id="stockRuleSearch" aria-label="Search item or variant rules"
                 placeholder="Search item or variant name..."
               />
             </div>
             <div class="stock-rule-list" id="stockRuleItemList"></div>
           </div>
         </div>
-        <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCancelStockRules" type="button">
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnSaveStockRules" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Save Rules
-          </button>
-        </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="btnCancelStockRules" type="button">Cancel</button>
+          <button class="btn-admin" id="btnSaveStockRules" type="button"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Rules</button>
+        </footer>
+      </section>
     </div>
 
     <div
@@ -1479,69 +1474,40 @@
     </div>
 
     <div
-      class="modal-overlay report-letterhead-overlay"
+      class="modal-overlay report-letterhead-overlay portal-detail-dialog portal-detail-dialog--form"
       id="reportLetterheadModal"
-      data-backdrop-close="false"
-      aria-hidden="true"
+      data-portal-detail-dialog data-portal-detail-guarded
+      data-backdrop-close="false" aria-hidden="true"
     >
-      <section
-        class="modal-card report-letterhead-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reportLetterheadTitle"
-      >
-        <div class="modal-header-fixed report-letterhead-header">
-          <div>
-            <span class="report-result-eyebrow">Official template</span>
-            <h3 class="modal-title" id="reportLetterheadTitle">Edit Letterhead</h3>
+      <section class="modal-card report-letterhead-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="reportLetterheadTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Official template</p><h2 class="portal-detail-dialog__title" id="reportLetterheadTitle" data-portal-detail-heading tabindex="-1">Edit Letterhead</h2></div>
+          <button class="portal-detail-dialog__close" id="reportLetterheadCloseIcon" type="button" aria-label="Close letterhead editor" title="Close letterhead editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="modal-body-scroll report-letterhead-body portal-detail-dialog__body">
+          <div class="inv-letterhead-guidance">
+            <p class="portal-detail-copy is-empty">These details appear in generated PDFs for Admin and Staff. Leave a field blank to use the official UCN wording. CSV exports contain records only. Logos and page measurements stay fixed.</p>
+            <button class="btn-admin btn-secondary" id="reportLetterheadResetBtn" type="button" title="Restore official defaults"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>Restore defaults</span></button>
           </div>
-          <button
-            class="report-icon-button"
-            id="reportLetterheadCloseIcon"
-            type="button"
-            aria-label="Close letterhead editor"
-            title="Close letterhead editor"
-          >
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="modal-body-scroll report-letterhead-body">
-          <p class="report-letterhead-note">
-            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            These lines appear in generated PDFs for both Admin and Staff.
-            CSV exports contain records only. Leave a field blank to keep the official UCN wording.
-            Logos, seals, QR codes and page measurements are fixed so the
-            alignment of the printed page cannot break.
-          </p>
           <div class="report-letterhead-fields" id="reportLetterheadFields"></div>
-          <p class="report-letterhead-error" id="reportLetterheadError" hidden></p>
+          <p class="report-letterhead-error" id="reportLetterheadError" role="alert" hidden></p>
         </div>
-        <div class="modal-footer-fixed report-letterhead-footer">
-          <button class="btn-admin btn-secondary" id="reportLetterheadResetBtn" type="button">
-            <i class="fa-solid fa-rotate-left"></i>
-            <span>Restore official defaults</span>
-          </button>
-          <div class="report-letterhead-footer-actions">
-            <button class="btn-admin btn-secondary" id="reportLetterheadCancelBtn" type="button">
-              Cancel
-            </button>
-            <button class="btn-admin" id="reportLetterheadSaveBtn" type="button">
-              <i class="fa-solid fa-floppy-disk"></i>
-              <span>Save Letterhead</span>
-            </button>
-          </div>
-        </div>
+        <footer class="portal-detail-dialog__footer">
+          <button class="btn-admin btn-secondary" id="reportLetterheadCancelBtn" type="button">Cancel</button>
+          <button class="btn-admin" id="reportLetterheadSaveBtn" type="button"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span>Save Letterhead</span></button>
+        </footer>
       </section>
     </div>
 
     <script src="session-helper.js?v=2026.1113.9"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=2026.1113.9"></script>
-    <script src="reports.js?v=2026.1109.8"></script>
+    <script src="admin-common.js?v=2026.1114.3"></script>
+    <script src="reports.js?v=2026.1114.3"></script>
     <script src="inventory-report.js?v=1.1"></script>
-    <script src="portal-detail-dialog.js?v=2026.1114.2"></script>
-    <script src="inventory.js?v=2026.1114.1"></script>
+    <script src="portal-detail-dialog.js?v=2026.1114.3"></script>
+    <script src="inventory.js?v=2026.1114.3"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

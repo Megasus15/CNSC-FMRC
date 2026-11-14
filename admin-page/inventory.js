@@ -348,6 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Variant form helpers ───────────────────────────────────────────────────
+  let variantFormSequence = 0;
   const refreshVariantEmptyState = () => {
     if (!variantEmpty) return;
     const hasRows = Boolean(variantList?.querySelector(".inv-variant-card"));
@@ -360,12 +361,14 @@ document.addEventListener("DOMContentLoaded", () => {
     rows.forEach((row, idx) => {
       const chip = row.querySelector(".inv-variant-chip");
       if (chip) chip.textContent = `Variant ${idx + 1}`;
+      row.querySelector('[data-variant-remove]')?.setAttribute('aria-label', `Remove variant ${idx + 1}`);
     });
   };
 
   const createVariantCard = (variant = {}, opts = {}) => {
     const card = document.createElement("div");
     card.className = "inv-variant-card";
+    const fieldId = `inv-variant-${++variantFormSequence}`;
     const unitOptions = UNIT_OPTIONS.map(
       (unit) => `<option value="${escHtml(unit)}">${escHtml(unit)}</option>`,
     ).join("");
@@ -374,29 +377,29 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="inv-variant-card-header">
         <span class="inv-variant-chip">Variant</span>
         <button class="btn-admin btn-secondary icon-only-btn inv-variant-remove" type="button" data-variant-remove title="Remove variant">
-          <i class="fa-regular fa-trash-can"></i>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>
         </button>
       </div>
       <div class="inv-variant-grid">
         <div class="field-stack">
-          <label>Variant Name <span style="color:#dc2626">*</span></label>
-          <input class="input-field" data-variant-name maxlength="255" placeholder="e.g. Size A" />
+          <label for="${fieldId}-name">Variant name <span style="color:#dc2626">*</span></label>
+          <input class="input-field" id="${fieldId}-name" data-variant-name maxlength="255" placeholder="e.g. Size A" />
         </div>
         <div class="field-stack">
-          <label>Description</label>
-          <input class="input-field" data-variant-description maxlength="500" placeholder="Optional" />
+          <label for="${fieldId}-description">Description</label>
+          <input class="input-field" id="${fieldId}-description" data-variant-description maxlength="500" placeholder="Optional" />
         </div>
         <div class="field-stack">
-          <label>Unit <span style="color:#dc2626">*</span></label>
-          <select class="filter-select" data-variant-unit>${unitOptions}</select>
+          <label for="${fieldId}-unit">Unit <span style="color:#dc2626">*</span></label>
+          <select class="filter-select" id="${fieldId}-unit" data-variant-unit>${unitOptions}</select>
         </div>
         <div class="field-stack">
-          <label>Stocks On Hand <span style="color:#dc2626">*</span></label>
-          <input class="input-field" data-variant-on-hand type="number" min="0" placeholder="0" />
+          <label for="${fieldId}-stock">Stock on hand <span style="color:#dc2626">*</span></label>
+          <input class="input-field" id="${fieldId}-stock" data-variant-on-hand type="number" min="0" placeholder="0" />
         </div>
         <div class="field-stack full">
-          <label>Remarks</label>
-          <input class="input-field" data-variant-remarks maxlength="200" placeholder="Optional remarks" />
+          <label for="${fieldId}-remarks">Remarks</label>
+          <input class="input-field" id="${fieldId}-remarks" data-variant-remarks maxlength="200" placeholder="Optional remarks" />
         </div>
       </div>
     `;
@@ -1220,15 +1223,19 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   // ─── Form helpers ─────────────────────────────────────────────────────────────
+  const setItemFormHeading = editing => {
+    if (invModalTitle) invModalTitle.textContent = editing ? "Edit Item" : "Add New Item";
+    modalForm?.querySelectorAll('[data-inv-form-icon]').forEach(icon => {
+      icon.toggleAttribute('hidden', icon.dataset.invFormIcon !== (editing ? 'edit' : 'add'));
+    });
+  };
   const resetForm = () => {
     inventoryFormBaseline = null;
     editingItemId = null;
-    if (invModalTitle)
-      invModalTitle.innerHTML =
-        '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item';
+    setItemFormHeading(false);
     if (btnSaveForm)
       btnSaveForm.innerHTML =
-        '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
+        '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Add Item';
     // Restore last-used category from localStorage; default to "Consumable Materials"
     if (formCategory) {
       const lastCat = window.AdminSession?.readPersonal?.('fmrc_inv_last_category');
@@ -1266,9 +1273,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const populateFormForEdit = (item) => {
     editingItemId = item.id;
-    if (invModalTitle)
-      invModalTitle.innerHTML =
-        '<i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Item';
+    setItemFormHeading(true);
     if (btnSaveForm)
       btnSaveForm.innerHTML =
         '<i class="fa-solid fa-floppy-disk"></i> Update Item';
@@ -1301,7 +1306,8 @@ document.addEventListener("DOMContentLoaded", () => {
   btnOpenAdd?.addEventListener("click", () => {
     resetForm();
     captureInventoryFormBaseline();
-    openModal(modalForm);
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(modalForm, {trigger: btnOpenAdd});
+    else openModal(modalForm);
   });
 
   // Save category to localStorage whenever it changes in the Add New Item modal
@@ -1338,6 +1344,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  window.PortalDetailDialog?.registerClose(modalForm, () => btnCancelForm?.click());
+
   btnAddVariant?.addEventListener("click", () => {
     if (!variantList) return;
 
@@ -1368,7 +1376,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   variantList?.addEventListener("click", (e) => {
     const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
     const removeBtn = target.closest("[data-variant-remove]");
     if (removeBtn) {
       removeBtn.closest(".inv-variant-card")?.remove();
@@ -1414,7 +1422,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasVariants = variants.length > 0;
     if (!hasVariants) {
       if (formOnHand?.value === "" || formOnHand?.value === null) {
-        showPopup("Stocks On Hand is required when no variants are added.", {
+        showPopup("Stock on hand is required when no variants are added.", {
           title: "Validation Error",
         });
         formOnHand?.focus();
@@ -1493,7 +1501,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btnSaveForm.disabled = false;
       btnSaveForm.innerHTML = isEditing
         ? '<i class="fa-solid fa-floppy-disk"></i> Update Item'
-        : '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
+        : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Add Item';
     }
   });
 
@@ -1704,7 +1712,7 @@ document.addEventListener("DOMContentLoaded", () => {
       count === 1
         ? `“${targetItems[0]?.item_name || "this item"}”`
         : `${count} selected items`;
-    const message = `Are you sure you want to archive ${targetLabel} from Inventory of ${category}? Only the selected item${count === 1 ? "" : "s"} in this table will be moved to Archives.`;
+    const message = `Archive ${targetLabel} from ${category}? ${count === 1 ? "This item will" : "These selected items will"} move to Archives.`;
 
     const showArchiveSuccess = (result) => {
       const skippedCount = result.skipped.length;
@@ -1734,6 +1742,8 @@ document.addEventListener("DOMContentLoaded", () => {
         title: count === 1 ? "Archive Item" : "Archive Selected Items",
         confirmText: "Archive",
         cancelText: "Cancel",
+        presentation: "inventory",
+        trigger: options.trigger,
         keepOpenWhilePending: true,
         loadingText: "Archiving...",
         onConfirm: executeArchive,
@@ -1996,6 +2006,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const category =
         archiveSelectedBtn.getAttribute("data-inv-archive-selected") || "";
       openArchiveConfirmation(category, [...getCategorySelection(category)], {
+        trigger: archiveSelectedBtn,
         exitSelectionMode: true,
       });
       return;
@@ -2045,7 +2056,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (archiveBtn) {
       const id = Number(archiveBtn.getAttribute("data-inv-archive"));
       const item = allItems.find((x) => x.id === id);
-      if (item) openArchiveConfirmation(item.category, [item.id]);
+      if (item) openArchiveConfirmation(item.category, [item.id], {trigger: archiveBtn});
       return;
     }
 
@@ -2200,7 +2211,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Stock Level Rules modal ──────────────────────────────────────────────────
   const ruleModeOptions = (selected) =>
     [
-      { value: "fixed", label: "Pieces" },
+      { value: "fixed", label: "Fixed quantity" },
       { value: "percent", label: "Percent" },
     ]
       .map(
@@ -2254,7 +2265,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span data-rule-formula>${escHtml(describeRule(effective, baseline))}</span>
           </div>
         </div>
-        <select class="filter-select" data-rule-mode>${ruleModeOptions(effective.mode)}</select>
+        <select class="filter-select" data-rule-mode aria-label="Threshold type for ${escHtml(name)}">${ruleModeOptions(effective.mode)}</select>
         <div
           class="stock-rule-threshold${override ? " has-value" : ""}"
           data-rule-threshold-wrap
@@ -2264,6 +2275,7 @@ document.addEventListener("DOMContentLoaded", () => {
             type="number"
             min="0"
             data-rule-threshold
+            aria-label="Low stock threshold for ${escHtml(name)}"
             placeholder="${escHtml(inheritPlaceholder(inheritedRule, baseline))}"
             value="${override ? override.threshold : ""}"
           />
@@ -2275,7 +2287,7 @@ document.addEventListener("DOMContentLoaded", () => {
             aria-label="Clear the number for ${escHtml(name)}"
             ${override ? "" : "disabled"}
           >
-            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4v6h6M3 10a9 9 0 1 1 2 8"/></svg>
           </button>
         </div>
       </div>
@@ -2457,7 +2469,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const isEditing = Boolean(
       document.activeElement &&
         document.activeElement !== document.body &&
-        modalStockRules.contains(document.activeElement),
+        modalStockRules.contains(document.activeElement) &&
+        document.activeElement.matches('input,select,textarea,[contenteditable="true"]'),
     );
     if (!draftUntouched || isEditing) return;
 
@@ -2477,7 +2490,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (stockRuleSearch) stockRuleSearch.value = "";
     if (stockRuleCategoryFilter) stockRuleCategoryFilter.value = "all";
     renderStockRuleModal();
-    openModal(modalStockRules);
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(modalStockRules, {trigger: btnOpenStockRules});
+    else openModal(modalStockRules);
 
     void refreshStockRulesInBackground();
   };
@@ -2490,6 +2504,7 @@ document.addEventListener("DOMContentLoaded", () => {
     stockRuleDraft = null;
     closeModal(modalStockRules);
   });
+  window.PortalDetailDialog?.registerClose(modalStockRules, () => btnCancelStockRules?.click());
 
   stockRuleGlobalMode?.addEventListener("change", () => {
     if (!stockRuleDraft) return;
@@ -2623,13 +2638,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // freshly-destroyed button is lost.
   modalStockRules?.addEventListener("mousedown", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
     if (target.closest("[data-rule-clear]")) event.preventDefault();
   });
 
   modalStockRules?.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
     const clearBtn = target.closest("[data-rule-clear]");
     if (!clearBtn) return;
 

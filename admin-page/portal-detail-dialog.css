@@ -1,5 +1,5 @@
 /* Opt-in detail-dialog design. Existing portal dialogs keep their own design. */
-.modal-overlay.portal-detail-dialog {
+.modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog {
   --portal-detail-muted: var(--portal-muted-color, #6b6269);
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   overflow: hidden;
@@ -7,13 +7,17 @@
   background: var(--ux-dlg-scrim, rgba(30, 20, 20, .42));
 }
 .portal-detail-dialog .portal-detail-dialog__card {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
   width: min(800px, 100%);
   min-width: 0;
   max-width: 800px;
   max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
   padding: 0;
   border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 12px;
+  border-radius: 12px !important;
   background: var(--surface, #fdfaf6);
   color: var(--text-main, #2b2b31);
   box-shadow: 0 20px 64px #26151c26;
@@ -165,8 +169,50 @@
 .portal-detail-dialog .product-detail-list li::marker { color: var(--portal-accent, #800000); }
 .portal-detail-dialog [hidden] { display: none !important; }
 
+/* Inventory forms opt in individually; report output and other dialogs do not. */
+.portal-detail-dialog--form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.portal-detail-dialog--form .field-stack { min-width: 0; }
+.portal-detail-dialog--form .field-stack > label { margin-bottom: 6px; color: var(--text-main, #2b2b31); font-size: 12px; font-weight: 500; line-height: 1.6; }
+.portal-detail-dialog--form :is(.input-field, .filter-select, .search-input, [data-letterhead-key]) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; }
+.portal-detail-dialog--form :is(input, textarea)::placeholder { color: var(--portal-detail-muted); opacity: 1; }
+.portal-detail-dialog--form :is(.input-field, .filter-select, .search-input):disabled { opacity: 1; background: var(--surface-alt, #f8f4ef); color: var(--portal-detail-muted); cursor: not-allowed; }
+.portal-detail-dialog--form :is(.btn-admin, .inv-variant-remove) { min-height: 44px; font-size: 14px; white-space: nowrap; }
+.portal-detail-dialog--form .inv-form-guidance { margin-bottom: 18px; color: var(--portal-detail-muted); }
+.portal-detail-dialog--form :is(.inv-variant-section, .stock-rule-block, .report-letterhead-group) { min-width: 0; padding: 18px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface, #fdfaf6); }
+.portal-detail-dialog--form :is(.inv-variant-header, .stock-rule-block-head) { gap: 12px; margin-bottom: 16px; }
+.portal-detail-dialog--form :is(.inv-variant-title, .stock-rule-block-title) { color: var(--text-main, #2b2b31); font-size: 14px; font-weight: 600; line-height: 1.6; }
+.portal-detail-dialog--form :is(.field-hint, .stock-rule-row-meta, .report-letterhead-hint) { color: var(--portal-detail-muted); font-size: 12px; font-weight: 400; line-height: 1.65; }
+.portal-detail-dialog--form :is(.inv-variant-card, .inv-variant-empty, .stock-rule-row, .stock-rule-empty) { padding: 16px; border-color: var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); box-shadow: none; }
+.portal-detail-dialog--form :is(.inv-variant-empty, .stock-rule-empty) { color: var(--portal-detail-muted); font-size: 13px; line-height: 1.65; }
+.portal-detail-dialog--form .inv-variant-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.portal-detail-dialog--form .inv-variant-remove { flex: 0 0 44px; min-width: 44px; }
+.portal-detail-dialog--form :is(.inv-variant-remove, .stock-rule-clear) svg { width: 18px; height: 18px; }
+.portal-detail-dialog--form :is(.inv-variant-chip, .stock-rule-chip) { max-width: 100%; padding: 3px 8px; border-radius: 6px; background: var(--portal-accent-soft, #fbf1f2); color: var(--portal-accent, #800000); font-size: 11px; font-weight: 500; line-height: 1.6; text-transform: none; letter-spacing: 0; white-space: normal; }
+.portal-detail-dialog--form .stock-rule-guide { gap: 10px; padding: 16px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); color: var(--portal-detail-muted); font-size: 13px; }
+.portal-detail-dialog--form .stock-rule-guide li { line-height: 1.7; }
+.portal-detail-dialog--form :is(.stock-rule-guide strong, .stock-rule-row-name) { color: var(--text-main, #2b2b31); font-size: 13px; }
+.portal-detail-dialog--form .stock-rule-formula { flex-wrap: wrap; min-width: 0; border-radius: 6px; background: var(--surface-alt, #f8f4ef); color: var(--text-main, #2b2b31); font-size: 13px; font-weight: 500; line-height: 1.6; }
+.portal-detail-dialog--form .stock-rule-list { max-height: none; overflow: visible; padding-right: 0; gap: 12px; }
+.portal-detail-dialog--form .stock-rule-row { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.portal-detail-dialog--form .stock-rule-row.is-overridden { border-color: var(--portal-accent-border, #ead8db); }
+.portal-detail-dialog--form .stock-rule-threshold .input-field { padding-right: 48px; }
+.portal-detail-dialog--form .stock-rule-threshold .stock-rule-clear { right: 0; width: 44px; height: 44px; font-size: 14px; }
+.portal-detail-dialog--form .inv-letterhead-guidance { display: grid; justify-items: start; gap: 16px; margin-bottom: 24px; }
+.portal-detail-dialog--form .report-letterhead-body { background: var(--surface, #fdfaf6); scrollbar-gutter: auto; }
+.portal-detail-dialog--form .report-letterhead-group legend { padding: 0 6px; color: var(--portal-accent, #800000); font-size: 13px; font-weight: 600; line-height: 1.6; text-transform: none; letter-spacing: 0; }
+.portal-detail-dialog--form .report-letterhead-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.portal-detail-dialog--form .report-letterhead-label { color: var(--text-main, #2b2b31); font-size: 12px; font-weight: 500; line-height: 1.6; }
+.portal-detail-dialog--form .report-letterhead-error { font-size: 13px; font-weight: 500; line-height: 1.65; }
+.portal-detail-dialog--form .report-letterhead-error:empty { display: none; }
+.admin-system-popup.portal-detail-dialog .admin-system-popup__backdrop { background: transparent; }
+.portal-detail-dialog--compact .portal-detail-dialog__card { max-width: 480px; }
+.portal-detail-dialog--compact .portal-detail-dialog__header { border-bottom: 0; padding-bottom: 12px; }
+.portal-detail-dialog--compact .portal-detail-dialog__body { padding-block: 10px 24px; }
+.portal-detail-dialog--compact .portal-detail-dialog__footer { border-top: 0; padding-top: 0; }
+.portal-detail-dialog--compact .portal-detail-dialog__close:disabled { opacity: .5; cursor: wait; }
+
 @media (max-width: 639px) {
-  .modal-overlay.portal-detail-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .portal-detail-dialog .portal-detail-dialog__card { max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom))); }
   .portal-detail-dialog .portal-detail-dialog__header { gap: 10px; padding: 16px; }
   .portal-detail-dialog .portal-detail-dialog__title { font-size: 20px; }
@@ -193,9 +239,20 @@
   .portal-detail-dialog .inv-detail-variant-facts dd { margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
   .portal-detail-dialog .inv-detail-pagination { align-items: flex-start; flex-direction: column; }
   .portal-detail-dialog .inv-detail-pagination .page-btn { min-width: 44px; min-height: 44px; }
+  .portal-detail-dialog--form :is(.form-grid, .inv-variant-grid, .report-letterhead-grid) { grid-template-columns: minmax(0, 1fr); }
+  .portal-detail-dialog--form :is(.inv-variant-section, .stock-rule-block, .report-letterhead-group) { padding: 14px 12px; }
+  .portal-detail-dialog--form .inv-variant-header { flex-wrap: wrap; align-items: flex-start; }
+  .portal-detail-dialog--form .stock-rule-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 12px; }
+  .portal-detail-dialog--form .stock-rule-row-label { grid-column: 1 / -1; }
+  .portal-detail-dialog--form .stock-rule-row.is-variant { margin-left: 8px; }
+  .portal-detail-dialog--form .portal-detail-dialog__footer .btn-admin:first-child { flex: .8 1 0; }
+  .portal-detail-dialog--form .portal-detail-dialog__footer .btn-admin:last-child { flex: 1.2 1 0; }
+  .portal-detail-dialog--compact .portal-detail-dialog__header { padding-bottom: 8px; }
+  .portal-detail-dialog--compact .portal-detail-dialog__body { padding-block: 8px 20px; }
+  .portal-detail-dialog--compact .portal-detail-dialog__footer { padding-top: 0; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
-  .modal-overlay.portal-detail-dialog { padding-block: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-bottom)); }
+  .modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog { padding-block: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-bottom)); }
   .portal-detail-dialog .portal-detail-dialog__card { max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom))); }
   .portal-detail-dialog .portal-detail-dialog__header { padding-block: 10px; }
   .portal-detail-dialog .portal-detail-dialog__footer { padding-block: 10px; }

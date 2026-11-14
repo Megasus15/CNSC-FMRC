@@ -4,6 +4,7 @@
   const roots = () => [...document.querySelectorAll('[data-portal-detail-dialog]')];
   const layerSelector = '.modal-overlay.show, .admin-system-popup.show, .admin-session-warning, dialog[open]';
   const tabbable = 'button:not(:disabled),a[href],input:not(:disabled):not([type="hidden"]),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
+  const closeHandlers = new WeakMap();
   let session = null;
   const visible = node => node?.isConnected && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
   const layers = () => [...document.querySelectorAll(layerSelector)].filter(visible)
@@ -12,6 +13,12 @@
   const capture = (node, properties) => properties.map(name => [name, node.style.getPropertyValue(name), node.style.getPropertyPriority(name)]);
   const restore = (node, properties) => properties.forEach(([name, value, priority]) => value ? node.style.setProperty(name, value, priority) : node.style.removeProperty(name));
   const focus = node => { if (!node) return; if (!node.matches(tabbable) && !node.hasAttribute('tabindex')) node.setAttribute('tabindex', '-1'); node.focus({preventScroll: true}); };
+  const requestClose = root => {
+    const handler = closeHandlers.get(root);
+    if (handler) handler();
+    else if (!root.hasAttribute('data-portal-detail-guarded')) root.classList.remove('show');
+    sync();
+  };
   function begin(root, options = {}) {
     if (session) return;
     const html = document.documentElement, body = document.body;
@@ -73,15 +80,16 @@
   document.addEventListener('keydown', event => {
     if (!session?.top) return;
     const top = session.top;
-    if (event.key === 'Escape' && top === session.root && top.classList.contains('show')) { event.preventDefault(); event.stopPropagation(); top.classList.remove('show'); sync(); return; }
+    if (event.key === 'Escape' && top.matches('[data-portal-detail-dialog].show')) { event.preventDefault(); event.stopPropagation(); requestClose(top); return; }
     if (event.key === 'Tab') {
       const nodes = controls(top), first = nodes[0], last = nodes.at(-1);
       if (!first) { event.preventDefault(); return; }
       if (event.shiftKey && (document.activeElement === first || !nodes.includes(document.activeElement))) { event.preventDefault(); focus(last); }
       else if (!event.shiftKey && (document.activeElement === last || !nodes.includes(document.activeElement))) { event.preventDefault(); focus(first); }
     }
-    if (top === session.root && !event.target.closest('input,textarea,select,button,a,[contenteditable="true"]')) {
+    if (top.matches('[data-portal-detail-dialog]') && !event.target.closest('input,textarea,select,button,a,[contenteditable="true"]')) {
       const body = top.querySelector('.portal-detail-dialog__body');
+      if (!body) return;
       const delta = {ArrowDown: 40, ArrowUp: -40, PageDown: body.clientHeight * .85, PageUp: -body.clientHeight * .85, ' ': body.clientHeight * (event.shiftKey ? -.85 : .85)}[event.key];
       if (delta !== undefined) { event.preventDefault(); body.scrollTop += delta; }
       else if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); body.scrollTop = event.key === 'Home' ? 0 : body.scrollHeight; }
@@ -97,14 +105,15 @@
   document.addEventListener('click', event => {
     const close = event.target.closest('[data-portal-detail-close]');
     const root = close?.closest('[data-portal-detail-dialog]');
-    if (root) { root.classList.remove('show'); sync(); }
+    if (root) requestClose(root);
   });
   window.PortalDetailDialog = {
+    registerClose(root, handler) { if (root && typeof handler === 'function') closeHandlers.set(root, handler); },
     open(root, options = {}) {
       if (!root?.matches('[data-portal-detail-dialog]')) return;
       const wasOpen = root.classList.contains('show');
       begin(root, options); root.classList.add('show'); sync();
-      if (!wasOpen) root.querySelector('.portal-detail-dialog__body').scrollTop = 0;
+      if (!wasOpen) root.querySelector('.portal-detail-dialog__body')?.scrollTo({top: 0, behavior: 'instant'});
     },
     handoff(root, target) { if (session?.root === root) session.handoff = target; },
   };

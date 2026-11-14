@@ -1603,7 +1603,10 @@
           : elements.letterheadBtn;
       buildLetterheadForm();
       setLetterheadError("");
-      elements.letterheadModal.classList.add("show");
+      if (elements.letterheadModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) {
+        window.PortalDetailDialog.registerClose(elements.letterheadModal, closeLetterheadEditor);
+        window.PortalDetailDialog.open(elements.letterheadModal, {trigger: state.letterheadPreviousFocus});
+      } else elements.letterheadModal.classList.add("show");
       elements.letterheadModal.setAttribute("aria-hidden", "false");
       syncLetterheadForm();
       await loadLetterhead(false);
@@ -1622,7 +1625,8 @@
       elements.letterheadModal.classList.remove("show");
       elements.letterheadModal.setAttribute("aria-hidden", "true");
       setLetterheadError("");
-      if (state.letterheadPreviousFocus instanceof HTMLElement) {
+      if (state.letterheadPreviousFocus instanceof HTMLElement &&
+          !(elements.letterheadModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog)) {
         try {
           state.letterheadPreviousFocus.focus({ preventScroll: true });
         } catch {
@@ -3128,6 +3132,7 @@
     });
     document.addEventListener("keydown", (event) => {
       if (!elements.letterheadModal?.classList.contains("show")) return;
+      if (elements.letterheadModal.matches('[data-portal-detail-dialog]') && window.PortalDetailDialog) return;
       if (event.key === "Escape") {
         closeLetterheadEditor();
         return;

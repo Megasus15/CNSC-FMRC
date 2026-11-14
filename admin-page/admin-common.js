@@ -3797,14 +3797,38 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
   });
 
-  const ensureAdminSystemPopup = () => {
+  const ensureAdminSystemPopup = (presentation) => {
     let popup = document.getElementById("adminSystemPopup");
-    if (popup) return popup;
+    const inventoryPresentation = presentation === "inventory";
+    const mode = inventoryPresentation ? "inventory" : "default";
+    if (popup?.dataset.popupPresentation === mode) return popup;
 
-    popup = document.createElement("div");
+    const isNew = !popup;
+    if (!popup) popup = document.createElement("div");
     popup.id = "adminSystemPopup";
-    popup.className = "admin-system-popup";
-    popup.innerHTML = `
+    popup.className = "admin-system-popup" + (inventoryPresentation ? " portal-detail-dialog portal-detail-dialog--compact" : "");
+    popup.dataset.popupPresentation = mode;
+    popup.toggleAttribute("data-portal-detail-dialog", inventoryPresentation);
+    popup.toggleAttribute("data-portal-detail-guarded", inventoryPresentation);
+    popup.removeAttribute("aria-busy");
+    if (!inventoryPresentation) popup.removeAttribute("aria-hidden");
+    popup.innerHTML = inventoryPresentation ? `
+      <div class="admin-system-popup__backdrop"></div>
+      <section class="admin-system-popup__card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="adminSystemPopupTitle" aria-describedby="adminSystemPopupMessage">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg></span>
+          <div class="portal-detail-dialog__heading">
+            <p class="portal-detail-dialog__eyebrow">Inventory</p>
+            <h3 id="adminSystemPopupTitle" class="portal-detail-dialog__title" data-portal-detail-heading tabindex="-1">Archive Item</h3>
+          </div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close archive confirmation" title="Close archive confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Archive confirmation details"><p id="adminSystemPopupMessage" class="portal-detail-copy"></p></div>
+        <footer class="admin-system-popup__actions portal-detail-dialog__footer">
+          <button id="adminSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
+          <button id="adminSystemPopupOk" type="button" class="btn-admin">Archive</button>
+        </footer>
+      </section>` : `
       <div class="admin-system-popup__backdrop"></div>
       <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="adminSystemPopupTitle">
         <h3 id="adminSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
@@ -3818,18 +3842,23 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    document.body.appendChild(popup);
+    if (isNew) document.body.appendChild(popup);
     return popup;
   };
 
   const showAdminSystemPopup = (message, options = {}) => {
-    const popup = ensureAdminSystemPopup();
+    const popup = ensureAdminSystemPopup(options.presentation);
+    const inventoryPresentation = popup.dataset.popupPresentation === "inventory";
     const titleEl = popup.querySelector("#adminSystemPopupTitle");
     const msgEl = popup.querySelector("#adminSystemPopupMessage");
     const okBtn = popup.querySelector("#adminSystemPopupOk");
     const cancelBtn = popup.querySelector("#adminSystemPopupCancel");
     const actions = popup.querySelector(".admin-system-popup__actions");
     const backdrop = popup.querySelector(".admin-system-popup__backdrop");
+    const closeIcon = popup.querySelector("[data-portal-detail-close]");
+    let confirmPending = false;
+    if (closeIcon) closeIcon.disabled = false;
+    if (inventoryPresentation) popup.setAttribute("aria-busy", "false");
 
     if (titleEl) titleEl.textContent = options.title || "System Message";
     if (msgEl) msgEl.textContent = String(message || "Done.");
@@ -3842,6 +3871,9 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const setConfirmLoading = (isLoading) => {
+      confirmPending = isLoading;
+      if (closeIcon) closeIcon.disabled = isLoading;
+      if (inventoryPresentation) popup.setAttribute("aria-busy", String(isLoading));
       if (!okBtn) return;
       if (isLoading) {
         okBtn.disabled = true;
@@ -3893,20 +3925,23 @@ document.addEventListener("DOMContentLoaded", () => {
       cancelBtn.disabled = false;
       cancelBtn.textContent = options.cancelText || "Cancel";
       cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
-      cancelBtn.onclick = () => closePopup(options.onCancel);
+      cancelBtn.onclick = () => { if (!confirmPending) closePopup(options.onCancel); };
     }
 
     if (backdrop) {
       // Only allow backdrop dismiss for confirm dialogs (Cancel action).
       // Informational and error dialogs retain an explicit Okay action.
-      if (isConfirm) {
+      if (isConfirm && !inventoryPresentation) {
         backdrop.onclick = () => closePopup(options.onCancel);
       } else {
         backdrop.onclick = null;
       }
     }
 
-    popup.classList.add("show");
+    if (inventoryPresentation && window.PortalDetailDialog) {
+      window.PortalDetailDialog.registerClose(popup, () => { if (!confirmPending) cancelBtn?.click(); });
+      window.PortalDetailDialog.open(popup, {trigger: options.trigger || document.activeElement});
+    } else popup.classList.add("show");
 
     if (isConfirm && cancelBtn) {
       cancelBtn.focus();
@@ -4132,6 +4167,8 @@ document.addEventListener("DOMContentLoaded", () => {
       loadingText: options.loadingText,
       onError: options.onError,
       onSuccess: options.onSuccess,
+      presentation: options.presentation,
+      trigger: options.trigger,
       isConfirm: true,
     });
   };
