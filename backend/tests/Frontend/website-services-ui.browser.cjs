@@ -24,6 +24,7 @@ for(const role of ['admin','staff'])test(role+' Services shares Inventory dialog
  assert.equal(await h.run(`document.querySelectorAll('#serviceModal .portal-detail-dialog__close').length`),1);
  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);
+  assert(await h.run(`[...document.querySelectorAll('.field-stack label')].filter(l=>l.getClientRects().length).every(l=>Number(getComputedStyle(l).fontWeight)>=600)`),'Semibold field labels '+width+' '+theme);
   assert(await h.run(`document.documentElement.scrollWidth<=innerWidth+1&&[...document.querySelectorAll('.wm-service-card .card-actions')].every(a=>{let b=a.lastElementChild,r=a.getBoundingClientRect(),q=b.getBoundingClientRect();return r.right-q.right<=19&&r.right-q.right>=0&&[...a.children].every(b=>b.getBoundingClientRect().height>=44)})`),'Cards fit, actions align right '+width+' '+theme);
   if(width===390||width===1440){await h.run(`document.getElementById('servicesGrid').closest('.panel').scrollIntoView({block:'start',behavior:'instant'});scrollBy(0,-85)`);await shot(role+'-services-cards-'+width+'-'+theme);}
   if(width>=768){await hover('[data-service-action=edit]');await hover('[data-service-action=delete]');}

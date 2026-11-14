@@ -1,0 +1,14 @@
+/* Opt-in Contact editor details within the shared Inventory presentation. */
+body[data-portal-contact-dialogs] .page-toolbar { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }
+body[data-portal-contact-dialogs] .toolbar-title { min-width:0; flex:1 1 auto; }
+body[data-portal-contact-dialogs] .toolbar-title h2 { color:var(--primary-color,#800000); font-size:22px; font-weight:600; line-height:1.5; }
+body[data-portal-contact-dialogs] .toolbar-title p { max-width:620px; font-size:13px; line-height:1.7; color:var(--text-muted,#6b6269); }
+body[data-portal-contact-dialogs] .toolbar-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-left:auto; }
+body[data-portal-contact-dialogs] .toolbar-actions .btn-admin { min-height:44px; justify-content:center; text-decoration:none; white-space:nowrap; }
+body[data-portal-contact-dialogs] .section-stack { gap:24px; }
+body[data-portal-contact-dialogs] .field-stack.full > .field-hint { margin-top:4px; padding:14px 16px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+@media(max-width:639px) {
+ body[data-portal-contact-dialogs] .toolbar-title { flex:0 0 auto; width:100%; }
+ body[data-portal-contact-dialogs] .toolbar-actions { width:100%; }
+ body[data-portal-contact-dialogs] .toolbar-actions .btn-admin { flex:1 1 0; padding-inline:10px; }
+}

@@ -11,6 +11,7 @@ test('Home and About action outlines remain visible on hover in both roles and t
   await h.go('/'+role+'-page/website-'+page+'.html');await h.until(`settingsLoaded&&${page==='home'?'sdgsLoaded&&servicesLoaded&&':''}!document.querySelector('.website-section-loading')`);
   for(const theme of ['light','dark']){
    await h.run(`document.documentElement.dataset.theme='${theme}'`);
+   assert(await h.run(`[...document.querySelectorAll('.field-stack label')].filter(l=>l.getClientRects().length).every(l=>Number(getComputedStyle(l).fontWeight)>=600)`),page+' has consistent semibold field labels in '+theme);
    for(const selector of page==='home'?['#homeSdgGrid button[title="Edit details"]','#homeSdgGrid .btn-del-sm']:['#visionImgPreviewFitBtn','#visionImgPreviewRemoveBtn']){
     await h.run(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',behavior:'instant'})`);
     const point=await h.run(`(()=>{let r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});await h.pause(50);await h.run(`Promise.all(document.querySelector(${JSON.stringify(selector)}).getAnimations().map(a=>a.finished.catch(()=>{})))`);

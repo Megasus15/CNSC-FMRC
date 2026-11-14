@@ -8,6 +8,10 @@ balanced image actions and consistent controls. Gallery actions have explicit
 accessible names; their slots retain the existing order, ten-photo limit and
 16:10 fitting/export behavior.
 
+The Contact follow-up moves gallery card layout into the shared editor
+stylesheet, matching SDG spacing, aligned heights and icon controls. About-only
+image/video details remain in `website-about-ui.css`.
+
 The shared image fitter retains its feature owner, IDs, geometry and canvas
 calculations. It uses the 800px, 12px-corner full-dialog frame with a fixed header
 and footer and a scrolling body. Fit/fill controls live inside the body, leaving

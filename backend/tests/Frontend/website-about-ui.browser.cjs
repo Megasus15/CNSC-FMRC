@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
 const png='data:image/jpeg;base64,'+fs.readFileSync(require('node:path').join(__dirname,'../../../images/pic1.jpg')).toString('base64');
 for(const role of ['admin','staff'])test(role+' About editor refines sections, fit dialogs and popups without changing staged saves',{skip:!chrome,timeout:180000},async t=>{
- const initial={about_heading:'About our center',about_text_1:'Existing first paragraph.',vision_text:'Our center vision.',mission_text:'Our center mission.',vision_image:png,mission_image:png,vision_gallery:JSON.stringify([png,png]),mission_gallery:JSON.stringify([png]),editorial_about_university_name:'Sample University',editorial_about_university_vision_text:'Sample vision.',editorial_about_university_mission_text:'Sample mission.'};
+ const initial={about_heading:'About our center',about_text_1:'Existing first paragraph.',vision_text:'Our center vision.',mission_text:'Our center mission.',vision_image:png,mission_image:png,vision_gallery:JSON.stringify([png,'/images/pic2.jpg']),mission_gallery:JSON.stringify([png]),editorial_about_university_name:'Sample University',editorial_about_university_vision_text:'Sample vision.',editorial_about_university_mission_text:'Sample mission.'};
  let settings={...initial},fail=false;const writes=[];
  const font=process.env.FMRC_BROWSER_POPPINS,setup=font?`{let s=document.createElement('style');s.textContent=${JSON.stringify(`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`)};document.head.append(s);}`:'';
  const h=await browserFixture(t,async({req,route,json})=>{
@@ -24,8 +24,14 @@ for(const role of ['admin','staff'])test(role+' About editor refines sections, f
  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);
   assert(await h.run(`document.documentElement.scrollWidth<=innerWidth+1&&[...document.querySelectorAll('.wm-gal-grid .wm-sdg-actions button')].every(b=>b.getBoundingClientRect().height===44)`),'About layout and equal gallery controls '+width+' '+theme);
+  assert(await h.run(`[...document.querySelectorAll('.wm-gal-grid')].every(grid=>{const cards=[...grid.children],height=cards[0].getBoundingClientRect().height;return cards.every(c=>Math.abs(c.getBoundingClientRect().height-height)<1)&&[...grid.querySelectorAll('.wm-sdg-actions')].every(a=>a.children.length===5&&[...a.children].every(b=>b.getBoundingClientRect().width===44))&&[...grid.querySelectorAll('.wm-gal-thumb,.wm-gal-add')].every(a=>Math.abs(a.getBoundingClientRect().width/a.getBoundingClientRect().height-1.6)<.05)})`),'Gallery shares balanced SDG layout and retains photo aspect '+width+' '+theme);
  }
- await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});await h.run(`document.documentElement.dataset.theme='light';document.getElementById('visionHeading').scrollIntoView({block:'start',behavior:'instant'})`);await shot(role+'-about-gallery-desktop');
+ for(const width of [1440,390]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='light';document.getElementById('visionGalleryGrid').closest('.field-stack').scrollIntoView({block:'start',behavior:'instant'});scrollBy(0,-90)`);await shot(role+'-about-gallery-'+width);}
+ const galleryBefore=await h.run('galleryData.vision.slice()');
+ await click(`#visionGalleryGrid button[onclick="moveGalleryImage('vision', 0, 1)"]`);assert.deepEqual(await h.run('galleryData.vision'),[galleryBefore[1],galleryBefore[0]],'Gallery order changes stay in the draft');
+ await click(`#visionGalleryGrid button[onclick="moveGalleryImage('vision', 1, -1)"]`);assert.deepEqual(await h.run('galleryData.vision'),galleryBefore);
+ await click(`#visionGalleryGrid button[onclick="removeGalleryImage('vision', 1)"]`);assert.deepEqual(await h.run('galleryData.vision'),[galleryBefore[0]]);assert.equal(settings.vision_gallery,initial.vision_gallery);assert.equal(writes.length,0);
+ await h.run(`saveGallery('vision',${JSON.stringify(galleryBefore)})`);
  await click('#visionImgPreviewFitBtn');await fitReady();
  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);

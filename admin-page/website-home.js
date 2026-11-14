@@ -2126,14 +2126,15 @@ function renderGallerySlots(kind) {
   if (!grid) return;
   const list = galleryData[kind];
   const icon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-  const action = (label, paths, handler, index, disabled = false, remove = false) => `<button type="button" class="${remove ? 'btn-del-sm' : 'btn-edit-sm wm-sdg-move'}" title="${label}" aria-label="${label}: ${conf.label} photo ${index + 1}" onclick="${handler}" ${disabled ? 'disabled' : ''}>${icon(paths)}${remove ? ' Remove' : ''}</button>`;
+  const action = (label, paths, handler, index, disabled = false, remove = false) => `<button type="button" class="${remove ? 'btn-del-sm' : 'btn-edit-sm wm-sdg-move'}" title="${label}" aria-label="${label}: ${conf.label} photo ${index + 1}" onclick="${handler}" ${disabled ? 'disabled' : ''}>${icon(paths)}</button>`;
 
   const filled = list
     .map(
       (src, i) => `
     <div class="wm-sdg-slot">
-      <span class="wm-sdg-slot-index">Photo ${i + 1}${i === 0 ? " — on top" : ""}</span>
+      <div class="wm-sdg-slot-meta"><span class="wm-sdg-slot-index">Photo ${i + 1}</span>${i === 0 ? '<span class="wm-gallery-first">First</span>' : ''}</div>
       <div class="wm-sdg-thumb wm-gal-thumb ${conf.shape}"><img src="${sdgEsc(src)}" alt="${conf.label} photo ${i + 1}" /></div>
+      <div class="wm-sdg-title">${conf.label} photo ${i + 1}</div>
       <div class="wm-sdg-actions">
         ${action('Move earlier','<path d="m12 5-7 7 7 7M5 12h14"/>',`moveGalleryImage('${kind}', ${i}, -1)`,i,i === 0)}
         ${action('Move later','<path d="m12 5 7 7-7 7M19 12H5"/>',`moveGalleryImage('${kind}', ${i}, 1)`,i,i === list.length - 1)}
@@ -2149,7 +2150,7 @@ function renderGallerySlots(kind) {
     { length: Math.max(0, GALLERY_MAX - list.length) },
     (_, i) => `
     <div class="wm-sdg-slot is-empty">
-      <span class="wm-sdg-slot-index">Slot ${list.length + i + 1}</span>
+      <div class="wm-sdg-slot-meta"><span class="wm-sdg-slot-index">Slot ${list.length + i + 1}</span></div>
       <button class="wm-sdg-add wm-gal-add ${conf.shape}" type="button" title="Upload a ${conf.label.toLowerCase()} photo" aria-label="Upload ${conf.label.toLowerCase()} photo ${list.length + i + 1}"
               onclick="openGalleryUpload('${kind}', null)">${icon('<path d="M12 5v14M5 12h14"/>')}</button>
       <div class="wm-sdg-title" style="color:var(--portal-muted-color,#9ca3af);font-weight:600">Upload photo</div>

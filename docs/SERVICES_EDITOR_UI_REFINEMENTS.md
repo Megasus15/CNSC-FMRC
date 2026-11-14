@@ -3,8 +3,8 @@
 Admin and Staff Website Services opt in through `data-portal-services-dialogs`
 and `data-portal-popups="refined"`. They reuse `website-home-ui.css`, the shared
 Inventory dialog controller and popup helper, plus `website-services-ui.js/.css`
-for Services-specific sections. Other website editors retain their current
-presentation.
+for Services-specific sections. Contact now shares the stylesheet with its own
+opt-in adapter. Other website editors retain their current presentation.
 
 Page Content, Service Categories and Service Cards use cream surfaces, maroon
 icon headings, neutral borders, balanced fields and the portal font. Service
@@ -44,7 +44,7 @@ image uploads, feature chips, category/service removal, failed-save recovery
 and explicit publishing/readback. Existing Home/About suites check SDG card
 geometry and image/save regressions; `website-editor-outlines.browser.cjs`
 checks Home/About hover styles in both roles/themes. Products keeps an
-unopted Contact editor regression check. Shared page-draft and backend content
+unopted Footer editor regression check. Shared page-draft and backend content
 tests cover persistence.
 
 Update all consumers of the changed shared editor assets, commit and push using
