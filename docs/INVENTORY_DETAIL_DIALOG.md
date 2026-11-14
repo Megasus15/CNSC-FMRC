@@ -2,7 +2,9 @@
 
 The shared design covers Inventory **View Item**, **Add New Item / Edit Item**,
 **Adjust Stocks**, **Stock Level Rules**, **Edit Letterhead**, and single/bulk **Archive**
-confirmation in Admin and Staff, plus Products **View Product**. It uses the
+confirmation in Admin and Staff, plus Products **View Product**. The subsequent
+[Products and shared-popup rollout](PRODUCTS_MODAL_REFINEMENTS.md) extends the
+forms and completes Inventory feedback. It uses the
 opt-in `portal-detail-dialog.css` / `portal-detail-dialog.js` assets and the
 existing shared Admin renderers. Generated-report previews and
 other pages' dialog presentations retain their existing appearance. Further
@@ -47,9 +49,11 @@ closed by the shared controller without their registered handler. Letterhead's
 legacy keyboard handler defers to the shared one only for opted-in dialogs.
 
 `showAdminConfirmPopup` accepts optional `presentation: "inventory"` and
-`trigger` options for Inventory archive confirmation. Other callers retain the
-default presentation. Archive pending state blocks dismissal, and the shared
-popup resets its presentation before showing an unrelated confirmation/error.
+`trigger` options for Inventory archive confirmation. Inventory and Products
+now opt in at page level, so their other confirmations/errors share the frame.
+Archive pending state blocks dismissal, and icons/context reset per invocation.
+Other pages keep their default popups, except feedback within the globally
+refined All Notifications drawer.
 Backend endpoints and request payloads are unchanged.
 
 The shared controller discovers opt-in dialogs dynamically, so Staff's existing
@@ -105,14 +109,14 @@ Commit and push these files through the existing online deployment workflow:
 - The browser test and this document
 - Other Admin/Staff HTML consumers with updated shared-script cache versions
 
-The shared stylesheet, Inventory renderer and confirmation helper now use
-**2026.1114.4**. Their HTML consumers have matching version references. The
-unchanged shared dialog controller and Reports script remain on **2026.1114.3**;
-the Products renderer and Staff Products loader remain on **2026.1114.2**. Release the
+The shared stylesheet/controller, confirmation helper, session script, Reports
+script, Products renderer and Staff Products loader now use **2026.1114.5**.
+Inventory's unchanged renderer remains on **2026.1114.4**. HTML consumers have
+matching references. Release the
 matching shells, stylesheet, behavior and renderer together. No database
 migration, Composer install or ZIP upload is needed. After deployment, check
 View Item, View Product, Add/Edit Item, Adjust Stocks, Stock Level Rules and its
 collapsed guide, Letterhead field alignment/save/reset
 and archive confirmation in authenticated Admin and Staff sessions. Confirm
-that report PDFs and unrelated confirmations still use their existing layouts.
+that report PDFs and unopted page confirmations still use their existing layouts.
 Additional dialogs can adopt the design individually when requested.

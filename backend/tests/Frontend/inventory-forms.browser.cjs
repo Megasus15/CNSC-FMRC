@@ -172,9 +172,8 @@ test('Inventory form, rules, letterhead and archive dialogs preserve workflows i
     failSettings=false;holdSettings=true;await click('#reportLetterheadSaveBtn');await wait(()=>settingReplies.length>0);await key('Escape');await click('#reportLetterheadCloseIcon');assert.equal(await h.run(`document.getElementById('reportLetterheadModal').classList.contains('show')`),true,'Saving blocks dismissal');
     holdSettings=false;settingReplies.splice(0).forEach(resolve=>resolve());await idle();assert.equal(settings.report_letterhead_university,'Edited University');
     await open('letterhead');assert.equal(await h.run(`document.querySelector('[data-letterhead-key="university"]').value`),'Edited University');
-    let acceptRestore=false;h.on('Page.javascriptDialogOpening',()=>{void h.send('Page.handleJavaScriptDialog',{accept:acceptRestore});});
-    const beforeRestore=writes.length;await click('#reportLetterheadResetBtn');await h.pause(60);assert.equal(writes.length,beforeRestore);
-    acceptRestore=true;await click('#reportLetterheadResetBtn');await idle();assert.equal(settings.report_letterhead_university,'');
+    const beforeRestore=writes.length;await click('#reportLetterheadResetBtn');await popup('Restore defaults');await click('#adminSystemPopupCancel');assert.equal(writes.length,beforeRestore);
+    await click('#reportLetterheadResetBtn');await popup('Restore defaults');await click('#adminSystemPopupOk');await idle();assert.equal(settings.report_letterhead_university,'');
     await open('adjust');assert.equal(await h.run(`document.getElementById('deductTargetWrap').getClientRects().length`),0);
     await input('#deductAmountAdd','2');await input('#deductName','Stock Officer');await input('#deductPurpose','Workshop restock');await input('#deductRemarks','Recorded adjustment');
     failAdjust=true;await click('#btnSaveDeduct');await popup('Error');await click('#adminSystemPopupOk');assert.equal(await h.run(`document.getElementById('deductAmountAdd').value`),'2','Failed adjustments retain entries');
@@ -188,14 +187,14 @@ test('Inventory form, rules, letterhead and archive dialogs preserve workflows i
     await click('[data-inv-deduct="2"]');await h.until(`document.querySelector('#modalDeductInventoryItem.show')`);await change('#deductTarget','variant:102');await click('#btnModeDeduct');await input('#deductAmountDeduct','99');await click('#btnSaveDeduct');await popup('Error');await click('#adminSystemPopupOk');assert.equal(await h.run(`document.getElementById('deductAmountDeduct').value`),'99');await click('#btnCancelDeduct');await idle();
     const beforeArchive=writes.filter(value=>value.route.endsWith('archive-bulk')).length;
     await open('archive');await key('Escape');await idle();assert.equal(writes.filter(value=>value.route.endsWith('archive-bulk')).length,beforeArchive);
-    failArchive=true;await open('archive');await click('#adminSystemPopupOk');await popup('Archive Failed');assert.equal(await h.run(`document.getElementById('adminSystemPopup').hasAttribute('data-portal-detail-dialog')`),false,'Archive styling never leaks into the error popup');await click('#adminSystemPopupOk');await idle();
+    failArchive=true;await open('archive');await click('#adminSystemPopupOk');await popup('Archive Failed');assert.equal(await h.run(`document.getElementById('adminSystemPopup').hasAttribute('data-portal-detail-dialog')`),true,'Errors retain the page opt-in');assert.equal(await h.run(`document.getElementById('adminSystemPopup').dataset.popupIcon`),'error','Archive icon resets for errors');await click('#adminSystemPopupOk');await idle();
     failArchive=false;holdArchive=true;await open('archive');await click('#adminSystemPopupOk');await wait(()=>archiveReplies.length>0);
     await key('Escape');await click('#adminSystemPopupCancel');assert.equal(await h.run(`document.getElementById('adminSystemPopup').classList.contains('show')`),true,'Pending archive cannot close');
     holdArchive=false;archiveReplies.splice(0).forEach(resolve=>resolve());await idle();assert(!items.some(item=>item.id===1));
     await click('[data-inv-selection-toggle="Consumable Materials"]');await click('[data-inv-select="2"]');await click('[data-inv-select="3"]');await click('[data-inv-archive-selected="Consumable Materials"]');await popup('Archive Selected Items');
     assert.match(await h.run(`document.getElementById('adminSystemPopupMessage').textContent`),/2 selected items/);await click('#adminSystemPopupOk');await idle();assert(!items.some(item=>[2,3].includes(item.id)));
     assert.equal(await h.run(`getComputedStyle(document.querySelector('#reportPreviewModal .modal-card')).borderRadius`),otherStyle);
-    await h.run(`showAdminConfirmPopup('An unrelated confirmation.',{title:'Unrelated action'})`);await popup('Unrelated action');assert.equal(await h.run(`document.querySelectorAll('#adminSystemPopup hr').length`),2);await click('#adminSystemPopupCancel');
+    await h.run(`showAdminConfirmPopup('An unrelated confirmation.',{title:'Unrelated action'})`);await popup('Unrelated action');assert.equal(await h.run(`document.querySelectorAll('#adminSystemPopup hr').length`),0);await click('#adminSystemPopupCancel');
     assert.deepEqual(await h.run('fixtureErrors'),[]);
   }
   console.log('Inventory form screenshots:',h.artifacts);

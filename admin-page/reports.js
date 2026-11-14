@@ -3118,9 +3118,12 @@
     elements.letterheadCancel?.addEventListener("click", closeLetterheadEditor);
     elements.letterheadSave?.addEventListener("click", () => void saveLetterhead(false));
     elements.letterheadReset?.addEventListener("click", () => {
-      const confirmed = window.confirm(
-        "Restore every letterhead line to the official UCN template? Your custom wording will be cleared.",
-      );
+      const message = "Restore every letterhead line to the official UCN template? Your custom wording will be cleared.";
+      if (elements.letterheadModal?.hasAttribute('data-portal-detail-dialog') && document.body.dataset.portalPopups === 'refined' && window.showAdminConfirmPopup) {
+        window.showAdminConfirmPopup(message, {title: 'Restore defaults', confirmText: 'Restore defaults', cancelText: 'Keep Editing', onConfirm: () => void saveLetterhead(true)});
+        return;
+      }
+      const confirmed = window.confirm(message);
       if (confirmed) void saveLetterhead(true);
     });
     elements.letterheadFields?.addEventListener("input", () => setLetterheadError(""));

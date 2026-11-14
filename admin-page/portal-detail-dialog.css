@@ -1,5 +1,5 @@
 /* Opt-in detail-dialog design. Existing portal dialogs keep their own design. */
-.modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog {
+:is(.modal-overlay, .admin-system-popup, .all-notif-overlay, .admin-media-viewer, .admin-session-warning).portal-detail-dialog {
   --portal-detail-muted: var(--portal-muted-color, #6b6269);
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   overflow: hidden;
@@ -111,6 +111,97 @@
 .portal-detail-dialog :is(button, input, select, textarea) { font-family: inherit; }
 .portal-detail-dialog :is(button, input, [tabindex="0"]):focus-visible { outline: 2px solid var(--portal-accent, #800000); outline-offset: 3px; }
 .portal-detail-dialog .portal-detail-dialog__body:focus-visible { outline-offset: -3px; }
+
+/* Products and shared chrome opt in by page; unadopted pages keep their UI. */
+.portal-detail-dialog { font-family: var(--font-family, 'Poppins', sans-serif); }
+.portal-detail-dialog--form .modal-section-title { margin: 24px 0 16px; padding: 0 0 10px; border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--primary-color, #800000); font-size: 14px; font-weight: 600; line-height: 1.6; letter-spacing: 0; text-transform: none; }
+.portal-detail-dialog--form .portal-detail-dialog__body > .modal-section-title:first-child { margin-top: 0; }
+.portal-detail-dialog--form .product-cover-heading { margin-top: 6px; }
+.portal-detail-dialog--form .textarea-field { width: 100%; min-width: 0; max-width: 100%; min-height: 96px; padding: 10px 12px; border-radius: 8px; font-size: 14px; line-height: 1.65; resize: vertical; }
+.portal-detail-dialog--form .stock-toggle-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.portal-detail-dialog--form .stock-toggle-btn { min-width: 0; min-height: 44px; padding: 8px; font-size: 13px; line-height: 1.5; white-space: normal; box-shadow: none; }
+.portal-detail-dialog--form .block-toggle-row { padding: 16px; gap: 16px; background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog--form .block-toggle-label { min-width: 0; }
+.portal-detail-dialog--form .block-toggle-label strong { font-size: 14px; line-height: 1.6; }
+.portal-detail-dialog--form .block-toggle-label span { font-size: 12px; line-height: 1.65; }
+.portal-detail-dialog--form .toggle-switch { display: grid; place-items: center; min-width: 44px; min-height: 44px; margin: 0; }
+.portal-detail-dialog--form .upload-area { min-width: 0; padding: 16px; gap: 12px; border-style: dashed; border-radius: 8px; background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog--form .upload-area-text { min-width: 0; }
+.portal-detail-dialog--form .upload-area-text strong { font-size: 14px; line-height: 1.6; }
+.portal-detail-dialog--form .upload-area-text span { font-size: 12px; line-height: 1.65; }
+.portal-detail-dialog--form .product-image-guidance { margin-bottom: 18px; }
+.portal-detail-dialog--form .photo-editor-canvas-wrap { width: 100%; height: clamp(150px, 38dvh, 320px); background: var(--surface-alt, #f8f4ef); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; }
+.portal-detail-dialog--form .photo-editor-sliders { gap: 16px; margin-top: 20px; }
+.portal-detail-dialog--form .slider-row { display: grid; grid-template-columns: 55px minmax(0, 1fr) 46px; gap: 10px; min-height: 44px; font-size: 13px; }
+.portal-detail-dialog--form .slider-row input { min-width: 0; width: 100%; min-height: 44px; accent-color: var(--portal-accent, #800000); }
+.portal-detail-dialog--form .slider-row label { font-size: 12px; }
+.portal-detail-dialog--form .custom-select-trigger { min-width: 0; min-height: 44px; height: auto; font-size: 14px; line-height: 1.6; white-space: normal; text-align: left; }
+.portal-detail-dialog--form .custom-select-dropdown { background: var(--surface, #fdfaf6); border-color: var(--border-color, #e2e8f0); border-radius: 8px; padding: 8px; }
+.portal-detail-dialog--form .custom-select-item { display: block; width: 100%; min-height: 44px; border: 0; border-radius: 6px; background: transparent; color: var(--text-main, #2b2b31); font-size: 13px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.portal-detail-dialog--form .custom-select-item:is(:hover, .active) { background: var(--portal-accent-soft, #fbf1f2); color: var(--portal-accent, #800000); }
+.portal-detail-dialog--form .custom-select-footer { width: 100%; min-height: 44px; border-color: var(--border-color, #e2e8f0); background: var(--surface, #fdfaf6); color: var(--portal-accent, #800000); font-size: 13px; }
+.portal-search-field { position: relative; display: flex; align-items: center; min-width: 0; flex: 1 1 160px; }
+.portal-search-field > svg { position: absolute; left: 12px; z-index: 1; width: 18px; height: 18px; color: var(--portal-muted-color, #6b6269); pointer-events: none; }
+.portal-search-field :is(.search-input, .custom-select-search) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; margin: 0; padding-left: 40px !important; padding-right: 12px; font-family: inherit; font-size: 14px; }
+.portal-detail-dialog .product-gallery-editor { border-color: var(--border-color, #e2e8f0); }
+.portal-detail-dialog .product-gallery-heading h3 { font-size: 14px; font-weight: 600; }
+.portal-detail-dialog .product-gallery-number span { font-size: 12px; font-weight: 500; }
+.portal-detail-dialog .product-gallery-slot { border-radius: 8px; }
+.portal-detail-dialog .product-gallery-tools { min-height: 44px; }
+.portal-detail-dialog .gallery-icon-button { flex-basis: 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.portal-detail-dialog .product-gallery-cover-note { font-size: 11px; }
+.admin-system-popup.portal-detail-dialog { z-index: 40000; }
+#modalProductPhotoEditor.portal-detail-dialog { z-index: 20000; }
+.all-notif-overlay.portal-detail-dialog { display: none; align-items: center; justify-content: flex-end; }
+.all-notif-overlay.portal-detail-dialog.show { display: flex; }
+.all-notif-overlay.portal-detail-dialog .all-notif-backdrop { background: transparent; transition: none; }
+.portal-detail-dialog .all-notif-panel { width: min(480px, 100%); max-width: 480px; height: calc(100dvh - 32px); transform: none; transition: none; }
+.portal-detail-dialog .all-notif-head { gap: 12px; }
+.portal-detail-dialog .all-notif-head-left p { margin: 5px 0 0; color: var(--portal-detail-muted); font-size: 12px; line-height: 1.6; }
+.portal-detail-dialog .all-notif-filter { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; padding: 16px 24px; border-bottom: 1px solid var(--border-color, #e2e8f0); }
+.portal-detail-dialog .all-notif-filter-btn { min-height: 44px; padding: 8px; border-radius: 8px; border-color: var(--border-color, #e2e8f0); background: var(--surface-alt, #f8f4ef); color: var(--text-main, #2b2b31); font-size: 12px; }
+.portal-detail-dialog .all-notif-filter-btn.active { background: var(--portal-action, #800000); border-color: var(--portal-action, #800000); color: var(--portal-on-action, #fff); }
+.portal-detail-dialog .all-notif-list { padding: 0; overflow-y: auto; }
+.portal-detail-dialog .all-notif-actions-bar { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-color: var(--border-color, #e2e8f0); }
+.portal-detail-dialog .all-notif-action-btn { min-height: 44px; padding: 8px 12px; font-family: inherit; font-size: 12px; border-color: var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); color: var(--portal-accent, #800000); }
+.portal-detail-dialog .all-notif-list .notif-item { border-color: var(--border-color, #e2e8f0); }
+.portal-detail-dialog .all-notif-list .notif-item { background: var(--surface, #fdfaf6); }
+.portal-detail-dialog .all-notif-list .notif-item:is(.notif-unread, :hover) { background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog .all-notif-list .notif-item-title { color: var(--text-main, #2b2b31); font-size: 13px; font-weight: 600; }
+.portal-detail-dialog .all-notif-list .notif-item-msg { color: var(--portal-detail-muted); font-size: 13px; line-height: 1.6; }
+.portal-detail-dialog .all-notif-list :is(.notif-item-time, .all-notif-date-sep) { color: var(--portal-detail-muted); }
+.portal-detail-dialog .all-notif-date-sep { background: var(--surface-alt, #f8f4ef); border-color: var(--border-color, #e2e8f0); }
+.portal-detail-dialog .all-notif-list :is(.notif-read-btn, .notif-del-btn) { min-width: 44px; min-height: 44px; }
+/* Keep the shared dropdown card's structure and positioning; refine its details. */
+.notification-dropdown { border-radius: 12px; overflow: hidden; background: var(--surface, #fdfaf6); border-color: var(--border-color, #e2e8f0); }
+.notification-dropdown :is(.notif-header, .notif-footer) { flex: 0 0 auto; }
+.notification-dropdown .notif-body { flex: 1 1 auto; min-height: 0; }
+.notification-dropdown .notif-header h3 { font-size: 16px; font-weight: 600; }
+.notification-dropdown .notif-item { border-color: var(--border-color, #e2e8f0); background: var(--surface, #fdfaf6); }
+.notification-dropdown .notif-item:is(.notif-unread, :hover) { background: var(--surface-alt, #f8f4ef); }
+.notification-dropdown .notif-item-title { color: var(--text-main, #2b2b31); font-size: 13px; font-weight: 600; }
+.notification-dropdown .notif-item-msg { color: var(--portal-muted-color, #6b6269); font-size: 12px; line-height: 1.6; }
+.notification-dropdown :is(.notif-read-btn, .notif-del-btn) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.notification-dropdown .notif-view-all-btn { min-height: 44px; font-family: inherit; font-size: 13px; }
+.notification-dropdown .notif-footer { border-color: var(--border-color, #e2e8f0); }
+@media (max-width: 639px) { .portal-detail-dialog .all-notif-filter { padding: 12px 16px; } .portal-detail-dialog .all-notif-actions-bar { padding: 10px 16px; } }
+.portal-detail-dialog .admin-media-viewer-title { white-space: normal; overflow: visible; text-overflow: clip; margin-bottom: 16px; color: var(--text-main, #2b2b31); font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.portal-detail-dialog .admin-media-viewer-stage { min-height: 120px; padding: 0; background: var(--surface-alt, #f8f4ef); border-radius: 8px; overflow: hidden; }
+.portal-detail-dialog :is(.admin-media-viewer-image, .admin-media-viewer-video) { max-height: 52dvh; max-width: 100%; object-fit: contain; border-radius: 0; }
+.portal-detail-dialog .admin-media-viewer-error { padding: 20px; color: var(--text-main, #2b2b31); font-size: 14px; }
+.portal-detail-dialog .admin-media-viewer-open { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+body[data-portal-product-dialogs].admin-media-viewer-open { color: var(--text-main, #2b2b31); font-size: inherit; font-weight: inherit; text-decoration: none; }
+.admin-session-warning.portal-detail-dialog .admin-session-warning__dialog { text-align: left; }
+.admin-session-warning.portal-detail-dialog .portal-detail-dialog__title { margin: 0; font-size: 22px; font-weight: 600; }
+.admin-session-warning.portal-detail-dialog .portal-detail-dialog__body p { color: var(--portal-detail-muted); }
+.admin-session-warning.portal-detail-dialog .admin-session-warning__remaining { background: var(--surface-alt, #f8f4ef); border-color: var(--border-color, #e2e8f0); border-radius: 8px; }
+.admin-session-warning.portal-detail-dialog .admin-session-warning__status:empty { display: none; }
+.admin-session-warning.portal-detail-dialog .admin-session-warning__stay { margin: 0; font-weight: 500; }
+.admin-success-notification--refined { grid-template-columns: 42px minmax(0, 1fr) auto; border-radius: 12px; background: var(--surface, #fdfaf6); color: var(--text-main, #2b2b31); }
+.admin-success-notification--refined .admin-success-notification__close { align-self: center; width: auto; min-width: 64px; height: 44px; margin: 0; padding: 8px; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--primary-color, #800000); }
+.portal-detail-dialog[data-portal-detail-visibility="hidden"]:not([hidden]) .portal-detail-dialog__card { animation: portalDetailEnter 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .portal-detail-dialog[data-portal-detail-visibility="hidden"] .portal-detail-dialog__card, .portal-detail-dialog .photo-editor-canvas-wrap img { animation: none; transition: none; } }
+html[data-portal-motion="reduced"] .portal-detail-dialog[data-portal-detail-visibility="hidden"] .portal-detail-dialog__card, html[data-portal-motion="reduced"] .portal-detail-dialog .photo-editor-canvas-wrap img { animation: none; transition: none; }
 
 /* Shared detail content, with existing Inventory class aliases. */
 .portal-detail-dialog :is(.inv-detail-intro, .portal-detail-intro) { margin-bottom: 22px; }
@@ -231,7 +322,7 @@
 .inv-search-field .search-input { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; padding-left: 40px !important; padding-right: 12px; font-family: inherit; font-size: 14px; }
 
 @media (max-width: 639px) {
-  .modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  :is(.modal-overlay, .admin-system-popup, .all-notif-overlay, .admin-media-viewer, .admin-session-warning).portal-detail-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .portal-detail-dialog .portal-detail-dialog__card { max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom))); }
   .portal-detail-dialog .portal-detail-dialog__header { gap: 10px; padding: 16px; }
   .portal-detail-dialog .portal-detail-dialog__title { font-size: 20px; }
@@ -273,7 +364,7 @@
   .portal-detail-dialog--compact .portal-detail-dialog__footer { padding-top: 0; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
-  .modal-overlay.portal-detail-dialog, .admin-system-popup.portal-detail-dialog { padding-block: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-bottom)); }
+  :is(.modal-overlay, .admin-system-popup, .all-notif-overlay, .admin-media-viewer, .admin-session-warning).portal-detail-dialog { padding-block: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-bottom)); }
   .portal-detail-dialog .portal-detail-dialog__card { max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom))); }
   .portal-detail-dialog .portal-detail-dialog__header { padding-block: 10px; }
   .portal-detail-dialog .portal-detail-dialog__footer { padding-block: 10px; }
@@ -282,3 +373,18 @@
 html[data-portal-motion="reduced"] .portal-detail-dialog.show .portal-detail-dialog__card { animation: none; }
 @media (prefers-reduced-motion: reduce) { .portal-detail-dialog--form .stock-rule-guide-toggle svg { transition: none; } }
 html[data-portal-motion="reduced"] .portal-detail-dialog--form .stock-rule-guide-toggle svg { transition: none; }
+
+/* All Notifications retains the original edge-to-edge, full-height drawer.
+   The shared modal margins and rounded outer frame apply to other dialogs. */
+.all-notif-overlay.portal-detail-dialog--notifications { padding: 0; align-items: stretch; }
+.portal-detail-dialog--notifications .all-notif-panel.portal-detail-dialog__card {
+  width: min(440px, 100vw);
+  max-width: 440px;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-width: 0 0 0 1px;
+  border-radius: 0 !important;
+  box-shadow: -8px 0 40px rgba(16, 24, 40, .18);
+}
+.portal-detail-dialog--notifications .portal-detail-dialog__header { padding-top: max(20px, env(safe-area-inset-top)); }
+.portal-detail-dialog--notifications .all-notif-list.portal-detail-dialog__body { padding: 0 0 env(safe-area-inset-bottom); }

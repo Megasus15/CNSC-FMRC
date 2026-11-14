@@ -167,6 +167,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let editProductDiscardGuard = null;
   let photoDiscardGuard = null;
   let productSavePending = false;
+  let addSavePending = false;
+  let deletePending = false;
+  let photoSavePending = false;
   let galleryEditor = null;
   let galleryEditorRoot = null;
   let galleryModulePromise = null;
@@ -289,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
-  const openModal = (m) => m?.classList.add("show");
+  const openModal = (m) => m?.matches("[data-portal-detail-dialog]") && window.PortalDetailDialog ? window.PortalDetailDialog.open(m) : m?.classList.add("show");
   const closeModal = (m) => m?.classList.remove("show");
 
   const escHtml = (v) =>
@@ -352,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
     addProductNameOptions.innerHTML = filtered
       .map(
         (option) =>
-          `<div class="custom-select-item" role="option" data-value="${escHtml(option.value)}">${escHtml(option.dataset.name || option.textContent || "Unnamed Product")}</div>`,
+          `<button type="button" class="custom-select-item" role="option" tabindex="-1" aria-selected="${option.value === selectedValue}" data-value="${escHtml(option.value)}">${escHtml(option.dataset.name || option.textContent || "Unnamed Product")}</button>`,
       )
       .join("");
 
@@ -362,6 +365,8 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       activeOption?.classList.add("active");
     }
+    const first = addProductNameOptions.querySelector('.active') || addProductNameOptions.querySelector('[role="option"]');
+    if (first) first.tabIndex = 0;
   };
 
   const closeAddProductDropdown = () => {
@@ -507,6 +512,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const set = (val) => {
       hidden.value = val;
+      inBtn.setAttribute('aria-pressed', String(val === 'in_stock'));
+      outBtn.setAttribute('aria-pressed', String(val === 'out_of_stock'));
       if (val === "in_stock") {
         inBtn.classList.add("active-in-stock");
         inBtn.classList.remove("active-out-of-stock");
@@ -534,16 +541,25 @@ document.addEventListener("DOMContentLoaded", () => {
       row?.classList.toggle("is-blocked", blocked);
       if (label)
         label.textContent = blocked
-          ? "Product Blocked (Hidden from Customers)"
-          : "Product Active (Visible to Customers)";
+          ? "Hidden from customers"
+          : "Visible to customers";
     });
   };
   syncBlockToggle(addBlocked, addBlockRow, addBlockLabel);
   syncBlockToggle(editBlocked, editBlockRow, editBlockLabel);
 
   // ─── Upload Area click-through ───────────────────────────────────────────────
-  addUploadArea?.addEventListener("click", () => addPhoto?.click());
-  editUploadArea?.addEventListener("click", () => editPhoto?.click());
+  [[addUploadArea, addPhoto], [editUploadArea, editPhoto]].forEach(([area, input]) => {
+    area?.addEventListener('click', event => { if (event.target !== input) input?.click(); });
+    area?.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); input?.click(); }
+    });
+  });
+  [modalAdd, modalEdit].forEach(modal => modal?.querySelectorAll('.field-stack').forEach(field => {
+    const label = field.querySelector(':scope > label');
+    const control = field.querySelector('input:not([type="hidden"]):not([type="file"]),textarea,select:not([hidden]),.custom-select-trigger');
+    if (label && control?.id) label.htmlFor = control.id;
+  }));
 
   const closePhotoEditor = () => {
     closeModal(modalPhotoEditor);
@@ -676,6 +692,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
   btnApplyPhotoEdit?.addEventListener("click", async () => {
+    if (photoSavePending) return;
+    photoSavePending = true;
+    setFormPending(modalPhotoEditor, true, btnCancelPhotoEdit);
+    btnApplyPhotoEdit.disabled = true;
+    try {
     const dataUrl = await renderToCanvas();
     if (!dataUrl) return;
     const photoBytes = (dataUrl.length - dataUrl.indexOf(",") - 1) * 3 / 4 - (dataUrl.endsWith("==") ? 2 : dataUrl.endsWith("=") ? 1 : 0);
@@ -695,9 +716,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Reset file input
     if (photoEditSource === "add" && addPhoto) addPhoto.value = "";
     if (photoEditSource === "edit" && editPhoto) editPhoto.value = "";
+    } finally {
+      photoSavePending = false;
+      setFormPending(modalPhotoEditor, false, btnCancelPhotoEdit);
+      btnApplyPhotoEdit.disabled = false;
+    }
   });
 
   btnCancelPhotoEdit?.addEventListener("click", () => {
+    if (photoSavePending) return;
     if (photoDiscardGuard) {
       photoDiscardGuard.cancel();
       return;
@@ -1806,8 +1833,8 @@ document.addEventListener("DOMContentLoaded", () => {
     row?.classList.toggle("is-blocked", blocked);
     if (label)
       label.textContent = blocked
-        ? "Product Blocked (Hidden from Customers)"
-        : "Product Active (Visible to Customers)";
+        ? "Hidden from customers"
+        : "Visible to customers";
   };
 
   btnOpenAddProduct?.addEventListener("click", () => {
@@ -1819,6 +1846,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCancelAddProduct?.addEventListener("click", () => {
+    if (addSavePending) return;
     if (addProductDiscardGuard) {
       addProductDiscardGuard.cancel();
       return;
@@ -1845,6 +1873,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  addProductNameWrapper?.addEventListener('keydown', event => {
+    const expanded = addProductNameDropdown?.classList.contains('open');
+    if (event.key === 'Escape' && expanded) {
+      event.preventDefault(); event.stopPropagation(); closeAddProductDropdown(); addProductNameTrigger?.focus(); return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+    if (!expanded && event.target !== addProductNameTrigger) return;
+    if (!expanded) openAddProductDropdown();
+    const options = [...addProductNameOptions.querySelectorAll('[role="option"]')];
+    if (!options.length) return;
+    const current = options.indexOf(document.activeElement);
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (current + (event.key === 'ArrowUp' ? -1 : 1) + options.length) % options.length;
+    event.preventDefault(); options.forEach((node, i) => { node.tabIndex = i === index ? 0 : -1; }); options[index].focus();
+  });
+
   addProductNameSearch?.addEventListener("input", () => {
     renderAddProductDropdownItems(addProductNameSearch.value);
   });
@@ -1863,6 +1906,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateAddProductTriggerLabel();
     renderAddProductDropdownItems();
     closeAddProductDropdown();
+    addProductNameTrigger?.focus();
   });
 
   addProductNameAddNewBtn?.addEventListener("click", () => {
@@ -1895,6 +1939,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnSaveProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
+    if (addSavePending) return;
     const selectedExisting = addNameSelect?.selectedOptions?.[0];
     const selectedExistingName =
       selectedExisting?.dataset?.name || selectedExisting?.textContent || "";
@@ -1951,6 +1996,8 @@ document.addEventListener("DOMContentLoaded", () => {
       recommended_for: linesToArray(addRecommended?.value),
     };
 
+    addSavePending = true;
+    setFormPending(modalAdd, true, btnCancelAddProduct);
     btnSaveProduct.disabled = true;
     btnSaveProduct.textContent = "Saving…";
 
@@ -1996,6 +2043,8 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Save product error:", err);
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
+      addSavePending = false;
+      setFormPending(modalAdd, false, btnCancelAddProduct);
       btnSaveProduct.disabled = false;
       btnSaveProduct.innerHTML =
         '<i class="fa-solid fa-floppy-disk"></i> Save Product';
@@ -2142,6 +2191,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCancelEditProduct?.addEventListener("click", () => {
+    if (productSavePending) return;
     if (editProductDiscardGuard) {
       editProductDiscardGuard.cancel();
       return;
@@ -2206,8 +2256,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (galleryEditor) body.gallery_media = galleryEditor.snapshot();
     productSavePending = true;
-    modalEdit.querySelector('.modal-body-scroll').inert = true;
-    if (btnCancelEditProduct) btnCancelEditProduct.disabled = true;
+    setFormPending(modalEdit, true, btnCancelEditProduct);
     galleryEditor?.setSaving(true);
     btnUpdateProduct.disabled = true;
     btnUpdateProduct.textContent = "Updating…";
@@ -2252,8 +2301,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       productSavePending = false;
-      modalEdit.querySelector('.modal-body-scroll').inert = false;
-      if (btnCancelEditProduct) btnCancelEditProduct.disabled = false;
+      setFormPending(modalEdit, false, btnCancelEditProduct);
       galleryEditor?.setSaving(false);
       syncProductSaveButton();
       btnUpdateProduct.innerHTML =
@@ -2262,19 +2310,34 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── Delete Product ───────────────────────────────────────────────────────────
-  btnCancelDeleteProduct?.addEventListener("click", () =>
-    closeModal(modalDelete),
-  );
+  btnCancelDeleteProduct?.addEventListener("click", () => {
+    if (!deletePending) closeModal(modalDelete);
+  });
+
+  const setFormPending = (modal, pending, cancel) => {
+    modal?.setAttribute('aria-busy', String(pending));
+    const body = modal?.querySelector('.portal-detail-dialog__body');
+    if (body) body.inert = pending;
+    modal?.querySelectorAll('[data-portal-detail-close]').forEach(button => { button.disabled = pending; });
+    if (cancel) cancel.disabled = pending;
+  };
+  [[modalAdd, btnCancelAddProduct], [modalEdit, btnCancelEditProduct], [modalPhotoEditor, btnCancelPhotoEdit], [modalDelete, btnCancelDeleteProduct]].forEach(([modal, cancel]) => {
+    window.PortalDetailDialog?.registerClose(modal, () => cancel?.click());
+  });
 
   btnConfirmProductDelete?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
-    if (!activeProductId) return;
+    if (!activeProductId || deletePending) return;
+    deletePending = true;
+    const deletingId = activeProductId;
+    modalDelete.setAttribute('aria-busy', 'true');
+    btnCancelDeleteProduct.disabled = true;
     btnConfirmProductDelete.disabled = true;
     btnConfirmProductDelete.textContent = "Deleting…";
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/products/${activeProductId}`,
+        `${API_BASE_URL}/admin/products/${deletingId}`,
         {
           method: "DELETE",
           headers: {
@@ -2296,7 +2359,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       closeModal(modalDelete);
-      const deletedId = activeProductId;
+      const deletedId = deletingId;
       activeProductId = null;
       broadcastProductChange("deleted", deletedId);
       await loadProducts();
@@ -2309,6 +2372,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Delete product error:", err);
       window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
+      deletePending = false;
+      modalDelete.setAttribute('aria-busy', 'false');
+      btnCancelDeleteProduct.disabled = false;
       btnConfirmProductDelete.disabled = false;
       btnConfirmProductDelete.textContent = "Delete Product";
     }

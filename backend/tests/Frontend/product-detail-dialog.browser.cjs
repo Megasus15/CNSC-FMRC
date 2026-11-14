@@ -51,7 +51,7 @@ test('Product details shares the Inventory dialog across Admin and the dynamic S
     await h.run(`showAdminPopup('A product message.',{title:'Product message',type:'error'})`);
     await h.until(`document.querySelector('#adminSystemPopup.show') && document.getElementById('modalViewProduct').inert`);
     await click('#adminSystemPopupOk'); await h.until(`!document.getElementById('modalViewProduct').inert`);
-    await click('[data-portal-detail-close]'); await closed();
+    await click('#modalViewProduct [data-portal-detail-close]'); await closed();
     assert.equal(await h.run(`document.activeElement.getAttribute('data-view-id')`),'1');
     for (const theme of ['light','dark']) for (const width of [320,390,768,1024,1440]) {
       await viewport(width); await h.run(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`); await open(2);

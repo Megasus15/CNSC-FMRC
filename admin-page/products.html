@@ -30,40 +30,6 @@
         background: rgba(220, 38, 38, 0.12) !important;
       }
 
-      /* Modal: fixed header/footer, scrollable body */
-      .modal-card.product-modal {
-        display: flex;
-        flex-direction: column;
-        max-height: 90vh;
-        overflow: hidden;
-        padding: 0;
-        min-width: 560px;
-        max-width: 700px;
-        width: 100%;
-      }
-      .product-modal .modal-header-fixed {
-        padding: 20px 24px 12px;
-        border-bottom: 1px solid #e5e7eb;
-        flex-shrink: 0;
-      }
-      .product-modal .modal-title {
-        margin: 0;
-        font-size: 1.05rem;
-      }
-      .product-modal .modal-body-scroll {
-        padding: 20px 24px;
-        overflow-y: auto;
-        flex: 1;
-      }
-      .product-modal .modal-footer-fixed {
-        padding: 14px 24px;
-        border-top: 1px solid #e5e7eb;
-        background: #fdfaf6;
-        flex-shrink: 0;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-      }
       /* Section dividers inside modal */
       .modal-section-title {
         font-size: 0.78rem;
@@ -347,10 +313,7 @@
       }
 
       /* Photo editor modal */
-      .modal-card.photo-editor-modal {
-        min-width: 480px;
-        max-width: 580px;
-      }
+
       .photo-editor-canvas-wrap {
         width: 100%;
         height: 260px;
@@ -796,9 +759,9 @@
 
 
     <link rel="stylesheet" href="product-gallery.css?v=2026.1113.1" />
-    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.4" />
+    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.5" />
 </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-product-dialogs>
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -1170,17 +1133,17 @@
             <div class="panel-header">
               <h3>Product List</h3>
               <div class="filters-row">
-                <select class="filter-select" id="productCategoryFilter">
+                <select class="filter-select" id="productCategoryFilter" aria-label="Filter products by category">
                   <option value="all">All Categories</option>
                   <option value="3D Print">3D Print</option>
                   <option value="Laser Cut">Laser Cut</option>
                   <option value="CNC">CNC</option>
                 </select>
-                <input
+                <div class="portal-search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input
                   class="search-input"
                   id="productSearchInput"
-                  placeholder="Search product..."
-                />
+                  type="search" placeholder="Search" aria-label="Search products"
+                /></div>
               </div>
             </div>
             <div class="table-scroll-hint">
@@ -1249,16 +1212,15 @@
     </div>
 
     <!-- ---------------------- ADD PRODUCT MODAL ---------------------- -->
-    <div class="modal-overlay" id="modalAddProduct" data-backdrop-close="false">
-      <div class="modal-card product-modal">
-        <div class="modal-header-fixed">
-          <h3 class="modal-title">
-            <i class="fa-solid fa-plus" style="margin-right: 6px"></i>Add
-            Product
-          </h3>
-        </div>
-        <div class="modal-body-scroll">
-          <p class="modal-section-title">Product Information</p>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded id="modalAddProduct" data-backdrop-close="false">
+      <div class="modal-card product-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="modalAddProductHeading">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 12h8M12 8v8"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Products</p><h2 class="portal-detail-dialog__title" id="modalAddProductHeading" data-portal-detail-heading tabindex="-1">Add Product</h2></div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close add product" title="Close add product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18 18 6"/></svg></button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body" tabindex="0" role="region" aria-label="Add Product fields">
+          <h3 class="modal-section-title">Product information</h3>
           <div class="form-grid">
             <div class="field-stack">
               <label>Category <span style="color: #dc2626">*</span></label>
@@ -1275,7 +1237,7 @@
                   type="button"
                   class="custom-select-trigger"
                   id="addProductNameTrigger"
-                  aria-haspopup="listbox"
+                  aria-haspopup="true" aria-controls="addProductNameDropdown"
                   aria-expanded="false"
                 >
                   Select an existing product
@@ -1286,20 +1248,19 @@
                 <div
                   class="custom-select-dropdown"
                   id="addProductNameDropdown"
-                  role="listbox"
-                  aria-label="Product name options"
+                  role="group"
+                  aria-label="Choose a product" data-portal-detail-escape-owner
                 >
-                  <input
+                  <div class="portal-search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input
                     type="search"
                     class="input-field custom-select-search"
                     id="addProductNameSearch"
-                    placeholder="Search existing products..."
+                    placeholder="Search" aria-label="Search existing products"
                     autocomplete="off"
-                  />
+                  /></div>
                   <div
                     class="custom-select-list"
-                    id="addProductNameOptions"
-                    tabindex="0"
+                    id="addProductNameOptions" role="listbox" aria-label="Existing products"
                   ></div>
                   <button
                     type="button"
@@ -1343,7 +1304,7 @@
             </div>
             <div class="field-stack">
               <label
-                >In Stock (Quantity)
+                >Stock on hand
                 <span style="color: #dc2626">*</span></label
               ><input
                 class="input-field"
@@ -1367,7 +1328,7 @@
 
             <div class="field-stack full">
               <label>Stock Status <span style="color: #dc2626">*</span></label>
-              <div class="stock-toggle-group">
+              <div class="stock-toggle-group" role="group" aria-label="Stock status">
                 <button
                   type="button"
                   class="stock-toggle-btn active-in-stock"
@@ -1399,35 +1360,35 @@
               <div class="block-toggle-row" id="addBlockToggleRow">
                 <div class="block-toggle-label">
                   <strong id="addBlockLabel"
-                    >Product Active (Visible to Customers)</strong
+                    >Visible to customers</strong
                   >
-                  <span>Hide product from customers</span>
+                  <span>Turn on to hide this product from the customer website.</span>
                 </div>
                 <label class="toggle-switch" style="flex-shrink: 0">
-                  <input type="checkbox" id="addProductBlocked" />
+                  <input type="checkbox" id="addProductBlocked" aria-label="Hide from customers" />
                   <span class="toggle-slider"></span>
                 </label>
               </div>
             </div>
 
             <div class="field-stack full">
-              <label>Upload Image</label>
-              <div class="upload-area" id="addUploadArea">
+              <h3 class="modal-section-title product-cover-heading">Cover image</h3><label>Product card image</label>
+              <div class="upload-area" id="addUploadArea" role="button" tabindex="0" aria-label="Choose product cover image">
                 <div class="upload-area-icon">
                   <i class="fa-regular fa-image"></i>
                 </div>
                 <div class="upload-area-text">
                   <strong id="addUploadLabel">Click to choose an image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                  <span>Choose a square image · opens in the image editor</span>
                 </div>
                 <input type="file" id="addProductPhoto" accept="image/*" />
               </div>
             </div>
           </div>
 
-          <p class="modal-section-title" style="margin-top: 22px">
-            Product Details
-          </p>
+          <h3 class="modal-section-title">
+            Customer-facing details
+          </h3>
           <p class="field-hint" style="margin-bottom: 12px">
             These fields appear inside Product Details on the customer's
             product page.
@@ -1439,7 +1400,7 @@
                 class="textarea-field"
                 id="addProductSummary"
                 rows="3"
-                placeholder="Short description shown in the product info modal..."
+                placeholder="Describe this product"
               ></textarea>
             </div>
             <div class="field-stack full">
@@ -1451,7 +1412,7 @@
                 placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"
               ></textarea>
               <p class="field-hint">
-                Each line becomes a chip tag in the customer View Info modal.
+                One detail per line. Shown in the customer’s Product Details.
               </p>
             </div>
             <div class="field-stack">
@@ -1474,7 +1435,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer-fixed">
+        <div class="modal-footer-fixed portal-detail-dialog__footer">
           <button class="btn-admin btn-secondary" id="btnCancelAddProduct">
             Cancel
           </button>
@@ -1487,19 +1448,18 @@
 
     <!-- ---------------------- EDIT PRODUCT MODAL ---------------------- -->
     <div
-      class="modal-overlay"
+      class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded
       id="modalEditProduct"
       data-backdrop-close="false"
     >
-      <div class="modal-card product-modal">
-        <div class="modal-header-fixed">
-          <h3 class="modal-title">
-            <i class="fa-regular fa-pen-to-square" style="margin-right: 6px"></i
-            >Edit Product
-          </h3>
-        </div>
-        <div class="modal-body-scroll">
-          <p class="modal-section-title">Product Card Details</p>
+      <div class="modal-card product-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="modalEditProductHeading">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12H4v-5L16 3ZM13 6l5 5"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Products</p><h2 class="portal-detail-dialog__title" id="modalEditProductHeading" data-portal-detail-heading tabindex="-1">Edit Product</h2></div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close edit product" title="Close edit product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18 18 6"/></svg></button>
+        </header>
+        <div class="modal-body-scroll portal-detail-dialog__body" tabindex="0" role="region" aria-label="Edit Product fields">
+          <h3 class="modal-section-title">Product information</h3>
           <p class="field-hint" style="margin-bottom: 12px">
             These fields are displayed on the customer's product card.
           </p>
@@ -1530,7 +1490,7 @@
             </div>
             <div class="field-stack">
               <label
-                >In Stock (Quantity)
+                >Stock on hand
                 <span style="color: #dc2626">*</span></label
               ><input
                 class="input-field"
@@ -1554,7 +1514,7 @@
 
             <div class="field-stack full">
               <label>Stock Status <span style="color: #dc2626">*</span></label>
-              <div class="stock-toggle-group">
+              <div class="stock-toggle-group" role="group" aria-label="Stock status">
                 <button
                   type="button"
                   class="stock-toggle-btn active-in-stock"
@@ -1586,27 +1546,25 @@
               <div class="block-toggle-row" id="editBlockToggleRow">
                 <div class="block-toggle-label">
                   <strong id="editBlockLabel"
-                    >Product Active (Visible to Customers)</strong
+                    >Visible to customers</strong
                   >
                   <span
-                    >Toggle to block this product from appearing on the customer
-                    website.</span
+                    >Turn on to hide this product from the customer website.</span
                   >
                 </div>
                 <label class="toggle-switch" style="flex-shrink: 0">
-                  <input type="checkbox" id="editProductBlocked" />
+                  <input type="checkbox" id="editProductBlocked" aria-label="Hide from customers" />
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <p class="field-hint">
-                When blocked, the product is hidden and not clickable on the
-                customer website.
+                Hidden products do not appear on the customer website.
               </p>
             </div>
 
             <div class="field-stack full">
-              <label>Upload Image</label>
-              <div class="upload-area" id="editUploadArea">
+              <h3 class="modal-section-title product-cover-heading">Cover image</h3><label>Product card image</label>
+              <div class="upload-area" id="editUploadArea" role="button" tabindex="0" aria-label="Replace product cover image">
                 <div class="upload-area-icon">
                   <i class="fa-regular fa-image"></i>
                 </div>
@@ -1624,9 +1582,9 @@
             <p class="product-gallery-status" role="status">Preparing your five-slot product gallery…</p>
           </section>
 
-          <p class="modal-section-title" style="margin-top: 22px">
-            Product Details
-          </p>
+          <h3 class="modal-section-title">
+            Customer-facing details
+          </h3>
           <p class="field-hint" style="margin-bottom: 12px">
             These fields appear inside Product Details on the customer's
             product page.
@@ -1638,7 +1596,7 @@
                 class="textarea-field"
                 id="editProductSummary"
                 rows="3"
-                placeholder="Short description shown in the product info modal..."
+                placeholder="Describe this product"
               ></textarea>
             </div>
             <div class="field-stack full">
@@ -1650,7 +1608,7 @@
                 placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"
               ></textarea>
               <p class="field-hint">
-                Each line becomes a chip tag in the customer View Info modal.
+                One detail per line. Shown in the customer’s Product Details.
               </p>
             </div>
             <div class="field-stack">
@@ -1673,7 +1631,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer-fixed">
+        <div class="modal-footer-fixed portal-detail-dialog__footer">
           <button class="btn-admin btn-secondary" id="btnCancelEditProduct">
             Cancel
           </button>
@@ -1723,46 +1681,37 @@
       </section>
     </div>
 
-    <!-- ---------------------- DELETE PRODUCT MODAL ---------------------- -->
-    <div
-      class="modal-overlay"
-      id="modalDeleteProduct"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Delete Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to permanently delete
-          <strong id="deleteProductTargetLabel">this product</strong>.
-        </p>
-        <p class="field-hint">
-          This action cannot be undone. The product will be removed from the
-          database.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelDeleteProduct">
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnConfirmProductDelete" type="button">
-            Delete Product
-          </button>
+    <!-- Permanent deletion retains the existing operation and safeguards. -->
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalDeleteProduct" data-backdrop-close="false" data-portal-detail-dialog data-portal-detail-guarded>
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="deleteProductHeading" aria-describedby="deleteProductDescription">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Products</p><h2 class="portal-detail-dialog__title" id="deleteProductHeading" data-portal-detail-heading tabindex="-1">Delete Product</h2></div>
+
+        </header>
+        <div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Delete confirmation details">
+          <p class="portal-detail-copy" id="deleteProductDescription">Permanently delete <strong id="deleteProductTargetLabel">this product</strong>?</p>
+          <p class="field-hint">This action cannot be undone. The product and its gallery will be permanently removed.</p>
         </div>
-      </div>
+        <footer class="portal-detail-dialog__footer">
+          <button type="button" class="btn-admin btn-secondary" id="btnCancelDeleteProduct">Cancel</button>
+          <button class="btn-admin" id="btnConfirmProductDelete" type="button">Delete Product</button>
+        </footer>
+      </section>
     </div>
 
     <!-- ---------------------- PHOTO EDITOR MODAL ---------------------- -->
     <div
-      class="modal-overlay"
+      class="modal-overlay portal-detail-dialog portal-detail-dialog--form" data-portal-detail-dialog data-portal-detail-guarded
       id="modalProductPhotoEditor"
       data-backdrop-close="false"
     >
-      <div class="modal-card photo-editor-modal">
-        <h3 class="modal-title" style="margin-bottom: 14px">
-          <i class="fa-regular fa-image" style="margin-right: 6px"></i>Edit
-          Image
-        </h3>
+      <div class="modal-card photo-editor-modal portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="productPhotoHeading">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-6-6L3 21"/></svg></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Products</p><h2 class="portal-detail-dialog__title" id="productPhotoHeading" data-portal-detail-heading tabindex="-1">Edit Image</h2></div>
+          <button class="portal-detail-dialog__close" type="button" data-portal-detail-close aria-label="Close edit image" title="Close edit image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18 18 6"/></svg></button>
+        </header><div class="portal-detail-dialog__body" tabindex="0" role="region" aria-label="Image editing controls"><p class="field-hint product-image-guidance">Adjust the rotation and scale, then save your cover image.</p>
         <div class="photo-editor-canvas-wrap">
           <img id="productPhotoEditorPreview" alt="Image editor preview" />
         </div>
@@ -1790,7 +1739,7 @@
             <span class="slider-val" id="scaleVal">100%</span>
           </div>
         </div>
-        <div class="modal-actions" style="margin-top: 14px">
+        </div><div class="modal-actions portal-detail-dialog__footer">
           <button class="btn-admin btn-secondary" id="btnCancelPhotoEdit">
             Cancel
           </button>
@@ -1802,12 +1751,12 @@
     </div>
 
     <script src="session-helper.js?v=2026.1113.9"></script>
-    <script src="admin-session.js?v=1.0"></script>
+    <script src="admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=2026.1114.4"></script>
+    <script src="admin-common.js?v=2026.1114.5"></script>
     <script src="product-gallery.js?v=2026.1113.1"></script>
-    <script src="portal-detail-dialog.js?v=2026.1114.3"></script>
-    <script src="products.js?v=2026.1114.2"></script>
+    <script src="portal-detail-dialog.js?v=2026.1114.5"></script>
+    <script src="products.js?v=2026.1114.5"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

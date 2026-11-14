@@ -170,6 +170,20 @@
         <p class="admin-session-warning__status" role="status" aria-live="polite"></p>
         <button type="button" class="admin-session-warning__stay">Stay signed in</button>
       </section>`;
+    if (document.body.dataset?.portalPopups === 'refined') {
+      warning.classList.add('portal-detail-dialog', 'portal-detail-dialog--compact');
+      warning.setAttribute('data-portal-detail-dialog', ''); warning.setAttribute('data-portal-detail-guarded', ''); warning.setAttribute('data-portal-detail-keyboard-owner', '');
+      warning.dataset.portalDetailVisibility = 'hidden';
+      const card = warning.querySelector('.admin-session-warning__dialog'); card.classList.add('portal-detail-dialog__card');
+      const title = card.querySelector('h2'); title.className = 'portal-detail-dialog__title';
+      const header = document.createElement('header'); header.className = 'portal-detail-dialog__header';
+      header.innerHTML = '<span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Your session</p></div>';
+      header.querySelector('.portal-detail-dialog__heading').append(title); card.querySelector('.admin-session-warning__icon').remove();
+      const body = document.createElement('div'); body.className = 'portal-detail-dialog__body'; body.tabIndex = 0;
+      body.append(card.querySelector('#adminSessionDescription'), card.querySelector('.admin-session-warning__remaining'), card.querySelector('.admin-session-warning__status'));
+      const footer = document.createElement('footer'); footer.className = 'portal-detail-dialog__footer';
+      const stay = card.querySelector('button'); stay.classList.add('btn-admin'); stay.setAttribute('data-portal-detail-initial-focus', ''); footer.append(stay); card.append(header, body, footer);
+    }
     document.body.appendChild(warning);
     countdown = warning.querySelector(".admin-session-warning__remaining strong");
     statusText = warning.querySelector(".admin-session-warning__status");

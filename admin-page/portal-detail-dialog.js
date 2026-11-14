@@ -2,12 +2,13 @@
 (() => {
   'use strict';
   const roots = () => [...document.querySelectorAll('[data-portal-detail-dialog]')];
-  const layerSelector = '.modal-overlay.show, .admin-system-popup.show, .admin-session-warning, dialog[open]';
+  const layerSelector = '[data-portal-detail-dialog], .modal-overlay.show, .admin-system-popup.show, .admin-session-warning:not([hidden]), dialog[open]';
   const tabbable = 'button:not(:disabled),a[href],input:not(:disabled):not([type="hidden"]),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
   const closeHandlers = new WeakMap();
   let session = null;
   const visible = node => node?.isConnected && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
-  const layers = () => [...document.querySelectorAll(layerSelector)].filter(visible)
+  const isOpen = node => node.dataset.portalDetailVisibility === 'hidden' ? !node.hidden && visible(node) : node.classList.contains('show') && visible(node);
+  const layers = () => [...document.querySelectorAll(layerSelector)].filter(node => node.matches('[data-portal-detail-dialog]') ? isOpen(node) : visible(node))
     .sort((a, b) => (parseInt(getComputedStyle(a).zIndex) || 0) - (parseInt(getComputedStyle(b).zIndex) || 0));
   const controls = layer => [...layer.querySelectorAll(tabbable)].filter(node => visible(node) && !node.closest('[inert]') && node.getAttribute('aria-disabled') !== 'true');
   const capture = (node, properties) => properties.map(name => [name, node.style.getPropertyValue(name), node.style.getPropertyPriority(name)]);
@@ -49,27 +50,31 @@
   }
   function sync() {
     const dialogs = roots();
-    const openRoot = dialogs.find(root => root.classList.contains('show'));
-    dialogs.forEach(root => root.setAttribute('aria-hidden', String(!root.classList.contains('show'))));
+    const openRoot = dialogs.find(isOpen);
+    dialogs.forEach(root => root.setAttribute('aria-hidden', String(!isOpen(root))));
     if (!session && openRoot) begin(openRoot);
     if (!session) return;
     const openLayers = layers();
     if (!openRoot && !openLayers.length) { finish(); return; }
     const top = openLayers.at(-1);
     if (!top) { finish(); return; }
-    const inertNodes = new Set([...document.querySelectorAll('.dashboard-container'), ...openLayers.filter(layer => layer !== top)]);
+    const inertNodes = new Set(openLayers.filter(layer => layer !== top && !layer.contains(top)));
+    // Inert siblings along the active dialog's ancestry, including header tools.
+    for (let branch = top; branch && branch !== document.body; branch = branch.parentElement) {
+      [...branch.parentElement.children].forEach(node => { if (node !== branch && !node.matches('script,style,link')) inertNodes.add(node); });
+    }
     session.inert.forEach((value, node) => { if (!inertNodes.has(node)) { node.inert = value; session.inert.delete(node); } });
     inertNodes.forEach(node => { if (!session.inert.has(node)) session.inert.set(node, node.inert); node.inert = true; });
     if (session.top !== top) {
       session.top = top;
       if (!top.contains(document.activeElement) || document.activeElement.closest('[inert]')) {
         const previousFocus = session.lastFocus.get(top);
-        focus(visible(previousFocus) ? previousFocus : top.querySelector('[data-portal-detail-heading]') || controls(top)[0] || top.querySelector('.modal-title'));
+        focus(visible(previousFocus) ? previousFocus : top.querySelector('[data-portal-detail-initial-focus]') || top.querySelector('[data-portal-detail-heading]') || controls(top)[0] || top.querySelector('.modal-title'));
       }
     }
   }
   const observer = new MutationObserver(records => {
-    if (records.some(record => record.type === 'childList' || record.target.matches('.modal-overlay,.admin-system-popup,.admin-session-warning,dialog'))) sync();
+    if (records.some(record => record.type === 'childList' || record.target.matches('[data-portal-detail-dialog],.modal-overlay,.admin-system-popup,.admin-session-warning,dialog'))) sync();
   });
   observer.observe(document.body, {subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'open', 'hidden']});
   document.addEventListener('focusin', event => {
@@ -80,7 +85,12 @@
   document.addEventListener('keydown', event => {
     if (!session?.top) return;
     const top = session.top;
-    if (event.key === 'Escape' && top.matches('[data-portal-detail-dialog].show')) { event.preventDefault(); event.stopPropagation(); requestClose(top); return; }
+    if (top.hasAttribute('data-portal-detail-keyboard-owner')) return;
+    if (event.key === 'Escape' && top.matches('[data-portal-detail-dialog]')) {
+      // Let a form's expanded picker consume Escape before closing its owner.
+      if (event.target.closest('[data-portal-detail-escape-owner]')) return;
+      event.preventDefault(); event.stopImmediatePropagation(); requestClose(top); return;
+    }
     if (event.key === 'Tab') {
       const nodes = controls(top), first = nodes[0], last = nodes.at(-1);
       if (!first) { event.preventDefault(); return; }
@@ -109,10 +119,21 @@
   });
   window.PortalDetailDialog = {
     registerClose(root, handler) { if (root && typeof handler === 'function') closeHandlers.set(root, handler); },
+    adopt(root, {close, visibility = 'class'} = {}) {
+      if (!root) return;
+      root.setAttribute('data-portal-detail-dialog', '');
+      root.setAttribute('data-portal-detail-guarded', '');
+      root.dataset.portalDetailVisibility = visibility;
+      if (typeof close === 'function') closeHandlers.set(root, close);
+      sync();
+    },
     open(root, options = {}) {
       if (!root?.matches('[data-portal-detail-dialog]')) return;
-      const wasOpen = root.classList.contains('show');
-      begin(root, options); root.classList.add('show'); sync();
+      const wasOpen = isOpen(root);
+      begin(root, options);
+      if (root.dataset.portalDetailVisibility === 'hidden') root.hidden = false;
+      else root.classList.add('show');
+      sync();
       if (!wasOpen) root.querySelector('.portal-detail-dialog__body')?.scrollTo({top: 0, behavior: 'instant'});
     },
     handoff(root, target) { if (session?.root === root) session.handoff = target; },
