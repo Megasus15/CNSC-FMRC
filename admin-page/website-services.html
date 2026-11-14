@@ -373,8 +373,10 @@
     <script src="admin-form-controls.js?v=1.0" defer></script>
       <link rel="stylesheet" href="../home-page/appointment-products.css?v=2026.1111.6">
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.14" />
+    <link rel="stylesheet" href="website-home-ui.css?v=2026.1114.15" />
+    <link rel="stylesheet" href="website-services-ui.css?v=2026.1114.15" />
   </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-popup-context="Services" data-portal-services-dialogs>
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -622,7 +624,7 @@
               </select>
             </div>
             <div class="field-stack">
-              <label>Title <span style="color: #dc2626">*</span></label>
+              <label for="svcTitle">Title <span style="color: #dc2626">*</span></label>
               <input
                 type="text"
                 class="wm-input"
@@ -666,7 +668,7 @@
               <small id="svcAppointmentProductsHelp">Customers can discuss a custom product through this service. Changes publish only after Save All Changes.</small>
             </div>
             <div class="field-stack full">
-              <label for="svcModalDesc">Modal Description</label>
+              <label for="svcModalDesc">Detailed Description</label>
               <textarea
                 class="wm-textarea"
                 id="svcModalDesc" maxlength="2500"
@@ -683,7 +685,7 @@
                 <input
                   class="chip-hidden-input"
                   id="svcFeaturesInput" maxlength="120"
-                  placeholder="Type feature and press Enter�"
+                  placeholder="Add a feature and press Enter"
                 />
               </div>
             </div>
@@ -730,7 +732,8 @@
     <script src="admin-common.js?v=2026.1114.12"></script>
     <script src="portal-detail-dialog.js?v=2026.1114.10"></script>
     <script src="../home-page/page-content.js?v=2026.1113.8"></script>
-    <script src="website-services.js?v=2026.1107.1"></script>
+    <script src="website-services.js?v=2026.1114.15"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
+    <script src="website-services-ui.js?v=2026.1114.15"></script>
   </body>
 </html>

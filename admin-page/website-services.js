@@ -150,7 +150,7 @@ function renderCategoryManager() {
     remove.className = "btn-del-sm";
     remove.type = "button";
     remove.setAttribute("aria-label", `Delete ${category || "category"}`);
-    remove.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i> Delete';
+    remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg> Delete';
     remove.addEventListener("click", () => {
       if (serviceCategories.length <= 1) {
         window.showAdminPopup("Keep at least one service category.", { title: "Category required" });
@@ -305,8 +305,8 @@ function renderCards() {
         <div class="card-desc">${escHtml(s.description || "")}</div>
       </div>
       <div class="card-actions">
-        <button class="btn-edit-sm" data-service-action="edit" data-service-id="${escHtml(s.id)}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
-        <button class="btn-del-sm" data-service-action="delete" data-service-id="${escHtml(s.id)}"><i class="fa-solid fa-trash"></i> Delete</button>
+        <button type="button" class="btn-edit-sm" data-service-action="edit" data-service-id="${escHtml(s.id)}" aria-label="Edit ${escHtml(s.title)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14l-1 7 6-2"/></svg> Edit</button>
+        <button type="button" class="btn-del-sm" data-service-action="delete" data-service-id="${escHtml(s.id)}" aria-label="Delete ${escHtml(s.title)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg> Delete</button>
       </div>
     </div>
   `,
@@ -412,7 +412,7 @@ function openAdd() {
   serviceDiscardGuard?.capture();
   serviceDraft?.capture();
   updateServiceLimits();
-  document.getElementById("serviceModal").classList.add("show");
+  openServiceDialog('#btnAddService');
 }
 
 function openEdit(id) {
@@ -450,7 +450,13 @@ function openEdit(id) {
   serviceDiscardGuard?.capture();
   serviceDraft?.capture();
   updateServiceLimits();
-  document.getElementById("serviceModal").classList.add("show");
+  openServiceDialog(`[data-service-action="edit"][data-service-id="${id}"]`);
+}
+
+function openServiceDialog(returnSelector) {
+  const root = document.getElementById('serviceModal');
+  if (window.PortalDetailDialog && root.hasAttribute('data-portal-detail-dialog')) window.PortalDetailDialog.open(root, {returnSelector});
+  else root.classList.add('show');
 }
 
 function closeModal() {

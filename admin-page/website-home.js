@@ -2300,9 +2300,9 @@ function renderSdgSlots() {
     { length: emptySlots },
     (_, i) => `
     <div class="wm-sdg-slot is-empty">
-      <span class="wm-sdg-slot-index">Slot ${sdgsData.length + i + 1}</span>
-      <button class="wm-sdg-add" type="button" title="Upload an SDG badge"
-              onclick="openSdgUpload(null)"><i class="fa-solid fa-plus"></i></button>
+      <div class="wm-sdg-slot-meta"><span class="wm-sdg-slot-index">Slot ${sdgsData.length + i + 1}</span></div>
+      <button class="wm-sdg-add" type="button" title="Upload an SDG badge" aria-label="Upload SDG badge in slot ${sdgsData.length + i + 1}"
+              onclick="openSdgUpload(null)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       <div class="wm-sdg-title" style="color:var(--portal-muted-color,#9ca3af);font-weight:600">Upload SDG</div>
     </div>`,
   ).join("");
@@ -2319,10 +2319,9 @@ function sdgSlotHtml(s, i) {
     : '<span style="color:#d1d5db"><i class="fa-regular fa-image"></i></span>';
   return `
     <div class="wm-sdg-slot">
-      <span class="wm-sdg-slot-index">Slot ${i + 1}</span>
+      <div class="wm-sdg-slot-meta"><span class="wm-sdg-slot-index">Slot ${i + 1}</span>${s.is_visible ? "" : '<span class="wm-sdg-hidden-tag">Hidden</span>'}</div>
       <div class="wm-sdg-thumb">${thumb}</div>
       <div class="wm-sdg-title" title="${sdgEsc(s.title)}">${sdgEsc(s.title)}</div>
-      ${s.is_visible ? "" : '<span class="wm-sdg-hidden-tag">Hidden</span>'}
       <div class="wm-sdg-actions">
         ${action('Move left','<path d="m12 5-7 7 7 7M5 12h14"/>',`reorderSdg(${s.id}, -1)`,i === 0)}
         ${action('Move right','<path d="m12 5 7 7-7 7M19 12H5"/>',`reorderSdg(${s.id}, 1)`,isLast)}

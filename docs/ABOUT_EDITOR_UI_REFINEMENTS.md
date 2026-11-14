@@ -21,11 +21,11 @@ owned by the existing feature script. No content is seeded or published by this
 presentation update. Customer About Us markup/styles and other customer pages
 are unchanged.
 
-Home SDG slots now have a compact 64px thumbnail, natural card height, and six
-equal 44px icon controls in a three-by-two grid. Tooltips and accessible names
-identify each action and badge. Empty slots do not stretch to match populated
-ones. The existing ordering, edit, replacement, fitting and removal handlers are
-unchanged.
+Home SDG slots have a compact 64px thumbnail and six equal 44px icon controls in
+a three-by-two grid. The Services follow-up aligns filled/empty slot heights and
+reserves consistent title space so controls line up. Tooltips and accessible
+names identify each action and badge. The existing ordering, edit, replacement,
+fitting and removal handlers are unchanged.
 
 All adopted portal overlays, including shared notifications/media/session
 dialogs and native Orders dialogs, use `rgba(17,24,39,.5)` with a 3px blur. The

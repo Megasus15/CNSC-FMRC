@@ -3,8 +3,9 @@
 Admin and Staff Home opt into the Inventory dialog presentation through
 `website-home-ui.js` and `website-home-ui.css`. Existing feature owners keep the
 same form nodes, IDs, image calculations, settings keys, request payloads and
-draft handlers. About now shares this opt-in adapter; Services retains its own
-presentation. About-specific gallery and video details use `website-about-ui.css`.
+draft handlers. About shares this opt-in adapter; Services shares the stylesheet
+and uses its own opt-in adapter. About-specific gallery and video details use
+`website-about-ui.css`; Services details use `website-services-ui.css`.
 
 Hero, 3D Fabrication Scene, Brand Logos, Sustainable Development Goals, What We
 Offer and Home Section Text share cream cards, maroon SVG icon tiles, neutral

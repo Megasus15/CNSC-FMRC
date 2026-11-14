@@ -1,0 +1,42 @@
+/* Services editor only: retain all controls and feature-owned workflows. */
+body[data-portal-services-dialogs] .panel { min-width:0; padding:24px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface,#fdfaf6); }
+body[data-portal-services-dialogs] .services-section-heading { display:flex; align-items:center; gap:12px; padding-bottom:18px; margin-bottom:18px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-services-dialogs] .services-section-heading h2 { margin:0; color:var(--primary-color,#800000); font-size:17px; font-weight:600; line-height:1.5; }
+body[data-portal-services-dialogs] .services-toolbar .toolbar-title h2 { color:var(--primary-color,#800000); font-size:22px; line-height:1.5; }
+body[data-portal-services-dialogs] .services-toolbar .toolbar-title p { font-size:13px; line-height:1.7; color:var(--text-muted,#6b6269); }
+body[data-portal-services-dialogs] .services-toolbar .toolbar-actions { align-items:center; }
+body[data-portal-services-dialogs] .services-toolbar .btn-admin { min-height:44px; text-decoration:none; white-space:nowrap; }
+body[data-portal-services-dialogs] .service-category-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:20px 0; }
+body[data-portal-services-dialogs] .service-category-row { gap:8px; padding:12px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-services-dialogs] .service-category-row button { justify-content:center; }
+body[data-portal-services-dialogs] .service-category-add { padding-top:16px; border-top:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-services-dialogs] .service-category-input-row .btn-admin { min-height:44px; }
+body[data-portal-services-dialogs] .service-form-status,body[data-portal-services-dialogs] .service-field-count { font-size:12px; line-height:1.6; color:var(--text-muted,#6b6269); }
+body[data-portal-services-dialogs] :is(.service-field-count,.service-form-status).is-invalid { color:var(--portal-accent,#800000); }
+body[data-portal-services-dialogs] .wm-service-card { box-shadow:none; }
+body[data-portal-services-dialogs] .wm-service-card .card-img { background:var(--surface-alt,#f8f4ef); }
+body[data-portal-services-dialogs] .wm-service-card .card-cat { color:var(--primary-color,#800000); font-size:11px; line-height:1.6; }
+body[data-portal-services-dialogs] .wm-service-card .card-desc { white-space:pre-wrap; overflow-wrap:anywhere; }
+body[data-portal-services-dialogs] .wm-service-card .card-actions button { justify-content:center; }
+body[data-portal-services-dialogs] :is(.btn-edit-sm,.btn-del-sm) svg { flex:0 0 18px; width:18px; height:18px; }
+body[data-portal-services-dialogs] .services-form-heading { display:flex; align-items:center; gap:8px; padding-bottom:12px; border-bottom:1px solid var(--border-color,#e2e8f0); color:var(--primary-color,#800000); }
+body[data-portal-services-dialogs] .services-form-heading svg { flex:0 0 20px; width:20px; height:20px; }
+body[data-portal-services-dialogs] .services-form-heading h4 { margin:0; color:inherit; font-size:14px; font-weight:600; line-height:1.5; }
+body[data-portal-services-dialogs] .wm-img-preview { max-height:200px; background:var(--surface-alt,#f8f4ef); border-color:var(--border-color,#e2e8f0); }
+body[data-portal-services-dialogs] .chip-input-area { min-width:0; min-height:44px; padding:8px; border-color:var(--border-color,#e2e8f0); background:var(--surface,#fdfaf6); }
+body[data-portal-services-dialogs] .chip-hidden-input { min-width:100px; max-width:100%; min-height:44px; color:var(--text-main,#2b2b31); background:transparent; font-size:14px; }
+body[data-portal-services-dialogs] .chip-tag-item { max-width:100%; padding:0 0 0 10px; border-color:var(--portal-accent-border,#ead8db); background:var(--portal-accent-soft,#fbf1f2); color:var(--text-main,#2b2b31); border-radius:8px; font-size:13px; overflow-wrap:anywhere; }
+body[data-portal-services-dialogs] .chip-remove { flex:0 0 44px; width:44px; height:44px; color:var(--primary-color,#800000); }
+body[data-portal-services-dialogs] .ap-panel { padding:14px; border-color:var(--border-color,#e2e8f0); background:var(--surface-alt,#f8f4ef); }
+body[data-portal-services-dialogs] .ap-check { display:flex; align-items:flex-start; gap:10px; min-height:44px; }
+body[data-portal-services-dialogs] .ap-check input { flex:0 0 18px; width:18px; height:18px; min-height:0; margin-top:3px; accent-color:var(--primary-color,#800000); }
+body[data-portal-services-dialogs] .ap-panel small { font-size:12px; line-height:1.7; color:var(--text-muted,#6b6269); }
+@media(max-width:1023px) { body[data-portal-services-dialogs] .service-category-list { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:639px) {
+ body[data-portal-services-dialogs] .panel { padding:18px 16px; }
+ body[data-portal-services-dialogs] .service-category-row { padding:10px; }
+ body[data-portal-services-dialogs] .services-toolbar .toolbar-actions { justify-content:flex-end; }
+ body[data-portal-services-dialogs] .services-toolbar .btn-admin { flex:1 1 auto; justify-content:center; }
+ body[data-portal-services-dialogs] .service-category-input-row .btn-admin { justify-self:stretch; }
+ body[data-portal-services-dialogs] .wm-service-card .card-actions { flex-wrap:nowrap; }
+}
