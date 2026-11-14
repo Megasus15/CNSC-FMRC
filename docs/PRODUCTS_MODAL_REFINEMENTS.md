@@ -3,6 +3,10 @@
 Release assets: **2026.1114.5**. This is a frontend-only release: no migration,
 Composer install, new dependency, or ZIP upload is required.
 
+The following [Promotions rollout](PROMOTIONS_MODAL_REFINEMENTS.md) extends the
+design and introduces the opt-in unchanged-edit save rule for Inventory,
+Products and Promotions in assets **2026.1114.6**.
+
 ## Scope
 
 Inventory and Products opt in with `data-portal-popups="refined"` on their

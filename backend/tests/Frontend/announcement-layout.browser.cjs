@@ -27,7 +27,7 @@ function fixture(file) {
       String(url).includes('products') ? [{id:1,name:'Fixture product',code:'TEST'}] : []})});
   </script>
   <script src='/home-page/customer-announcements.js'></script>
-  ${admin ? "<script src='/admin-page/admin-common.js'></script><script src='/admin-page/promotions.js'></script>" : ''}`;
+  ${admin ? "<script src='/admin-page/admin-common.js'></script><script src='/admin-page/portal-detail-dialog.js'></script><script src='/admin-page/promotions.js'></script>" : ''}`;
   return html.replace('</body>', setup + '</body>');
 }
 

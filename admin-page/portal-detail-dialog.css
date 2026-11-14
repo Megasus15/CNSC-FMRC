@@ -388,3 +388,33 @@ html[data-portal-motion="reduced"] .portal-detail-dialog--form .stock-rule-guide
 }
 .portal-detail-dialog--notifications .portal-detail-dialog__header { padding-top: max(20px, env(safe-area-inset-top)); }
 .portal-detail-dialog--notifications .all-notif-list.portal-detail-dialog__body { padding: 0 0 env(safe-area-inset-bottom); }
+
+/* Campaign editors adopt the same form shell; customer-facing cards keep their
+   existing renderer and styles. Only the modal body owns vertical scrolling. */
+.portal-detail-dialog--form .campaign-form-section { grid-column: 1 / -1; margin: 8px 0 0; }
+.portal-detail-dialog--form .campaign-form-section:first-of-type { margin-top: 0; }
+.portal-detail-dialog--form .campaign-form-guidance { margin: 0 0 18px; }
+.portal-detail-dialog--form .campaign-check { min-height: 44px; padding: 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface-alt, #f8f4ef); color: var(--text-main, #2b2b31); font-size: 13px; line-height: 1.6; cursor: pointer; }
+.portal-detail-dialog--form .campaign-check input { flex: 0 0 18px; width: 18px; height: 18px; accent-color: var(--portal-accent, #800000); }
+.portal-detail-dialog--form .product-picker { display: grid; gap: 4px; max-height: none; overflow: visible; border-color: var(--border-color, #e2e8f0); border-radius: 8px; padding: 8px; background: var(--surface, #fdfaf6); }
+.portal-detail-dialog--form .campaign-product-option { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; padding: 10px; color: var(--text-main, #2b2b31); font-size: 13px; line-height: 1.6; cursor: pointer; }
+.portal-detail-dialog--form .campaign-product-option:hover { background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog--form .campaign-product-option input { flex: 0 0 18px; width: 18px; height: 18px; accent-color: var(--portal-accent, #800000); }
+.portal-detail-dialog--form .campaign-product-name { min-width: 0; overflow-wrap: anywhere; }
+.portal-detail-dialog--form .campaign-product-code { margin-left: auto; color: var(--portal-detail-muted); font-size: 11px; overflow-wrap: anywhere; }
+.portal-detail-dialog--form .campaign-theme-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.portal-detail-dialog--form .preset-theme-card { min-width: 0; min-height: 84px; padding: 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: var(--surface, #fdfaf6); color: var(--text-main, #2b2b31); font: inherit; text-align: left; cursor: pointer; box-shadow: none; }
+.portal-detail-dialog--form .preset-theme-card span { font-size: 12px; font-weight: 500; line-height: 1.6; }
+.portal-detail-dialog--form .preset-theme-card.active { border-color: var(--portal-accent, #800000); box-shadow: inset 0 0 0 1px var(--portal-accent, #800000); background: var(--surface-alt, #f8f4ef); }
+.portal-detail-dialog--form .preset-theme-card:hover { border-color: var(--portal-accent, #800000); }
+.portal-detail-dialog--form input[type="color"] { height: 44px; min-height: 44px; padding: 4px; cursor: pointer; }
+.portal-detail-dialog--form #themePromoCardPreview { border-radius: 12px !important; }
+.portal-detail-dialog--form #themePreviewTitle { overflow-wrap: anywhere; }
+.campaign-table-search { flex: 0 1 240px; width: min(240px, 100%); }
+[data-portal-popup-context="Promotions"] .panel-header { flex-wrap: wrap; gap: 14px; }
+@media (max-width: 639px) {
+  .portal-detail-dialog--form .campaign-theme-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .portal-detail-dialog--form .campaign-product-option { flex-wrap: wrap; gap: 8px; }
+  .portal-detail-dialog--form .campaign-product-code { flex-basis: calc(100% - 26px); margin-left: 26px; }
+  .campaign-table-search { flex-basis: 100%; width: 100%; }
+}

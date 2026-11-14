@@ -157,6 +157,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModal = (m) => m?.classList.add("show");
   const closeModal = (m) => m?.classList.remove("show");
 
+  let inventorySavePending = false;
+  let inventorySaveState = null;
+
   const getFormValue = (element) => String(element?.value ?? "");
 
   const getInventoryFormSnapshot = () => ({
@@ -190,6 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const captureInventoryFormBaseline = () => {
     inventoryFormBaseline = getInventoryFormSnapshot();
+    inventorySaveState?.capture();
   };
 
   const isInventoryFormDirty = () => {
@@ -198,6 +202,22 @@ document.addEventListener("DOMContentLoaded", () => {
       JSON.stringify(getInventoryFormSnapshot()) !==
       JSON.stringify(inventoryFormBaseline)
     );
+  };
+
+  inventorySaveState = window.AdminEditSave?.bind({
+    root: modalForm, button: btnSaveForm,
+    getSnapshot: getInventoryFormSnapshot,
+    isEditing: () => editingItemId !== null,
+    isBlocked: () => inventorySavePending,
+  });
+  const setInventorySavePending = pending => {
+    inventorySavePending = pending;
+    modalForm?.setAttribute('aria-busy', String(pending));
+    const body = modalForm?.querySelector('.portal-detail-dialog__body');
+    if (body) body.inert = pending;
+    modalForm?.querySelectorAll('[data-portal-detail-close]').forEach(button => { button.disabled = pending; });
+    if (btnCancelForm) btnCancelForm.disabled = pending;
+    inventorySaveState?.sync();
   };
 
   const capitalizeFirstLetter = (value) =>
@@ -1321,6 +1341,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCancelForm?.addEventListener("click", () => {
+    if (inventorySavePending) return;
     if (!isInventoryFormDirty()) {
       closeInventoryForm();
       return;
@@ -1404,6 +1425,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Save / Update ────────────────────────────────────────────────────────────
   btnSaveForm?.addEventListener("click", async () => {
+    if (!inventorySaveState?.canSave()) return;
     const isEditing = editingItemId !== null;
     const itemName = (formItemName?.value || "").trim();
     const category = formCategory?.value || "Consumable Materials";
@@ -1449,6 +1471,7 @@ document.addEventListener("DOMContentLoaded", () => {
       variants,
     };
 
+    setInventorySavePending(true);
     btnSaveForm.disabled = true;
     btnSaveForm.textContent = isEditing ? "Updating…" : "Saving…";
 
@@ -1500,7 +1523,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Save inventory error:", err);
       showPopup("Connection lost. Please try again.", { title: "Error" });
     } finally {
-      btnSaveForm.disabled = false;
+      setInventorySavePending(false);
       btnSaveForm.innerHTML = isEditing
         ? '<i class="fa-solid fa-floppy-disk"></i> Update Item'
         : '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Add Item';

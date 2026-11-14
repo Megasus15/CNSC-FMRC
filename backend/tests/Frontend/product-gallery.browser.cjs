@@ -173,7 +173,7 @@ test('Product gallery, fixed media layout and shared operator editor work across
         await click('#adminSystemPopupOk');failSave=false;
         await click('#btnUpdateProduct');await until("!document.getElementById('modalEditProduct').classList.contains('show')");
         assert.equal(product.media.length,2);
-        await until("!document.getElementById('btnUpdateProduct').disabled");
+        await until("document.getElementById('modalEditProduct').getAttribute('aria-busy')!=='true'");
         await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
         await addFile('process.webm',true);await until("!document.getElementById('btnUpdateProduct').disabled&&document.querySelector('#editProductGallery .product-gallery-heading>span').textContent==='3 / 5 items'");
         await click('#editProductGallery [data-gallery-action="earlier"][data-index="2"]');
@@ -240,11 +240,11 @@ test('Product gallery, fixed media layout and shared operator editor work across
       assert.equal(await run("document.getElementById('btnUpdateProduct').disabled"),true,'A missing helper shows Retry and cannot silently save without gallery state');
       const unchangedWrites=writes;await click('#btnUpdateProduct');assert.equal(writes,unchangedWrites);
       galleryModuleFails=false;await click('[data-gallery-retry]');
-      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&!document.getElementById('btnUpdateProduct').disabled");
+      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&document.getElementById('editProductGallery').getAttribute('aria-busy')==='false'");
       await click('#btnCancelEditProduct');await until("!document.getElementById('modalEditProduct').classList.contains('show')");
       await run("(()=>{const root=document.getElementById('editProductGallery');root.replaceWith(root.cloneNode(true));})()");
       await click('[data-view-id="1"]');await click('#btnOpenEditFromView');
-      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&!document.getElementById('btnUpdateProduct').disabled");
+      await until("document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5&&document.getElementById('editProductGallery').getAttribute('aria-busy')==='false'");
       assert.equal(await run("document.querySelectorAll('#modalEditProduct input[accept*=\"video/mp4\"]').length"),1,'Rebinding a replaced gallery cleans up the old hidden input');
       await run("window.fixtureFileClicks=0;document.getElementById('editProductGallery').nextElementSibling.addEventListener('click',event=>{event.preventDefault();window.fixtureFileClicks++;})");
       await click('#editProductGallery [data-gallery-action="add"]');

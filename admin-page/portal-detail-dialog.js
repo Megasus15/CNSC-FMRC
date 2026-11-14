@@ -140,3 +140,53 @@
   };
   sync();
 })();
+
+/* Opt-in edit-save state. Owners supply their existing form snapshot and guards.
+   Loading this helper never changes buttons on pages that have not adopted it. */
+(() => {
+  'use strict';
+  const bindings = new WeakMap();
+  // Snapshots are normalized fields/arrays. Keep immutable strings by reference
+  // so a large image data URL is not serialized again on every keystroke.
+  const copy = value => Array.isArray(value) ? value.map(copy) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copy(item)])) : value;
+  const equal = (left, right) => {
+    if (Object.is(left, right)) return true;
+    if (!left || !right || typeof left !== 'object' || typeof right !== 'object' || Array.isArray(left) !== Array.isArray(right)) return false;
+    const keys = Object.keys(left);
+    return keys.length === Object.keys(right).length && keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && equal(left[key], right[key]));
+  };
+  window.AdminEditSave = {
+    bind({root, button, getSnapshot, isEditing = () => true, isBlocked = () => false}) {
+      if (!root || !button || typeof getSnapshot !== 'function') return null;
+      bindings.get(button)?.destroy();
+      let baseline, captured = false;
+      const originalTitle = button.getAttribute('title');
+      const isDirty = () => captured && !equal(getSnapshot(), baseline);
+      const canSave = () => !isBlocked() && (!isEditing() || isDirty());
+      const sync = () => {
+        const blocked = Boolean(isBlocked()), unchanged = isEditing() && !isDirty();
+        button.disabled = blocked || unchanged;
+        button.dataset.editSaveState = blocked ? 'pending' : unchanged ? 'unchanged' : 'ready';
+        if (unchanged && !blocked) button.title = 'Make changes to enable saving.';
+        else if (originalTitle === null) button.removeAttribute('title');
+        else button.title = originalTitle;
+      };
+      const observer = new MutationObserver(sync);
+      observer.observe(root, {childList: true, subtree: true});
+      ['input', 'change', 'click'].forEach(event => root.addEventListener(event, sync));
+      const binding = {
+        capture() { baseline = copy(getSnapshot()); captured = true; sync(); },
+        clear() { baseline = undefined; captured = false; sync(); },
+        sync, isDirty, canSave,
+        destroy() {
+          observer.disconnect();
+          ['input', 'change', 'click'].forEach(event => root.removeEventListener(event, sync));
+          bindings.delete(button);
+        },
+      };
+      bindings.set(button, binding);
+      sync();
+      return binding;
+    },
+  };
+})();

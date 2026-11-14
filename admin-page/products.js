@@ -167,6 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let editProductDiscardGuard = null;
   let photoDiscardGuard = null;
   let productSavePending = false;
+  let editSaveState = null;
   let addSavePending = false;
   let deletePending = false;
   let photoSavePending = false;
@@ -179,7 +180,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let initialGalleryMedia = [];
 
   const syncProductSaveButton = () => {
-    if (btnUpdateProduct) btnUpdateProduct.disabled = productSavePending || galleryInitializing || galleryUnavailable || Boolean(galleryEditor?.isBusy());
+    if (editSaveState) editSaveState.sync();
+    else if (btnUpdateProduct) btnUpdateProduct.disabled = true;
   };
 
   const getGalleryRoot = () => {
@@ -2169,6 +2171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(modalEdit);
     void loadProductGallery(product);
     editProductDiscardGuard?.capture();
+    editSaveState?.capture();
   };
 
   const closeEditProductModal = (published = false) => {
@@ -2183,6 +2186,11 @@ document.addEventListener("DOMContentLoaded", () => {
   editProductDiscardGuard = window.createAdminFormDiscardGuard?.({
     getSnapshot: () => getProductFormSnapshot("edit"),
     close: closeEditProductModal,
+  });
+  editSaveState = window.AdminEditSave?.bind({
+    root: modalEdit, button: btnUpdateProduct,
+    getSnapshot: () => getProductFormSnapshot('edit'),
+    isBlocked: () => productSavePending || galleryInitializing || galleryUnavailable || Boolean(galleryEditor?.isBusy()),
   });
   window.addEventListener("beforeunload", event => {
     if (!modalEdit?.classList.contains("show") || (!galleryEditor?.isBusy() && !editProductDiscardGuard?.isDirty())) return;
@@ -2203,6 +2211,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e) e.preventDefault();
     if (!activeProductId) return;
     if (productSavePending || galleryInitializing || galleryUnavailable || galleryEditor?.isBusy()) return;
+    if (!editSaveState?.canSave()) return;
 
     const name = (editName?.value || "").trim();
     const code = (editCode?.value || "").trim();

@@ -3906,7 +3906,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inventoryPresentation) {
       popup.setAttribute("aria-busy", "false");
       const context = /\/(?:admin|staff)-page\/products(?:\.html)?(?:$|\/)/.test(location.pathname) ? "Products" : "Inventory";
-      popup.querySelector('[data-popup-context]').textContent = options.context || (document.getElementById('allNotifOverlay')?.classList.contains('show') ? 'Notifications' : context);
+      popup.querySelector('[data-popup-context]').textContent = options.context || (document.getElementById('allNotifOverlay')?.classList.contains('show') ? 'Notifications' : document.body.dataset.portalPopupContext || context);
       const subject = `${options.title || ''} ${options.okText || ''}`;
       const icon = options.icon || (options.type === 'error' || /error|fail|invalid|unsuccessful|unable/i.test(subject) ? 'error' : /logout|log out/i.test(subject) ? 'logout' : /archive/i.test(subject) ? 'archive' : /discard|restore/i.test(subject) ? 'reset' : options.isConfirm ? 'confirm' : 'info');
       const paths = {

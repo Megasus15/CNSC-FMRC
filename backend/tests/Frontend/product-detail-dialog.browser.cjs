@@ -86,9 +86,17 @@ test('Product details shares the Inventory dialog across Admin and the dynamic S
     }
     await viewport(1440); await open(1);
     await click('#btnOpenEditFromView');
-    await h.until(`document.querySelector('#modalEditProduct.show') && !document.getElementById('btnUpdateProduct').disabled`);
+    await h.until(`document.querySelector('#modalEditProduct.show') && document.querySelectorAll('#editProductGallery .product-gallery-slot').length===5 && document.getElementById('editProductGallery').getAttribute('aria-busy')==='false'`);
     assert.equal(await h.run(`document.body.style.position`),'fixed');
     assert.equal(await h.run(`document.querySelectorAll('#editProductGallery .product-gallery-slot').length`),5);
+    assert.equal(await h.run(`document.getElementById('btnUpdateProduct').disabled`),true,'Unchanged products cannot update');
+    const unchangedWrites=writes;await click('#btnUpdateProduct');assert.equal(writes,unchangedWrites);
+    await h.run(`document.getElementById('editProductName').value='Temporary edit';document.getElementById('editProductName').dispatchEvent(new Event('input',{bubbles:true}))`);
+    assert.equal(await h.run(`document.getElementById('btnUpdateProduct').disabled`),false);
+    await h.run(`document.getElementById('editProductName').value=${JSON.stringify(base.name)};document.getElementById('editProductName').dispatchEvent(new Event('input',{bubbles:true}))`);
+    assert.equal(await h.run(`document.getElementById('btnUpdateProduct').disabled`),true,'Reverting the edit disables Update again');
+    await click('#editStockStatusOutOfStock');assert.equal(await h.run(`document.getElementById('btnUpdateProduct').disabled`),false);
+    await click('#editStockStatusInStock');assert.equal(await h.run(`document.getElementById('btnUpdateProduct').disabled`),true,'Stock toggle returns to the original state');
     await h.run(`document.getElementById('editProductName').value='Unsaved coaster';document.getElementById('editProductName').dispatchEvent(new Event('input',{bubbles:true}))`);
     await click('#btnCancelEditProduct'); await h.until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Discard changes?'`);
     await click('#adminSystemPopupCancel'); assert.equal(await h.run(`document.getElementById('editProductName').value`),'Unsaved coaster');

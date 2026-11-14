@@ -145,6 +145,12 @@ test('Inventory form, rules, letterhead and archive dialogs preserve workflows i
     await click('#btnSaveInvForm');await popup('Save Failed');await click('#adminSystemPopupOk');assert.equal(await h.run(`document.getElementById('invFormItemName').value`),'New item');
     failSave=false;await click('#btnSaveInvForm');await idle();assert(items.some(item=>item.id===1000&&item.on_hand===10));
     await open('edit');assert.equal(await h.run(`[...document.querySelectorAll('#invVariantList [data-variant-on-hand]')].every(n=>n.disabled&&n.readOnly)`),true);
+    assert.equal(await h.run(`document.getElementById('btnSaveInvForm').disabled`),true,'Unchanged inventory cannot update');
+    const unchangedWrites=writes.length;await click('#btnSaveInvForm');assert.equal(writes.length,unchangedWrites);
+    await input('#invFormItemName','Temporary name');assert.equal(await h.run(`document.getElementById('btnSaveInvForm').disabled`),false);
+    await input('#invFormItemName','Assorted fittings');assert.equal(await h.run(`document.getElementById('btnSaveInvForm').disabled`),true,'Reverted item edits disable Update');
+    await input('#invVariantList [data-variant-unit]','box');assert.equal(await h.run(`document.getElementById('btnSaveInvForm').disabled`),false);
+    await input('#invVariantList [data-variant-unit]','pcs');assert.equal(await h.run(`document.getElementById('btnSaveInvForm').disabled`),true,'Variant changes use the same baseline');
     await input('#invFormItemName','Updated fittings');await click('#btnSaveInvForm');await idle();assert.equal(items.find(item=>item.id===2).variants[1].on_hand,1);
     rules.global.threshold=8;await open('rules');await h.until(`document.getElementById('stockRuleGlobalThreshold').value==='8'`);
     await h.run(`document.getElementById('stockRuleGuideToggle').focus()`);await key('Enter');

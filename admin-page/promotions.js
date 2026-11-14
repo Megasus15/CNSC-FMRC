@@ -92,6 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let promotionDiscardGuard = null;
   let announcementDiscardGuard = null;
   let themeDiscardGuard = null;
+  let promotionSaveState = null, announcementSaveState = null, themeSaveState = null;
+  const savePending = {promotion: false, announcement: false, theme: false};
+  let themeReadGeneration = 0;
   const PROMOTIONS_REALTIME_CHANNEL = "fmrc-promotions-realtime";
   const promotionsChannel =
     typeof window.BroadcastChannel === "function"
@@ -110,7 +113,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function openModal(modalId) {
     const modal = $(modalId);
     if (modal) {
-      modal.classList.add("show");
+      if (window.PortalDetailDialog) window.PortalDetailDialog.open(modal);
+      else modal.classList.add("show");
       renderLivePreview();
     }
   }
@@ -118,6 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeModal(modalId) {
     const modal = $(modalId);
     if (modal) {
+      if (modalId === 'modalCustomizeTheme') themeReadGeneration++;
       modal.classList.remove("show");
       renderLivePreview();
     }
@@ -168,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof window.showAdminPopup === "function") {
       window.showAdminPopup(
         error.message || "Something went wrong. Please try again.",
-        { title: "Error" },
+        { title: "Error", type: "error" },
       );
     } else {
       window.alert(error.message || "Something went wrong. Please try again.");
@@ -201,10 +206,20 @@ document.addEventListener("DOMContentLoaded", () => {
       ? products
           .map(
             (product) =>
-              `<label style="display:flex; align-items:center; gap:8px; padding:6px; font-size:0.8rem; cursor:pointer;"><input type="checkbox" value="${product.id}" ${selected.includes(Number(product.id)) ? "checked" : ""} /> ${esc(product.name)} <span style="margin-left:auto;color:var(--portal-muted-color,#8892a1);font-size:0.75rem">${esc(product.code || "")}</span></label>`,
+              `<label class="campaign-product-option" data-product-search="${esc(`${product.name} ${product.code || ''}`.toLowerCase())}"><input type="checkbox" value="${product.id}" ${selected.includes(Number(product.id)) ? "checked" : ""} /><span class="campaign-product-name">${esc(product.name)}</span><span class="campaign-product-code">${esc(product.code || "")}</span></label>`,
           )
           .join("")
       : '<span class="field-hint">No products are available yet.</span>';
+    filterProductPicker();
+  }
+
+  function filterProductPicker() {
+    const query = ($('promotionProductSearch')?.value || '').trim().toLowerCase();
+    const rows = [...document.querySelectorAll('#promotionProductPicker [data-product-search]')];
+    rows.forEach(row => { row.hidden = !row.dataset.productSearch.includes(query); });
+    let empty = $('promotionProductSearchEmpty');
+    if (!empty) { empty = document.createElement('p'); empty.id = 'promotionProductSearchEmpty'; empty.className = 'field-hint'; empty.textContent = 'No matching products.'; $('promotionProductPicker')?.after(empty); }
+    empty.hidden = !rows.length || rows.some(row => !row.hidden);
   }
 
   function statusName(item) {
@@ -225,17 +240,28 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<span class="campaign-status ${className}">${name}</span>`;
   }
 
+  const filteredPromotions = () => {
+    const query = ($('promotionSearchInput')?.value || '').trim().toLowerCase();
+    return promotions.filter(item => `${item.title} ${item.discount_percent} ${item.scope} ${statusName(item)}`.toLowerCase().includes(query));
+  };
+  const filteredAnnouncements = () => {
+    const query = ($('announcementSearchInput')?.value || '').trim().toLowerCase();
+    return announcements.filter(item => `${item.title} ${item.message} ${item.placement} ${statusName(item)}`.toLowerCase().includes(query));
+  };
+
   function renderPromotions() {
     const tbody = $("promotionTableBody");
     if (!tbody) return;
 
-    const total = promotions.length;
+    const query = ($('promotionSearchInput')?.value || '').trim().toLowerCase();
+    const filtered = filteredPromotions();
+    const total = filtered.length;
     const maxPages = Math.ceil(total / PROMOTIONS_PER_PAGE) || 1;
     if (promotionPage > maxPages) promotionPage = maxPages;
     if (promotionPage < 1) promotionPage = 1;
 
     const startIdx = (promotionPage - 1) * PROMOTIONS_PER_PAGE;
-    const pageItems = promotions.slice(
+    const pageItems = filtered.slice(
       startIdx,
       startIdx + PROMOTIONS_PER_PAGE,
     );
@@ -243,7 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!total) {
       tbody.innerHTML = emptyRow(
         8,
-        'No promotions yet. Click "+ Add Promotion" to create one.',
+        query ? 'No matching promotions.' : 'No promotions yet. Click "+ Add Promotion" to create one.',
       );
     } else {
       tbody.innerHTML = pageItems
@@ -290,13 +316,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbody = $("announcementTableBody");
     if (!tbody) return;
 
-    const total = announcements.length;
+    const query = ($('announcementSearchInput')?.value || '').trim().toLowerCase();
+    const filtered = filteredAnnouncements();
+    const total = filtered.length;
     const maxPages = Math.ceil(total / ANNOUNCEMENTS_PER_PAGE) || 1;
     if (announcementPage > maxPages) announcementPage = maxPages;
     if (announcementPage < 1) announcementPage = 1;
 
     const startIdx = (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE;
-    const pageItems = announcements.slice(
+    const pageItems = filtered.slice(
       startIdx,
       startIdx + ANNOUNCEMENTS_PER_PAGE,
     );
@@ -310,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!total) {
       tbody.innerHTML = emptyRow(
         7,
-        'No announcements yet. Click "+ Add Announcement" to publish one.',
+        query ? 'No matching announcements.' : 'No announcements yet. Click "+ Add Announcement" to publish one.',
       );
     } else {
       tbody.innerHTML = pageItems
@@ -381,10 +409,10 @@ document.addEventListener("DOMContentLoaded", () => {
       table: $("promotionTable"),
       footer: $("promotionTableFooter"),
       tableLabel: "Saved Product Promotions",
-      getEligibleRows: () => promotions,
+      getEligibleRows: filteredPromotions,
       getPageRows: () => {
         const start = (promotionPage - 1) * PROMOTIONS_PER_PAGE;
-        return promotions.slice(start, start + PROMOTIONS_PER_PAGE);
+        return filteredPromotions().slice(start, start + PROMOTIONS_PER_PAGE);
       },
       idleAction: { label: "Select promotions to archive", icon: "fa-box-archive" },
       actions: [
@@ -402,10 +430,10 @@ document.addEventListener("DOMContentLoaded", () => {
       table: $("announcementTable"),
       footer: $("announcementTableFooter"),
       tableLabel: "Saved Visitor Announcements",
-      getEligibleRows: () => announcements,
+      getEligibleRows: filteredAnnouncements,
       getPageRows: () => {
         const start = (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE;
-        return announcements.slice(start, start + ANNOUNCEMENTS_PER_PAGE);
+        return filteredAnnouncements().slice(start, start + ANNOUNCEMENTS_PER_PAGE);
       },
       idleAction: { label: "Select announcements to archive", icon: "fa-box-archive" },
       actions: [
@@ -564,6 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function clearPromotion() {
     $("promotionForm")?.reset();
+    if ($('promotionProductSearch')) $('promotionProductSearch').value = '';
     $("promotionId").value = "";
     $("promotionDiscount").value = 10;
     if ($("promotionScope")) $("promotionScope").value = "all_products";
@@ -587,7 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
     title: getPromotionValue("promotionTitle"),
     discount: getPromotionValue("promotionDiscount"),
     scope: getPromotionValue("promotionScope"),
-    productIds: selectedProductIds().sort((a, b) => a - b),
+    productIds: getPromotionValue("promotionScope") === "specific_products" ? selectedProductIds().sort((a, b) => a - b) : [],
     startsAt: getPromotionValue("promotionStart"),
     endsAt: getPromotionValue("promotionEnd"),
     enabled: Boolean($("promotionEnabled")?.checked),
@@ -747,6 +776,20 @@ document.addEventListener("DOMContentLoaded", () => {
     close: closeThemeForm,
   });
 
+  promotionSaveState = window.AdminEditSave?.bind({root: $('modalAddPromotion'), button: $('btnSavePromotion'), getSnapshot: getPromotionFormSnapshot, isEditing: () => Boolean($('promotionId')?.value), isBlocked: () => savePending.promotion});
+  announcementSaveState = window.AdminEditSave?.bind({root: $('modalAddAnnouncement'), button: $('btnSaveAnnouncement'), getSnapshot: getAnnouncementFormSnapshot, isEditing: () => Boolean($('announcementId')?.value), isBlocked: () => savePending.announcement});
+  themeSaveState = window.AdminEditSave?.bind({root: $('modalCustomizeTheme'), button: $('btnSaveThemeModal'), getSnapshot: getThemeFormSnapshot, isBlocked: () => savePending.theme});
+  function setSavePending(kind, pending) {
+    savePending[kind] = pending;
+    const [rootId, cancelId, state] = {promotion:['modalAddPromotion','promotionReset',promotionSaveState], announcement:['modalAddAnnouncement','announcementReset',announcementSaveState], theme:['modalCustomizeTheme','btnCancelThemeModal',themeSaveState]}[kind];
+    const root = $(rootId); root?.setAttribute('aria-busy', String(pending));
+    const body = root?.querySelector('.portal-detail-dialog__body'); if (body) body.inert = pending;
+    root?.querySelectorAll('[data-portal-detail-close]').forEach(button => { button.disabled = pending; });
+    if ($(cancelId)) $(cancelId).disabled = pending;
+    state?.sync();
+  }
+  [['modalAddPromotion','promotionReset'],['modalAddAnnouncement','announcementReset'],['modalCustomizeTheme','btnCancelThemeModal']].forEach(([rootId,cancelId]) => window.PortalDetailDialog?.registerClose($(rootId), () => $(cancelId)?.click()));
+
   function editPromotion(id) {
     const item = promotions.find((entry) => entry.id === Number(id));
     if (!item) return;
@@ -761,9 +804,11 @@ document.addEventListener("DOMContentLoaded", () => {
     renderProductPicker(item.product_ids || []);
 
     if ($("promotionModalTitle")) {
-      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Edit Promotion`;
+      $("promotionModalTitle").textContent = "Edit Promotion";
     }
     promotionDiscardGuard?.capture();
+    promotionSaveState?.capture();
+    $('btnSavePromotion').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> ' + ($('promotionId').value ? 'Update Promotion' : 'Save Promotion');
     openModal("modalAddPromotion");
   }
 
@@ -781,9 +826,11 @@ document.addEventListener("DOMContentLoaded", () => {
     $("announcementEnabled").checked = item.is_enabled;
 
     if ($("announcementModalTitle")) {
-      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Edit Announcement`;
+      $("announcementModalTitle").textContent = "Edit Announcement";
     }
     announcementDiscardGuard?.capture();
+    announcementSaveState?.capture();
+    $('btnSaveAnnouncement').innerHTML = '<i class="fa-solid fa-paper-plane"></i> ' + ($('announcementId').value ? 'Update Announcement' : 'Save Announcement');
     openModal("modalAddAnnouncement");
   }
 
@@ -799,7 +846,7 @@ document.addEventListener("DOMContentLoaded", () => {
       promotions = promotionData.data || [];
       announcements = announcementData.data || [];
 
-      renderProductPicker();
+      renderProductPicker($('modalAddPromotion')?.classList.contains('show') ? selectedProductIds() : []);
       renderPromotions();
       renderAnnouncements();
       updatePreviewItems();
@@ -843,22 +890,27 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnOpenAddPromotion")?.addEventListener("click", () => {
     clearPromotion();
     if ($("promotionModalTitle")) {
-      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-tags" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Add New Promotion`;
+      $("promotionModalTitle").textContent = "Add Promotion";
     }
     promotionDiscardGuard?.capture();
+    promotionSaveState?.capture();
+    $('btnSavePromotion').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> ' + ($('promotionId').value ? 'Update Promotion' : 'Save Promotion');
     openModal("modalAddPromotion");
   });
 
   $("btnOpenAddAnnouncement")?.addEventListener("click", () => {
     clearAnnouncement();
     if ($("announcementModalTitle")) {
-      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-bullhorn" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Add New Announcement`;
+      $("announcementModalTitle").textContent = "Add Announcement";
     }
     announcementDiscardGuard?.capture();
+    announcementSaveState?.capture();
+    $('btnSaveAnnouncement').innerHTML = '<i class="fa-solid fa-paper-plane"></i> ' + ($('announcementId').value ? 'Update Announcement' : 'Save Announcement');
     openModal("modalAddAnnouncement");
   });
 
   $("btnOpenCustomizeModal")?.addEventListener("click", async () => {
+    const generation = ++themeReadGeneration;
     // Seed from the saved-for-everyone copy first so two admins never see two
     // different "current" themes; the browser cache is the offline fallback.
     const cached =
@@ -888,6 +940,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // late refresh below reads as an unsaved user edit and closing the modal
       // raises a false "discard your changes?" prompt.
       themeDiscardGuard?.capture();
+      themeSaveState?.capture();
+      syncPresetSelection();
     };
 
     seedThemeForm();
@@ -899,6 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (res.ok) {
         const saved = (await res.json())?.data || {};
+        if (generation !== themeReadGeneration || !$('modalCustomizeTheme')?.classList.contains('show') || themeDiscardGuard?.isDirty()) return;
         let changed = false;
         Object.keys(THEME_KEYS).forEach((field) => {
           const value = saved[THEME_KEYS[field]];
@@ -917,6 +972,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("btnCancelThemeModal")?.addEventListener("click", () => {
+    if (savePending.theme) return;
     if (themeDiscardGuard) {
       themeDiscardGuard.cancel();
       return;
@@ -924,22 +980,18 @@ document.addEventListener("DOMContentLoaded", () => {
     closeThemeForm();
   });
 
-  // Preset Theme Cards selection
-  document.querySelectorAll("#themePresetsGrid .preset-theme-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      document.querySelectorAll("#themePresetsGrid .preset-theme-card").forEach((c) => {
-        c.classList.remove("active");
-        c.style.border = "1px solid #e2e8f0";
-      });
-      card.classList.add("active");
-      card.style.border = "2px solid #800000";
-
-      const p = card.dataset.primary;
-      const s = card.dataset.secondary;
-      if ($("themePrimaryColor")) $("themePrimaryColor").value = p;
-      if ($("themeSecondaryColor")) $("themeSecondaryColor").value = s;
-
-      applyThemeDraft();
+  function syncPresetSelection() {
+    document.querySelectorAll('#themePresetsGrid .preset-theme-card').forEach(card => {
+      const selected = card.dataset.primary === $('themePrimaryColor')?.value && card.dataset.secondary === $('themeSecondaryColor')?.value;
+      card.classList.toggle('active', selected); card.setAttribute('aria-pressed', String(selected));
+    });
+  }
+  document.querySelectorAll('#themePresetsGrid .preset-theme-card').forEach(card => {
+    card.addEventListener('click', () => {
+      if (savePending.theme) return;
+      $('themePrimaryColor').value = card.dataset.primary;
+      $('themeSecondaryColor').value = card.dataset.secondary;
+      syncPresetSelection(); applyThemeDraft(); themeSaveState?.sync();
     });
   });
 
@@ -950,10 +1002,12 @@ document.addEventListener("DOMContentLoaded", () => {
     $("themeEmojiRight"),
     $("themeEyebrowLabel"),
   ].forEach((input) => {
-    input?.addEventListener("input", applyThemeDraft);
+    input?.addEventListener("input", () => { syncPresetSelection(); applyThemeDraft(); });
   });
 
   $("btnSaveThemeModal")?.addEventListener("click", async () => {
+    if (!themeSaveState?.canSave()) return;
+    setSavePending('theme', true);
     const button = $("btnSaveThemeModal");
     const theme = readThemeInputs();
     // Cache it locally so this browser's preview updates the moment we save,
@@ -989,10 +1043,8 @@ document.addEventListener("DOMContentLoaded", () => {
       res = null;
     }
 
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = original;
-    }
+    setSavePending('theme', false);
+    if (button) button.innerHTML = original;
 
     if (!res || !res.ok) {
       if (typeof window.showAdminPopup === "function") {
@@ -1000,7 +1052,7 @@ document.addEventListener("DOMContentLoaded", () => {
           res && res.status === 403
             ? "Your account is not allowed to change the theme. Ask an administrator to save it for you."
             : "The theme could not be saved. Check your connection and try again.",
-          { title: "Not Saved" },
+          { title: "Not Saved", type: "error" },
         );
       }
       renderLivePreview();
@@ -1011,7 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
     themeDiscardGuard?.clear();
     if (typeof window.showAdminPopup === "function") {
       window.showAdminPopup(
-        "Theme saved. The announcement pop-up and the product page promotion card now use it on the customer website.",
+        "Promotion card theme saved successfully.",
         { title: "Theme Applied ✓" },
       );
     }
@@ -1019,6 +1071,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("promotionReset")?.addEventListener("click", () => {
+    if (savePending.promotion) return;
     if (promotionDiscardGuard) {
       promotionDiscardGuard.cancel();
       return;
@@ -1027,6 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("announcementReset")?.addEventListener("click", () => {
+    if (savePending.announcement) return;
     if (announcementDiscardGuard) {
       announcementDiscardGuard.cancel();
       return;
@@ -1103,9 +1157,29 @@ document.addEventListener("DOMContentLoaded", () => {
     $(id)?.addEventListener("change", renderLivePreview);
   });
 
+  // Keep the native constraints, presenting their feedback in the shared popup.
+  function validateCampaignForm(form) {
+    if (form.checkValidity()) return true;
+    const field = form.querySelector(':invalid');
+    if (!field) return false;
+    field.setAttribute('aria-invalid', 'true');
+    const label = (form.querySelector(`label[for="${field.id}"]`)?.textContent || 'This field').replace(/\*/g, '').trim();
+    const message = field.validity.valueMissing ? `${label} is required.` : `${label}: ${field.validationMessage}`;
+    window.showAdminPopup?.(message, {title: 'Validation Error', type: 'error', onOk: () => setTimeout(() => { if (form.closest('.modal-overlay.show')) field.focus(); }, 0)});
+    return false;
+  }
+  ['promotionForm', 'announcementForm'].forEach(id => {
+    const form = $(id); if (!form) return;
+    form.noValidate = true;
+    form.addEventListener('input', event => event.target.removeAttribute('aria-invalid'));
+  });
+
   // ────────────── Save Promotion Submit ──────────────
   $("promotionForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!promotionSaveState?.canSave()) return;
+    if (!validateCampaignForm($('promotionForm'))) return;
+    setSavePending('promotion', true);
     const submitBtn = $("btnSavePromotion") || $("promotionForm")?.querySelector('button[type="submit"]');
     const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
 
@@ -1147,8 +1221,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       showError(error);
     } finally {
+      setSavePending('promotion', false);
       if (submitBtn) {
-        submitBtn.disabled = false;
         submitBtn.innerHTML =
           originalBtnHtml || '<i class="fa-solid fa-floppy-disk"></i> Save Promotion';
       }
@@ -1158,6 +1232,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ────────────── Save Announcement Submit ──────────────
   $("announcementForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!announcementSaveState?.canSave()) return;
+    if (!validateCampaignForm($('announcementForm'))) return;
+    setSavePending('announcement', true);
     const submitBtn = $("btnSaveAnnouncement") || $("announcementForm")?.querySelector('button[type="submit"]');
     const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
 
@@ -1206,8 +1283,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       showError(error);
     } finally {
+      setSavePending('announcement', false);
       if (submitBtn) {
-        submitBtn.disabled = false;
         submitBtn.innerHTML =
           originalBtnHtml || '<i class="fa-solid fa-paper-plane"></i> Save Announcement';
       }
@@ -1241,6 +1318,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  $('promotionSearchInput')?.addEventListener('input', () => { promotionPage = 1; renderPromotions(); });
+  $('announcementSearchInput')?.addEventListener('input', () => { announcementPage = 1; renderAnnouncements(); });
+  $('promotionProductSearch')?.addEventListener('input', filterProductPicker);
   clearPromotion();
   clearAnnouncement();
   setupCampaignBulkSelections();
