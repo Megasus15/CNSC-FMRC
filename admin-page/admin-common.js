@@ -1127,7 +1127,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
         </div>
       </div>`;
 
-    if (document.body.hasAttribute('data-portal-product-dialogs')) {
+    if (document.body.hasAttribute('data-portal-product-dialogs') || document.body.hasAttribute('data-portal-media-dialogs')) {
       overlay.classList.add('portal-detail-dialog');
       overlay.dataset.portalDetailVisibility = 'hidden';
       overlay.setAttribute('data-portal-detail-dialog', '');
@@ -1139,7 +1139,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
       card.querySelector('.admin-media-viewer-head').outerHTML = `
         <header class="portal-detail-dialog__header">
           <span class="portal-detail-dialog__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 17 6-6 4 4 3-3 5 5"/></svg></span>
-          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Products</p><h2 class="portal-detail-dialog__title" data-portal-detail-heading tabindex="-1">Media preview</h2></div>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">${document.body.dataset.portalPopupContext === 'Reviews' ? 'Ratings &amp; Feedback' : 'Products'}</p><h2 class="portal-detail-dialog__title" data-portal-detail-heading tabindex="-1">Media preview</h2></div>
           <button type="button" class="admin-media-viewer-close portal-detail-dialog__close" aria-label="Close preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         </header>`;
       const body = document.createElement('div');

@@ -1,0 +1,40 @@
+/* Ratings adopts the established Inventory modal and popup presentation. */
+body[data-portal-popup-context="Reviews"] :is(input,textarea,select,button) { font-family:inherit; }
+body[data-portal-popup-context="Reviews"] .panel-header { display:flex; align-items:center; flex-wrap:wrap; gap:16px; }
+body[data-portal-popup-context="Reviews"] .panel-header h3 { color:var(--primary-color,#800000); }
+body[data-portal-popup-context="Reviews"] .ratings-heading-icon { display:inline-grid; place-items:center; flex:0 0 34px; width:34px; height:34px; margin-right:10px; border-radius:8px; color:var(--primary-color,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-popup-context="Reviews"] .ratings-heading-icon svg { width:18px; height:18px; }
+body[data-portal-popup-context="Reviews"] .ratings-filters { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-left:auto; width:auto; min-width:0; }
+body[data-portal-popup-context="Reviews"] .ratings-filters > .admin-select-wrap { flex:0 0 150px; width:150px!important; }
+body[data-portal-popup-context="Reviews"] .ratings-filters > .portal-search-field { flex:0 1 260px; width:260px; min-width:0; max-width:100%; }
+body[data-portal-popup-context="Reviews"] .ratings-input { height:44px; min-height:44px; padding:10px 12px; font-size:14px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; color:var(--text-main,#2b2b31); background:var(--surface,#fdfaf6); }
+body[data-portal-popup-context="Reviews"] .portal-search-field input { width:100%; padding-left:42px; }
+body[data-portal-popup-context="Reviews"] .ratings-table-actions .archive-action:hover:not(:disabled) { background:var(--primary-color,#800000); border-color:var(--primary-color,#800000); color:#fdfaf6; }
+#ratingDetailModal .rating-detail-modal-card { width:min(800px,100%); max-width:800px; max-height:calc(100dvh - 32px); padding:0; }
+#ratingDetailModal .rating-detail-grid { margin:0; gap:16px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+#ratingDetailModal .rating-detail-box { padding:18px; min-width:0; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface,#fdfaf6); }
+#ratingDetailModal .rating-detail-box h5 { margin:0 0 8px; color:var(--text-muted,#6b6269); font-size:12px; font-weight:500; letter-spacing:0; text-transform:none; }
+#ratingDetailModal .rating-detail-box p { font-size:14px; line-height:1.7; color:var(--text-main,#2b2b31); overflow-wrap:anywhere; }
+#ratingDetailModal .rating-detail-box .meta-sub { font-size:12px; color:var(--text-muted,#6b6269); }
+#ratingDetailModal .rating-detail-feedback { font-size:15px; line-height:1.75; white-space:pre-wrap; }
+#ratingDetailModal .rating-detail-stars { flex-wrap:wrap; gap:5px; }
+#ratingDetailModal .score-label { color:var(--text-main,#2b2b31); font-size:14px; margin-left:8px; }
+#ratingDetailModal .rating-media-strip { gap:10px; }
+#ratingDetailModal .rating-media-item { min-width:64px; min-height:64px; }
+#ratingDetailModal .rating-media-item :is(img,video) { width:64px; height:64px; }
+#ratingDetailModal .rating-existing-reply { padding:14px; background:var(--surface-alt,#f8f4ef); border:1px solid var(--border-color,#e2e8f0); border-radius:8px; }
+#ratingDetailModal .rating-existing-reply-label { color:var(--primary-color,#800000); font-size:12px; text-transform:none; letter-spacing:0; }
+#ratingDetailModal .rating-existing-reply-text { color:var(--text-main,#2b2b31); font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+#ratingDetailModal .rating-existing-reply-date { color:var(--text-muted,#6b6269); font-size:12px; }
+#ratingDetailModal #detailReplyInput { height:auto; min-height:120px; max-height:none; margin-top:10px; line-height:1.7; }
+#ratingDetailModal .rating-reply-counter { margin-top:6px; text-align:right; font-size:12px; color:var(--text-muted,#6b6269); }
+#ratingDetailModal .portal-detail-dialog__body { scrollbar-color:#aaa6a2 transparent; }
+#ratingDetailModal .portal-detail-dialog__header,#ratingDetailModal .portal-detail-dialog__footer { background:var(--surface,#fdfaf6); }
+#ratingDetailModal .portal-detail-dialog__footer .btn-secondary:not(:disabled) { background:var(--surface,#fdfaf6); color:var(--primary-color,#800000); border-color:var(--primary-color,#800000); }
+@media(max-width:639px) {
+ body[data-portal-popup-context="Reviews"] .ratings-filters { width:100%; }
+ body[data-portal-popup-context="Reviews"] .ratings-filters > .admin-select-wrap { flex:1 1 140px; width:auto!important; }
+ body[data-portal-popup-context="Reviews"] .ratings-filters > .portal-search-field { flex-basis:100%; width:100%; }
+ #ratingDetailModal .rating-detail-grid { grid-template-columns:minmax(0,1fr); }
+ #ratingDetailModal .portal-detail-dialog__footer .btn-admin { flex:1 1 0; min-width:0; }
+}

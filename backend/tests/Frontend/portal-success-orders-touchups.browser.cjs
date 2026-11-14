@@ -42,6 +42,6 @@ for(const role of ['admin','staff'])test(role+' restores original success X and 
 test('All Admin/Staff HTML consumers use the restored shared success notification version',()=>{
  for(const folder of ['admin-page','staff-page'])for(const name of fs.readdirSync(path.resolve(__dirname,'../../..',folder)).filter(n=>n.endsWith('.html'))){
   const text=fs.readFileSync(path.resolve(__dirname,'../../..',folder,name),'utf8');
-  for(const ref of text.matchAll(/admin-common\.js\?v=([^"\s]+)/g))assert.equal(ref[1],'2026.1114.11',folder+'/'+name);
+  for(const ref of text.matchAll(/admin-common\.js\?v=([^"\s]+)/g))assert.equal(ref[1],'2026.1114.12',folder+'/'+name);
  }
 });

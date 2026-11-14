@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const state = { rows: [], currentPage: 1, isLoading: false, lastPage: 1, totalRows: 0, activeRatingId: null, allEligibleIds: [] };
   let ratingsBulkController = null;
+  let replyBusy = false;
 
   if (!tableBody) return;
 
@@ -198,6 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let detailReplyFallbackBaseline = getDetailReplySnapshot();
 
   const closeDetail = () => {
+    if (replyBusy) return;
     detailModal?.classList.remove("show");
     state.activeRatingId = null;
     detailReplyFallbackBaseline = getDetailReplySnapshot();
@@ -215,6 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const requestDetailClose = () => {
+    if (replyBusy) return;
     if (detailReplyDiscardGuard) {
       detailReplyDiscardGuard.cancel();
       return;
@@ -293,13 +296,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (detailModalBody) detailModalBody.scrollTop = 0;
     captureDetailReplyBaseline();
-    detailModal.classList.add("show");
+    if (window.PortalDetailDialog) window.PortalDetailDialog.open(detailModal);
+    else detailModal.classList.add("show");
   };
 
   const submitReply = async () => {
-    if (!state.activeRatingId) return;
+    if (!state.activeRatingId || replyBusy) return;
     const replyText = (detailReplyInput?.value || "").trim();
     if (!replyText) { showPopup("Please enter a reply before submitting.", { title: "Reply Required" }); return; }
+    replyBusy = true;
+    detailModal.setAttribute('aria-busy', 'true');
     if (detailReplyBtn) { detailReplyBtn.disabled = true; detailReplyBtn.textContent = "Sending…"; }
     try {
       await request(`/admin/ratings/${state.activeRatingId}/reply`, { method: "POST", body: { admin_reply: replyText } });
@@ -323,7 +329,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       showPopup(err.message || "Failed to send reply.", { title: "Error" });
     } finally {
-      if (detailReplyBtn) { detailReplyBtn.disabled = false; }
+      replyBusy = false;
+      detailModal.removeAttribute('aria-busy');
+      if (detailReplyBtn) { detailReplyBtn.disabled = false; detailReplyBtn.textContent = state.rows.find(row => String(row.id) === String(state.activeRatingId))?.admin_reply ? 'Update Reply' : 'Send Reply'; }
     }
   };
 
@@ -417,13 +425,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   detailCloseBtn?.addEventListener("click", requestDetailClose);
+  window.PortalDetailDialog?.registerClose(detailModal, requestDetailClose);
   detailModal?.addEventListener("click", (event) => {
     if (event.target === detailModal && detailModal.dataset.backdropClose !== "false") requestDetailClose();
   });
   detailReplyInput?.addEventListener("input", () => { if (detailReplyCount) detailReplyCount.textContent = String(detailReplyInput.value.length); });
   detailReplyBtn?.addEventListener("click", () => void submitReply());
 
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && detailModal?.classList.contains("show")) requestDetailClose(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && detailModal?.classList.contains("show") && !detailModal.hasAttribute('data-portal-detail-dialog')) requestDetailClose(); });
   const archiveReviews = (ids, controller) => {
     const validIds = ids.map((id) => Number(id)).filter((id) => id > 0);
     if (!validIds.length) return;
@@ -432,6 +441,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ids: validIds,
       action: "archive",
       tableLabel: "Product Reviews",
+      confirmTitle: validIds.length === 1 ? 'Archive Review' : 'Archive Reviews',
+      confirmMessage: validIds.length === 1 ? 'Archive this product review? You can restore it from Archives.' : `Archive ${validIds.length} product reviews? You can restore them from Archives.`,
       loadingText: "Archiving...",
       execute: (selectedIds) => request("/admin/ratings/archive-bulk", {
         method: "PATCH",

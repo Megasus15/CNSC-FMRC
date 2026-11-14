@@ -208,8 +208,10 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.11" />
+    <link rel="stylesheet" href="ratings-ui.css?v=2026.1114.12">
+    <link rel="stylesheet" href="portal-summary-cards.css?v=2026.1114.12">
   </head>
-  <body>
+  <body data-portal-popups="refined" data-portal-popup-context="Reviews" data-portal-media-dialogs>
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -299,32 +301,17 @@
             </div>
           </div>
 
-          <div class="ratings-stats-grid">
-            <div class="ratings-stat-card">
-              <div><h4>Total Ratings</h4><p id="statTotalRatings">0</p></div>
-              <span class="ratings-stat-icon card-icon-maroon"><i class="fa-solid fa-star"></i></span>
-            </div>
-            <div class="ratings-stat-card">
-              <div><h4>Average Score</h4><p id="statAvgScore">0.0</p></div>
-              <span class="ratings-stat-icon card-icon-blue"><i class="fa-solid fa-chart-bar"></i></span>
-            </div>
-            <div class="ratings-stat-card">
-              <div><h4>5-Star Ratings</h4><p id="statFiveStar">0</p></div>
-              <span class="ratings-stat-icon card-icon-green"><i class="fa-solid fa-award"></i></span>
-            </div>
-            <div class="ratings-stat-card">
-              <div><h4>With Feedback</h4><p id="statWithFeedback">0</p></div>
-              <span class="ratings-stat-icon card-icon-cyan"><i class="fa-regular fa-comment-dots"></i></span>
-            </div>
-            <div class="ratings-stat-card">
-              <div><h4>With Visuals</h4><p id="statWithMedia">0</p></div>
-              <span class="ratings-stat-icon card-icon-blue"><i class="fa-regular fa-images"></i></span>
-            </div>
+          <div class="ratings-stats-grid portal-summary-grid">
+            <div class="ratings-stat-card portal-summary-card"><span class="ratings-stat-icon portal-summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></span><div class="portal-summary-copy"><p class="portal-summary-value" id="statTotalRatings">0</p><h4 class="portal-summary-label">Total Ratings</h4></div></div>
+            <div class="ratings-stat-card portal-summary-card"><span class="ratings-stat-icon portal-summary-icon portal-summary-icon--attention"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10h4v10m4 0V4h4v16m4 0V8"/></svg></span><div class="portal-summary-copy"><p class="portal-summary-value" id="statAvgScore">0.0</p><h4 class="portal-summary-label">Average Score</h4></div></div>
+            <div class="ratings-stat-card portal-summary-card"><span class="ratings-stat-icon portal-summary-icon portal-summary-icon--good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="m8 14-2 7 6-3 6 3-2-7m-7-5 2 2 4-4"/></svg></span><div class="portal-summary-copy"><p class="portal-summary-value" id="statFiveStar">0</p><h4 class="portal-summary-label">5-Star Ratings</h4></div></div>
+            <div class="ratings-stat-card portal-summary-card"><span class="ratings-stat-icon portal-summary-icon portal-summary-icon--info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 1 1 18-4Z"/></svg></span><div class="portal-summary-copy"><p class="portal-summary-value" id="statWithFeedback">0</p><h4 class="portal-summary-label">With Feedback</h4></div></div>
+            <div class="ratings-stat-card portal-summary-card"><span class="ratings-stat-icon portal-summary-icon portal-summary-icon--media"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="16" height="16" rx="2"/><path d="m3 14 5-5 11 10M8 23h13a2 2 0 0 0 2-2V8"/><circle cx="14" cy="8" r="1"/></svg></span><div class="portal-summary-copy"><p class="portal-summary-value" id="statWithMedia">0</p><h4 class="portal-summary-label">With Media</h4></div></div>
           </div>
 
           <div class="panel">
             <div class="panel-header" style="margin-bottom:14px">
-              <h3>All Product Reviews</h3>
+              <h3 class="portal-table-title"><span class="portal-detail-dialog__icon ratings-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></span>All Product Reviews</h3>
               <div class="ratings-filters">
                 <select id="ratingsStarFilter" class="ratings-input" aria-label="Filter by stars">
                   <option value="all">All Stars</option>
@@ -339,7 +326,7 @@
                   <option value="yes">Replied</option>
                   <option value="no">Not Replied</option>
                 </select>
-                <input id="ratingsSearchInput" class="ratings-input" placeholder="Search customer, product, order, or review..." />
+                <div class="portal-search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="ratingsSearchInput" class="ratings-input" type="search" placeholder="Search" aria-label="Search reviews by customer, product, order or feedback" /></div>
               </div>
             </div>
 
@@ -393,12 +380,10 @@
     </div>
 
     <!-- Rating Detail & Reply Modal -->
-    <div class="modal-overlay" id="ratingDetailModal" data-backdrop-close="false">
-      <div class="modal-card rating-detail-modal-card" role="dialog" aria-modal="true" aria-labelledby="ratingDetailTitle">
-        <div class="rating-detail-modal-header">
-          <h3 class="modal-title" id="ratingDetailTitle">Product Review Details</h3>
-        </div>
-        <div class="rating-detail-modal-body">
+    <div class="modal-overlay portal-detail-dialog" id="ratingDetailModal" data-backdrop-close="false" data-portal-detail-dialog data-portal-detail-guarded>
+      <div class="modal-card rating-detail-modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="ratingDetailTitle">
+        <header class="rating-detail-modal-header portal-detail-dialog__header"><span class="portal-detail-dialog__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Ratings &amp; Feedback</p><h2 class="modal-title portal-detail-dialog__title" id="ratingDetailTitle" tabindex="-1" data-portal-detail-heading>Product Review Details</h2></div><button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close product review details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+        <div class="rating-detail-modal-body modal-body-scroll portal-detail-dialog__body" tabindex="0" role="region" aria-label="Review details and customer reply">
           <div class="rating-detail-grid">
           <div class="rating-detail-box">
             <h5>Customer</h5>
@@ -428,7 +413,7 @@
             <p class="meta-sub" id="detailLikes"></p>
           </div>
           <div class="rating-detail-box full">
-            <h5>Reply to Customer</h5>
+            <h5><label for="detailReplyInput">Reply to Customer</label></h5>
             <!-- Existing reply (shown when one exists) -->
             <div class="rating-existing-reply" id="detailExistingReply">
               <div class="rating-existing-reply-label"><i class="fa-solid fa-check-circle"></i> Current Reply</div>
@@ -436,24 +421,24 @@
               <div class="rating-existing-reply-date" id="detailExistingReplyDate"></div>
             </div>
             <!-- Reply textarea -->
-            <textarea id="detailReplyInput" class="ratings-input" rows="3" maxlength="500" placeholder="Write a reply to this customer's feedback..." style="width:100%;resize:vertical;padding:10px 12px;"></textarea>
-            <div style="text-align:right;font-size:0.72rem;color:#6b7280;margin-top:4px;"><span id="detailReplyCount">0</span>/500</div>
+            <textarea id="detailReplyInput" aria-describedby="detailReplyLimit" class="ratings-input" rows="3" maxlength="500" placeholder="Write a reply to this customer's feedback..." style="width:100%;resize:vertical;padding:10px 12px;"></textarea>
+            <div class="rating-reply-counter" id="detailReplyLimit"><span id="detailReplyCount">0</span>/500</div>
           </div>
         </div>
         </div>
-        <div class="rating-detail-modal-footer">
+        <footer class="rating-detail-modal-footer portal-detail-dialog__footer">
           <button type="button" class="btn-admin btn-secondary" id="detailCloseBtn">Close</button>
           <button type="button" class="btn-admin btn-primary" id="detailReplyBtn">Send Reply</button>
-        </div>
+        </footer>
       </div>
     </div>
 
     <script src="session-helper.js?v=2026.1113.9"></script>
     <script src="admin-session.js?v=2026.1114.5"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=2026.1114.11"></script>
+    <script src="admin-common.js?v=2026.1114.12"></script>
     <script src="portal-detail-dialog.js?v=2026.1114.10"></script>
-    <script src="ratings.js?v=2026.1109.8"></script>
+    <script src="ratings.js?v=2026.1114.12"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

@@ -1,12 +1,5 @@
 /* Customer Inquiries adopts the Inventory modal and information-card language. */
 body[data-portal-popup-context="Inquiries"] :is(button,input,select,textarea) { font-family:inherit; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stats-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-card { min-width:0; padding:20px; gap:16px; background:var(--surface,#fdfaf6); border-radius:12px; box-shadow:0 4px 16px #26151c04; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-card > div { min-width:0; flex:1; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-card h4 { color:var(--text-muted,#6b6269); font-size:12px; font-weight:500; letter-spacing:0; text-transform:none; line-height:1.5; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-card p { font-size:28px; color:var(--text-main,#2b2b31); font-weight:600; line-height:1.4; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-icon { order:-1; flex:0 0 44px; width:44px; height:44px; border-radius:10px; background:var(--portal-accent-soft,#fbf1f2); color:var(--primary-color,#800000); }
-body[data-portal-popup-context="Inquiries"] .inquiry-stat-icon svg { width:22px; height:22px; }
 body[data-portal-popup-context="Inquiries"] .panel-header { display:flex; align-items:center; flex-wrap:wrap; gap:16px; }
 body[data-portal-popup-context="Inquiries"] .panel-header h3 { color:var(--primary-color,#800000); }
 body[data-portal-popup-context="Inquiries"] .inquiry-filters { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-left:auto; width:auto; min-width:0; }
@@ -25,14 +18,12 @@ body[data-portal-popup-context="Inquiries"] .portal-search-field input { width:1
 #inquiryDetailModal .inquiry-detail-box #detailStatus { display:inline-flex; font-size:12px; font-weight:600; line-height:1.5; padding:4px 10px; }
 #inquiryDetailModal .portal-detail-dialog__body { scrollbar-color:#aaa6a2 transparent; }
 #inquiryDetailModal .portal-detail-dialog__footer .btn-secondary:not(:disabled) { background:var(--surface,#fdfaf6); color:var(--primary-color,#800000); border-color:var(--primary-color,#800000); }
-@media(max-width:1023px) { body[data-portal-popup-context="Inquiries"] .inquiry-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:639px) {
- body[data-portal-popup-context="Inquiries"] .inquiry-stat-card { padding:14px; gap:10px; flex-wrap:wrap; }
- body[data-portal-popup-context="Inquiries"] .inquiry-stat-icon { width:36px; height:36px; flex-basis:36px; }
- body[data-portal-popup-context="Inquiries"] .inquiry-stat-card p { font-size:24px; }
  body[data-portal-popup-context="Inquiries"] .inquiry-filters { width:100%; }
  body[data-portal-popup-context="Inquiries"] .inquiry-filters > :is(select,.portal-search-field) { width:100%; }
  body[data-portal-popup-context="Inquiries"] .inquiry-filters > :is(.admin-select-wrap,.portal-search-field) { flex-basis:100%; width:100%!important; }
  #inquiryDetailModal .inquiry-detail-grid { grid-template-columns:minmax(0,1fr); }
  #inquiryDetailModal .portal-detail-dialog__footer .btn-admin { flex:1 1 0; min-width:0; }
 }
+
+body[data-portal-popup-context="Inquiries"] .inquiry-table-actions .btn-danger:hover:not(:disabled) { background:var(--primary-color,#800000); border-color:var(--primary-color,#800000); color:#fdfaf6; }

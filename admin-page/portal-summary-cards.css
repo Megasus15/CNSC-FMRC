@@ -1,0 +1,20 @@
+/* Opt-in copies of the Inventory summary-card language. No data or calculations. */
+.portal-summary-grid:is(.inquiry-stats-grid,.ratings-stats-grid) { display:grid; gap:14px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.portal-summary-grid.ratings-stats-grid { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.portal-summary-grid .portal-summary-card { display:flex; flex-direction:row; justify-content:flex-start; align-items:center; min-width:0; gap:16px; padding:18px 20px; border:1px solid var(--border-color,#e5e7eb); border-radius:12px; background:var(--surface,#fdfaf6); text-align:left; box-shadow:none; }
+.portal-summary-grid .portal-summary-copy { display:block; min-width:0; width:auto; flex:1; text-align:left; }
+.portal-summary-grid .portal-summary-value { margin:0; color:var(--text-main,#1a1a2e); font-size:24px; font-weight:800; line-height:1.2; font-variant-numeric:tabular-nums; white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
+.portal-summary-grid .portal-summary-label { margin:2px 0 0; color:var(--text-muted,#6b7280); font-size:12px; font-weight:600; line-height:1.5; letter-spacing:0; text-transform:none; }
+.portal-summary-grid .portal-summary-icon { display:grid; place-items:center; order:0; flex:0 0 46px; width:46px; min-width:46px; height:46px; margin:0; border-radius:12px; color:#f7f2ec; background:linear-gradient(135deg,#800000,#b91c1c); }
+.portal-summary-grid .portal-summary-icon svg { width:23px; height:23px; }
+.portal-summary-grid .portal-summary-icon--good { background:linear-gradient(135deg,#16a34a,#22c55e); }
+.portal-summary-grid .portal-summary-icon--attention { background:linear-gradient(135deg,#d97706,#f59e0b); }
+.portal-summary-grid .portal-summary-icon--info { background:linear-gradient(135deg,#2563eb,#3b82f6); }
+.portal-summary-grid .portal-summary-icon--media { background:linear-gradient(135deg,#6d28d9,#8b5cf6); }
+@media(min-width:601px) and (max-width:1399px) {
+ .portal-summary-grid.ratings-stats-grid { grid-template-columns:repeat(6,minmax(0,1fr)); }
+ .portal-summary-grid.ratings-stats-grid .portal-summary-card { grid-column:span 2; }
+ .portal-summary-grid.ratings-stats-grid .portal-summary-card:nth-last-child(-n+2) { grid-column:span 3; }
+}
+@media(max-width:1100px) { .portal-summary-grid.inquiry-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .portal-summary-grid:is(.inquiry-stats-grid,.ratings-stats-grid) { grid-template-columns:minmax(0,1fr); } }

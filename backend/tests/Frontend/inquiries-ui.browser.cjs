@@ -27,9 +27,12 @@ for(const role of ['admin','staff'])test(role+' Inquiries refinement preserves r
  const key=async key=>{await h.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Escape'?27:9});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key});};
  const shot=async name=>{await h.run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot(name);};
  await h.go('/'+role+'-page/customer-inquiries.html');await h.until(`document.querySelector('[data-action=view]')`);
+ const hoverInquiry=async s=>{const r=await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(s)});n.scrollIntoView({block:'center',behavior:'instant'});const r=n.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',...r});await h.pause(60);await h.run(`Promise.all(document.querySelector(${JSON.stringify(s)}).getAnimations().map(a=>a.finished.catch(()=>{})))`);return h.run(`getComputedStyle(document.querySelector(${JSON.stringify(s)})).backgroundColor`);};
+ assert.equal(await hoverInquiry('[data-action=delete][data-id="1"]'),await hoverInquiry('[data-action=view][data-id="1"]'),'Inquiry delete hover uses the standard maroon');await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
  for(const width of [320,390,768,1024,1440]){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});
   assert(await h.run(`(()=>{let cards=[...document.querySelectorAll('.inquiry-stat-card')];return cards.length===4&&cards.every(c=>c.scrollWidth<=c.clientWidth+1)&&document.documentElement.scrollWidth<=innerWidth+1})()`),'Summary cards fit '+width);
+  assert(await h.run(`[...document.querySelectorAll('.portal-summary-card')].every(c=>{const i=c.querySelector('.portal-summary-icon'),v=c.querySelector('.portal-summary-value'),l=c.querySelector('.portal-summary-label');return i.getBoundingClientRect().width===46&&v.getBoundingClientRect().top<l.getBoundingClientRect().top&&parseFloat(getComputedStyle(v).fontSize)===24})`),'Inquiry summaries use Inventory geometry '+width);
  }
  await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});await shot(role+'-inquiries-workspace');
  await click('[data-action=view][data-id="1"]');await h.until(`document.getElementById('inquiryDetailModal').classList.contains('show')`);
