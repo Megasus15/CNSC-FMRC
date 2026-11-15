@@ -922,15 +922,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const row=state.cancellation.all.find(item=>Number(item.source_id)===Number(cancellationView.dataset.cancellationView));
       if(!row)return;
       let dialog=document.getElementById('cancellationArchiveDetails');
-      if(!dialog){dialog=document.createElement('dialog');dialog.id='cancellationArchiveDetails';dialog.className='modal-card cancellation-archive-dialog';dialog.setAttribute('aria-labelledby','cancellationArchiveTitle');document.body.append(dialog);}
+      if(!dialog){dialog=document.createElement('dialog');dialog.id='cancellationArchiveDetails';dialog.className='portal-detail-dialog archives-record-dialog';dialog.setAttribute('aria-labelledby','cancellationArchiveTitle');document.body.append(dialog);}
       const field=(label,value)=>'<div><dt>'+esc(label)+'</dt><dd>'+window.AdminTableValue.html(value)+'</dd></div>';
-      dialog.innerHTML='<header class="modal-header-fixed"><h3 class="modal-title" id="cancellationArchiveTitle">Cancellation record</h3></header>'+
-        '<div class="modal-body-scroll"><section class="order-dialog-section"><h4>'+esc(row.order_no)+'</h4><p class="field-hint">Saved cancellation history. The linked order and payment remain unchanged.</p><dl class="cancellation-archive-fields">'+
+      dialog.innerHTML='<section class="portal-detail-dialog__card"><header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><i class="fa-solid fa-ban"></i></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Archives</p><h3 class="modal-title portal-detail-dialog__title" id="cancellationArchiveTitle" data-portal-detail-heading tabindex="-1">Cancellation record</h3></div><button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close cancellation record"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>'+
+        '<div class="modal-body-scroll portal-detail-dialog__body"><section class="order-dialog-section"><h4>'+esc(row.order_no)+'</h4><p class="field-hint">Saved cancellation history. The linked order and payment remain unchanged.</p><dl class="cancellation-archive-fields">'+
         field('Customer',row.customer_name)+field('Decision',row.status==='approved'?'Approved':'Declined')+field('Requested',fmtDate(row.requested_at,true))+field('Decided',fmtDate(row.decided_at,true))+
         field('Reason',row.reason)+field('Additional details',row.reason_detail)+field('FMRC decision note',row.decision_note)+field('Payment status at archival',row.payment_status?.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()))+
         field('Order amount',new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(row.amount||0)))+field('Archived',fmtDate(row.archived_at,true))+'</dl></section></div>'+
-        '<footer class="modal-footer-fixed"><button type="button" class="btn-admin btn-secondary" data-cancellation-close>Close</button></footer>';
-      dialog.querySelector('[data-cancellation-close]').onclick=()=>dialog.close();dialog.showModal();return;
+        '<footer class="modal-footer-fixed portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" data-cancellation-close>Close</button></footer></section>';
+      dialog.querySelector('[data-cancellation-close]').onclick=()=>dialog.close();window.PortalDetailDialog?.adopt(dialog,{visibility:'native',close:()=>dialog.close()});dialog.showModal();return;
     }
     const refundView = target.closest('[data-refund-view]');
     if (refundView) {
@@ -1061,8 +1061,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Delete Confirmation Modal ──────────────────────────────────────────────
   let pendingDeleteModule = null;
   let pendingDeleteId = null;
+  let deletingArchive = false;
 
   const openDeleteConfirmModal = (module, id) => {
+    if(deletingArchive)return;
     pendingDeleteModule = module;
     pendingDeleteId = id;
     const rows = state[module]?.all || [];
@@ -1084,6 +1086,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnCancelDeleteArchive")
     ?.addEventListener("click", () => {
+      if(deletingArchive)return;
       document.getElementById("modalDeleteArchive")?.classList.remove("show");
       pendingDeleteModule = null;
       pendingDeleteId = null;
@@ -1092,7 +1095,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnConfirmDeleteArchive")
     ?.addEventListener("click", async () => {
-      if (!pendingDeleteModule || !pendingDeleteId) return;
+      if (deletingArchive || !pendingDeleteModule || !pendingDeleteId) return;
+      deletingArchive=true;
+      const deleteModule=pendingDeleteModule,deleteId=pendingDeleteId;
+      const cancelBtn=document.getElementById('btnCancelDeleteArchive');
+      if(cancelBtn)cancelBtn.disabled=true;
+      document.getElementById('modalDeleteArchive')?.setAttribute('aria-busy','true');
 
       const confirmBtn = document.getElementById("btnConfirmDeleteArchive");
       if (confirmBtn) {
@@ -1112,8 +1120,8 @@ document.addEventListener("DOMContentLoaded", () => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              module: pendingDeleteModule,
-              ids: [pendingDeleteId],
+              module: deleteModule,
+              ids: [deleteId],
             }),
           },
         );
@@ -1134,6 +1142,9 @@ document.addEventListener("DOMContentLoaded", () => {
           title: "Delete Failed",
         });
       } finally {
+        deletingArchive=false;
+        if(cancelBtn)cancelBtn.disabled=false;
+        document.getElementById('modalDeleteArchive')?.setAttribute('aria-busy','false');
         if (confirmBtn) {
           confirmBtn.disabled = false;
           confirmBtn.innerHTML =
@@ -1144,6 +1155,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Auto-Delete Settings Modal ─────────────────────────────────────────────
   const AUTO_DELETE_KEY = "fmrc_archive_retention_days";
+  let autoDeleteSaving=false;
 
   const getRetentionDays = () => {
     const stored = window.AdminSession?.readPersonal?.(AUTO_DELETE_KEY);
@@ -1157,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const openAutoDeleteModal = () => {
+    if(autoDeleteSaving)return;
     const modal = document.getElementById("modalAutoDeleteSettings");
     if (!modal) return;
     const current = getRetentionDays();
@@ -1173,6 +1186,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("btnCancelAutoDelete")
     ?.addEventListener("click", () => {
+      if(autoDeleteSaving)return;
       document
         .getElementById("modalAutoDeleteSettings")
         ?.classList.remove("show");
@@ -1182,13 +1196,18 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("btnSaveAutoDelete")
     ?.addEventListener("click", async () => {
       const modal = document.getElementById("modalAutoDeleteSettings");
+      if(autoDeleteSaving)return;
       const selected = modal?.querySelector(
         "input[name=retentionDays]:checked",
       );
       if (!selected) return;
+      autoDeleteSaving=true;
+      const cancelBtn=document.getElementById('btnCancelAutoDelete');
+      if(cancelBtn)cancelBtn.disabled=true;
+      modal?.setAttribute('aria-busy','true');
+      modal?.querySelectorAll('[name="retentionDays"]').forEach(input=>{input.disabled=true;});
 
       const days = Number(selected.value);
-      saveRetentionDays(days);
 
       const saveBtn = document.getElementById("btnSaveAutoDelete");
       if (saveBtn) {
@@ -1211,6 +1230,8 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         );
         const payload = await response.json().catch(() => ({}));
+        if(!response.ok)throw new Error(payload?.message||'Unable to save auto-delete settings.');
+        saveRetentionDays(days);
 
         modal?.classList.remove("show");
 
@@ -1232,6 +1253,10 @@ document.addEventListener("DOMContentLoaded", () => {
           { title: "Save Failed" },
         );
       } finally {
+        autoDeleteSaving=false;
+        if(cancelBtn)cancelBtn.disabled=false;
+        modal?.setAttribute('aria-busy','false');
+        modal?.querySelectorAll('[name="retentionDays"]').forEach(input=>{input.disabled=false;});
         if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Save';
@@ -1240,6 +1265,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
   // Run auto-delete silently on page load
+  window.PortalDetailDialog?.registerClose(document.getElementById('modalAutoDeleteSettings'),()=>document.getElementById('btnCancelAutoDelete')?.click());
+  window.PortalDetailDialog?.registerClose(document.getElementById('modalDeleteArchive'),()=>document.getElementById('btnCancelDeleteArchive')?.click());
   const runAutoDeleteOnLoad = async () => {
     if (window.AdminSession?.isSpectator?.()) return;
     const token = getToken();

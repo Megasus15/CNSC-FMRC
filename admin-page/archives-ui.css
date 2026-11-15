@@ -1,0 +1,56 @@
+/* Inventory appearance, opted in by both Archives shells only. */
+body[data-portal-archive-dialogs] :is(button,input,select) { font-family:inherit; }
+body[data-portal-archive-dialogs] .panel { border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface,#fdfaf6); }
+body[data-portal-archive-dialogs] .archives-page-toolbar .toolbar-title { display:flex; align-items:center; gap:14px; }
+body[data-portal-archive-dialogs] .archive-title-copy { min-width:0; }
+body[data-portal-archive-dialogs] .panel-header { display:flex; align-items:center; flex-wrap:wrap; gap:16px; }
+body[data-portal-archive-dialogs] .panel-header h3 { display:flex; align-items:center; flex-wrap:wrap; gap:12px; min-width:0; margin:0; color:var(--portal-accent,#800000); font-size:17px; font-weight:600; line-height:1.6; }
+body[data-portal-archive-dialogs] .archive-heading-icon { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:9px; background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); font-size:18px; }
+body[data-portal-archive-dialogs] .archive-badge { background:var(--surface-alt,#f8f4ef); color:var(--text-muted,#6b6269); font-size:12px; font-weight:500; }
+body[data-portal-archive-dialogs] .archive-search-bar { position:relative; flex:0 1 260px; width:260px; max-width:100%; margin-left:auto; }
+body[data-portal-archive-dialogs] .archive-search-bar > i { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-muted,#6b6269); font-size:14px; pointer-events:none; }
+body[data-portal-archive-dialogs] .archive-search-bar .search-input { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px 10px 38px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface,#fdfaf6); color:var(--text-main,#2b2b31); font-size:14px; line-height:1.6; }
+body[data-portal-archive-dialogs] .archive-module-tabs { gap:8px; }
+body[data-portal-archive-dialogs] #archivesModuleTabs > .archive-tab-btn { min-height:44px; }
+body[data-portal-archive-dialogs] .archive-tab-btn { min-height:44px; padding:10px 14px; border-radius:8px; border:1px solid var(--border-color,#e2e8f0); background:var(--surface,#fdfaf6); color:var(--text-main,#2b2b31); font-size:13px; font-weight:600; }
+body[data-portal-archive-dialogs] .archive-tab-btn:hover { background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); }
+body[data-portal-archive-dialogs] .archive-tab-btn.active { background:var(--portal-action,#800000); border-color:var(--portal-action,#800000); color:var(--on-primary,#fff); }
+body[data-portal-archive-dialogs] .archive-tab-btn.active .tab-count { background:#ffffff26; color:inherit; }
+body[data-portal-archive-dialogs] .btn-admin { min-height:44px; border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.6; font-weight:600; }
+body[data-portal-archive-dialogs] .btn-admin:not(.btn-secondary) { background:var(--portal-action,#800000); border-color:var(--portal-action,#800000); color:var(--on-primary,#fff); }
+body[data-portal-archive-dialogs] .btn-admin:not(.btn-secondary):hover:not(:disabled) { background:var(--portal-action-hover,#5f0000); border-color:var(--portal-action-hover,#5f0000); }
+body[data-portal-archive-dialogs] .btn-admin.btn-secondary { background:var(--surface,#fdfaf6); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); box-shadow:none; }
+body[data-portal-archive-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); }
+body[data-portal-archive-dialogs] :is(.action-icons button,.inv-variant-toggle) { min-width:44px; min-height:44px; padding:8px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface,#fdfaf6); color:var(--portal-accent,#800000); font-size:16px; transition:background-color .15s,color .15s; }
+body[data-portal-archive-dialogs] :is(.action-icons button,.inv-variant-toggle):hover:not(:disabled) { background:var(--portal-action,#800000); border-color:var(--portal-action,#800000); color:var(--on-primary,#fff); }
+body[data-portal-archive-dialogs] :is(.page-btn,.page-number) { min-width:44px; min-height:44px; font-size:13px; }
+body[data-portal-archive-dialogs] :is(.btn-admin,.archive-tab-btn,.action-icons button):active { transform:none; }
+body[data-portal-archive-dialogs] :is(button,input):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+body[data-portal-archive-dialogs] button:disabled { opacity:.55; box-shadow:none; cursor:not-allowed; }
+body[data-portal-archive-dialogs] .archive-retention-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:24px 0; padding:0; border:0; }
+body[data-portal-archive-dialogs] .archive-retention-options legend { padding:0 0 14px; font-size:14px; font-weight:600; color:var(--text-main,#2b2b31); }
+body[data-portal-archive-dialogs] .archive-retention-options label { display:flex; align-items:center; flex-wrap:wrap; gap:10px; min-height:60px; padding:14px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); font-size:14px; font-weight:600; cursor:pointer; }
+body[data-portal-archive-dialogs] .archive-retention-options label:has(input:checked) { border-color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+body[data-portal-archive-dialogs] .archive-retention-options input { width:18px; height:18px; margin:0; accent-color:var(--portal-accent,#800000); }
+body[data-portal-archive-dialogs] .archive-retention-options small { padding:3px 7px; border-radius:6px; background:var(--surface,#fdfaf6); color:var(--text-muted,#6b6269); font-size:12px; font-weight:500; }
+body[data-portal-archive-dialogs] .archive-retention-note { display:flex; align-items:flex-start; gap:10px; margin:0; padding:16px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); color:var(--text-muted,#6b6269); font-size:13px; line-height:1.7; }
+body[data-portal-archive-dialogs] .archive-retention-note i { padding-top:4px; color:var(--portal-accent,#800000); }
+body[data-portal-archive-dialogs] .portal-detail-dialog__icon > i { font-size:20px; }
+body[data-portal-archive-dialogs] dialog.archives-record-dialog { width:min(800px,calc(100% - 32px)); max-width:none; max-height:calc(100dvh - 32px); margin:auto; padding:0; border:0; border-radius:12px; background:transparent; overflow:visible; }
+body[data-portal-archive-dialogs] .cancellation-archive-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+body[data-portal-archive-dialogs] .cancellation-archive-fields > div { min-width:0; }
+body[data-portal-archive-dialogs] .cancellation-archive-fields dt { font-size:12px; color:var(--text-muted,#6b6269); margin-bottom:6px; }
+body[data-portal-archive-dialogs] .cancellation-archive-fields dd { margin:0; font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] :is(.panel-header h3,.archive-heading-icon) { color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] .portal-detail-dialog__title { color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] .btn-admin:not(.btn-secondary) { background:var(--portal-action) !important; border-color:var(--portal-action) !important; color:var(--on-primary) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] .btn-admin:not(.btn-secondary):hover:not(:disabled) { background:var(--portal-action-hover) !important; border-color:var(--portal-action-hover) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] .archive-tab-btn:not(.active) { background:var(--surface) !important; color:var(--text-main) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] .archive-tab-btn:hover:not(.active) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] :is(.btn-admin.btn-secondary,.action-icons button,.inv-variant-toggle):not(:disabled) { border-color:var(--portal-accent) !important; color:var(--portal-accent) !important; background:var(--surface) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-archive-dialogs] :is(.btn-admin.btn-secondary,.action-icons button,.inv-variant-toggle):hover:not(:disabled) { border-color:var(--portal-action) !important; color:var(--on-primary) !important; background:var(--portal-action) !important; }
+@media(max-width:720px) {
+ body[data-portal-archive-dialogs] .archive-search-bar { flex:1 1 100%; width:100%; }
+ body[data-portal-archive-dialogs] .archive-search-bar .search-input { font-size:16px; }
+ body[data-portal-archive-dialogs] .archive-retention-options,.cancellation-archive-fields { grid-template-columns:minmax(0,1fr); }
+}

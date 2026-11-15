@@ -174,8 +174,9 @@
     <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1115.3" />
+    <link rel="stylesheet" href="../admin-page/archives-ui.css?v=2026.1115.9" />
   </head>
-  <body>
+  <body data-portal-archive-dialogs data-portal-popups="refined" data-portal-popup-context="Archives">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -355,7 +356,7 @@
               id="archiveSearchInput"
               type="search"
               aria-label="Search archived records"
-              placeholder="Search archived records…"
+              placeholder="Search"
             />
           </label>
 
@@ -1011,223 +1012,31 @@
       </main>
     </div>
 
-    <!-- ────────────── AUTO-DELETE SETTINGS MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalAutoDeleteSettings"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-          "
-        >
-          <div
-            class="archives-auto-delete-icon"
-            style="
-              width: 42px;
-              height: 42px;
-              border-radius: 10px;
-              background: linear-gradient(135deg, #7f1d1d, #b91c1c);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-          >
-            <i
-              class="fa-solid fa-gear"
-              style="color: #f7f2ec; font-size: 1.1rem"
-            ></i>
-          </div>
-          <h3 class="modal-title" style="margin-bottom: 0">
-            Auto-Delete Settings
-          </h3>
+    <div class="modal-overlay portal-detail-dialog" id="modalAutoDeleteSettings" data-backdrop-close="false" data-portal-detail-dialog data-portal-detail-guarded>
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="autoDeleteTitle">
+        <header class="portal-detail-dialog__header">
+          <span class="portal-detail-dialog__icon" aria-hidden="true"><i class="fa-solid fa-gear"></i></span>
+          <div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Archives</p><h2 class="modal-title portal-detail-dialog__title" id="autoDeleteTitle" data-portal-detail-heading tabindex="-1">Auto-Delete Settings</h2></div>
+          <button type="button" class="portal-detail-dialog__close" data-portal-detail-close aria-label="Close auto-delete settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </header>
+        <div class="portal-detail-dialog__body">
+          <p class="portal-detail-copy">Automatically and permanently delete eligible archived records older than the selected period. Online refunds and cancellation history are kept.</p>
+          <fieldset class="archive-retention-options"><legend>Keep archived records for</legend>
+            <label><input type="radio" name="retentionDays" value="30" /><span>30 days</span></label>
+            <label><input type="radio" name="retentionDays" value="60" checked /><span>60 days</span><small>Default</small></label>
+            <label><input type="radio" name="retentionDays" value="90" /><span>90 days</span></label>
+          </fieldset>
+          <p class="archive-retention-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Saving applies the selected period immediately and removes eligible expired records.</span></p>
         </div>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          Archived records older than the selected period will be
-          <strong>automatically and permanently deleted</strong>.
-          Online refund records are kept and excluded from automatic deletion.
-        </p>
-        <div
-          style="
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin: 16px 0;
-          "
-        >
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              padding: 10px 14px;
-              border: 2px solid #e5e7eb;
-              border-radius: 10px;
-              cursor: pointer;
-              font-weight: 600;
-              font-size: 0.9rem;
-              transition: all 0.15s ease;
-            "
-          >
-            <input
-              type="radio"
-              name="retentionDays"
-              value="30"
-              style="accent-color: #800000; width: 18px; height: 18px"
-            />
-            30 Days
-          </label>
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              padding: 10px 14px;
-              border: 2px solid #e5e7eb;
-              border-radius: 10px;
-              cursor: pointer;
-              font-weight: 600;
-              font-size: 0.9rem;
-              transition: all 0.15s ease;
-            "
-          >
-            <input
-              type="radio"
-              name="retentionDays"
-              value="60"
-              checked
-              style="accent-color: #800000; width: 18px; height: 18px"
-            />
-            60 Days
-            <span
-              style="
-                font-size: 0.7rem;
-                background: #800000;
-                color: #f7f2ec;
-                padding: 2px 8px;
-                border-radius: 99px;
-                font-weight: 700;
-              "
-              >Default</span
-            >
-          </label>
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              padding: 10px 14px;
-              border: 2px solid #e5e7eb;
-              border-radius: 10px;
-              cursor: pointer;
-              font-weight: 600;
-              font-size: 0.9rem;
-              transition: all 0.15s ease;
-            "
-          >
-            <input
-              type="radio"
-              name="retentionDays"
-              value="90"
-              style="accent-color: #800000; width: 18px; height: 18px"
-            />
-            90 Days
-          </label>
-        </div>
-        <p class="field-hint">
-          This setting takes effect immediately. Expired records will be removed
-          when you save.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelAutoDelete">
-            Cancel
-          </button>
-          <button
-            class="btn-admin archives-save-auto-delete"
-            id="btnSaveAutoDelete"
-            type="button"
-            style="
-              background: linear-gradient(135deg, #7f1d1d, #b91c1c);
-              border-color: #b91c1c;
-            "
-          >
-            <i class="fa-solid fa-check"></i> Save
-          </button>
-        </div>
-      </div>
+        <footer class="modal-actions portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCancelAutoDelete">Cancel</button><button class="btn-admin archives-save-auto-delete" id="btnSaveAutoDelete" type="button"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button></footer>
+      </section>
     </div>
-
-    <!-- ────────────── DELETE ARCHIVE CONFIRMATION MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalDeleteArchive"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-          "
-        >
-          <div
-            style="
-              width: 42px;
-              height: 42px;
-              border-radius: 10px;
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-          >
-            <i
-              class="fa-solid fa-trash"
-              style="color: #f7f2ec; font-size: 1.1rem"
-            ></i>
-          </div>
-          <h3 class="modal-title" style="margin-bottom: 0">
-            Delete Archived Record
-          </h3>
-        </div>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to permanently delete
-          <strong id="deleteArchiveTargetLabel">this record</strong>.
-        </p>
-        <p class="field-hint">
-          This action <strong>cannot be undone</strong>. The record will be
-          permanently removed from the system.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelDeleteArchive">
-            Cancel
-          </button>
-          <button
-            class="btn-admin"
-            id="btnConfirmDeleteArchive"
-            type="button"
-            style="
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              border-color: #dc2626;
-            "
-          >
-            <i class="fa-solid fa-trash"></i> Delete Permanently
-          </button>
-        </div>
-      </div>
+    <div class="modal-overlay portal-detail-dialog portal-detail-dialog--compact" id="modalDeleteArchive" data-backdrop-close="false" data-portal-detail-dialog data-portal-detail-guarded>
+      <section class="modal-card portal-detail-dialog__card" role="dialog" aria-modal="true" aria-labelledby="deleteArchiveTitle">
+        <header class="portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><i class="fa-solid fa-trash"></i></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Archives</p><h2 class="modal-title portal-detail-dialog__title" id="deleteArchiveTitle" data-portal-detail-heading tabindex="-1">Delete Archived Record</h2></div></header>
+        <div class="portal-detail-dialog__body"><p class="portal-detail-copy">Permanently delete <strong id="deleteArchiveTargetLabel">this record</strong>?</p><p class="field-hint">This action cannot be undone.</p></div>
+        <footer class="modal-actions portal-detail-dialog__footer"><button type="button" class="btn-admin btn-secondary" id="btnCancelDeleteArchive">Cancel</button><button class="btn-admin" id="btnConfirmDeleteArchive" type="button"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Permanently</button></footer>
+      </section>
     </div>
 
     <script src="../admin-page/session-helper.js?v=2026.1113.9"></script>
@@ -1236,7 +1045,8 @@
     <script src="../admin-page/admin-common.js?v=2026.1115.1"></script>
     <script src="../admin-page/portal-detail-dialog.js?v=2026.1115.4"></script>
 
-    <script src="../admin-page/archives.js?v=2026.1113.9"></script>
+    <script src="../admin-page/archives.js?v=2026.1115.9"></script>
+    <script src="../admin-page/archives-ui.js?v=2026.1115.9"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>
