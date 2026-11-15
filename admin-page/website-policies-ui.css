@@ -1,0 +1,37 @@
+/* Approved Inventory presentation for the existing Admin policy editor. */
+body[data-portal-policy-dialogs] :is(button,input,textarea) { font-family:inherit; }
+body[data-portal-policy-dialogs] .policy-settings-page .payment-settings-card { padding:24px; margin-bottom:0; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface,#fdfaf6); }
+body[data-portal-policy-dialogs] .policy-settings-page :is(h3,h4) { display:flex; align-items:center; gap:12px; margin:0 0 18px; padding-bottom:18px; border-bottom:1px solid var(--border-color,#e2e8f0); font-size:17px; font-weight:600; line-height:1.6; color:var(--portal-accent,#800000); overflow-wrap:anywhere; }
+body[data-portal-policy-dialogs] .policy-section-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:9px; background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+body[data-portal-policy-dialogs] .policy-section-icon svg { width:21px; height:21px; }
+body[data-portal-policy-dialogs] .policy-inline-icon { display:inline-flex; align-items:center; justify-content:center; flex:0 0 20px; width:20px; height:20px; margin-right:8px; color:var(--portal-accent,#800000); vertical-align:middle; }
+body[data-portal-policy-dialogs] .policy-inline-icon svg { width:18px; height:18px; }
+body[data-portal-policy-dialogs] .policy-settings-page p { color:var(--text-muted,#6b6269); font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+body[data-portal-policy-dialogs] .policy-settings-page .field-stack { min-width:0; margin:22px 0; }
+body[data-portal-policy-dialogs] .policy-settings-page .field-stack label { color:var(--text-main,#2b2b31); font-size:14px; font-weight:600; line-height:1.5; }
+body[data-portal-policy-dialogs] .policy-settings-page .input-field { min-height:44px; padding:12px; border-radius:8px; border:1px solid var(--border-color,#e2e8f0); background:var(--surface,#fdfaf6); color:var(--text-main,#2b2b31); font-size:14px; line-height:1.8; }
+body[data-portal-policy-dialogs] .policy-settings-page details { padding:0 18px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-policy-dialogs] .policy-settings-page details[open] { padding-bottom:16px; }
+body[data-portal-policy-dialogs] .policy-settings-page summary { min-height:44px; padding:12px 0; color:var(--portal-accent,#800000); font-size:14px; line-height:1.6; }
+body[data-portal-policy-dialogs] .policy-admin-text { margin:16px 0; font-size:14px; line-height:1.8; color:var(--text-main,#2b2b31); }
+body[data-portal-policy-dialogs] .policy-reference { padding:16px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-policy-dialogs] .policy-publish-card { margin-top:22px; padding:20px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; }
+body[data-portal-policy-dialogs] .policy-approval { min-height:44px; gap:12px; margin:18px 0; font-size:14px; line-height:1.7; }
+body[data-portal-policy-dialogs] .policy-approval input { width:18px; height:18px; flex-basis:18px; margin-top:3px; }
+body[data-portal-policy-dialogs] .btn-admin { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600; line-height:1.5; }
+body[data-portal-policy-dialogs] .btn-admin.btn-secondary { border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); background:var(--surface,#fdfaf6); box-shadow:none; }
+body[data-portal-policy-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { border-color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+body[data-portal-policy-dialogs] .btn-admin:disabled { opacity:.55; background:var(--surface-alt,#f1f2f4); color:var(--text-muted,#6b6269); border-color:var(--border-color,#e2e8f0); box-shadow:none; }
+body[data-portal-policy-dialogs] #policySaveBar .btn-admin { min-height:44px; font-size:13px; }
+body[data-portal-policy-dialogs] :is(input,textarea,button,summary,a):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+body[data-portal-policy-dialogs] [hidden] { display:none !important; }
+html[data-portal][data-theme="dark"] body[data-portal-policy-dialogs] .policy-settings-page :is(h3,h4) { color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-policy-dialogs] .btn-admin.btn-secondary:not(:disabled) { color:var(--portal-accent) !important; background:var(--surface) !important; border-color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-policy-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft) !important; }
+@media(max-width:720px) {
+  body[data-portal-policy-dialogs] .policy-settings-page .payment-settings-card { padding:18px 16px; }
+  body[data-portal-policy-dialogs] .policy-publish-card { padding:16px; }
+  body[data-portal-policy-dialogs] .policy-settings-page .input-field { font-size:16px; }
+  body[data-portal-policy-dialogs] .policy-customer-links { display:grid; grid-template-columns:minmax(0,1fr); }
+  body[data-portal-policy-dialogs] #policySaveBar .btn-admin { padding-inline:8px; font-size:12px; }
+}

@@ -13,6 +13,7 @@ test('Shipping Refresh retrieves changed rates and tracking health despite a cac
     }
     if(route==='/api/admin/shipping-tracking'){trackingReads++;json({data:{installed:true,enabled:false,can_edit:role==='admin',message:'Tracking status loaded',processor_healthy:revision>1}});return true;}
     if(route==='/api/psgc/provinces'){json([{code:'0501600000',name:'Camarines Norte'}]);return true;}
+    if(route==='/api/psgc/provinces/0501600000/cities-municipalities'){json([{code:'0501603000',name:'Labo'},{code:'0501608000',name:'Santa Elena'}]);return true;}
     return false;
   });
   for(const portal of ['admin','staff']){
@@ -47,6 +48,7 @@ test('Admin rate edits and removals persist through publication and Staff refres
     }
     if(route==='/api/admin/shipping-tracking'){json({data:{installed:true,enabled:false,can_edit:role==='admin',message:'Tracking status loaded'}});return true;}
     if(route==='/api/psgc/provinces'){json([{code:'0501600000',name:'Camarines Norte'}]);return true;}
+    if(route==='/api/psgc/provinces/0501600000/cities-municipalities'){json([{code:'0501603000',name:'Labo'},{code:'0501608000',name:'Santa Elena'}]);return true;}
     return false;
   });
   const confirm=async title=>{
@@ -127,6 +129,7 @@ test('Refresh waits for tracking health and re-enables the button after failures
       json(trackingFailure?{message:'Tracking unavailable'}:{data:{installed:true,enabled:false,can_edit:role==='admin',message:'Tracking status loaded'}},trackingFailure?503:200);return true;
     }
     if(route==='/api/psgc/provinces'){json([{code:'0501600000',name:'Camarines Norte'}]);return true;}
+    if(route==='/api/psgc/provinces/0501600000/cities-municipalities'){json([{code:'0501603000',name:'Labo'},{code:'0501608000',name:'Santa Elena'}]);return true;}
     return false;
   });
   await h.go('/admin-page/website-shipping.html');

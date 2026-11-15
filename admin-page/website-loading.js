@@ -127,11 +127,43 @@
   const observed = new ResizeObserver(() => schedulePaint());
   const mutations = new MutationObserver(() => schedulePaint());
 
+  // Payment Methods uses nested label cards and span-based copy. Measure those
+  // parts individually instead of drawing one large bar over each entire label.
+  const paintPaymentSkeleton = (section, box, fragment) => {
+    const append = (rect, kind, radius = '6px') => {
+      if (!rect.width || !rect.height) return;
+      const node = document.createElement('span');
+      node.className = kind === 'frame' ? 'website-skeleton-payment-frame' : `admin-global-skeleton-bar website-skeleton-payment-${kind}`;
+      Object.assign(node.style, {left:`${rect.left-box.left-section.clientLeft}px`,top:`${rect.top-box.top-section.clientTop}px`,width:`${rect.width}px`,height:`${rect.height}px`,borderRadius:radius});
+      fragment.append(node);
+    };
+    section.querySelectorAll('.payment-method-row,.payment-review-note,.payment-settings-note').forEach(node => append(node.getBoundingClientRect(),'frame',getComputedStyle(node).borderRadius));
+    section.querySelectorAll('.payment-section-icon,.payment-method-icon,button').forEach(node => append(node.getBoundingClientRect(),'control',getComputedStyle(node).borderRadius));
+    section.querySelectorAll('h2,h3,p,strong,.payment-method-name,.payment-method-description,.payment-method-scope,.payment-method-unavailable,.payment-readiness,.payment-switch-state').forEach(node => {
+      if (!node.getClientRects().length || !node.textContent.trim()) return;
+      const range = document.createRange();range.selectNodeContents(node);
+      [...range.getClientRects()].filter(rect=>rect.width&&rect.height).forEach(rect => {
+        const height=Math.min(rect.height,node.matches('h2,h3')?16:12);
+        append({left:rect.left,top:rect.top+(rect.height-height)/2,width:rect.width,height},'text');
+      });
+      range.detach();
+    });
+    section.querySelectorAll('.payment-switch').forEach(node => {
+      const rect=node.getBoundingClientRect(),style=getComputedStyle(node),x=parseFloat(style.borderLeftWidth)||0,y=parseFloat(style.borderTopWidth)||0;
+      append({left:rect.left+x,top:rect.top+y,width:rect.width-x-(parseFloat(style.borderRightWidth)||0),height:rect.height-y-(parseFloat(style.borderBottomWidth)||0)},'switch','999px');
+    });
+  };
+
   const paint = () => {
     frame = 0;
     entries.forEach(({ overlay }, section) => {
       const box = section.getBoundingClientRect();
       const fragment = document.createDocumentFragment();
+      if (document.body.hasAttribute('data-portal-payment-dialogs')) {
+        paintPaymentSkeleton(section,box,fragment);
+        mutations.disconnect();overlay.replaceChildren(fragment);
+        return;
+      }
       const quickLinks = section.querySelector("#quickLinksContainer");
       const nodes = section.querySelectorAll("h2,h3,h4,p,label,input:not([type=hidden]),textarea,select,button,img,iframe,canvas,.wm-img-placeholder,.portal-layout-option,.et-item,.service-category-row");
       nodes.forEach((node) => {
@@ -179,6 +211,8 @@
   function schedulePaint() {
     if (!frame && entries.size) frame = requestAnimationFrame(paint);
   }
+  document.fonts?.ready.then(schedulePaint);
+  document.fonts?.addEventListener('loadingdone',schedulePaint);
 
   const show = (scope) => {
     if (!entries.size) started = performance.now();
@@ -190,11 +224,12 @@
       overlay.className = "website-section-skeleton";
       overlay.setAttribute("aria-hidden", "true");
       entries.set(section, {
-        overlay, inert: section.inert, hadInert: section.hasAttribute("inert"),
+        overlay, inert: window.PortalDetailDialog?.getBackgroundInert?.(section) ?? section.inert, hadInert: section.hasAttribute("inert"),
         busy: section.getAttribute("aria-busy"), hidden: section.getAttribute("aria-hidden"),
       });
       section.classList.add("website-section-loading");
-      section.inert = true;
+      if (window.PortalDetailDialog?.setBackgroundInert) window.PortalDetailDialog.setBackgroundInert(section,true);
+      else section.inert = true;
       section.setAttribute("aria-busy", "true");
       section.setAttribute("aria-hidden", "true");
       section.append(overlay);
@@ -218,8 +253,8 @@
     entries.forEach((state, section) => {
       state.overlay.remove();
       section.classList.remove("website-section-loading");
-      section.inert = state.inert;
-      if (!state.hadInert) section.removeAttribute("inert");
+      if (window.PortalDetailDialog?.setBackgroundInert) window.PortalDetailDialog.setBackgroundInert(section,state.inert);
+      else { section.inert = state.inert; if (!state.hadInert) section.removeAttribute("inert"); }
       for (const [attribute, value] of [["aria-busy", state.busy], ["aria-hidden", state.hidden]]) {
         if (value === null) section.removeAttribute(attribute);
         else section.setAttribute(attribute, value);

@@ -14,7 +14,7 @@ function harness(page, mode) {
   let work, timeout, popup;
   const context = {
     location: { hostname: 'example.test', origin: 'https://example.test' },
-    document: { getElementById: id => nodes.get(id), querySelectorAll: () => [], addEventListener: (_, callback) => callback() },
+    document: { body: { hasAttribute: () => false }, getElementById: id => nodes.get(id), querySelectorAll: () => [], addEventListener: (_, callback) => callback() },
     window: { AdminSession: { getToken: () => 'fixture' }, AdminWebsiteLoading: { during: callback => (work = callback()) },showAdminPopup:(message,options)=>{popup={message,options};} },
     AbortController, Intl, setTimeout: callback => { timeout = callback; return 1; }, clearTimeout() {},
     fetch: async (_, options) => {

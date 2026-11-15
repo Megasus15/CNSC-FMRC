@@ -41,6 +41,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/products')return json({data:[product]});
       if(route==='/api/psgc/provinces'){if(provinceUnavailable){await pause(1600);return json({message:'Province list unavailable'},502);}return json(provinceCatalog);}
+      if(/^\/api\/psgc\/provinces\/\d+\/cities-municipalities$/.test(route))return json([{code:'0501602000',name:'Daet'},{code:'0501603000',name:'Labo'}]);
       if(route==='/api/admin/shipping-settings')return json({data:{...settings,can_edit:role==='admin',...(role==='staff'?{draft:undefined}:{})}});
       if(route==='/api/commerce/policy'||route.startsWith('/api/commerce/policy/'))return json({data:route==='/api/commerce/policy'?policySettings.published:policyHistory.get(route.split('/').at(-1))||null});
       if(route==='/api/admin/commerce-policy')return json({data:{...policySettings,can_edit:role==='admin',...(role==='staff'?{draft:undefined}:{})}});
@@ -177,6 +178,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     await key('Enter');
     assert.equal(await run(`document.getElementById('shipping-0-province').value`),'Camarines Norte');
     assert.equal(await run(`document.getElementById('shipping-0-province-search').value`),'Camarines Norte');
+    await run(`document.getElementById('shipping-0-cities-search').focus();document.querySelector('[data-city-code="all"]').click();document.getElementById('shipping-0-name').focus()`);
     await input('shippingDates','2026-11-09');
     assert.equal(await run(`document.getElementById('shippingSave').disabled`),false);
     await input('shipping-0-postal_codes','4604, 4604');await run(`document.getElementById('shippingSave').click()`);
@@ -212,8 +214,11 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     assert.equal(await run(`document.querySelectorAll('#shipping-0-province-list [role=option]').length`),provinceCatalog.length,'Reopening clears the filter and restores every province');
     await key('ArrowUp');await key('Enter');
     assert.equal(await run(`document.getElementById('shipping-0-province').value`),'Zambales','Keyboard selection reaches provinces outside the current region');
-    assert.equal(await run(`document.getElementById('shippingSave').disabled`),false,'Choosing a different province enables Save');
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),true,'Choosing a different province requires a new city coverage choice');
+    await run(`document.getElementById('shipping-0-cities-search').focus();document.querySelector('[data-city-code="all"]').click();document.getElementById('shipping-0-province-search').focus()`);
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),false,'Selecting province-wide coverage enables Save');
     await input('shipping-0-province-search','cam');await run(`document.querySelector('#shipping-0-province-list [role=option]').click()`);
+    await run(`document.getElementById('shipping-0-cities-search').focus();document.querySelector('[data-city-code="all"]').click();document.getElementById('shipping-0-province-search').focus()`);
     assert.equal(await run(`document.getElementById('shippingSave').disabled`),true,'Reselecting the saved province restores the clean draft');
     await input('shipping-0-province-search','albay');await run(`document.getElementById('shipping-0-name').focus()`);
     assert.equal(await run(`document.getElementById('shipping-0-province-search').value`),'Camarines Norte','Leaving a search keeps the saved choice');
@@ -459,7 +464,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`document.getElementById('tracking-jnt-71-number').value`),'0012345678901234567890123456789012345678901234567890');
       assert.equal(await run(`document.activeElement.id`),'tracking-jnt-71-number');
       assert.equal(await run(`document.getElementById('tracking-jnt-71-number').selectionStart`),3);
-      assert.match(await run(`getComputedStyle(document.getElementById('tracking-jnt-71-number')).fontFamily`),/Montserrat/);
+      assert.equal(await run(`getComputedStyle(document.getElementById('tracking-jnt-71-number')).fontFamily===getComputedStyle(document.querySelector('#modalTrackingUpdate .portal-detail-dialog__card')).fontFamily`),true,'Tracking controls inherit the approved portal font');
       await run(`document.getElementById('tracking-jnt-71-confirmed').click()`);
       await input('trackingEventTitle','Prepared for J&T handover');
       const beforeShip=shipmentWrites.length;

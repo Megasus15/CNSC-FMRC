@@ -8,13 +8,15 @@
     const headers = () => ({Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()});
     let record=null, busy=false, refreshing=false, loaded=false, baseline='', zones=[], publishedPage=1;
     let provinces=[], provincesReady=false, provincesBusy=false, provincesFailed=false, provinceRequest=null;
+    let cityPicker=null;
     const admin = () => loaded && !!record?.can_edit;
-    window.AdminWebsiteDraft?.register({isDirty:()=>admin()&&normalized(read())!==baseline,busy:()=>busy&&!!record?.can_edit});
+    window.AdminWebsiteDraft?.register({isDirty:()=>admin()&&(normalized(read())!==baseline||!!cityPicker?.pending()),busy:()=>busy&&!!record?.can_edit});
     const money = amount => new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(amount));
     const list = value => value.split(/[\n,]+/).map(text=>text.trim()).filter(Boolean);
     const escape = text => String(text ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     const placeKey = value => String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('en-PH');
     const knownProvince = value => provinces.some(province=>placeKey(province.name)===placeKey(value));
+    if(document.body.hasAttribute('data-portal-shipping-dialogs'))cityPicker=window.FMRCShippingCities?.create({root:get('shippingZones'),api,provinceFor:value=>provinces.find(province=>placeKey(province.name)===placeKey(value)),onStateChange:()=>sync()})||null;
     const provinceOptions = current => {
       const matching=provinces.find(province=>placeKey(province.name)===placeKey(current));
       let html='<option value="">Select a province</option>';
@@ -63,6 +65,7 @@
     };
     const showError = (message,{title='Check shipping settings',field=null,retry=null}={}) => {
       if(field?.matches?.('[data-field="province"]'))field=field.closest('[data-province-picker]').querySelector('[data-province-search]');
+      if(field?.matches?.('[data-field="cities"]')&&field.closest('[data-city-picker]'))field=field.closest('[data-city-picker]').querySelector('[data-city-search]');
       field?.setAttribute('aria-invalid','true');
       const options={title,type:'error',okText:retry?'Try again':'OK',onOk:()=>{if(retry)void retry();else field?.focus();}};
       if(window.showAdminPopup)window.showAdminPopup(message,options);
@@ -86,11 +89,11 @@
       nonworking_dates:list(get('shippingDates').value),
       zones:[...get('shippingZones').querySelectorAll('[data-zone-id]')].map(row=>{
         const value=key=>row.querySelector('[data-field="'+key+'"]').value;
-        return {id:row.dataset.zoneId,name:value('name').trim(),province:value('province').trim(),cities:list(value('cities')),postal_codes:list(value('postal_codes')),
+        return {id:row.dataset.zoneId,name:value('name').trim(),province:value('province').trim(),cities:cityPicker?cityPicker.values(row):list(value('cities')),postal_codes:list(value('postal_codes')),
           fee:Number(value('fee')),preparation_days:Number(value('preparation_days')),transit_min_days:Number(value('transit_min_days')),transit_max_days:Number(value('transit_max_days'))};
       })});
     const normalized = settings => JSON.stringify({enabled:settings.enabled,nonworking_weekdays:settings.nonworking_weekdays,nonworking_dates:settings.nonworking_dates,zones:settings.zones.map(zone=>({...zone,fee:Number(zone.fee)}))});
-    const dirty = () => !!record && normalized(read())!==baseline;
+    const dirty = () => !!record && (normalized(read())!==baseline||!!cityPicker?.pending());
     const table = (settings, published=false) => {
       if (!settings) return '<div class="shipping-empty"><strong>Pickup only</strong><p>Publish approved delivery rates to offer shipping. Pickup at FMRC has no shipping fee.</p></div>';
       if (!settings.enabled) return '<div class="shipping-empty"><strong>Delivery is turned off</strong><p>Customers can choose free pickup at FMRC.</p></div>';
@@ -107,18 +110,19 @@
         '<tr><td>'+window.AdminTableValue.html(zone.name)+'</td><td>'+escape([window.AdminTableValue.text(zone.province),zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+(window.AdminTableValue.missing(zone.fee)?'--':money(zone.fee))+'</td><td>'+(window.AdminTableValue.missing(zone.preparation_days)?'--':zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days'))+'</td><td>'+([zone.transit_min_days,zone.transit_max_days].some(window.AdminTableValue.missing)?'--':zone.transit_min_days+'–'+zone.transit_max_days+' working days')+'</td></tr>').join('')}</tbody></table></div>${pager}</section>`;
     };
     const sync = () => {
-      const values=read(),changed=!!record&&normalized(values)!==baseline;
+      const values=read(),changed=!!record&&(normalized(values)!==baseline||!!cityPicker?.pending());
       const savedDraft=!!record?.draft&&record.has_saved_draft!==false;
       const same=!!record?.published&&normalized(record.draft||values)===normalized(record.published);
       const needsArea=values.enabled&&!values.zones.length;
       const provinceLock=!!values.zones.length&&(!provincesReady||provincesBusy);
       const invalidProvince=provincesReady&&values.zones.some(zone=>!knownProvince(zone.province));
+      const cityIssue=cityPicker?.issue();
       get('shippingForm').setAttribute('aria-busy',String(busy));
-      get('shippingSave').disabled=!admin()||busy||provinceLock||!changed;
+      get('shippingSave').disabled=!admin()||busy||provinceLock||!!cityIssue||!changed;
       get('shippingDiscard').disabled=!admin()||busy||!changed;
-      get('shippingPublish').disabled=!admin()||busy||provinceLock||invalidProvince||changed||!savedDraft||needsArea||same||!get('shippingApproved').checked;
+      get('shippingPublish').disabled=!admin()||busy||provinceLock||invalidProvince||!!cityIssue||changed||!savedDraft||needsArea||same||!get('shippingApproved').checked;
       get('shippingFields').disabled=!admin()||busy;
-      get('shippingApproved').disabled=!admin()||busy||provinceLock||invalidProvince||changed||!savedDraft||needsArea||same;
+      get('shippingApproved').disabled=!admin()||busy||provinceLock||invalidProvince||!!cityIssue||changed||!savedDraft||needsArea||same;
       get('shippingZones').querySelectorAll('[data-province-picker]').forEach(picker=>{
         const disabled=!admin()||busy||!provincesReady||provincesBusy;
         picker.querySelectorAll('select,input,button').forEach(control=>{control.disabled=disabled;});
@@ -127,7 +131,8 @@
       });
       get('shippingProvinceStatus').textContent=provincesBusy?'Loading provinces…':provincesFailed?'The province list is unavailable. Reload it to continue.':'';
       get('shippingProvinceRetry').hidden=!provincesFailed;get('shippingProvinceRetry').disabled=busy||provincesBusy;
-      get('shippingDraftPreview').innerHTML=record ? table(values) : '';
+      cityPicker?.syncBusy();
+      get('shippingDraftPreview').innerHTML=cityIssue?'<p>Choose valid location coverage for every delivery area to preview draft rates.</p>':record ? table(values) : '';
       get('shippingRefresh').disabled=busy||refreshing;
       const pending=admin()&&(changed||(savedDraft&&!same));
       get('shippingPendingChanges').hidden=!pending;
@@ -135,24 +140,27 @@
       get('shippingReviewChanges').disabled=busy;
       get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?(savedDraft&&!same?'Draft saved — waiting to be published':'No unsaved changes'):'Published settings · Read only';
       const hint=get('shippingPublishHint');
-      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':provinceLock?'Load the province list before saving or publishing.':invalidProvince?'Select a province from the list for each delivery area.':changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
+      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':provinceLock?'Load the province list before saving or publishing.':invalidProvince?'Select a province from the list for each delivery area.':cityIssue?cityIssue.message:changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
     };
     const renderZones = values => {
       zones=values;
       get('shippingZones').classList.toggle('shipping-zones-scroll',zones.length>=3);
       get('shippingZones').setAttribute('tabindex',zones.length>=3?'0':'-1');
-      const fields=[['name','Delivery area name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Days to prepare the order','number'],['transit_min_days','Fastest delivery (working days)','number'],['transit_max_days','Longest delivery (working days)','number']];
+      const fields=[['name','Delivery area name','text'],['province','Province','text'],['cities',cityPicker?'Cities / municipalities':'Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Days to prepare the order','number'],['transit_min_days','Fastest delivery (working days)','number'],['transit_max_days','Longest delivery (working days)','number']];
       const help={name:'A label for your reference, such as Daet delivery.',province:'Search all Philippine provinces, then select a result. Review city and postal-code entries when changing provinces.',cities:'Separate names with commas. Leave blank to include all cities in this province.',postal_codes:'Use four-digit codes, separated by commas. Leave blank for all postal codes in the selected area.',fee:'Charged once for the whole order, regardless of the number of items.',preparation_days:'Working days FMRC needs before the parcel is ready to send.',transit_min_days:'Fewest working days for delivery after preparation.',transit_max_days:'Most working days usually needed after preparation.'};
-      if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';return;}
+      if(cityPicker)help.cities='Choose one or more listed locations, or select province-wide coverage.';
+      if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';cityPicker?.attach([]);return;}
       get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Delivery area '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove area</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>{
         const id='shipping-'+index+'-'+key,attributes='class="input-field" id="'+id+'" data-field="'+key+'" aria-describedby="'+id+'-help"';
-        const control=key==='province'?'<div class="combobox-wrap shipping-province-picker" data-province-picker><select '+attributes+' required hidden aria-hidden="true" tabindex="-1"'+(!provincesReady?' disabled':'')+'>'+provinceOptions(zone.province)+'</select><i class="fa-solid fa-magnifying-glass shipping-province-search-icon" aria-hidden="true"></i><input class="input-field combobox-input shipping-province-search" id="'+id+'-search" data-province-search type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'-list" aria-describedby="'+id+'-help" autocomplete="off" spellcheck="false" placeholder="Search provinces…" value="'+escape(provinceLabel(zone.province))+'"'+(!provincesReady?' disabled':'')+'><button class="combobox-caret" type="button" data-province-toggle aria-label="Show all provinces for delivery area '+(index+1)+'" tabindex="-1"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button><ul class="combobox-list" id="'+id+'-list" role="listbox" aria-label="Philippine provinces" hidden></ul><span class="shipping-province-results" data-province-results role="status" aria-live="polite"></span></div>':'<input '+attributes+' type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':key==='name'?'100':'120')+'"')+' />';
-        return '<div class="field-stack"><label for="'+id+(key==='province'?'-search':'')+'">'+label+'</label>'+control+'<small id="'+id+'-help">'+help[key]+'</small></div>';
+        const control=key==='cities'&&cityPicker?cityPicker.markup({zone,id}):key==='province'?'<div class="combobox-wrap shipping-province-picker" data-province-picker><select '+attributes+' required hidden aria-hidden="true" tabindex="-1"'+(!provincesReady?' disabled':'')+'>'+provinceOptions(zone.province)+'</select><i class="fa-solid fa-magnifying-glass shipping-province-search-icon" aria-hidden="true"></i><input class="input-field combobox-input shipping-province-search" id="'+id+'-search" data-province-search type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+id+'-list" aria-describedby="'+id+'-help" autocomplete="off" spellcheck="false" placeholder="Search provinces…" value="'+escape(provinceLabel(zone.province))+'"'+(!provincesReady?' disabled':'')+'><button class="combobox-caret" type="button" data-province-toggle aria-label="Show all provinces for delivery area '+(index+1)+'" tabindex="-1"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button><ul class="combobox-list" id="'+id+'-list" role="listbox" aria-label="Philippine provinces" hidden></ul><span class="shipping-province-results" data-province-results role="status" aria-live="polite"></span></div>':'<input '+attributes+' type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':key==='name'?'100':'120')+'"')+' />';
+        return '<div class="field-stack"><label for="'+id+(key==='province'||(key==='cities'&&cityPicker)?'-search':'')+'">'+label+(key==='cities'&&cityPicker?' <span aria-hidden="true" class="shipping-required">*</span>':'')+'</label>'+control+'<small id="'+id+'-help">'+help[key]+'</small></div>';
       }).join('')+'</div></section>').join('');
+      cityPicker?.attach(zones);
     };
     const populate = data => {
       loaded=true;
       record=data;
+      cityPicker?.reset();
       const values=data.draft || data.published || {enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]};
       get('shippingEditor').hidden=!data.can_edit;
       get('shippingSaveBar').hidden=!data.can_edit;
@@ -197,6 +205,7 @@
           provinces=data.map(value=>({code:String(value.code),name:value.name.trim()})).sort((a,b)=>a.name.localeCompare(b.name,'en-PH'));
           provincesReady=true;
           get('shippingZones').querySelectorAll('[data-field="province"]').forEach(select=>{select.innerHTML=provinceOptions(select.value);closeProvincePicker(select.closest('[data-province-picker]'));});
+          cityPicker?.refresh();
           return true;
         }catch{
           provincesFailed=true;
@@ -209,6 +218,7 @@
       const values=read();
       const reject=(message,field)=>{showError(message,{field});return false;};
       if(values.zones.length&&!provincesReady)return reject('Load the province list before saving your delivery areas.');
+      const cityIssue=cityPicker?.issue();if(cityIssue)return reject(cityIssue.message,cityIssue.field);
       if(values.nonworking_weekdays.length===7)return reject('Leave at least one day unchecked so delivery dates can be calculated.');
       const dates=values.nonworking_dates;
       if(new Set(dates).size!==dates.length)return reject('A closed date is repeated. Enter each date only once.',get('shippingDates'));
@@ -246,7 +256,7 @@
       } catch (failure) { showError(failure.message,{field:errorField(failure.field)}); }
       finally { busy=false;sync(); }
     };
-    const edited=event=>{if(event.target.matches('[data-province-search]'))return;event.target.removeAttribute('aria-invalid');sync();};
+    const edited=event=>{if(event.target.matches('[data-province-search],[data-city-search]'))return;event.target.removeAttribute('aria-invalid');sync();};
     get('shippingForm').addEventListener('input',edited);get('shippingForm').addEventListener('change',edited);
     get('shippingZones').addEventListener('focusin',event=>{
       if(!event.target.matches('[data-province-search]'))return;

@@ -119,6 +119,13 @@
     if (root) requestClose(root);
   });
   window.PortalDetailDialog = {
+    // Section loaders and dialogs may own the same inert background. Let the
+    // loader update the state restored after the last dialog closes.
+    getBackgroundInert(node) { return session?.inert.has(node) ? session.inert.get(node) : node.inert; },
+    setBackgroundInert(node, value) {
+      if (session?.inert.has(node)) { session.inert.set(node, Boolean(value)); node.inert = true; }
+      else node.inert = Boolean(value);
+    },
     registerClose(root, handler) { if (root && typeof handler === 'function') closeHandlers.set(root, handler); },
     adopt(root, {close, visibility = 'class'} = {}) {
       if (!root) return;

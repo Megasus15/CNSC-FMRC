@@ -1,0 +1,14 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
+test('Payment skeleton follows the real payment cards and switch tracks at every layout',{skip:!chrome,timeout:120000},async t=>{
+ const font=process.env.FMRC_BROWSER_POPPINS,setup=font?`{let s=document.createElement('style');s.textContent=${JSON.stringify(`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`)};document.head.append(s);}`:'';
+ let release;const h=await browserFixture(t,async({route,json})=>{if(route==='/api/site-settings'){await new Promise(resolve=>release=resolve);json({data:{payment_cash_on_pickup_enabled:'1',payment_gcash_enabled:'1',payment_checkout_method:'qrph',payment_gcash_ready:'1'}});return true;}return false;},{setup});
+ await h.send('Network.setBlockedURLs',{urls:['https://*']});await h.go('/admin-page/website-payments.html');await h.until(`document.querySelectorAll('.website-skeleton-payment-frame').length>=4`);
+ for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);await h.pause(150);await h.run(`document.fonts.ready`);await h.run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);
+  assert(await h.run(`(()=>{const same=(a,b)=>Math.abs(a.left-b.left)<1&&Math.abs(a.top-b.top)<1&&Math.abs(a.width-b.width)<1&&Math.abs(a.height-b.height)<1,frames=[...document.querySelectorAll('.website-skeleton-payment-frame')].map(n=>n.getBoundingClientRect());return document.documentElement.scrollWidth<=innerWidth+1&&[...document.querySelectorAll('.payment-method-row')].every(n=>frames.some(f=>same(n.getBoundingClientRect(),f)))})()`),'Skeleton cards align with the real rows '+width+' '+theme);
+  assert(await h.run(`(()=>{const tracks=[...document.querySelectorAll('.website-skeleton-payment-switch')].map(n=>n.getBoundingClientRect());return tracks.length===2&&tracks.every(r=>Math.abs(r.width-46)<1&&Math.abs(r.height-26)<1)&&document.querySelectorAll('.website-skeleton-payment-text').length>=15&&!document.querySelector('.payment-method-row .website-section-skeleton')})()`),'Switches and copy use individual correctly sized placeholders');
+  if([390,1440].includes(width))await h.shot('payment-skeleton-'+width+'-'+theme);
+ }
+ assert(release);release();await h.until(`!document.querySelector('.website-section-loading')&&!document.getElementById('paymentSettingsFields').disabled`);assert.equal(await h.run(`document.getElementById('savePaymentSettings').disabled`),true);assert.deepEqual(await h.run('fixtureErrors'),[]);t.diagnostic('Previews: '+h.artifacts);
+});

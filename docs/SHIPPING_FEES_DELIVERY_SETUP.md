@@ -25,7 +25,16 @@ An unrecognized saved name must be replaced with a selection before saving.
 Open Province to browse the complete nationwide list, or type part of a province
 name to filter it. Choose a result with a click, or use the arrow keys and Enter.
 Escape or leaving the field keeps the previous selection. Searching alone does
-not change the draft or enable Save; choosing a different province does.
+not change the draft or enable Save. Choosing a different province resets city
+coverage and requires a new explicit selection before saving.
+
+Cities / municipalities is a required searchable multiselect on Admin. It loads
+the selected Province's locations through the existing
+`GET /api/psgc/provinces/{code}/cities-municipalities` endpoint. Choose one or
+more named locations, or **All cities and municipalities** for province-wide
+coverage. That explicit choice preserves the existing empty `cities` array.
+Saved coverage is retained; changing Province never silently inherits locations
+or publishes the draft. Loading failures preserve entries and provide Retry.
 
 Shipping validation uses the shared Admin/Staff system popup rather than a red
 inline banner or technical field paths. Repeated city names/postal codes are
@@ -38,8 +47,8 @@ There are no seeded delivery rates. Until approved settings are published,
 delivery is unavailable and checkout offers pickup. Pickup has zero shipping
 fee. Enabling delivery requires at least one valid destination zone.
 
-Each Philippine zone specifies an official province name, optional cities or
-municipalities, optional four-digit postal codes, one fee per order, preparation
+Each Philippine zone specifies an official province name, named cities or
+municipalities or explicit province-wide coverage, optional four-digit postal codes, one fee per order, preparation
 days, and minimum/maximum transit days. Postal-code restrictions take priority
 over city restrictions, then province-wide coverage. Equally specific overlapping
 zones cannot be published. Names are compared without case or repeated-space

@@ -203,14 +203,17 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
       await navigate(`/${role}-page/website-${name}.html?shortDeadline=1`);
       await wait(`!!document.querySelector('.admin-page-load-notice:not([hidden]),.admin-system-popup.show')`);
       await settled();
-      const state = await evaluate(`(()=>{const buttons=[...document.querySelectorAll('.wm-save-bar button')].filter(button=>/save/i.test(button.textContent));return {unlocked:!document.querySelector('.module-content [inert],.wm-save-bar[inert]'),guarded:buttons.length>0&&buttons.every(button=>button.disabled)};})()`);
-      assert(state.unlocked && state.guarded, `${role}/${name}: a stalled response body releases skeletons and keeps uninitialized saves locked`);
+      const state = await evaluate(`(()=>{const buttons=[...document.querySelectorAll('.wm-save-bar button')].filter(button=>/save/i.test(button.textContent));return {released:!document.querySelector('.website-section-loading,.website-section-skeleton'),unlocked:!document.querySelector('.module-content [inert],.wm-save-bar[inert]'),popup:!!document.querySelector('.admin-system-popup.show'),guarded:buttons.length>0&&buttons.every(button=>button.disabled)};})()`);
+      // A refined error popup deliberately keeps the background inert after the
+      // loader releases it; the popup restores that state when acknowledged.
+      assert(state.released && (state.unlocked || state.popup) && state.guarded, `${role}/${name}: a stalled response body releases skeletons and keeps uninitialized saves locked: ${JSON.stringify(state)}`);
       stalledSettingsBody = false;
       release();
       if (name === 'about') await evaluate(`document.getElementById('adminSystemPopupOk').click()`);
       else await evaluate(`document.querySelector('.admin-page-load-notice__retry').click()`);
       await settled();
       await wait(`typeof settingsLoaded!=='undefined' && settingsLoaded && [...document.querySelectorAll('.wm-save-bar button')].filter(button=>/save/i.test(button.textContent)).every(button=>button.disabled)`);
+      assert(await evaluate(`!document.querySelector('.module-content [inert],.wm-save-bar[inert]')`),'Retry releases the loading and popup background locks');
       console.log(`Verified ${role}/${name} stalled-body timeout and real Retry recovery`);
     }
     assert(settingsModes.length > 0 && settingsModes.every(mode => mode === 'references'), 'all Website Management settings reads request video references');

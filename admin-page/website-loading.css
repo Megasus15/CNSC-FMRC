@@ -24,6 +24,8 @@
   position: absolute;
   max-width: 100%;
 }
+.website-skeleton-payment-frame { position:absolute; box-sizing:border-box; border:1px solid var(--border-color,#e2e8f0); background:var(--surface-alt,var(--surface)); }
+.website-section-skeleton > .website-skeleton-payment-text { min-height:0; }
 .website-section-loading:has(#servicesGrid) {
   min-height: 268px;
 }

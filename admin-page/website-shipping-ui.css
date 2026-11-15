@@ -32,6 +32,25 @@ body[data-portal-shipping-dialogs] .shipping-province-picker .shipping-province-
 body[data-portal-shipping-dialogs] .shipping-province-search-icon { left:13px; font-size:14px; }
 body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-caret { width:44px; min-height:44px; top:0; right:0; }
 body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-list li { min-height:44px; font-size:14px; }
+body[data-portal-shipping-dialogs] .shipping-city-picker { min-width:0; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-wrap { position:relative; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .shipping-city-search { padding-left:38px; padding-right:48px; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-caret { width:44px; min-height:44px; top:0; right:0; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list { z-index:21; }
+body[data-portal-shipping-dialogs] .shipping-city-picker.open .combobox-list { display:block; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list li { display:flex; align-items:center; gap:10px; min-height:44px; padding:10px 12px; font-size:14px; line-height:1.6; white-space:normal; overflow-wrap:anywhere; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list li.combobox-active { outline:2px solid var(--portal-accent,#800000); outline-offset:-2px; }
+body[data-portal-shipping-dialogs] .shipping-city-option-check { display:grid; place-items:center; flex:0 0 18px; width:18px; height:18px; border:1px solid var(--border-color,#d7dde5); border-radius:4px; color:var(--portal-accent,#800000); }
+body[data-portal-shipping-dialogs] .shipping-city-picker [aria-selected="true"] .shipping-city-option-check { border-color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-shipping-dialogs] .shipping-city-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+body[data-portal-shipping-dialogs] .shipping-city-chips:empty { display:none; }
+body[data-portal-shipping-dialogs] .shipping-city-chip { display:inline-flex; align-items:center; gap:8px; min-width:0; max-width:100%; padding-left:10px; border:1px solid var(--border-color,#d7dde5); border-radius:8px; background:var(--surface,#fdfaf6); font-size:12px; }
+body[data-portal-shipping-dialogs] .shipping-city-chip > span { min-width:0; overflow-wrap:anywhere; }
+body[data-portal-shipping-dialogs] .shipping-city-chip > button { flex:0 0 44px; width:44px; min-height:44px; border:0; border-radius:0 8px 8px 0; background:transparent; color:var(--portal-accent,#800000); font:inherit; font-size:20px; cursor:pointer; }
+body[data-portal-shipping-dialogs] .shipping-city-chip > button:hover { background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-shipping-dialogs] .shipping-page .shipping-city-status { margin-top:8px; font-size:12px; }
+body[data-portal-shipping-dialogs] .shipping-city-retry { margin-top:8px; }
+body[data-portal-shipping-dialogs] .shipping-required { color:var(--portal-accent,#800000); }
 body[data-portal-shipping-dialogs] .shipping-check { gap:12px; align-items:flex-start; min-height:44px; color:var(--text-main,#2b2b31); font-size:14px; line-height:1.7; }
 body[data-portal-shipping-dialogs] .shipping-check > input { width:18px; height:18px; min-width:18px; margin:3px 0 0; }
 body[data-portal-shipping-dialogs] .shipping-enable { padding:18px; }
