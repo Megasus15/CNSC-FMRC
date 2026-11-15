@@ -99,6 +99,10 @@
     const setLoadingLocal = () => {};
 
     const showStatusLocal = (message) => {
+      if (typeof window.showAdminPopup === "function") {
+        window.showAdminPopup(message, { title: "Unable to continue", type: "error" });
+        return;
+      }
       const authStatusModal = document.getElementById("authStatusModal");
       const authStatusText = document.getElementById("authStatusText");
       if (authStatusModal && authStatusText) {
@@ -743,6 +747,7 @@
     );
 
     const recoveryState = { supported: null, total: 0, remaining: 0 };
+    let recoveryGenerating = false;
     let revealedCodes = [];
 
     const formatStamp = (iso) => {
@@ -873,7 +878,7 @@
     loadRecoveryStatus();
 
     const openRecoveryConfirm = () => {
-      if (!recoveryConfirmModal) return;
+      if (!recoveryConfirmModal || recoveryGenerating) return;
       const regenerating = recoveryState.total > 0;
       if (recoveryConfirmTitle) {
         recoveryConfirmTitle.textContent = regenerating
@@ -897,19 +902,20 @@
       const eyeIcon = document.querySelector("#toggleRecoveryPassword i");
       if (eyeIcon) eyeIcon.className = "fa-solid fa-eye-slash";
       recoveryConfirmModal.classList.add("show");
-      window.setTimeout(() => recoveryConfirmPassword?.focus(), 50);
+      window.setTimeout(() => {
+        if (recoveryConfirmModal.classList.contains("show") && ownsAccount()) recoveryConfirmPassword?.focus();
+      }, 50);
     };
 
     const closeRecoveryConfirm = () => {
+      if (recoveryGenerating) return;
       recoveryConfirmModal?.classList.remove("show");
       if (recoveryConfirmPassword) recoveryConfirmPassword.value = "";
     };
 
     recoveryGenerateBtn?.addEventListener("click", openRecoveryConfirm);
     recoveryConfirmCancel?.addEventListener("click", closeRecoveryConfirm);
-    recoveryConfirmModal?.addEventListener("click", (ev) => {
-      if (ev.target === recoveryConfirmModal) closeRecoveryConfirm();
-    });
+    window.PortalDetailDialog?.registerClose(recoveryConfirmModal, closeRecoveryConfirm);
     recoveryConfirmPassword?.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
         ev.preventDefault();
@@ -969,6 +975,7 @@
     };
 
     recoveryConfirmSubmit?.addEventListener("click", async () => {
+      if (recoveryGenerating) return;
       const password = recoveryConfirmPassword?.value || "";
       if (!password) {
         showStatusLocal("Enter your current password to continue.");
@@ -976,6 +983,10 @@
         return;
       }
       const originalSubmitHtml = recoveryConfirmSubmit.innerHTML;
+      recoveryGenerating = true;
+      recoveryConfirmModal?.setAttribute("aria-busy", "true");
+      const pendingControls = [recoveryConfirmCancel, recoveryConfirmPassword, document.getElementById("toggleRecoveryPassword"), recoveryConfirmModal?.querySelector("[data-portal-detail-close]")].filter(Boolean);
+      pendingControls.forEach(control => { control.disabled = true; });
       recoveryConfirmSubmit.disabled = true;
       recoveryConfirmSubmit.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i> Working...';
@@ -1000,6 +1011,7 @@
           if (payload?.supported === false) renderRecoveryStatus(payload);
           return;
         }
+        recoveryGenerating = false;
         closeRecoveryConfirm();
         renderRevealedCodes(payload?.codes);
         renderRecoveryStatus({
@@ -1016,6 +1028,9 @@
       } catch (e) {
         showStatusLocal("Network error. Please try again.");
       } finally {
+        recoveryGenerating = false;
+        recoveryConfirmModal?.setAttribute("aria-busy", "false");
+        pendingControls.forEach(control => { control.disabled = false; });
         recoveryConfirmSubmit.disabled = false;
         recoveryConfirmSubmit.innerHTML = originalSubmitHtml;
       }

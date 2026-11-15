@@ -36,8 +36,9 @@
     <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1105.1" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="../admin-page/portal-detail-dialog.css?v=2026.1115.3" />
+    <link rel="stylesheet" href="../admin-page/my-account-ui.css?v=2026.1115.11" />
   </head>
-  <body>
+  <body data-portal-account-ui data-portal-popups="refined" data-portal-popup-context="My Account">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -145,13 +146,13 @@
         </header>
 
         <section class="module-content">
-          <div class="page-toolbar">
-            <div class="toolbar-title">
+          <div class="page-toolbar account-page-toolbar">
+            <div class="toolbar-title"><span class="account-section-icon" aria-hidden="true"><i class="fa-regular fa-id-card"></i></span><div class="account-title-copy">
               <h2>Account Settings</h2>
               <p>
                 Manage your sign-in details and review your account information.
               </p>
-            </div>
+            </div></div>
             <div class="toolbar-actions">
               <button
                 class="btn-admin btn-secondary"
@@ -166,17 +167,16 @@
 
           <div id="myAccountContent">
             <div class="account-layout">
-              <div class="account-summary-card">
-                <div
+              <div class="account-summary-card"><div class="account-section-heading"><span class="account-section-icon" aria-hidden="true"><i class="fa-regular fa-id-card"></i></span><h3>Account overview</h3></div>
+              <div class="account-identity-row"><div
                   class="account-avatar profile-initial"
                   data-email=""
                 >
                   A
-                </div>
-                <div class="account-name">Staff Member</div>
-                <span class="account-role-badge">Staff</span>
+                </div><div class="account-identity-copy"><div class="account-name">Staff Member</div>
+                <span class="account-role-badge">Staff</span></div></div>
 
-                <div class="account-meta-list">
+              <div class="account-meta-list">
                   <div class="account-meta-item">
                     <div class="account-meta-label">Current Username</div>
                     <div id="currentUsernameValue" class="account-meta-value">
@@ -203,24 +203,24 @@
               </div>
 
               <div class="account-form-card">
-                <h3>Update Credentials</h3>
+                <div class="account-section-heading"><span class="account-section-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></span><h3>Sign-in details</h3></div>
                 <p class="account-form-subtext">
                   Update your username, Gmail address, or password, then save your changes.
                 </p>
 
                 <div class="form-grid">
-                  <div class="field-stack full">
-                    <label>Username</label>
+                  <div class="field-stack">
+                    <label for="usernameInput">Username</label>
                     <input
-                      id="usernameInput"
+                      id="usernameInput" autocomplete="username"
                       class="input-field"
                       type="text"
                       placeholder="Enter username"
                     />
                   </div>
 
-                  <div class="field-stack full">
-                    <label>Full Name</label>
+                  <div class="field-stack">
+                    <label for="fullNameInput">Full Name</label>
                     <input
                       id="fullNameInput"
                       class="input-field"
@@ -230,20 +230,20 @@
                     />
                   </div>
 
-                  <div class="field-stack full">
-                    <label>New Gmail</label>
+                  <div class="field-stack">
+                    <label for="emailInput">New Gmail</label>
                     <input
-                      id="emailInput"
+                      id="emailInput" autocomplete="email"
                       class="input-field"
                       type="email"
                       placeholder="Enter new Gmail address"
                     />
                   </div>
-                  <div class="field-stack full password-field">
-                    <label>Current Password</label>
+                  <div class="field-stack password-field">
+                    <label for="currentPassword">Current Password</label>
                     <div class="input-icon-group">
                       <input
-                        id="currentPassword"
+                        id="currentPassword" autocomplete="current-password"
                         class="input-field"
                         type="password"
                         placeholder="Enter current password"
@@ -259,10 +259,10 @@
                     </div>
                   </div>
                   <div class="field-stack password-field">
-                    <label>New Password</label>
+                    <label for="newPassword">New Password</label>
                     <div class="input-icon-group">
                       <input
-                        id="newPassword"
+                        id="newPassword" autocomplete="new-password"
                         class="input-field"
                         type="password"
                         placeholder="Enter new password"
@@ -278,10 +278,10 @@
                     </div>
                   </div>
                   <div class="field-stack password-field">
-                    <label>Confirm New Password</label>
+                    <label for="confirmPassword">Confirm New Password</label>
                     <div class="input-icon-group">
                       <input
-                        id="confirmPassword"
+                        id="confirmPassword" autocomplete="new-password"
                         class="input-field"
                         type="password"
                         placeholder="Confirm new password"
@@ -308,7 +308,7 @@
                     class="btn-admin"
                     type="button"
                   >
-                    Save Changes
+                    <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes
                   </button>
                 </div>
               </div>
@@ -323,7 +323,7 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=2026.1115.1"></script>
     <script src="../admin-page/portal-detail-dialog.js?v=2026.1115.4"></script>
-    <script src="../admin-page/my-account.js?v=2026.1113.9"></script>
+    <script src="../admin-page/my-account.js?v=2026.1115.11"></script>
     <script src="../admin-page/admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>
