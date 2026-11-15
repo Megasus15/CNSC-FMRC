@@ -55,6 +55,8 @@ regression retains Dashboard as an unopted page. Local browser mutations use
 isolated API fixtures. Hosted checks block real restore/delete and cleanup
 requests; no production records are changed during verification.
 
-Both shells and affected Archives assets use cache version `2026.1115.9`.
+Archives scripts use cache version `2026.1115.9`; both shells load the corrected
+search alignment stylesheet as `2026.1115.10`. Search icons use a centered 18px
+container and reset the legacy independent translation to avoid a double shift.
 Release by commit, push and the existing online deployment, then compare hosted
 assets and read-only presentation separately from local mutation tests.
