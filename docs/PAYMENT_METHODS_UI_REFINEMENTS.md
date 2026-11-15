@@ -22,20 +22,21 @@ Failed saves retain selections, pending saves block duplicate submissions,
 cross-tab updates retain drafts, and legacy courier cash collection remains
 disabled. No real payment or live settings write is part of verification.
 
-The shared profile stylesheet now gives My Account, Settings and Logout the
-same light maroon hover in both themes. Sidebar Logout no longer scales when
+The shared profile stylesheet gives My Account and Settings a light maroon
+hover. Logout matches the sidebar's darker hover following the Shipping
+refinement. Sidebar Logout no longer scales when
 pressed, across all 43 authenticated Admin/Staff page shells. Existing sidebar
 hover colors, destinations, account identities and logout confirmation remain
-unchanged. The shared stylesheet's cache version is `2026.1115.2`; the unchanged
+unchanged. The shared stylesheet's cache version is now `2026.1115.3`; the unchanged
 `admin-common.js` remains `2026.1115.1`.
 
 Login Portals' earlier preview-height gate could disable sticking on ordinary
-laptop screens. Its card now stays sticky on two-column layouts above 1100px,
-uses the measured header/save-bar boundaries, and scrolls its inner preview
-when necessary. The heading stays visible, and the scroll region is keyboard
-focusable when it overflows. Phone/tablet stacked layouts retain full page flow.
+laptop screens. The subsequent Shipping refinement fits its complete artwork
+and guidance within the measured header/save-bar boundaries, without inner
+scrolling. Readably fitting cards remain sticky; very short screens and stacked
+phone/tablet layouts use full-size page flow.
 Appearance fields, upload processing, live preview bindings and saves are
-unchanged. Both Login Portals UI asset versions are `2026.1115.2`.
+unchanged. Both Login Portals UI asset versions are now `2026.1115.3`.
 
 ## Verification and delivery
 
@@ -54,7 +55,7 @@ unchanged. Both Login Portals UI asset versions are `2026.1115.2`.
   1140px/1366px desktop widths, including 450/650/768px screen heights, alongside
   existing responsive, draft, upload, save and discard coverage.
 - Products' existing dialog, media, notifications and session regression checks
-  retain an unopted Shipping page to check that other popup designs stay intact.
+  retain an unopted Email Templates page to check that other popup designs stay intact.
 
 Release through commit, push and the existing online deployment. Compare changed
 hosted assets separately from local API-fixture tests. No backend change,

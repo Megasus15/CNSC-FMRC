@@ -19,13 +19,13 @@ html[data-portal] .portal-profile-menu .profile-popup-link:is(:hover,[aria-curre
 html[data-portal] .portal-profile-menu hr { margin:8px 2px; border:0; border-top:1px solid var(--border-color,#e2e8f0); }
 html[data-portal] .portal-profile-menu .popup-logout { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:44px; padding:10px 12px; margin:0; border:1px solid var(--portal-action,#800000); border-radius:8px; color:var(--on-primary,#fff); background:var(--portal-action,#800000); font-family:inherit; font-size:14px; font-weight:600; line-height:1.5; box-shadow:none; transform:none; }
 html[data-portal] .portal-profile-menu .popup-logout i { width:18px; font-size:18px; color:inherit; }
-html[data-portal] .portal-profile-menu .popup-logout:hover { background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); box-shadow:none; transform:none; }
+html[data-portal] .portal-profile-menu .popup-logout:hover { background:#5f0000; border-color:#5f0000; color:#f7f2ec; box-shadow:none; transform:none; }
 html[data-portal] .portal-profile-menu :is(a,button):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:-2px; }
 html[data-portal][data-theme="dark"] .portal-profile-menu :is(.popup-profile-icon,.popup-role) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; }
 html[data-portal][data-theme="dark"] .portal-profile-menu .profile-popup-link i { color:var(--text-muted) !important; }
 html[data-portal][data-theme="dark"] .portal-profile-menu .profile-popup-link:is(:hover,[aria-current="page"]) { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; }
 html[data-portal][data-theme="dark"] .portal-profile-menu .profile-popup-link:is(:hover,[aria-current="page"]) i { color:inherit !important; }
-html[data-portal][data-theme="dark"] .user-profile .portal-profile-menu .popup-logout:hover { background:var(--portal-accent-soft) !important; border-color:var(--portal-accent) !important; color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] .user-profile .portal-profile-menu .popup-logout:hover { background:var(--portal-action-hover) !important; border-color:var(--portal-action-hover) !important; color:var(--on-primary) !important; }
 /* Match the sidebar's stationary controls: hover color only, no pressed scale. */
 html[data-portal] .user-profile :is(.profile-menu-trigger,.profile-icon,.profile-popup-link,.popup-logout) { transform:none !important; animation:none !important; transition:none !important; }
 html[data-portal] .user-profile .profile-menu-trigger .profile-icon { box-shadow:none; }

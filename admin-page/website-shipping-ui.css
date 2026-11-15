@@ -1,0 +1,72 @@
+/* Inventory presentation, opted in only by the Admin shipping editor. */
+body[data-portal-shipping-dialogs] :is(button,input,select,textarea) { font-family:inherit; }
+body[data-portal-shipping-dialogs] .shipping-page .payment-settings-card { margin-bottom:0; padding:24px; border-radius:12px; border:1px solid var(--border-color,#e2e8f0); background:var(--surface,#fdfaf6); }
+body[data-portal-shipping-dialogs] .shipping-section-heading { flex-wrap:wrap; align-items:center; gap:16px; padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-shipping-dialogs] .shipping-section-heading > div { min-width:0; flex:1 1 260px; }
+body[data-portal-shipping-dialogs] .shipping-page :is(h3,h4) { display:flex; align-items:center; gap:12px; color:var(--portal-accent,#800000); font-size:17px; font-weight:600; line-height:1.5; }
+body[data-portal-shipping-dialogs] .shipping-section-heading > div > p { margin-top:8px; }
+body[data-portal-shipping-dialogs] .shipping-section-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:9px; color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-shipping-dialogs] .shipping-section-icon svg { width:21px; height:21px; }
+body[data-portal-shipping-dialogs] .shipping-inline-icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:0 0 20px; margin-right:8px; color:var(--portal-accent,#800000); vertical-align:middle; }
+body[data-portal-shipping-dialogs] .shipping-inline-icon svg { width:18px; height:18px; }
+body[data-portal-shipping-dialogs] .shipping-page p { font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+body[data-portal-shipping-dialogs] .shipping-status { max-width:100%; font-size:12px; line-height:1.6; white-space:normal; overflow-wrap:anywhere; }
+body[data-portal-shipping-dialogs] :is(.shipping-pending,.shipping-readiness,.shipping-empty) { padding:18px; border-radius:8px; border:1px solid var(--border-color,#e2e8f0); background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] :is(.shipping-pending,.shipping-readiness,.shipping-empty) > strong { color:var(--portal-accent,#800000); font-size:14px; font-weight:600; line-height:1.7; }
+body[data-portal-shipping-dialogs] .shipping-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:20px; }
+body[data-portal-shipping-dialogs] .shipping-facts > span { align-items:flex-start; padding:12px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); font-size:12px; line-height:1.6; }
+body[data-portal-shipping-dialogs] .shipping-facts i { margin-top:3px; }
+body[data-portal-shipping-dialogs] .shipping-editor-section { min-width:0; margin-top:24px; padding:20px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; }
+body[data-portal-shipping-dialogs] .shipping-page :is(#shippingEditor,.shipping-editor-section) { scroll-margin-top:calc(var(--portal-header-height,70px) + 16px); }
+body[data-portal-shipping-dialogs] .shipping-editor-section > h4 { padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-shipping-dialogs] .shipping-zone { padding:20px; border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] .shipping-zone-heading { flex-wrap:wrap; align-items:center; padding-bottom:16px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-shipping-dialogs] .shipping-zone-heading h4 { font-size:15px; }
+body[data-portal-shipping-dialogs] .shipping-zone-heading .shipping-section-icon { width:32px; height:32px; flex-basis:32px; background:var(--surface,#fdfaf6); }
+body[data-portal-shipping-dialogs] .shipping-zone-fields { align-items:start; gap:20px; }
+body[data-portal-shipping-dialogs] .field-stack { min-width:0; }
+body[data-portal-shipping-dialogs] .shipping-page :is(.field-stack > label,.shipping-calendar legend) { margin-bottom:8px; color:var(--text-main,#2b2b31); font-size:14px; font-weight:600; line-height:1.5; }
+body[data-portal-shipping-dialogs] .shipping-page .input-field { min-height:44px; padding:10px 12px; font-size:14px; line-height:1.6; border-radius:8px; color:var(--text-main,#2b2b31); background:var(--surface,#fdfaf6); border:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-shipping-dialogs] .shipping-page small { font-size:12px; line-height:1.7; }
+body[data-portal-shipping-dialogs] .shipping-province-picker .shipping-province-search { padding-left:38px; padding-right:48px; }
+body[data-portal-shipping-dialogs] .shipping-province-search-icon { left:13px; font-size:14px; }
+body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-caret { width:44px; min-height:44px; top:0; right:0; }
+body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-list li { min-height:44px; font-size:14px; }
+body[data-portal-shipping-dialogs] .shipping-check { gap:12px; align-items:flex-start; min-height:44px; color:var(--text-main,#2b2b31); font-size:14px; line-height:1.7; }
+body[data-portal-shipping-dialogs] .shipping-check > input { width:18px; height:18px; min-width:18px; margin:3px 0 0; }
+body[data-portal-shipping-dialogs] .shipping-enable { padding:18px; }
+body[data-portal-shipping-dialogs] .shipping-enable strong { font-size:14px; font-weight:600; }
+body[data-portal-shipping-dialogs] .shipping-weekdays label { min-height:44px; padding:10px; gap:10px; font-size:13px; border-radius:8px; }
+body[data-portal-shipping-dialogs] .shipping-tracking-facts { grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+body[data-portal-shipping-dialogs] .shipping-tracking-facts > div { min-width:0; padding:14px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] .shipping-tracking-facts dt { font-size:12px; font-weight:500; line-height:1.6; }
+body[data-portal-shipping-dialogs] .shipping-tracking-facts dd { margin-top:6px; font-size:14px; font-weight:600; line-height:1.6; }
+body[data-portal-shipping-dialogs] .shipping-table { font-size:13px; }
+body[data-portal-shipping-dialogs] .shipping-table :is(th,td) { padding:14px; line-height:1.7; overflow-wrap:anywhere; }
+body[data-portal-shipping-dialogs] .shipping-page details { border:1px solid var(--border-color,#e2e8f0); border-radius:8px; padding:0 16px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] .shipping-page summary { min-height:44px; padding:12px 0; color:var(--portal-accent,#800000); font-size:14px; font-weight:600; line-height:1.6; }
+body[data-portal-shipping-dialogs] .shipping-page details[open] { padding-bottom:16px; }
+body[data-portal-shipping-dialogs] .shipping-publish { padding:20px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] .btn-admin { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600; line-height:1.5; }
+body[data-portal-shipping-dialogs] .btn-admin.btn-secondary { background:var(--surface,#fdfaf6); color:var(--portal-accent,#800000); border-color:var(--portal-accent,#800000); box-shadow:none; }
+body[data-portal-shipping-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); border-color:var(--portal-accent,#800000); }
+body[data-portal-shipping-dialogs] .btn-admin:disabled { opacity:.55; color:var(--text-muted,#6b6269); background:var(--surface-alt,#f1f2f4); border-color:var(--border-color,#e2e8f0); box-shadow:none; }
+body[data-portal-shipping-dialogs] #shippingSaveBar .btn-admin { min-height:44px; font-size:13px; }
+body[data-portal-shipping-dialogs] :is(button,input,textarea,summary):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+html[data-portal][data-theme="dark"] body[data-portal-shipping-dialogs] .shipping-page :is(h3,h4),
+html[data-portal][data-theme="dark"] body[data-portal-shipping-dialogs] :is(.shipping-pending,.shipping-readiness,.shipping-empty) > strong { color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-shipping-dialogs] .btn-admin.btn-secondary:not(:disabled) { color:var(--portal-accent) !important; background:var(--surface) !important; border-color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-shipping-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft) !important; }
+@media(max-width:1024px) { body[data-portal-shipping-dialogs] .shipping-tracking-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:720px) {
+  body[data-portal-shipping-dialogs] .shipping-page .payment-settings-card { padding:18px 16px; }
+  body[data-portal-shipping-dialogs] :is(.shipping-editor-section,.shipping-publish,.shipping-zone) { padding:16px; }
+  body[data-portal-shipping-dialogs] .shipping-zone-fields { grid-template-columns:minmax(0,1fr); }
+  body[data-portal-shipping-dialogs] .shipping-facts { grid-template-columns:minmax(0,1fr); }
+  body[data-portal-shipping-dialogs] .shipping-section-heading > button { margin-left:auto; }
+  body[data-portal-shipping-dialogs] .shipping-calendar { gap:20px; }
+  body[data-portal-shipping-dialogs] .shipping-page .input-field { font-size:16px; }
+  body[data-portal-shipping-dialogs] #shippingSaveBar .shipping-save-actions { flex-wrap:nowrap; width:100%; }
+  body[data-portal-shipping-dialogs] #shippingSaveBar .btn-admin { flex:1; min-width:0; padding-inline:8px; font-size:12px; }
+}
+@media(max-width:480px) { body[data-portal-shipping-dialogs] .shipping-tracking-facts { grid-template-columns:minmax(0,1fr); } }

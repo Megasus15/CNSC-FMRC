@@ -3,7 +3,7 @@ const {browserFixture,chrome,root}=require('./helpers/website-browser.cjs');
 const pages=['admin-page','staff-page'].flatMap(folder=>fs.readdirSync(path.join(root,folder)).filter(file=>file.endsWith('.html')&&fs.readFileSync(path.join(root,folder,file),'utf8').includes('id="profilePopup"')).map(file=>folder+'/'+file));
 test('every authenticated profile shell loads the same account menu assets',()=>{
  assert(pages.length>=40);
- for(const file of pages){const html=fs.readFileSync(path.join(root,file),'utf8');assert(html.includes('admin-common.js?v=2026.1115.1'),file);assert(html.includes('portal-detail-dialog.css?v=2026.1115.2'),file);}
+ for(const file of pages){const html=fs.readFileSync(path.join(root,file),'utf8');assert(html.includes('admin-common.js?v=2026.1115.1'),file);assert(html.includes('portal-detail-dialog.css?v=2026.1115.3'),file);}
 });
 for(const role of ['admin','staff'])test(role+' shared profile handles long identities, keyboard, notifications and logout',{skip:!chrome,timeout:180000},async t=>{
  const email=role+'.operator.with.a.long.address.for.readable.layout@department.example.test';let logouts=0;
@@ -28,7 +28,11 @@ for(const role of ['admin','staff'])test(role+' shared profile handles long iden
   for(const selector of ['#profileMenuTrigger','#profilePopup .profile-popup-link','#profilePopup .popup-logout','.sidebar-footer .logout-btn']){
    const {nodeId}=await h.send('DOM.querySelector',{nodeId:dom.nodeId,selector});await h.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['hover','active']});
    assert(await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(selector)}),s=getComputedStyle(n),a=document.querySelector('.profile-menu-trigger .profile-icon');return s.transform==='none'&&s.animationName==='none'&&(${JSON.stringify(selector.startsWith('.sidebar-footer'))}||s.transitionDuration==='0s')&&getComputedStyle(a).transform==='none'})()`),'Hover/press stays stationary '+selector+' '+theme);
-   if(selector.includes('profile-popup-link')||selector.includes('popup-logout'))assert(await h.run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor===getComputedStyle(document.querySelector('#profilePopup .popup-role')).backgroundColor`),'Light maroon hover '+selector+' '+theme+' '+width);
+   if(selector.includes('profile-popup-link'))assert(await h.run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor===getComputedStyle(document.querySelector('#profilePopup .popup-role')).backgroundColor`),'Light maroon navigation hover '+theme+' '+width);
+   if(selector.includes('popup-logout')){
+    const {nodeId:sidebarLogout}=await h.send('DOM.querySelector',{nodeId:dom.nodeId,selector:'.sidebar-footer .logout-btn'});await h.send('CSS.forcePseudoState',{nodeId:sidebarLogout,forcedPseudoClasses:['hover','active']});await h.pause(160);
+    assert(await h.run(`(()=>{const a=getComputedStyle(document.querySelector('#profilePopup .popup-logout')),b=getComputedStyle(document.querySelector('.sidebar-footer .logout-btn'));return a.backgroundColor===b.backgroundColor&&a.borderTopColor===b.borderTopColor})()`),'Logout hover matches the sidebar '+theme+' '+width);await h.send('CSS.forcePseudoState',{nodeId:sidebarLogout,forcedPseudoClasses:[]});
+   }
    await h.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
   }
   if([390,1440].includes(width))await shot(role+'-profile-'+width+'-'+theme);

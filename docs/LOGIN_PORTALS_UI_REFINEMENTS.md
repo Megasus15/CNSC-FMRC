@@ -17,11 +17,12 @@ Success notifications retain their original X and timing.
 scrolls naturally until it reaches the space below the fixed header, then
 sticks beside the settings. The page-specific shell override removes the
 ancestor scroll container that otherwise prevents viewport stickiness. The
-header and fixed save bar are measured. Desktop layouts above 1100px remain
-sticky even on short screens. The card's header stays visible, while an inner
-preview region scrolls when its contents exceed the available height; that
-region becomes keyboard-focusable only when scrolling is needed. Stacked
-phone/tablet layouts retain normal page scrolling with the full preview visible.
+header and fixed save bar are measured. On fitting desktop layouts above 1100px,
+the full card remains sticky. Its miniature portal scales proportionally when
+needed; the guidance below it retains normal text size and remains visible.
+There is no inner scrollbar or capped content area. Very short screens or long
+copy that would require excessive shrinking use full-size page flow instead of
+clipping. Stacked phone/tablet layouts also retain normal page scrolling.
 
 The appearance feature script, setting keys, API requests and image processing
 are unchanged. Customer and Admin/Staff portal drafts remain independent, both
@@ -34,8 +35,8 @@ The shared `admin-common.js` profile handler now copies My Account, Settings and
 Logout icon classes from each page's sidebar. Existing account/link/logout nodes,
 identity painting and stale-session checks remain in place. Shared profile CSS
 removes pressed scaling, opening movement and control animations. Navigation
-hover and Logout now use the same light maroon surface. Sidebar Logout also
-suppresses its previous pressed scaling. Keyboard focus indicators, outside dismissal and logout confirmation
+links use a light maroon surface. Logout matches the sidebar's darker hover,
+and both stay stationary when pressed. Keyboard focus indicators, outside dismissal and logout confirmation
 remain available.
 
 ## Verification
@@ -45,7 +46,8 @@ remain available.
   matching limits and Staff/Customer restrictions: 28 tests, 199 assertions.
 - `website-portals-ui.browser.cjs`: 320, 390, 768, 1024 and 1440px, both themes,
   short landscape, zoom-equivalent width, text spacing, sticky geometry at
-  1140px/1366px desktop widths and 450/650/768px screen heights, and save
+  1140px through 1920px desktop widths and 650/760/768/784px screen heights,
+  complete bottom guidance, no inner scrolling, very-short-screen fallback and save
   bar clearance; tab keyboard access, safe/multiline copy, upload/default staging,
   failed saves, duplicate submission, readback, realtime draft retention and
   discard confirmation/focus restoration.
@@ -55,7 +57,7 @@ remain available.
 - Existing Products dialog regression covers nested confirmations, media,
   notifications, session guards and an unopted page.
 
-The editor assets and shared stylesheet now use `2026.1115.2`; the unchanged
+The editor assets and shared stylesheet now use `2026.1115.3`; the unchanged
 shared profile script retains `2026.1115.1`. All 43 consumers
 of the changed shared assets receive matching cache versions. Delivery uses
 commit, push and the existing online deployment, followed by hosted file
