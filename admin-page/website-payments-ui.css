@@ -1,0 +1,69 @@
+/* Approved Inventory presentation for the existing Admin-only payment editor. */
+body[data-portal-payment-dialogs] :is(button,input,select,textarea) { font-family:inherit; }
+body[data-portal-payment-dialogs] .payment-settings-card { padding:24px; border-radius:12px; box-shadow:0 8px 24px #11182705; }
+body[data-portal-payment-dialogs] .payment-settings-form { gap:22px; }
+body[data-portal-payment-dialogs] .payment-settings-heading { align-items:center; gap:18px; padding-bottom:20px; border-bottom:1px solid var(--border-color,#e2e8f0); }
+body[data-portal-payment-dialogs] .payment-card-title { display:flex; align-items:center; gap:14px; flex:1 1 320px; min-width:0; }
+body[data-portal-payment-dialogs] .payment-card-title > div { min-width:0; }
+body[data-portal-payment-dialogs] .payment-settings-heading h3 { margin:0 0 4px; font-size:17px; font-weight:600; line-height:1.5; color:var(--portal-accent,#800000); }
+body[data-portal-payment-dialogs] .payment-section-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:9px; background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+body[data-portal-payment-dialogs] .payment-section-icon svg { width:21px; height:21px; }
+body[data-portal-payment-dialogs] .payment-settings-page p { color:var(--text-muted,#6b6269); font-size:13px; line-height:1.7; }
+body[data-portal-payment-dialogs] #paymentSettingsSummary { margin:0; padding:6px 10px; border-radius:8px; font-size:12px; line-height:1.6; }
+body[data-portal-payment-dialogs] :is(.payment-review-note,.payment-settings-note) { display:flex; align-items:flex-start; gap:14px; padding:18px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-payment-dialogs] :is(.payment-review-note,.payment-settings-note) > div { min-width:0; }
+body[data-portal-payment-dialogs] :is(.payment-review-note,.payment-settings-note) strong { display:block; margin-bottom:4px; color:var(--portal-accent,#800000); font-size:14px; font-weight:600; line-height:1.6; }
+body[data-portal-payment-dialogs] .payment-bulk-actions { justify-content:flex-end; margin-bottom:16px; gap:8px; }
+body[data-portal-payment-dialogs] .payment-method-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:stretch; }
+body[data-portal-payment-dialogs] .payment-method-row { grid-template-columns:48px minmax(0,1fr) 64px; gap:14px; padding:20px; border-radius:12px; align-content:start; }
+body[data-portal-payment-dialogs] .payment-method-row:hover { border-color:var(--portal-accent-border,#d6b8bb); background:var(--surface,#fdfaf6); }
+body[data-portal-payment-dialogs] .payment-method-row:focus-within { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+body[data-portal-payment-dialogs] .payment-method-icon { border-radius:9px; color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
+body[data-portal-payment-dialogs] .payment-method-icon--qrph { background:#fff; }
+body[data-portal-payment-dialogs] .payment-method-name { font-size:16px; font-weight:600; line-height:1.6; }
+body[data-portal-payment-dialogs] .payment-method-description { font-size:14px; line-height:1.7; }
+body[data-portal-payment-dialogs] :is(.payment-method-scope,.payment-method-unavailable,.payment-switch-state) { font-size:12px; line-height:1.7; }
+body[data-portal-payment-dialogs] .payment-readiness { font-size:11px; border-radius:6px; padding:3px 7px; }
+body[data-portal-payment-dialogs] .payment-switch-wrap { width:64px; gap:2px; }
+/* The 46 x 26 visual track sits inside a transparent 64 x 44 input target. */
+body[data-portal-payment-dialogs] .payment-settings-page .payment-switch { width:64px; height:44px; min-height:44px; border:9px solid transparent; background-clip:padding-box; border-radius:999px; }
+body[data-portal-payment-dialogs] .payment-settings-page .payment-switch:checked { border-color:transparent; }
+body[data-portal-payment-dialogs] .payment-settings-page .payment-switch::before { top:4px; left:4px; }
+body[data-portal-payment-dialogs] .payment-settings-page .payment-switch:checked::before { left:24px; }
+body[data-portal-payment-dialogs] .payment-settings-page .payment-switch:focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:1px; }
+body[data-portal-payment-dialogs] .payment-settings-note.is-paused { background:var(--portal-warning-soft,#fff8e8); border-color:var(--portal-warning-border,#ebd39e); }
+body[data-portal-payment-dialogs] .payment-settings-note.is-paused :is(strong,.payment-section-icon) { color:var(--portal-warning,#805b16); }
+body[data-portal-payment-dialogs] .payment-settings-note.is-paused .payment-section-icon { background:transparent; }
+body[data-portal-payment-dialogs] .payment-settings-message { padding:16px; border-radius:8px; font-size:14px; }
+body[data-portal-payment-dialogs] .payment-settings-message > span { min-width:0; flex:1 1 240px; overflow-wrap:anywhere; }
+body[data-portal-payment-dialogs] .btn-admin { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600; line-height:1.5; }
+body[data-portal-payment-dialogs] .btn-admin.btn-secondary { border:1px solid var(--portal-accent,#800000); background:var(--surface,#fdfaf6); color:var(--portal-accent,#800000); box-shadow:none; }
+body[data-portal-payment-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { border-color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); }
+body[data-portal-payment-dialogs] .btn-admin:disabled { background:var(--surface-alt,#f1f2f4); border-color:var(--border-color,#e2e8f0); color:var(--text-muted,#6b6269); opacity:.55; cursor:not-allowed; box-shadow:none; }
+body[data-portal-payment-dialogs] .payment-save-bar .btn-admin { min-height:44px; font-size:13px; }
+body[data-portal-payment-dialogs] :is(button,input):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+body[data-portal-payment-dialogs] [hidden] { display:none !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-settings-heading h3,
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] :is(.payment-review-note,.payment-settings-note) strong { color:var(--portal-accent) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-method-icon { color:var(--portal-accent) !important; background:var(--portal-accent-soft) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-method-icon--qrph { background:#fff !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-settings-page .payment-switch { border:9px solid transparent !important; background-clip:padding-box !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .btn-admin.btn-secondary:not(:disabled) { border-color:var(--portal-accent) !important; color:var(--portal-accent) !important; background:var(--surface) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-settings-note.is-paused { background:var(--portal-warning-soft) !important; border-color:var(--portal-warning-border) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-payment-dialogs] .payment-settings-note.is-paused strong { color:var(--portal-warning) !important; }
+@media (max-width:1100px) { body[data-portal-payment-dialogs] .payment-method-list { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:600px) {
+  body[data-portal-payment-dialogs] .payment-settings-card { padding:18px 16px; }
+  body[data-portal-payment-dialogs] .payment-card-title { gap:12px; }
+  body[data-portal-payment-dialogs] .payment-bulk-actions { justify-content:flex-start; }
+  body[data-portal-payment-dialogs] .payment-bulk-actions .btn-admin { flex:1; }
+  body[data-portal-payment-dialogs] .payment-method-row { grid-template-columns:minmax(0,1fr) 64px; gap:12px; padding:16px; }
+  body[data-portal-payment-dialogs] .payment-method-icon { width:44px; height:44px; }
+  body[data-portal-payment-dialogs] :is(.payment-review-note,.payment-settings-note) { padding:16px; gap:12px; }
+  body[data-portal-payment-dialogs] .payment-save-actions { flex-wrap:nowrap; gap:8px; }
+  body[data-portal-payment-dialogs] .payment-save-actions .btn-admin { padding:10px 8px; font-size:12px; }
+}
+@media (forced-colors:active) {
+  html[data-portal][data-theme] body[data-portal-payment-dialogs] .payment-settings-page .payment-switch { appearance:auto; border:0 !important; background-clip:border-box; width:44px; }
+}

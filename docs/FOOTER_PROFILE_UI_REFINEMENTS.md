@@ -27,7 +27,8 @@ new dependency is introduced.
 The dropdown has a cream surface, neutral border, 12px corners, restrained
 shadow, maroon avatar tile, clear role badge and consistent navigation icons.
 My Account, Settings and Logout reuse their exact icon classes from the sidebar.
-Profile controls stay stationary when pressed and use sidebar-style hover colors.
+Profile controls stay stationary when pressed and use consistent light maroon
+hover colors. Sidebar Logout also remains stationary when pressed.
 The full authenticated
 email wraps instead of truncating. The same live identity painter
 and stale-token response guard are retained; settings/credentials are not copied.
@@ -54,7 +55,9 @@ cancellation. Operational and account pages exercise the same handler. Shared
 theme/preferences and Products dialog tests cover broader regressions.
 
 Footer/editor assets use 2026.1114.17. The subsequent Login Portals refinement
-updates shared profile assets and their consumers to 2026.1115.1; see
-`LOGIN_PORTALS_UI_REFINEMENTS.md`. Commit, push and verify the existing online deployment; compare
+updates the shared profile script to 2026.1115.1; the following Payment Methods
+refinement updates the shared stylesheet and its consumers to 2026.1115.2. See
+`LOGIN_PORTALS_UI_REFINEMENTS.md` and `PAYMENT_METHODS_UI_REFINEMENTS.md`.
+Commit, push and verify the existing online deployment; compare
 hosted sources separately from local fixtures. No endpoint, database migration,
 permission change or Composer dependency is required.
