@@ -59,7 +59,7 @@ test('Maintenance draft matches the public viewport; independent pedestal pauses
     const endpoint=await new Promise((resolve,reject)=>{let log='';const timer=setTimeout(()=>reject(new Error('Browser startup timeout '+log)),15000);browser.stderr.on('data',data=>{log+=data;const match=log.match(/DevTools listening on (ws:\/\/\S+)/);if(match){clearTimeout(timer);resolve(match[1]);}});browser.on('error',reject);});
     const targets=await(await fetch(`http://127.0.0.1:${new URL(endpoint).port}/json/list`)).json();
     cdp=await connect(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
-    await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
+    await cdp.send('Page.enable');await cdp.send('Page.bringToFront');await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});await cdp.send('Network.enable');await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
     const evaluate=async expression=>{const r=await cdp.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
     const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,50));}throw new Error('Not ready: '+expression);};
     const navigate=route=>cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}${route}`});
@@ -120,7 +120,7 @@ test('Maintenance draft matches the public viewport; independent pedestal pauses
       assert.equal(await evaluate("document.querySelector('.hero-power-stand').getAnimations({subtree:true}).filter(a=>a.playState==='running').length"),0,'press is brief');
       await shot(type+'-off');
       await evaluate("document.querySelector('.hero-machine-power').focus()");
-      await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+      await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});
       await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
       await wait("document.getElementById('heroPrinterScene').dataset.machinePower === 'on'");
       await evaluate('window.testClock.advance(700)');

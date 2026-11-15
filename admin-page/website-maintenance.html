@@ -485,8 +485,9 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.3" />
+    <link rel="stylesheet" href="website-maintenance-ui.css?v=2026.1115.7" />
   </head>
-  <body>
+  <body data-portal-maintenance-dialogs data-portal-popups="refined" data-portal-popup-context="Maintenance">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -603,15 +604,18 @@
             </div>
           </div>
         </header>
-        <section class="module-content">
+        <section class="module-content maintenance-settings-page" aria-label="Maintenance settings">
           <div class="page-toolbar mt-page-toolbar">
             <div class="toolbar-title">
+              <i class="fa-solid fa-screwdriver-wrench mt-page-icon" aria-hidden="true"></i>
+              <div>
               <h2>Maintenance Mode</h2>
               <p>
                 Control availability for the public website, individual pages,
                 and customer access while you work. Page maintenance keeps the
                 header and footer visible.
               </p>
+              </div>
             </div>
             <div class="toolbar-actions mt-toolbar-actions">
               <button
@@ -736,7 +740,7 @@
                       <button class="mt-preview-device" type="button" data-maint-preview-view="desktop" aria-pressed="true"><i class="fa-solid fa-desktop" aria-hidden="true"></i> Desktop</button>
                       <button class="mt-preview-device" type="button" data-maint-preview-view="mobile" aria-pressed="false"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Mobile</button>
                     </div>
-                    <span class="mt-preview-size" id="mtPreviewSize">1440 ? 900</span>
+                    <span class="mt-preview-size" id="mtPreviewSize">1440 × 900</span>
                   </div>
                   <div class="mt-page-preview" id="mtPagePreview">
                     <div class="mt-preview-viewport" id="mtPreviewViewport">
@@ -754,8 +758,8 @@
                 <h3>Customer Access</h3>
               </div>
               <p class="field-hint" style="margin: 12px 0 0">
-                Blocks new sign-ups and new customer sign-ins. Customers who are
-                already signed in stay signed in — nothing kicks them out.
+                Pause new registrations and customer sign-ins. Customers who are
+                already signed in keep their access.
               </p>
               <div id="mtRowsAccess"></div>
             </div>
@@ -779,8 +783,8 @@
                 <h3>Home Page Sections</h3>
               </div>
               <p class="field-hint" style="margin: 12px 0 0">
-                Take one band of the Home page offline and leave the rest of the
-                page working.
+                Pause individual Home page sections while keeping the rest of the
+                page available.
               </p>
               <div id="mtRowsSections"></div>
             </div>
@@ -808,7 +812,7 @@
     <script src="website-loading.js?v=2026.1115.4"></script>
     <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1115.4"></script>
-    <script src="website-maintenance.js?v=2.9.1"></script>
+    <script src="website-maintenance.js?v=2026.1115.7"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

@@ -382,7 +382,7 @@ function fitPagePreview() {
   frame.style.width = `${width}px`;
   frame.style.height = `${height}px`;
   frame.style.transform = `scale(${scale})`;
-  document.getElementById("mtPreviewSize").textContent = `${width} ? ${height}`;
+  document.getElementById("mtPreviewSize").textContent = `${width} × ${height}`;
   document.querySelectorAll('[data-maint-preview-view]').forEach(button => {
     button.setAttribute("aria-pressed", String(button.dataset.maintPreviewView === previewViewport));
   });
@@ -747,7 +747,7 @@ async function doSave() {
   if (!loaded || saving || imageLoading || !dirty) return;
   saving = true;
   const stack = document.getElementById("mtStack");
-  if (stack) { stack.inert = true; stack.setAttribute("aria-busy", "true"); }
+  if (stack) { if(window.PortalDetailDialog?.setBackgroundInert)window.PortalDetailDialog.setBackgroundInert(stack,true);else stack.inert=true; stack.setAttribute("aria-busy", "true"); }
   const button = document.getElementById("btnSaveMaintenance");
   const originalHtml = button?.innerHTML || "";
   if (button) {
@@ -836,7 +836,7 @@ async function doSave() {
     );
   } finally {
     saving = false;
-    if (stack) { stack.inert = false; stack.removeAttribute("aria-busy"); }
+    if (stack) { if(window.PortalDetailDialog?.setBackgroundInert)window.PortalDetailDialog.setBackgroundInert(stack,false);else stack.inert=false; stack.removeAttribute("aria-busy"); }
     if (button) {
       button.disabled = !loaded || imageLoading || !dirty;
       button.innerHTML =
