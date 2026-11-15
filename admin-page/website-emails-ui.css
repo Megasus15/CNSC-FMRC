@@ -12,6 +12,8 @@ body[data-portal-email-dialogs] .et-template-card.is-sticky { position:sticky; t
 body[data-portal-email-dialogs] .et-template-card.is-sticky > .wm-section-header,
 body[data-portal-email-dialogs] .et-template-card.is-sticky > .field-stack { flex:0 0 auto; }
 body[data-portal-email-dialogs] .et-template-card.is-sticky .et-list { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; }
+body[data-portal-email-dialogs] .et-template-card > .wm-section-header { flex-wrap:nowrap; }
+body[data-portal-email-dialogs] .et-template-card > .wm-section-header h3 { flex:1 1 0; }
 body[data-portal-email-dialogs] .et-editor-pane { gap:20px; }
 body[data-portal-email-dialogs] .wm-section { min-width:0; padding:24px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface,#fdfaf6); box-shadow:0 8px 24px #11182705; }
 body[data-portal-email-dialogs] .wm-section-header { flex-wrap:wrap; gap:12px; margin-bottom:20px; padding-bottom:18px; border-color:var(--border-color,#e2e8f0); }

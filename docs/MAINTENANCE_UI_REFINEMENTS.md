@@ -54,7 +54,8 @@ guards retain their behavior.
 - Products retains its shared popup/notification regression, using Dashboard
   as the unopted page now that Maintenance has joined the rollout.
 
-Changed Maintenance and Email presentation assets use `2026.1115.7`. The Email
-owner script and shared modal assets are unchanged. Release through commit,
+Changed Maintenance and Email presentation assets use `2026.1115.7`; the final
+Email stylesheet uses `2026.1115.8` to keep the icon, heading and count on one row.
+The Email owner script and shared modal assets are unchanged. Release through commit,
 push and the existing online deployment. Compare hosted assets and read-only
 previews separately from local fixture-based saves.
