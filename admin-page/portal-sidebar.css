@@ -77,3 +77,18 @@ html[data-portal] .sidebar .website-config-menu .sub-link .nav-label { display:b
   html[data-portal] :is(.sidebar,.main-content,.top-header) { transition:none; }
 }
 @media print { .portal-sidebar-edge { display:none !important; } }
+
+/* Moderately compact navigation; branding keeps its existing dimensions. */
+@media screen {
+  html[data-portal] .sidebar .sidebar-nav .nav-link { min-height:44px; padding:8px 12px; margin-bottom:0; font-size:13px; line-height:1.5; }
+  html[data-portal] .sidebar .sidebar-nav .nav-link i { width:22px; font-size:16px; }
+  html[data-portal] .sidebar .sidebar-nav .dropdown-toggle .arrow { width:auto; font-size:11px; }
+  html[data-portal] .sidebar .sidebar-nav .sub-link { display:flex; align-items:center; min-height:44px; padding:8px 12px; margin-bottom:0; font-size:12.75px; line-height:1.5; }
+  html[data-portal] .sidebar .sidebar-nav .sidebar-section-label { font-size:10px; line-height:1.5; }
+  html[data-portal] .sidebar .sidebar-footer .logout-btn { min-height:44px; padding:8px 12px; font-size:13.5px; line-height:1.5; }
+  html[data-portal] .sidebar .sidebar-footer .logout-btn i { font-size:17px; }
+}
+@media screen and (max-width:720px) {
+  html[data-portal] .sidebar .sidebar-nav .nav-link { font-size:14px; }
+  html[data-portal] .sidebar .sidebar-nav .sub-link { font-size:13px; }
+}

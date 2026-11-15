@@ -23,13 +23,14 @@
     />
     <link rel="stylesheet" href="dark-mode.css?v=2.4" />
     <script src="dark-mode.js?v=3.1"></script>
-    <link rel="stylesheet" href="portal-sidebar.css?v=1.3" />
+    <link rel="stylesheet" href="portal-sidebar.css?v=1.4" />
     <script src="portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.3" />
+    <link rel="stylesheet" href="settings-ui.css?v=2026.1115.12" />
   </head>
-  <body>
+  <body data-portal-settings-ui data-portal-popups="refined" data-portal-popup-context="Settings">
     <div class="dashboard-container">
       <!-- SIDEBAR -->
       <aside class="sidebar">
@@ -157,7 +158,7 @@
 
         <section class="module-content portal-settings">
           <div class="settings-intro">
-            <div><div class="settings-eyebrow">Your workspace</div><h2>Make yourself comfortable</h2><p>Choose an appearance and display preferences that suit the way you work. Every change takes effect immediately.</p></div>
+            <div class="settings-intro-main"><span class="settings-section-icon" aria-hidden="true"><i class="fa-solid fa-gear"></i></span><div><div class="settings-eyebrow">Your workspace</div><h2>Workspace settings</h2><p>Personal preferences for the way you work. Changes save automatically.</p></div></div>
             <span class="settings-status"><span class="settings-status-dot" aria-hidden="true"></span><span id="settingsStateLabel">Loading preferences</span></span>
           </div>
           <section class="settings-section" aria-labelledby="appearanceHeading">
@@ -247,9 +248,9 @@
           <div class="settings-footer portal-bottom-bar"><p id="settingsSaveStatus" class="settings-save-status" role="status" aria-live="polite"></p><button class="btn-admin btn-secondary" id="settingsResetBtn" type="button"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Restore defaults</button></div>
       </main>
     </div>
-    <dialog class="sidebar-logo-dialog" id="sidebarLogoDialog" aria-labelledby="sidebarLogoDialogTitle">
-      <div class="sidebar-logo-dialog-header"><h3 id="sidebarLogoDialogTitle">Fit your sidebar logo</h3><button class="sidebar-logo-close" id="sidebarLogoClose" type="button" aria-label="Close logo editor">&times;</button></div>
-      <div class="sidebar-logo-dialog-body">
+    <dialog class="sidebar-logo-dialog portal-detail-dialog" id="sidebarLogoDialog" aria-labelledby="sidebarLogoDialogTitle">
+      <section class="portal-detail-dialog__card"><header class="sidebar-logo-dialog-header portal-detail-dialog__header"><span class="portal-detail-dialog__icon" aria-hidden="true"><i class="fa-solid fa-crop-simple"></i></span><div class="portal-detail-dialog__heading"><p class="portal-detail-dialog__eyebrow">Personal branding</p><h2 class="portal-detail-dialog__title" id="sidebarLogoDialogTitle" data-portal-detail-heading tabindex="-1">Adjust sidebar logo</h2></div><button class="portal-detail-dialog__close" id="sidebarLogoClose" data-portal-detail-close type="button" aria-label="Close logo editor"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+      <div class="sidebar-logo-dialog-body portal-detail-dialog__body">
         <p class="field-hint" id="sidebarLogoEditorHint">Drag to position your artwork. Use the controls to resize and rotate, or focus the preview and use the arrow keys.</p>
         <div class="sidebar-logo-stage"><canvas id="sidebarLogoCanvas" width="256" height="256" tabindex="0" aria-label="Circular logo editor" aria-describedby="sidebarLogoEditorHint"></canvas></div>
         <button class="btn-admin btn-secondary" id="sidebarLogoFit" type="button"><i class="fa-solid fa-compress" aria-hidden="true"></i> Fit to circle</button>
@@ -259,7 +260,7 @@
         <input id="sidebarLogoRotate" type="range" min="-180" max="180" value="0" />
         <p class="settings-field-message" id="sidebarLogoEditorMessage" role="status" aria-live="polite"></p>
       </div>
-      <div class="sidebar-logo-dialog-footer"><button class="btn-admin btn-secondary" id="sidebarLogoCancel" type="button">Cancel</button><button class="btn-admin" id="sidebarLogoApply" type="button">Use logo</button></div>
+      <footer class="sidebar-logo-dialog-footer portal-detail-dialog__footer"><button class="btn-admin btn-secondary" id="sidebarLogoCancel" type="button">Cancel</button><button class="btn-admin" id="sidebarLogoApply" type="button">Use logo</button></footer></section>
     </dialog>
     <script src="session-helper.js?v=2026.1113.9"></script>
     <script src="admin-session.js?v=2026.1114.5"></script>
@@ -267,6 +268,6 @@
     <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1115.4"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
-    <script src="settings.js?v=3.2"></script>
+    <script src="settings.js?v=3.3"></script>
   </body>
 </html>

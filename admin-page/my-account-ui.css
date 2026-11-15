@@ -14,6 +14,7 @@ body[data-portal-account-ui] .account-summary-card .account-avatar { width:64px;
 body[data-portal-account-ui] .account-name { color:var(--text-main,#2b2b31); font-size:17px; line-height:1.6; overflow-wrap:anywhere; }
 body[data-portal-account-ui] .account-role-badge { color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent-border,#ead8db); }
 body[data-portal-account-ui] .account-meta-list { flex:1; align-content:stretch; grid-auto-rows:minmax(76px,1fr); margin-top:0; gap:12px; }
+body[data-portal-account-ui][data-account-role="admin"] .account-meta-list { flex:0 0 auto; grid-auto-rows:auto; align-content:start; }
 body[data-portal-account-ui] .account-form-card:not(.recovery-card) { display:flex; flex-direction:column; }
 body[data-portal-account-ui] :is(.account-meta-item,.recovery-stat) { min-width:0; padding:14px; border:1px solid var(--border-color,#e2e8f0); border-radius:8px; background:var(--surface-alt,#f8f4ef); }
 body[data-portal-account-ui] .account-meta-item { display:flex; flex-direction:column; justify-content:center; }
@@ -34,7 +35,7 @@ body[data-portal-account-ui] .btn-admin { min-height:44px; padding:10px 14px; bo
 body[data-portal-account-ui] .btn-admin:not(.btn-secondary) { background:var(--portal-action,#800000); border-color:var(--portal-action,#800000); color:var(--on-primary,#fff); }
 body[data-portal-account-ui] .btn-admin:not(.btn-secondary):hover:not(:disabled) { background:var(--portal-action-hover,#5f0000); border-color:var(--portal-action-hover,#5f0000); }
 body[data-portal-account-ui] .btn-admin.btn-secondary { background:var(--surface,#fdfaf6); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); box-shadow:none; }
-body[data-portal-account-ui] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent,#800000); }
+body[data-portal-account-ui] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft,#fbf1f2); border-color:var(--portal-accent,#800000); color:var(--portal-accent,#800000); }
 body[data-portal-account-ui] .btn-admin:active { transform:none; }
 body[data-portal-account-ui] :is(button,input):focus-visible { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
 body[data-portal-account-ui] .btn-admin:disabled { opacity:.55; box-shadow:none; cursor:not-allowed; }
@@ -62,7 +63,7 @@ html[data-portal][data-theme="dark"] body[data-portal-account-ui] .account-meta-
 html[data-portal][data-theme="dark"] body[data-portal-account-ui] .btn-admin:not(.btn-secondary) { background:var(--portal-action) !important; border-color:var(--portal-action) !important; color:var(--on-primary) !important; }
 html[data-portal][data-theme="dark"] body[data-portal-account-ui] .btn-admin:not(.btn-secondary):hover:not(:disabled) { background:var(--portal-action-hover) !important; border-color:var(--portal-action-hover) !important; }
 html[data-portal][data-theme="dark"] body[data-portal-account-ui] .btn-admin.btn-secondary { border-color:var(--portal-accent) !important; color:var(--portal-accent) !important; background:var(--surface) !important; }
-html[data-portal][data-theme="dark"] body[data-portal-account-ui] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft) !important; }
+html[data-portal][data-theme="dark"] body[data-portal-account-ui] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft) !important; border-color:var(--portal-accent) !important; color:var(--portal-accent) !important; }
 @media(max-width:1199px) { body[data-portal-account-ui] .account-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:640px) {
  body[data-portal-account-ui] :is(.account-summary-card,.account-form-card) { padding:20px; }

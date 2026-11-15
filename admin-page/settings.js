@@ -104,8 +104,10 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();draw();
   });
   function close() { opening++; if(dialog.open) dialog.close(); pointer=null; editorOwner=''; artwork=null; }
-  $('sidebarLogoClose').addEventListener('click',close);$('sidebarLogoCancel').addEventListener('click',close);
-  dialog.addEventListener('cancel',()=>{opening++;pointer=null;editorOwner='';artwork=null;});
+  if (window.PortalDetailDialog) window.PortalDetailDialog.adopt(dialog,{visibility:'native',close});
+  else $('sidebarLogoClose').addEventListener('click',close);
+  $('sidebarLogoCancel').addEventListener('click',close);
+  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
   $('sidebarLogoApply').addEventListener('click',()=>{
     if (!editorOwner || editorOwner !== owner()) { close(); return; }
     const pixels=ctx.getImageData(0,0,256,256).data;
