@@ -70,8 +70,9 @@ within the labelled combobox; selected-chip remove controls are at least 44px.
 - Existing backend CommercePolicyTest and ShippingQuotesTest pass 23 tests and
   242 assertions using isolated data. Browser writes use local API fixtures.
 
-Changed policy, city-picker, shipping-owner/style, loader and shared-dialog
-script consumers use `2026.1115.4`. All 43 shared-dialog script consumers and
+Changed policy, city-picker, shipping-owner, loader and shared-dialog script
+consumers use `2026.1115.4`. The Shipping UI stylesheet uses `2026.1115.5`, including
+the final vertically centered Province and City dropdown carets. All 43 shared-dialog script consumers and
 all shared-loader consumers receive matching cache versions. Other dialog
 presentation remains opt-in. No backend change, migration or dependency is
 required. Release through commit, push and online deployment, then verify hosted

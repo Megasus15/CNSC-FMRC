@@ -30,12 +30,13 @@ body[data-portal-shipping-dialogs] .shipping-page .input-field { min-height:44px
 body[data-portal-shipping-dialogs] .shipping-page small { font-size:12px; line-height:1.7; }
 body[data-portal-shipping-dialogs] .shipping-province-picker .shipping-province-search { padding-left:38px; padding-right:48px; }
 body[data-portal-shipping-dialogs] .shipping-province-search-icon { left:13px; font-size:14px; }
-body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-caret { width:44px; min-height:44px; top:0; right:0; }
+body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-caret { width:44px; min-height:44px; top:50%; right:0; }
 body[data-portal-shipping-dialogs] .shipping-province-picker .combobox-list li { min-height:44px; font-size:14px; }
 body[data-portal-shipping-dialogs] .shipping-city-picker { min-width:0; }
 body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-wrap { position:relative; }
 body[data-portal-shipping-dialogs] .shipping-city-picker .shipping-city-search { padding-left:38px; padding-right:48px; }
-body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-caret { width:44px; min-height:44px; top:0; right:0; }
+body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-caret { width:44px; min-height:44px; top:50%; right:0; }
+body[data-portal-shipping-dialogs] .shipping-city-picker.open .combobox-caret { transform:translateY(-50%) rotate(180deg); }
 body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list { z-index:21; }
 body[data-portal-shipping-dialogs] .shipping-city-picker.open .combobox-list { display:block; }
 body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list li { display:flex; align-items:center; gap:10px; min-height:44px; padding:10px 12px; font-size:14px; line-height:1.6; white-space:normal; overflow-wrap:anywhere; }
