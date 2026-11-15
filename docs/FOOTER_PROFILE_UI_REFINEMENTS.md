@@ -26,7 +26,9 @@ new dependency is introduced.
 
 The dropdown has a cream surface, neutral border, 12px corners, restrained
 shadow, maroon avatar tile, clear role badge and consistent navigation icons.
-Settings reuses the exact gear classes from the sidebar. The full authenticated
+My Account, Settings and Logout reuse their exact icon classes from the sidebar.
+Profile controls stay stationary when pressed and use sidebar-style hover colors.
+The full authenticated
 email wraps instead of truncating. The same live identity painter
 and stale-token response guard are retained; settings/credentials are not copied.
 My Account, Settings and logout requests keep their existing destinations and
@@ -51,7 +53,8 @@ keyboard/focus, notification switching, current-account repaint and logout
 cancellation. Operational and account pages exercise the same handler. Shared
 theme/preferences and Products dialog tests cover broader regressions.
 
-Changed shared stylesheet/script references and Footer/editor assets use
-2026.1114.17. Commit, push and verify the existing online deployment; compare
+Footer/editor assets use 2026.1114.17. The subsequent Login Portals refinement
+updates shared profile assets and their consumers to 2026.1115.1; see
+`LOGIN_PORTALS_UI_REFINEMENTS.md`. Commit, push and verify the existing online deployment; compare
 hosted sources separately from local fixtures. No endpoint, database migration,
 permission change or Composer dependency is required.

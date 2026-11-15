@@ -29,9 +29,10 @@
     <link rel="stylesheet" href="website-loading.css?v=1.1" />
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1114.17" />
+    <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.1" />
+    <link rel="stylesheet" href="website-portals-ui.css?v=2026.1115.1" />
   </head>
-  <body>
+  <body data-portal-portals-dialogs data-portal-popups="refined" data-portal-popup-context="Login Portals">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -173,14 +174,14 @@
           <form id="portalSettingsForm" aria-busy="true">
             <div id="portalEditorPanel" class="portal-editor-panel" role="tabpanel" aria-labelledby="customerPortalTab">
               <div class="portal-editor-heading">
-                <div><span class="portal-eyebrow">Portal appearance</span><h3 id="portalEditorTitle">Customer Portal</h3><p>Each portal has its own imagery, brand identity, and layout.</p></div>
+                <div class="portal-editor-title"><span class="portal-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg></span><div><span class="portal-eyebrow">Portal appearance</span><h3 id="portalEditorTitle">Customer Portal</h3><p>Personalize the imagery, identity and layout for this portal.</p></div></div>
                 <a id="openPortalLink" class="btn-admin btn-secondary" href="../customer-auth/auth.html" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> View portal</a>
               </div>
               <div class="portal-workspace">
                 <fieldset id="portalSettingsFields" class="portal-fields" disabled>
                   <legend class="portal-sr-only">Portal appearance settings</legend>
                   <section class="portal-block" aria-labelledby="portalLayoutTitle">
-                    <div class="portal-block-heading"><span class="portal-block-number">01</span><div><h4 id="portalLayoutTitle">Composition</h4><p>Choose the position of the image and sign-in panel.</p></div></div>
+                    <div class="portal-block-heading"><span class="portal-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M6 8h3M15 8h3M15 12h3"/></svg></span><div><h4 id="portalLayoutTitle">Layout</h4><p>Choose where the image and sign-in panel appear.</p></div></div>
                     <div class="portal-layout-options">
                       <label class="portal-layout-option"><input type="radio" name="image_side" value="left" checked /><span class="portal-layout-mini" aria-hidden="true"><span class="is-photo"></span><span class="is-form"><i></i><i></i><i></i></span></span><span>Image left</span></label>
                       <label class="portal-layout-option"><input type="radio" name="image_side" value="right" /><span class="portal-layout-mini" aria-hidden="true"><span class="is-form"><i></i><i></i><i></i></span><span class="is-photo"></span></span><span>Image right</span></label>
@@ -189,7 +190,7 @@
                   </section>
 
                   <section class="portal-block" aria-labelledby="portalImageTitle">
-                    <div class="portal-block-heading"><span class="portal-block-number">02</span><div><h4 id="portalImageTitle">Image section</h4><p>A full-height image with a refined maroon overlay.</p></div></div>
+                    <div class="portal-block-heading"><span class="portal-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></span><div><h4 id="portalImageTitle">Image and message</h4><p>Set the photograph, overlay and welcoming text.</p></div></div>
                     <div class="portal-photo-upload"><img id="portalPhotoThumbnail" src="../images/auth-fabrication.jpg" alt="Current portal image" /><div><strong id="portalPhotoState">Default image</strong><p>Use a clear, high-resolution photograph. PNG, JPG, or WebP, up to 10 MB.</p><div class="portal-media-actions"><button type="button" class="btn-admin btn-secondary" data-upload="background_image"><i class="fa-regular fa-image" aria-hidden="true"></i> Choose image</button><button type="button" class="portal-text-button" data-reset="background_image">Use default</button></div></div></div>
                     <div class="portal-field-row">
                       <div class="portal-field"><label for="portalImagePosition">Image focus</label><select id="portalImagePosition" name="image_position"><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
@@ -203,7 +204,7 @@
                   </section>
 
                   <section class="portal-block" aria-labelledby="portalBrandTitle">
-                    <div class="portal-block-heading"><span class="portal-block-number">03</span><div><h4 id="portalBrandTitle">Brand identity</h4><p>Two distinct logos, one clean separator, and your portal name.</p></div></div>
+                    <div class="portal-block-heading"><span class="portal-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4v6c0 4-8 8-8 8s-8-4-8-8V7z"/><path d="m8 12 3 3 5-6"/></svg></span><div><h4 id="portalBrandTitle">Brand identity</h4><p>Add your logos and the names shown at sign-in.</p></div></div>
                     <div class="portal-logo-grid">
                       <div class="portal-logo-slot"><span class="portal-logo-label">Primary logo</span><div class="portal-logo-holder"><img id="portalPrimaryLogoThumbnail" src="../images/UCN Logo.png" alt="Primary portal logo" /></div><small id="portalPrimaryLogoState">Default logo</small><div class="portal-media-actions"><button type="button" class="btn-admin btn-secondary" data-upload="logo_primary_image">Choose logo</button><button type="button" class="portal-text-button" data-reset="logo_primary_image">Use default</button></div></div>
                       <div class="portal-logo-slot"><span class="portal-logo-label">Secondary logo</span><div class="portal-logo-holder"><img id="portalSecondaryLogoThumbnail" src="../images/FMRC Brand Logo.png" alt="Secondary portal logo" /></div><small id="portalSecondaryLogoState">Default logo</small><div class="portal-media-actions"><button type="button" class="btn-admin btn-secondary" data-upload="logo_secondary_image">Choose logo</button><button type="button" class="portal-text-button" data-reset="logo_secondary_image">Use default</button></div></div>
@@ -214,12 +215,12 @@
                 </fieldset>
 
                 <aside class="portal-preview-column" aria-labelledby="portalPreviewTitle">
-                  <div class="portal-preview-heading"><h4 id="portalPreviewTitle">Live preview</h4><span id="portalPreviewState">Saved appearance</span></div>
+                  <div class="portal-preview-heading"><h4 id="portalPreviewTitle"><span class="portal-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>Live preview</h4><span id="portalPreviewState">Saved appearance</span></div>
                   <div id="portalPreview" class="portal-preview" data-image-side="left" aria-label="Portal appearance preview">
                     <div class="portal-preview-photo" data-portal-image><div class="portal-preview-university" data-portal-university-name>University of Camarines Norte</div><div class="portal-preview-story"><span data-portal-image-kicker>Create. Collaborate. Make.</span><h2 data-portal-image-title>Ideas take<br />shape here.</h2><p data-portal-image-description>From a first idea to a finished piece, connect with the people and tools that make it possible.</p></div><div class="portal-preview-photo-footer"><span data-portal-center-name>Fabrication &amp; Manufacturing Research Center</span><span data-portal-photo-brand>UCN–FMRC</span></div></div>
                     <div class="portal-preview-form"><div class="portal-preview-brand"><img data-portal-logo="primary" src="../images/UCN Logo.png" alt="Primary logo" /><span class="portal-preview-separator" aria-hidden="true"></span><img data-portal-logo="secondary" src="../images/FMRC Brand Logo.png" alt="Secondary logo" /><div><strong data-portal-brand-name>UCN–FMRC</strong><span data-portal-name>Customer Portal</span></div></div><div class="portal-preview-signin"><h3>Sign in to FMRC</h3><p id="portalPreviewCaption">UCN-FMRC Customer Portal</p><span class="portal-preview-label">Email or Username</span><div class="portal-preview-input" aria-hidden="true"></div><span class="portal-preview-label">Password</span><div class="portal-preview-input" aria-hidden="true"><i class="fa-regular fa-eye"></i></div><span class="portal-preview-forgot">Forgot password?</span><div class="portal-preview-submit" aria-hidden="true">Sign in</div><span class="portal-preview-return"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Return to FMRC Home</span></div></div>
                   </div>
-                  <div class="portal-preview-note"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Sign-in experience stays consistent</strong><p>This editor changes the image section, logos, names, and panel positions. Sign-in fields and account actions stay fixed.</p></div></div>
+                  <div class="portal-preview-note"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Preview your appearance changes</strong><p>Edits appear here as you work. Publish them with Save All Changes.</p></div></div>
                   <p class="portal-preview-footnote">Preview shows the desktop composition. Use View portal to check the full page.</p>
                 </aside>
               </div>
@@ -236,8 +237,9 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../home-page/portal-appearance.js?v=1.3"></script>
     <script src="website-loading.js?v=1.3"></script>
-    <script src="admin-common.js?v=2026.1114.17"></script>
+    <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1114.10"></script>
     <script src="website-portals.js?v=1.4.1"></script>
+    <script src="website-portals-ui.js?v=2026.1115.1"></script>
   </body>
 </html>

@@ -2641,7 +2641,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (userProfile && profilePopup) {
     // Keep each page's account links and authenticated identity; share one popover.
-    const profileSvg = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    const copySidebarIcon = (target, source, fallbackClasses) => {
+      if (!target) return;
+      const icon = source ? source.cloneNode(true) : document.createElement('i');
+      if (!source) icon.className = fallbackClasses;
+      icon.removeAttribute('style'); icon.setAttribute('aria-hidden','true'); target.replaceWith(icon);
+    };
     const profileTrigger = document.createElement('button');
     profileTrigger.type = 'button'; profileTrigger.id = 'profileMenuTrigger'; profileTrigger.className = 'profile-menu-trigger';
     profileTrigger.setAttribute('aria-controls',profilePopup.id); profileTrigger.setAttribute('aria-expanded','false'); profileTrigger.setAttribute('aria-label','Account menu');
@@ -2652,16 +2657,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (identity) { const label = document.createElement('p'); label.className = 'profile-menu-caption'; label.textContent = 'Signed in as'; identity.before(label); }
     profilePopup.querySelectorAll('.profile-popup-link').forEach(link => {
       const settings = link.getAttribute('href') === 'settings.html';
-      const old = link.querySelector('i');
-      if (settings && old) {
-        const sidebarGear = sidebarNav?.querySelector('a[href="settings.html"] i');
-        if (sidebarGear) { const gear = sidebarGear.cloneNode(true); gear.removeAttribute('style'); gear.setAttribute('aria-hidden','true'); old.replaceWith(gear); }
-        else { old.className = 'fa-solid fa-gear'; old.setAttribute('aria-hidden','true'); }
-      } else if (old) old.outerHTML = profileSvg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5 17v-1a3 3 0 0 1 6 0v1M15 9h3M15 13h3"/>');
+      copySidebarIcon(link.querySelector('i'),sidebarNav?.querySelector(`a[href="${settings ? 'settings.html' : 'my-account.html'}"] i`),settings ? 'fa-solid fa-gear' : 'fa-regular fa-id-card');
       if (new URL(link.href,location.href).pathname === location.pathname) link.setAttribute('aria-current','page');
     });
-    const logoutIcon = profilePopup.querySelector('.logout-btn i');
-    if (logoutIcon) logoutIcon.outerHTML = profileSvg('<path d="M10 4H4v16h6M14 8l4 4-4 4M8 12h12"/>');
+    copySidebarIcon(profilePopup.querySelector('.logout-btn i'),document.querySelector('.sidebar-footer .logout-btn i'),'fa-solid fa-right-from-bracket');
     const positionProfileMenu = () => {
       if (!profilePopup.classList.contains('show')) return;
       const rect = profileTrigger.getBoundingClientRect(), gap = 10, edge = 12;

@@ -3,12 +3,12 @@ const {browserFixture,chrome,root}=require('./helpers/website-browser.cjs');
 const pages=['admin-page','staff-page'].flatMap(folder=>fs.readdirSync(path.join(root,folder)).filter(file=>file.endsWith('.html')&&fs.readFileSync(path.join(root,folder,file),'utf8').includes('id="profilePopup"')).map(file=>folder+'/'+file));
 test('every authenticated profile shell loads the same account menu assets',()=>{
  assert(pages.length>=40);
- for(const file of pages){const html=fs.readFileSync(path.join(root,file),'utf8');assert(html.includes('admin-common.js?v=2026.1114.17'),file);assert(html.includes('portal-detail-dialog.css?v=2026.1114.17'),file);}
+ for(const file of pages){const html=fs.readFileSync(path.join(root,file),'utf8');assert(html.includes('admin-common.js?v=2026.1115.1'),file);assert(html.includes('portal-detail-dialog.css?v=2026.1115.1'),file);}
 });
 for(const role of ['admin','staff'])test(role+' shared profile handles long identities, keyboard, notifications and logout',{skip:!chrome,timeout:180000},async t=>{
  const email=role+'.operator.with.a.long.address.for.readable.layout@department.example.test';let logouts=0;
- const font=process.env.FMRC_BROWSER_POPPINS,fa=process.env.FMRC_BROWSER_FA;
- const fontCss=(font?`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`:'')+(fa?`@font-face{font-family:"Font Awesome 6 Free";src:url(data:font/woff2;base64,${fs.readFileSync(fa).toString('base64')});font-weight:900}.fa-gear{font-family:"Font Awesome 6 Free";font-weight:900}.fa-gear:before{content:"\\f013"}`:'');
+ const font=process.env.FMRC_BROWSER_POPPINS,fa=process.env.FMRC_BROWSER_FA,regular=process.env.FMRC_BROWSER_FA_REGULAR,faCss=process.env.FMRC_BROWSER_FA_CSS;
+ const fontCss=(faCss?fs.readFileSync(faCss,'utf8'):'')+(font?`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`:'')+(fa?`@font-face{font-family:"Font Awesome 6 Free";src:url(data:font/woff2;base64,${fs.readFileSync(fa).toString('base64')});font-weight:900}.fa-solid{font-family:"Font Awesome 6 Free";font-weight:900}.fa-gear:before{content:"\\f013"}.fa-right-from-bracket:before{content:"\\f2f5"}`:'')+(regular?`@font-face{font-family:"Font Awesome 6 Free";src:url(data:font/woff2;base64,${fs.readFileSync(regular).toString('base64')});font-weight:400}.fa-regular{font-family:"Font Awesome 6 Free";font-weight:400}.fa-id-card:before{content:"\\f2c2"}`:'');
  const setup=fontCss?`{let s=document.createElement('style');s.textContent=${JSON.stringify(fontCss)};document.head.append(s);}`:'';
  const h=await browserFixture(t,async({req,route,json})=>{
   if(route==='/api/user'){json({id:role==='admin'?11:22,role,email,username:'Sample operator'});return true;}
@@ -20,10 +20,17 @@ for(const role of ['admin','staff'])test(role+' shared profile handles long iden
  const shot=async n=>{await h.run(`document.fonts.ready`);await h.run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot(n);};
  await h.go('/'+role+'-page/website-footer.html');await h.until(`document.getElementById('profileMenuTrigger')&&document.querySelector('.popup-identity').textContent===${JSON.stringify(email)}&&settingsLoaded`);
  assert.equal(await h.run(`document.querySelectorAll('#profileMenuTrigger').length`),1);assert.equal(await h.run(`document.getElementById('profilePopup').inert`),true);await open();
- assert(await h.run(`(()=>{const a=document.querySelector('.sidebar-nav a[href="settings.html"] i'),b=document.querySelector('#profilePopup a[href="settings.html"] i');return a&&b&&a.className===b.className&&b.classList.contains('fa-gear')})()`),'Settings reuses the sidebar gear icon');
+ assert(await h.run(`['my-account.html','settings.html'].every(href=>{const a=document.querySelector('.sidebar-nav a[href="'+href+'"] i'),b=document.querySelector('#profilePopup a[href="'+href+'"] i');return a&&b&&a.className===b.className})&&document.querySelector('.sidebar-footer .logout-btn i').className===document.querySelector('#profilePopup .logout-btn i').className`),'All three icons reuse their exact sidebar classes');
  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);
   assert(await h.run(`(()=>{let p=document.getElementById('profilePopup'),r=p.getBoundingClientRect(),i=p.querySelector('.popup-identity');return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&p.scrollWidth<=p.clientWidth+1&&i.scrollWidth<=i.clientWidth+1&&getComputedStyle(i).textOverflow!=='ellipsis'&&getComputedStyle(p).borderRadius==='12px'&&[...p.querySelectorAll('a,button')].every(n=>n.getBoundingClientRect().height>=44)&&!p.inert&&document.body.style.position!=='fixed'})()`),'Profile fits '+width+' '+theme);
+  const {root:dom}=await h.send('DOM.getDocument');
+  for(const selector of ['#profileMenuTrigger','#profilePopup .profile-popup-link','#profilePopup .popup-logout']){
+   const {nodeId}=await h.send('DOM.querySelector',{nodeId:dom.nodeId,selector});await h.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['hover','active']});
+   assert(await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(selector)}),s=getComputedStyle(n),a=document.querySelector('.profile-menu-trigger .profile-icon');return s.transform==='none'&&s.animationName==='none'&&s.transitionDuration==='0s'&&getComputedStyle(a).transform==='none'})()`),'Hover/press stays stationary '+selector+' '+theme);
+   if(selector.includes('profile-popup-link'))assert(await h.run(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor===getComputedStyle(document.querySelector('#profilePopup .popup-logout')).backgroundColor`),'Link hover matches the sidebar action surface');
+   await h.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
+  }
   if([390,1440].includes(width))await shot(role+'-profile-'+width+'-'+theme);
  }
  await h.send('Emulation.setDeviceMetricsOverride',{width:740,height:360,deviceScaleFactor:1,mobile:false});assert(await h.run(`document.getElementById('profilePopup').getBoundingClientRect().bottom<=innerHeight-10`),'Short landscape stays within viewport');
