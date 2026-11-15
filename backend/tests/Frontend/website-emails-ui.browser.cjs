@@ -1,0 +1,68 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const {browserFixture, chrome} = require('./helpers/website-browser.cjs');
+
+test('Admin Email Templates adopts shared cards and popups while retaining drafts, previews, save and restore', {skip:!chrome, timeout:150000}, async t => {
+  const defaults = {header_title:'FMRC notification', header_subtitle:'Operations', header_color:'#800000', body_heading:'Request received', body_text:'Hello {customer_name}.\n\nYour request has been recorded.', footer_note:'Thank you.'};
+  const rows = Array.from({length:16}, (_,i) => ({slug:'fixture_'+i, label:i===0?'Order received':i===1?'Delivery update':i===2?'Account verified':'Sample notification '+(i+1), group:i<2?'Orders':'Accounts', defaults:{...defaults}, saved:i===0?{body_text:'Saved original message for {customer_name}.'}:{}, tokens:['customer_name','order_no']}));
+  const writes = [], previews = [];
+  let reads=0, failSave=false, holdSave=false, releaseSave, failPreview=false, holdPreview=false, releasePreview;
+  const font=process.env.FMRC_BROWSER_POPPINS, solid=process.env.FMRC_BROWSER_FA, regular=process.env.FMRC_BROWSER_FA_REGULAR, faCss=process.env.FMRC_BROWSER_FA_CSS;
+  const css=(faCss?fs.readFileSync(faCss,'utf8'):'')+(font?`@font-face{font-family:Poppins;src:url(data:font/ttf;base64,${fs.readFileSync(font).toString('base64')});font-weight:400}`:'')+[solid,regular].map((file,i)=>file?`@font-face{font-family:"Font Awesome 6 Free";font-weight:${i?400:900};src:url(data:font/woff2;base64,${fs.readFileSync(file).toString('base64')})}`:'').join('');
+  const h = await browserFixture(t, async ({req,route,json,role}) => {
+    if(route==='/api/admin/email-templates') { assert.equal(role,'admin'); reads++; json({data:{key_prefix:'email_tpl_',groups:['Orders','Accounts'],editable_parts:Object.keys(defaults),clearable_parts:['header_subtitle','footer_note'],templates:rows}}); return true; }
+    if(route==='/api/admin/email-templates/preview') {
+      assert.equal(role,'admin');let raw='';for await(const chunk of req)raw+=chunk;const input=JSON.parse(raw);previews.push(input);
+      if(holdPreview){holdPreview=false;await new Promise(resolve=>releasePreview=resolve);}
+      if(failPreview){json({message:'Preview temporarily unavailable.'},503);return true;}
+      const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      json({data:{slug:input.slug,html:`<!doctype html><html><body data-fixture-slug="${escape(input.slug)}"><h1>${escape(input.parts.header_title)}</h1><p style="white-space:pre-wrap">${escape(input.parts.body_text)}</p><p>Sample order details</p></body></html>`}});return true;
+    }
+    if(route==='/api/admin/site-settings'&&req.method==='PUT') {
+      assert.equal(role,'admin');let raw='';for await(const chunk of req)raw+=chunk;const payload=JSON.parse(raw);writes.push(payload);
+      if(holdSave)await new Promise(resolve=>releaseSave=resolve);
+      if(failSave){json({message:'Please try again.'},503);return true;}
+      for(const [key,value]of Object.entries(payload)){const row=rows.find(row=>'email_tpl_'+row.slug===key);assert(row);row.saved=value?JSON.parse(value):{};}
+      json({message:'Saved'});return true;
+    }
+    return false;
+  }, {setup:css?`{let s=document.createElement('style');s.textContent=${JSON.stringify(css)};document.head.append(s);}`:''});
+  await h.send('Network.setBlockedURLs',{urls:['https://*']});
+  const size=async(width,height=950)=>{await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await h.pause(120);await h.run(`if(innerWidth<600&&document.body.classList.contains('admin-sidebar-open'))document.querySelector('.admin-sidebar-toggle').click()`);};
+  const click=s=>h.run(`{const n=document.querySelector(${JSON.stringify(s)});n.scrollIntoView({block:'nearest',behavior:'instant'});n.focus({preventScroll:true});n.click();}`);
+  const input=(s,value)=>h.run(`{const n=document.querySelector(${JSON.stringify(s)});n.value=${JSON.stringify(value)};n.dispatchEvent(new Event('input',{bubbles:true}));}`);
+  const key=async key=>{await h.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:{Tab:9,Escape:27,Enter:13}[key]});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key});};
+  const popup=title=>h.until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent===${JSON.stringify(title)}`);
+  const ready=()=>h.until(`state.loaded&&!state.saving&&!document.querySelector('.website-section-loading')&&document.getElementById('emailTemplatePreviewState').textContent==='Sample content'&&document.getElementById('emailTemplatePreview').srcdoc.includes('data-fixture-slug="'+state.activeSlug+'"')&&document.getElementById('emailTemplatePreview').srcdoc.includes(escHtml(currentParts().body_text))`);
+  const shot=async name=>{await h.run(`document.fonts.ready`);await h.run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot(name);};
+  const noX=()=>h.run(`!document.querySelector('#adminSystemPopup [data-portal-detail-close],#adminSystemPopup hr')&&document.body.style.position==='fixed'&&getComputedStyle(document.querySelector('#adminSystemPopup .portal-detail-dialog__card')).borderRadius==='12px'&&document.querySelector('#adminSystemPopup [data-popup-context]').textContent==='Email Templates'`);
+  await size(1440);await h.go('/admin-page/website-emails.html');await ready();
+  assert.equal(await h.run(`document.getElementById('emailTemplateSaveBtn').disabled`),true);
+  assert.equal(await h.run(`document.querySelectorAll('.et-item[aria-pressed="true"]').length`),1);
+  for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']) {
+    await size(width);await h.run(`document.documentElement.dataset.theme='${theme}';scrollTo({top:0,behavior:'instant'})`);
+    const layout=await h.run(`(()=>{const visible=n=>!!n.getClientRects().length;return {fits:document.documentElement.scrollWidth<=innerWidth+1,headings:[...document.querySelectorAll('.wm-section-header')].every(n=>n.querySelectorAll(':scope > i').length===1&&getComputedStyle(n.querySelector('h3')).color===getComputedStyle(n.querySelector('i')).color),labels:[...document.querySelectorAll('.email-templates-page .field-stack > label')].every(n=>getComputedStyle(n).fontWeight==='600'),controls:[...document.querySelectorAll('.email-templates-page :is(button,input,textarea)')].filter(visible).every(n=>n.getBoundingClientRect().height>=44),search:document.getElementById('emailTemplateSearch').placeholder==='Search'&&getComputedStyle(document.getElementById('emailTemplateSearch')).paddingLeft==='38px',sandbox:document.getElementById('emailTemplatePreview').getAttribute('sandbox')==='' };})()`);
+    for(const [check,value]of Object.entries(layout))assert(value,check+' '+width+' '+theme);
+    if([390,1440].includes(width))await shot('emails-'+width+'-'+theme);
+  }
+  await size(1440);await h.run(`document.documentElement.dataset.theme='light'`);
+  await input('#emailTemplateSearch','delivery');assert.equal(await h.run(`document.querySelectorAll('.et-item').length`),1);assert.equal(await h.run(`document.getElementById('emailTemplateCount').textContent`),'1/16');await click('.et-item');await ready();
+  const text='Literal <sample> content is plain text.\n\nA second paragraph remains intact.';
+  await input('#emailTplBodyText',text);await h.run(`document.getElementById('emailTplBodyText').focus();document.getElementById('emailTplBodyText').setSelectionRange(0,0)`);await click('[data-token="order_no"]');assert.equal(await h.run(`document.getElementById('emailTplBodyText').value`),'{order_no}'+text);
+  await click('[data-color="#059669"]');assert.equal(await h.run(`document.getElementById('emailTplHeaderColor').value`),'#059669');await input('#emailTplHeaderSubtitle','');await input('#emailTplFooterNote','');await ready();
+  assert(await h.run(`document.getElementById('emailTemplatePreview').srcdoc.includes('&lt;sample&gt;')&&!document.querySelector('.email-templates-page sample')`),'Preview and editor preserve HTML-like wording safely');
+  await input('#emailTemplateSearch','');await click('[data-slug="fixture_0"]');await ready();await input('#emailTplBodyHeading','Updated request heading');await ready();assert.equal(await h.run(`state.drafts.size`),2,'Drafts stay independent across template selection');
+  const saved=structuredClone(rows);await click('#emailTemplateSaveBtn');await popup('Save All Changes');assert(await noX());await size(390,850);await shot('emails-save-confirm-mobile');await key('Tab');assert(await h.run(`document.getElementById('adminSystemPopup').contains(document.activeElement)`));await key('Escape');await h.until(`!document.querySelector('#adminSystemPopup.show')&&document.body.style.position!=='fixed'`);assert.equal(await h.run('document.activeElement.id'),'emailTemplateSaveBtn');assert.equal(writes.length,0);
+  await size(1440);failSave=true;await click('#emailTemplateSaveBtn');await popup('Save All Changes');await click('#adminSystemPopupOk');await popup('Changes Not Saved');assert(await noX());assert.equal(await h.run(`document.getElementById('adminSystemPopup').dataset.popupIcon`),'error');assert.deepEqual(rows,saved);assert.equal(await h.run(`state.drafts.size`),2);await click('#adminSystemPopupOk');assert.equal(await h.run(`document.getElementById('emailTemplateSaveBtn').disabled`),false);
+  failSave=false;holdSave=true;await click('#emailTemplateSaveBtn');await popup('Save All Changes');await click('#adminSystemPopupOk');await h.until(`state.saving&&document.getElementById('emailTemplateForm').inert`);for(let i=0;!releaseSave&&i<100;i++)await h.pause(20);assert(releaseSave);const count=writes.length;await h.run(`persist(false);persist(false);document.getElementById('emailTemplateSaveBtn').click()`);assert.equal(writes.length,count,'A pending save cannot be submitted twice');releaseSave();holdSave=false;await ready();
+  assert.deepEqual(Object.keys(writes.at(-1)).sort(),['email_tpl_fixture_0','email_tpl_fixture_1']);assert.equal(rows[0].saved.body_heading,'Updated request heading');assert.equal(rows[1].saved.header_color,'#059669');assert.equal(rows[1].saved.header_subtitle,'');assert.equal(rows[1].saved.footer_note,'');await h.until(`document.querySelector('.admin-success-notification__close svg')`);await click('.admin-success-notification__close');
+  await h.go('/admin-page/website-emails.html');await ready();assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),'Updated request heading');assert.equal(await h.run(`document.getElementById('emailTemplateSaveBtn').disabled`),true);
+  await click('#emailTemplateResetBtn');await popup('Restore Default');assert(await noX());await click('#adminSystemPopupCancel');assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),'Updated request heading');const before=writes.length;
+  await click('#emailTemplateResetBtn');await popup('Restore Default');await click('#adminSystemPopupOk');await ready();assert.equal(writes.length,before,'Restore only stages a draft until Save All Changes');assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),defaults.body_heading);await click('#emailTemplateSaveBtn');await popup('Save All Changes');await click('#adminSystemPopupOk');await ready();assert.equal(writes.at(-1).email_tpl_fixture_0,'');assert.deepEqual(rows[0].saved,{});
+  await input('#emailTplBodyHeading','Unsaved heading');await ready();const oldReads=reads;await h.run('void loadTemplates()');await popup('Discard changes?');assert(await noX());await click('#adminSystemPopupCancel');assert.equal(reads,oldReads);assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),'Unsaved heading');await h.run('void loadTemplates()');await popup('Discard changes?');await click('#adminSystemPopupOk');await ready();assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),defaults.body_heading);
+  failPreview=true;await input('#emailTplBodyHeading','Preview recovery');await h.until(`document.getElementById('emailTemplatePreviewState').textContent==='Preview unavailable'`);assert.equal(await h.run(`document.getElementById('emailTplBodyHeading').value`),'Preview recovery');failPreview=false;await input('#emailTplBodyHeading',defaults.body_heading);await ready();
+  holdPreview=true;await h.run(`requestPreview(true)`);for(let i=0;!releasePreview&&i<100;i++)await h.pause(20);assert(releasePreview);await click('[data-slug="fixture_1"]');await h.until(`document.getElementById('emailTemplatePreviewState').textContent==='Sample content'`);const latest=await h.run(`document.getElementById('emailTemplatePreview').srcdoc`);releasePreview();await ready();assert.equal(await h.run(`document.getElementById('emailTemplatePreview').srcdoc`),latest,'Delayed preview cannot replace another selected template');
+  await size(740,360);assert(await h.run(`document.documentElement.scrollWidth<=innerWidth+1`));await size(720,450);await h.run(`{const style=document.createElement('style');style.textContent='.email-templates-page :is(p,label,h3,button){line-height:1.5!important;letter-spacing:.12em;word-spacing:.16em}';document.head.append(style)}`);assert(await h.run(`document.documentElement.scrollWidth<=innerWidth+1`),'Zoom-equivalent viewport and adjusted text spacing fit');
+  assert.deepEqual(await h.run('fixtureErrors'),[]);assert(previews.length>0);t.diagnostic('Previews: '+h.artifacts);
+});

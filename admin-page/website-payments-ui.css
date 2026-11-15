@@ -17,7 +17,8 @@ body[data-portal-payment-dialogs] .payment-bulk-actions { justify-content:flex-e
 body[data-portal-payment-dialogs] .payment-method-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:stretch; }
 body[data-portal-payment-dialogs] .payment-method-row { grid-template-columns:48px minmax(0,1fr) 64px; gap:14px; padding:20px; border-radius:12px; align-content:start; }
 body[data-portal-payment-dialogs] .payment-method-row:hover { border-color:var(--portal-accent-border,#d6b8bb); background:var(--surface,#fdfaf6); }
-body[data-portal-payment-dialogs] .payment-method-row:focus-within { outline:2px solid var(--portal-accent,#800000); outline-offset:3px; }
+body[data-portal-payment-dialogs] .payment-settings-page .payment-method-row:focus-within { outline:none; border-color:var(--border-color,#e2e8f0); box-shadow:none; }
+html body[data-portal-payment-dialogs] .payment-settings-page .payment-switch:focus:not(:focus-visible) { outline:none !important; box-shadow:none !important; border-color:transparent !important; }
 body[data-portal-payment-dialogs] .payment-method-icon { border-radius:9px; color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
 body[data-portal-payment-dialogs] .payment-method-icon--qrph { background:#fff; }
 body[data-portal-payment-dialogs] .payment-method-name { font-size:16px; font-weight:600; line-height:1.6; }

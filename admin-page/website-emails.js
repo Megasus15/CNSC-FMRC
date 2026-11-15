@@ -203,7 +203,7 @@ const renderList = () => {
   }
 
   if (!visible.length) {
-    list.innerHTML = `<p class="et-hint">No notification matches that search.</p>`;
+    list.innerHTML = `<p class="et-hint">No templates match your search.</p>`;
     return;
   }
 
@@ -217,7 +217,7 @@ const renderList = () => {
       const edited = hasOverride(row) ? " edited" : "";
       const hint = hasOverride(row) ? "Edited" : "Original wording";
       html.push(
-        `<button type="button" class="et-item${active}${edited}" data-slug="${escHtml(row.slug)}" title="${hint}">` +
+        `<button type="button" class="et-item${active}${edited}" data-slug="${escHtml(row.slug)}" aria-pressed="${row.slug === state.activeSlug}" title="${hint}">` +
           `<span class="et-dot"></span><span>${escHtml(row.label)}</span></button>`,
       );
     });
@@ -398,7 +398,7 @@ const renderPreviewData = async () => {
       throw new Error(
         body?.message ||
           (response.status === 403
-            ? "Only admin or staff accounts can preview email templates."
+            ? "Admin access is required to preview email templates."
             : "The preview could not be rendered."),
       );
     }
@@ -466,7 +466,7 @@ const persist = async (isReset) => {
     broadcastUpdate(); window.showAdminPopup?.('All email template changes saved.', { title: 'Saved!', type: 'success' });
   } catch (error) {
     setStatus('Template changes could not be saved. Your edits are kept here. Please try again.', true);
-    window.showAdminPopup?.(error.message || 'Please try saving again.', { title: 'Changes Not Saved' });
+    window.showAdminPopup?.(error.message || 'Please try saving again.', { title: 'Changes Not Saved', type: 'error' });
   } finally {
     state.saving = false; el('emailTemplateForm').inert = false;
     setButtonPending(el('emailTemplateSaveBtn'), false);
@@ -485,7 +485,7 @@ const loadTemplatesData = async ({ keepActive = true } = {}) => {
 
   if (!authToken) {
     if (list) {
-      list.innerHTML = `<p class="et-hint">Sign in as admin or staff to edit the email templates.</p>`;
+      list.innerHTML = `<p class="et-hint">Sign in with an Admin account to edit email templates.</p>`;
     }
     setStatus(
       "Your session expired. Sign in again to edit the email templates.",
@@ -506,7 +506,7 @@ const loadTemplatesData = async ({ keepActive = true } = {}) => {
       throw new Error(
         body?.message ||
           (response.status === 403
-            ? "Only admin or staff accounts can edit email templates."
+            ? "Admin access is required to edit email templates."
             : "The email templates could not be loaded."),
       );
     }
@@ -558,6 +558,7 @@ const requestSelect = slug => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  el('emailTplColorSwatches')?.querySelectorAll('[data-color]').forEach(button => button.setAttribute('aria-label','Use header color '+button.dataset.color));
   window.AdminWebsiteDraft?.register({ isDirty, busy: () => state.saving });
   const search = el("emailTemplateSearch");
   search?.addEventListener("input", () => {

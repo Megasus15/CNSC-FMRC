@@ -40,7 +40,8 @@
       const fragment=document.createDocumentFragment(),data=catalogue(state);
       const add=(name,code,selected)=>{
         const li=document.createElement('li');li.id=state.input.id+'-'+code;li.setAttribute('role','option');li.tabIndex=-1;li.dataset.cityCode=code;li.setAttribute('aria-selected',String(selected));
-        const check=document.createElement('span');check.className='shipping-city-option-check';check.setAttribute('aria-hidden','true');check.textContent=selected?'✓':'';
+        const check=document.createElement('span');check.className='shipping-city-option-check';check.setAttribute('aria-hidden','true');
+        if(selected){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),path=document.createElementNS('http://www.w3.org/2000/svg','path');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','2.5');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');path.setAttribute('d','m5 12 4 4 10-10');svg.append(path);check.append(svg);}
         const label=document.createElement('span');label.textContent=name;li.append(check,label);fragment.append(li);
       };
       add('All cities and municipalities','all',state.scope==='all');

@@ -288,8 +288,9 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.3" />
+    <link rel="stylesheet" href="website-emails-ui.css?v=2026.1115.6" />
   </head>
-  <body>
+  <body data-portal-email-dialogs data-portal-popups="refined" data-portal-popup-context="Email Templates">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -397,22 +398,24 @@
             </div>
           </div>
         </header>
-        <section class="module-content">
+        <section class="module-content email-templates-page" aria-label="Email templates">
           <div class="page-toolbar">
             <div class="toolbar-title">
-              <h2>Email Notification Templates</h2>
-              <p>
-                Edit the wording and header colour of every email the system
-                sends to customers and staff. Untouched templates keep their
-                original wording.
-              </p>
+              <i class="fa-solid fa-envelopes-bulk et-page-icon" aria-hidden="true"></i>
+              <div>
+                <h2>Email Templates</h2>
+                <p>
+                  Customize system email wording and header colors. Save All Changes
+                  applies your edits to new emails; untouched templates keep their original wording.
+                </p>
+              </div>
             </div>
             <div class="toolbar-actions">
               <button
                 class="btn-admin btn-secondary"
                 onclick="loadTemplates()"
               >
-                <i class="fa-solid fa-rotate-right"></i> Refresh
+                <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh
               </button>
             </div>
           </div>
@@ -421,30 +424,33 @@
             <!-- NOTIFICATION LIST -->
             <div class="wm-section">
               <div class="wm-section-header">
-                <i class="fa-regular fa-envelope"></i>
-                <h3>Notifications</h3>
+                <i class="fa-regular fa-envelope" aria-hidden="true"></i>
+                <h3>Templates</h3>
                 <span class="et-count" id="emailTemplateCount"></span>
               </div>
               <div class="field-stack">
-                <label for="emailTemplateSearch">Find a notification</label>
-                <input
-                  type="search"
-                  class="wm-input"
-                  id="emailTemplateSearch"
-                  placeholder="Search by name..."
-                  autocomplete="off"
-                />
+                <label for="emailTemplateSearch">Find a template</label>
+                <div class="et-search">
+                  <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                  <input
+                    type="search"
+                    class="wm-input"
+                    id="emailTemplateSearch"
+                    placeholder="Search"
+                    autocomplete="off"
+                  />
+                </div>
               </div>
               <div class="et-list" id="emailTemplateList">
-                <p class="et-hint">Loading notifications...</p>
+                <p class="et-hint">Loading templates…</p>
               </div>
             </div>
             <!-- EDITOR + PREVIEW -->
             <div class="et-editor-pane">
               <div class="wm-section">
                 <div class="wm-section-header">
-                  <i class="fa-solid fa-pen-to-square"></i>
-                  <h3 id="emailTemplateTitle">Select a notification</h3>
+                  <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                  <h3 id="emailTemplateTitle">Select a template</h3>
                   <span
                     class="et-group-chip"
                     id="emailTemplateGroup"
@@ -452,28 +458,26 @@
                   ></span>
                 </div>
                 <p class="et-hint" id="emailTemplateHint">
-                  Choose a notification on the left to edit its header, message
-                  and colour.
+                  Choose a template to edit its header, message and color.
                 </p>
                 <div id="emailTemplateForm" style="display: none">
                   <p class="et-locked">
                     <strong>What you can edit:</strong> the header, the message
-                    and the closing note. Order details, codes, buttons and the
-                    copyright line are added automatically and follow the header
-                    colour you pick here.
+                    and closing note. Order details, codes, buttons and the
+                    copyright line are added automatically and follow your
+                    header color.
                   </p>
                   <div class="field-stack" style="margin-bottom: 16px">
                     <label>Details you can insert</label>
                     <div class="et-tokens" id="emailTemplateTokens"></div>
                     <span class="et-hint"
-                      >Click one to drop it into the field you were typing in.
-                      It is replaced with the real value when the email is
-                      sent.</span
+                      >Choose a detail to insert it into the active field.
+                      Its real value is filled in when the email is sent.</span
                     >
                   </div>
                   <div class="wm-form-grid">
                     <div class="field-stack">
-                      <label for="emailTplHeaderTitle">Header Title</label>
+                      <label for="emailTplHeaderTitle">Header title</label>
                       <input
                         type="text"
                         class="wm-input"
@@ -484,7 +488,7 @@
                     </div>
                     <div class="field-stack">
                       <label for="emailTplHeaderSubtitle"
-                        >Header Subtitle
+                        >Header subtitle
                         <span style="font-weight: 500; color: #9ca3af"
                           >(optional)</span
                         ></label
@@ -498,18 +502,19 @@
                       />
                     </div>
                     <div class="field-stack full">
-                      <label for="emailTplHeaderColor">Header Colour</label>
+                      <label for="emailTplHeaderColor">Header color</label>
                       <div class="et-color-row">
                         <input
                           type="color"
                           id="emailTplHeaderColor"
                           value="#800000"
-                          aria-label="Header colour picker"
+                          aria-label="Choose header color"
                         />
                         <input
                           type="text"
                           class="wm-input"
                           id="emailTplHeaderColorText"
+                          aria-label="Header color code"
                           maxlength="7"
                           spellcheck="false"
                           placeholder="#800000"
@@ -589,7 +594,7 @@
                       </div>
                     </div>
                     <div class="field-stack full">
-                      <label for="emailTplBodyHeading">Message Heading</label>
+                      <label for="emailTplBodyHeading">Message heading</label>
                       <input
                         type="text"
                         class="wm-input"
@@ -611,7 +616,7 @@
                     </div>
                     <div class="field-stack full">
                       <label for="emailTplFooterNote"
-                        >Closing Note
+                        >Closing note
                         <span style="font-weight: 500; color: #9ca3af"
                           >(optional)</span
                         ></label
@@ -630,9 +635,9 @@
 
               <div class="wm-section">
                 <div class="wm-section-header">
-                  <i class="fa-regular fa-eye"></i>
-                  <h3>Live Preview</h3>
-                  <span class="et-count" id="emailTemplatePreviewState"></span>
+                  <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                  <h3>Live preview</h3>
+                  <span class="et-count" id="emailTemplatePreviewState" role="status" aria-live="polite"></span>
                 </div>
                 <iframe
                   id="emailTemplatePreview"
@@ -647,8 +652,8 @@
               </div>
 
               <div class="wm-save-bar et-save-bar" data-dock-save-bar>
-                <p class="et-status" id="emailTemplateStatus">
-                  Select a notification to begin.
+                <p class="et-status" id="emailTemplateStatus" role="status" aria-live="polite">
+                  Select a template to begin.
                 </p>
                 <div class="et-save-actions">
                   <button
@@ -656,7 +661,7 @@
                     id="emailTemplateResetBtn"
                     disabled
                   >
-                    <i class="fa-solid fa-rotate-left"></i> Restore Default
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Restore Default
                   </button>
                   <button class="btn-admin" id="emailTemplateSaveBtn" disabled>
                     <i class="fa-solid fa-floppy-disk"></i> Save All Changes
@@ -675,7 +680,7 @@
     <script src="website-loading.js?v=2026.1115.4"></script>
     <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1115.4"></script>
-    <script src="website-emails.js?v=6.6.1"></script>
+    <script src="website-emails.js?v=2026.1115.6"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>
 </html>

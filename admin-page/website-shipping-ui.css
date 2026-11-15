@@ -42,6 +42,7 @@ body[data-portal-shipping-dialogs] .shipping-city-picker.open .combobox-list { d
 body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list li { display:flex; align-items:center; gap:10px; min-height:44px; padding:10px 12px; font-size:14px; line-height:1.6; white-space:normal; overflow-wrap:anywhere; }
 body[data-portal-shipping-dialogs] .shipping-city-picker .combobox-list li.combobox-active { outline:2px solid var(--portal-accent,#800000); outline-offset:-2px; }
 body[data-portal-shipping-dialogs] .shipping-city-option-check { display:grid; place-items:center; flex:0 0 18px; width:18px; height:18px; border:1px solid var(--border-color,#d7dde5); border-radius:4px; color:var(--portal-accent,#800000); }
+body[data-portal-shipping-dialogs] .shipping-city-option-check svg { display:block; width:14px; height:14px; }
 body[data-portal-shipping-dialogs] .shipping-city-picker [aria-selected="true"] .shipping-city-option-check { border-color:var(--portal-accent,#800000); background:var(--portal-accent-soft,#fbf1f2); }
 body[data-portal-shipping-dialogs] .shipping-city-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
 body[data-portal-shipping-dialogs] .shipping-city-chips:empty { display:none; }
@@ -67,6 +68,13 @@ body[data-portal-shipping-dialogs] .shipping-page details { border:1px solid var
 body[data-portal-shipping-dialogs] .shipping-page summary { min-height:44px; padding:12px 0; color:var(--portal-accent,#800000); font-size:14px; font-weight:600; line-height:1.6; }
 body[data-portal-shipping-dialogs] .shipping-page details[open] { padding-bottom:16px; }
 body[data-portal-shipping-dialogs] .shipping-publish { padding:20px; border:1px solid var(--border-color,#e2e8f0); border-radius:12px; background:var(--surface-alt,#f8f4ef); }
+body[data-portal-shipping-dialogs] .shipping-publish-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:20px; margin-top:20px; }
+body[data-portal-shipping-dialogs] .shipping-publish-controls .shipping-check { align-items:center; margin:0; }
+body[data-portal-shipping-dialogs] .shipping-publish-controls .shipping-check > input { margin:0; }
+body[data-portal-shipping-dialogs] .shipping-publish-action { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:0; max-width:36ch; }
+body[data-portal-shipping-dialogs] .shipping-publish-action .shipping-action-row { margin:0; }
+body[data-portal-shipping-dialogs] .shipping-publish-action .btn-admin { margin:0; white-space:nowrap; }
+body[data-portal-shipping-dialogs] .shipping-publish-action #shippingPublishHint { margin:0; text-align:right; }
 body[data-portal-shipping-dialogs] .btn-admin { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600; line-height:1.5; }
 body[data-portal-shipping-dialogs] .btn-admin.btn-secondary { background:var(--surface,#fdfaf6); color:var(--portal-accent,#800000); border-color:var(--portal-accent,#800000); box-shadow:none; }
 body[data-portal-shipping-dialogs] .btn-admin.btn-secondary:hover:not(:disabled) { background:var(--portal-accent-soft,#fbf1f2); color:var(--portal-accent,#800000); border-color:var(--portal-accent,#800000); }
@@ -86,6 +94,8 @@ html[data-portal][data-theme="dark"] body[data-portal-shipping-dialogs] .btn-adm
   body[data-portal-shipping-dialogs] .shipping-section-heading > button { margin-left:auto; }
   body[data-portal-shipping-dialogs] .shipping-calendar { gap:20px; }
   body[data-portal-shipping-dialogs] .shipping-page .input-field { font-size:16px; }
+  body[data-portal-shipping-dialogs] .shipping-publish-controls { grid-template-columns:minmax(0,1fr); gap:16px; }
+  body[data-portal-shipping-dialogs] .shipping-publish-action { justify-self:end; max-width:100%; }
   body[data-portal-shipping-dialogs] #shippingSaveBar .shipping-save-actions { flex-wrap:nowrap; width:100%; }
   body[data-portal-shipping-dialogs] #shippingSaveBar .btn-admin { flex:1; min-width:0; padding-inline:8px; font-size:12px; }
 }
