@@ -288,7 +288,7 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.3" />
-    <link rel="stylesheet" href="website-emails-ui.css?v=2026.1115.8" />
+    <link rel="stylesheet" href="website-emails-ui.css?v=2026.1116.2" />
   </head>
   <body data-portal-email-dialogs data-portal-popups="refined" data-portal-popup-context="Email Templates">
     <div class="dashboard-container">
@@ -420,6 +420,15 @@
             </div>
           </div>
 
+          <section class="wm-section email-contacts-card" id="emailContactsCard">
+            <div class="wm-section-header"><i class="fa-solid fa-address-book" aria-hidden="true"></i><h3>Official email contacts</h3><button class="btn-admin btn-secondary" type="button" id="emailContactsRestore">Use website contacts</button></div>
+            <p class="field-hint">One footer for every system email. Changes apply to future emails after Save All Changes.</p>
+            <fieldset id="emailContactsFields" disabled><div class="email-contacts-grid">
+              <div class="form-group"><label for="emailContact_facebook_url">Facebook page</label><input id="emailContact_facebook_url" type="url" maxlength="2048" placeholder="https://www.facebook.com/…" required></div>
+              <div class="form-group"><label for="emailContact_website_url">FMRC website</label><input id="emailContact_website_url" type="url" maxlength="2048" placeholder="https://ucn-fabmanlab.com" required></div>
+              <div class="form-group"><label for="emailContact_phone">Phone number</label><input id="emailContact_phone" type="tel" maxlength="40" placeholder="FMRC contact number" required></div>
+            </div></fieldset>
+          </section>
           <div class="et-layout">
             <!-- NOTIFICATION LIST -->
             <div class="wm-section et-template-card">
@@ -675,12 +684,12 @@
     </div>
 
     <script src="session-helper.js?v=2026.1113.9"></script>
-    <script src="admin-session.js?v=2026.1114.5"></script>
+    <script src="admin-session.js?v=2026.1116.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="website-loading.js?v=2026.1115.4"></script>
     <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1115.4"></script>
-    <script src="website-emails.js?v=2026.1115.6"></script>
+    <script src="website-emails.js?v=2026.1116.2"></script>
     <script src="website-emails-ui.js?v=2026.1115.7"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
   </body>

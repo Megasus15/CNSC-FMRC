@@ -4617,7 +4617,7 @@ input:checked + .toggle-slider:before {
 .apt-back-btn:hover {
   background: #f1ed12;
   color: #2d2a12;
-  border-color: #f1ed12;
+  border-color: var(--customer-paper-edge, #e7ded9);
   transform: none;
 }
 .apt-back-btn:active {
@@ -6042,7 +6042,7 @@ input:checked + .toggle-slider:before {
   padding: 0;
   overflow: hidden;
   text-align: left;
-  border: 1px solid rgba(241, 237, 18, 0.72);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: var(--ux-dlg-radius);
   background: var(--customer-paper);
   box-shadow: 0 28px 70px rgba(27, 4, 4, 0.5);
@@ -6126,7 +6126,7 @@ input:checked + .toggle-slider:before {
   gap: 5px;
   margin: 22px 0 18px;
   padding: 15px 17px;
-  border: 1px solid #eadc9a;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: 12px;
   background: #fffbed;
   text-align: center;
@@ -13666,7 +13666,7 @@ body {
 }
 
 .popup-logout:focus-visible {
-  outline: 3px solid rgba(241, 237, 18, 0.55);
+  outline: 3px solid var(--customer-wine, #6b202b);
   outline-offset: 2px;
 }
 
@@ -17011,7 +17011,7 @@ textarea:focus-visible {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(241, 237, 18, 0.6);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: var(--ux-dlg-radius);
   background: var(--customer-paper);
   box-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
@@ -17048,7 +17048,7 @@ textarea:focus-visible {
    stray radius in this dialog — every other panel inside a `ux-dlg` is on the
    `--apt-radius-sm` rung. */
 .success-reference {
-  border: 1px solid #eadc9a;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: var(--apt-radius-sm);
   box-shadow: none;
 }
@@ -17056,7 +17056,7 @@ textarea:focus-visible {
 .success-card__footer {
   flex: 0 0 auto;
   padding: 18px clamp(24px, 6vw, 38px) max(26px, env(safe-area-inset-bottom));
-  border-top: 1px solid #f0e8c8;
+  border-top: 1px solid var(--customer-paper-edge, #e7ded9);
   background: #fffdf4;
 }
 
@@ -17511,7 +17511,7 @@ textarea:focus-visible {
   --ux-dlg-eyebrow: #f5ef8e;
   --ux-dlg-radius: 8px;
   --ux-dlg-radius-sm: 6px;
-  --ux-dlg-edge: rgba(241, 237, 18, 0.6);
+  --ux-dlg-edge: var(--customer-paper-edge, #e7ded9);
   --ux-dlg-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
   /* Match the neutral backdrop behind the action loader. Media and phone
      confirmations retain their stronger dimming with the same cool hue. */
@@ -17523,7 +17523,7 @@ textarea:focus-visible {
     radial-gradient(circle at 15% 85%, rgba(158, 20, 20, 0.18), transparent 21rem),
     linear-gradient(135deg, #3d0808 0%, #5f0d0d 45%, #851313 100%);
   --ux-dlg-foot-bg: #fffdf4;
-  --ux-dlg-foot-line: #f0e8c8;
+  --ux-dlg-foot-line: var(--customer-paper-edge, #e7ded9);
   --ux-dlg-pad-x: clamp(22px, 5.6vw, 34px);
   --ux-dlg-text: #4b5563;
   --ux-dlg-maroon: #5f0d0d;
@@ -17807,7 +17807,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 7px;
   border-radius: 999px;
-  border: 1px solid rgba(241, 237, 18, 0.34);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   background: rgba(45, 12, 12, 0.3);
   color: var(--ux-dlg-eyebrow);
   font-size: 11.5px;
@@ -17921,7 +17921,7 @@ textarea:focus-visible {
   gap: 10px;
   margin: 0 0 18px;
   padding: 13px 15px;
-  border: 1px solid #eadc9a;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: var(--ux-dlg-radius-sm);
   background: #fffbed;
   color: #6b5a24;
@@ -18063,7 +18063,7 @@ textarea:focus-visible {
 }
 
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn:focus-visible {
-  outline: 3px solid rgba(241, 237, 18, 0.55);
+  outline: 3px solid var(--customer-wine, #6b202b);
   outline-offset: 2px;
 }
 
@@ -19943,12 +19943,12 @@ textarea:focus-visible {
 
   /* Lines. The cream hairline is the success card's footer rule; the warm one
      is what separates a white card from the maroon stage behind it. */
-  --apt-line: #f0e8c8; /* = --ux-dlg-foot-line */
+  --apt-line: var(--customer-paper-edge, #e7ded9); /* = --ux-dlg-foot-line */
   --apt-line-warm: rgba(107, 32, 43, 0.1);
 
   /* Panels. Byte-for-byte `.success-reference` and `.success-card__footer`. */
   --apt-panel: #fffbed;
-  --apt-panel-edge: #eadc9a;
+  --apt-panel-edge: var(--customer-paper-edge, #e7ded9);
   --apt-strip: #fffdf4; /* = --ux-dlg-foot-bg */
 
   /* Gold, and the four inks that are legible on or beside it. */
@@ -21297,7 +21297,7 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 /* Published policy links shared across Customer order views. */
 .checkout-policy-link { color: #800000; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .checkout-policy-link:hover { color: #5f1425; }
-.checkout-policy-link:focus-visible { outline: 3px solid #d9a334; outline-offset: 4px; border-radius: 3px; }
+.checkout-policy-link:focus-visible { outline: 3px solid var(--customer-wine, #6b202b); outline-offset: 4px; border-radius: 3px; }
 
 /* Customer order records: shared across the website and Customer PWA. */
 #customerOrdersModal {

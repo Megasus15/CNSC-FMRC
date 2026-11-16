@@ -7,11 +7,12 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.resolve(__dirname, '../../../admin-page/admin-session.js'), 'utf8');
 const start = Date.parse('2026-09-25T00:00:00Z');
 
-function harness(role = 'admin', initialToken = '17|secret') {
+function harness(role = 'admin', initialToken = '17|secret', maxHours = 6, savedTiming = null) {
   let now = start;
   let serverTime = start;
   let elapsed = 0;
   const storage = new Map([[`${role}_auth_token`, initialToken]]);
+  if (savedTiming) storage.set(`fmrc_${role}_session_timing`,JSON.stringify(savedTiming));
   const sessionValues = new Map();
   const calls = [];
   const windowEvents = new Map();
@@ -83,7 +84,8 @@ function harness(role = 'admin', initialToken = '17|secret') {
     server_time: new ClockDate(serverTime).toISOString(),
     idle_warning_at: new ClockDate(activityAt + 60 * 60_000).toISOString(),
     idle_expires_at: new ClockDate(activityAt + 63 * 60_000).toISOString(),
-    absolute_expires_at: new ClockDate(start + 6 * 60 * 60_000).toISOString(),
+    absolute_expires_at: maxHours === 0 ? null : new ClockDate(start + maxHours * 60 * 60_000).toISOString(),
+    absolute_limit_enabled: maxHours !== 0,
   });
   const fetch = async (url, options = {}) => {
     calls.push({ url, options });
@@ -131,6 +133,7 @@ function harness(role = 'admin', initialToken = '17|secret') {
     },
     gesture(name = 'pointerdown') { dispatch(documentEvents, name); },
     focus() { dispatch(windowEvents, 'focus'); },
+    otherTabTiming(value) { dispatch(windowEvents,'storage',{key:`fmrc_${role}_session_timing`,newValue:JSON.stringify(value)}); },
     async stay() { await stayButton.click(); },
   };
 }
@@ -153,6 +156,30 @@ test('warns at one hour, accepts only Stay signed in, and ends at 63 minutes', a
   assert.match(h.sessionValues.get('fmrc_admin_session_notice'), /inactivity/i);
 });
 
+test('Off removes the absolute clock while the same inactivity warning still expires', async () => {
+  const h = harness('staff','18|secret',0); await h.flush();
+  assert.equal(h.redirect,'');
+  h.advance(60*60_000); assert.equal(h.dialog.hidden,false);
+  await h.stay(); await h.flush();
+  h.advance(63*60_000); assert.match(h.redirect,/auth/);
+  assert.match(h.sessionValues.get('fmrc_admin_session_notice'),/inactivity/i);
+});
+
+test('a twelve-hour snapshot stays usable past six hours with real activity', async () => {
+  const h = harness('admin','19|secret',12); await h.flush();
+  for(let hour=0;hour<7;hour++){h.advance(59*60_000);h.gesture();await h.flush();}
+  assert.equal(h.redirect,'');
+});
+
+test('cached and cross-tab values cannot disable the authenticated maximum', async () => {
+  const forged={token_id:'17',server_time:new Date(start+100*3600000).toISOString(),idle_warning_at:new Date(start+101*3600000).toISOString(),idle_expires_at:new Date(start+102*3600000).toISOString(),absolute_expires_at:null,absolute_limit_enabled:false};
+  for(const cached of [true,false]){
+    const h=harness('admin','17|secret',6,cached?forged:null);await h.flush();
+    const count=h.calls.length;if(!cached){h.otherTabTiming(forged);await h.flush();assert.equal(h.calls.length,count+1,'A tab signal rechecks the server');}
+    h.advance(6*3600000);assert.match(h.redirect,/auth/);assert.match(h.sessionValues.get('fmrc_admin_session_notice'),/time limit/i);
+  }
+});
+
 test('Stay signed in renews idle time but not the six-hour absolute limit', async () => {
   const h = harness('staff');
   await h.flush();
@@ -162,7 +189,7 @@ test('Stay signed in renews idle time but not the six-hour absolute limit', asyn
   assert.equal(h.dialog.hidden, true);
   h.advance(5 * 60 * 60_000);
   assert.equal(h.redirect, '../admin-auth/auth.html');
-  assert.match(h.sessionValues.get('fmrc_admin_session_notice'), /six-hour/i);
+  assert.match(h.sessionValues.get('fmrc_admin_session_notice'), /time limit/i);
 });
 
 test('server status is checked on focus without reporting human activity', async () => {

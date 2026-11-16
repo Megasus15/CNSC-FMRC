@@ -471,9 +471,13 @@ class AuthController extends Controller
     {
         $role = strtolower((string) $user->role);
 
-        return in_array($role, ['admin', 'staff'], true)
-            ? $user->createToken('auth_token', ['*'], now()->addHours(6))->plainTextToken
-            : $user->createToken('auth_token')->plainTextToken;
+        if (!in_array($role, ['admin', 'staff'], true)) return $user->createToken('auth_token')->plainTextToken;
+        $policy = \App\Support\OperatorSessionPolicy::forUser($user);
+        $issued = $user->createToken('auth_token', ['*'], $policy['enabled'] ? now()->addHours($policy['max_hours']) : null);
+        if (\App\Support\OperatorSessionPolicy::installed()) {
+            $issued->accessToken->forceFill(['operator_session_max_hours' => $policy['enabled'] ? $policy['max_hours'] : 0])->save();
+        }
+        return $issued->plainTextToken;
     }
 
     /**

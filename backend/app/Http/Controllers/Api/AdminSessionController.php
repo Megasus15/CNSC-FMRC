@@ -5,12 +5,31 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\AdminSession;
+use App\Support\OperatorSessionPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AdminSessionController extends Controller
 {
+    public function preferences(Request $request): JsonResponse
+    {
+        if (!$this->operatorToken($request)) return $this->forbidden();
+        abort_unless(OperatorSessionPolicy::installed(), 503, 'Automatic sign-out settings require the latest database update. Your existing session protection remains active.');
+        return response()->json(['preferences' => OperatorSessionPolicy::forUser($request->user()), 'effective_on' => 'next_login'])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        if (!$this->operatorToken($request)) return $this->forbidden();
+        abort_unless(OperatorSessionPolicy::installed(), 503, 'Automatic sign-out settings require the latest database update. Your existing session protection remains active.');
+        $data = $request->validate(['enabled' => ['required', 'boolean'], 'max_hours' => ['required', 'integer', 'in:6,12'], 'user_id' => ['prohibited']]);
+        abort_if(array_diff(array_keys($request->all()), ['enabled', 'max_hours']), 422, 'Only enabled and max_hours may be changed.');
+        OperatorSessionPolicy::save($request->user(), ['enabled' => (bool) $data['enabled'], 'max_hours' => (int) $data['max_hours']]);
+        return $this->preferences($request);
+    }
+
     public function status(Request $request): JsonResponse
     {
         $token = $this->operatorToken($request);

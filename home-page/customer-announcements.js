@@ -564,7 +564,7 @@
           padding: 10px 14px;
           border-radius: 8px;
           background: #fdfaf6;
-          border: 1px solid #eadc9a;
+          border: 1px solid var(--customer-paper-edge, #e7ded9);
           box-shadow: 0 12px 35px rgba(128, 0, 0, 0.2), 0 2px 10px rgba(58, 18, 18, 0.08);
           color: #4b5563;
           pointer-events: auto;

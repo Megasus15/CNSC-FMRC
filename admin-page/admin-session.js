@@ -67,10 +67,9 @@
     const warningAt = parseTime(saved.idle_warning_at);
     const idleAt = parseTime(saved.idle_expires_at);
     const absoluteAt = parseTime(saved.absolute_expires_at);
-    if (warningAt && idleAt && absoluteAt) {
+    if (warningAt && idleAt && (absoluteAt || saved.absolute_limit_enabled === false && saved.absolute_expires_at === null)) {
       timing = { warningAt, idleAt, absoluteAt };
       serverOffsetMs = Number(saved.server_offset_ms) || 0;
-      lastServerTime = parseTime(saved.server_time) || 0;
       serverAnchorMs = Date.now() + serverOffsetMs;
       monotonicAnchorMs = monotonicNow();
     }
@@ -92,7 +91,7 @@
     return code === "SESSION_IDLE"
       ? "Your session ended after inactivity. Sign in again."
       : code === "SESSION_EXPIRED"
-        ? "Your six-hour session has ended. Sign in again."
+        ? "Your session has reached its time limit. Sign in again."
         : "Your session has ended. Sign in again.";
   }
 
@@ -101,7 +100,7 @@
     const idleAt = parseTime(data?.idle_expires_at);
     const absoluteAt = parseTime(data?.absolute_expires_at);
     const responseTime = parseTime(data?.server_time);
-    if (!warningAt || !idleAt || !absoluteAt || !responseTime) return false;
+    if (!warningAt || !idleAt || !responseTime || (!absoluteAt && !(data?.absolute_limit_enabled === false && data?.absolute_expires_at === null))) return false;
     if (responseTime < lastServerTime ||
       (responseTime === lastServerTime && timing && warningAt < timing.warningAt)) return false;
     lastServerTime = responseTime;
@@ -117,6 +116,7 @@
           idle_warning_at: data.idle_warning_at,
           idle_expires_at: data.idle_expires_at,
           absolute_expires_at: data.absolute_expires_at,
+          absolute_limit_enabled: data.absolute_limit_enabled,
           server_time: data.server_time,
           server_offset_ms: serverOffsetMs,
         }));
@@ -126,7 +126,7 @@
     return true;
   }
 
-  async function requestSession(method = "GET", interaction = null) {
+  async function requestSession(method = "GET", interaction = null, persist = true) {
     if (stopped || session.getToken() !== activeToken) return null;
     let response;
     try {
@@ -151,7 +151,7 @@
       return null;
     }
     if (!response.ok) return null;
-    applyTiming(data);
+    applyTiming(data, persist);
     return data;
   }
 
@@ -233,7 +233,7 @@
     if (stopped || session.getToken() !== activeToken) return;
     if (!timing) return;
     const now = serverNow();
-    if (now >= timing.absoluteAt) {
+    if (timing.absoluteAt !== null && now >= timing.absoluteAt) {
       // A saved offset is only a quick preview. A changed device clock must
       // never clear a still-valid token before the first server status check.
       if (!serverValidated) return;
@@ -293,12 +293,10 @@
       try {
         const next = JSON.parse(event.newValue);
         if (next.token_id === tokenId(activeToken)) {
-          applyTiming({
-            server_time: next.server_time || new Date(Date.now() + (Number(next.server_offset_ms) || 0)).toISOString(),
-            idle_warning_at: next.idle_warning_at,
-            idle_expires_at: next.idle_expires_at,
-            absolute_expires_at: next.absolute_expires_at,
-          }, false);
+          // Another tab can signal activity, but storage is not authority to
+          // disable or extend this token's maximum. Read back without writing
+          // another storage event, which would create a cross-tab request loop.
+          void requestSession("GET", null, false);
         }
       } catch { /* A later server check will refresh the clock. */ }
     }

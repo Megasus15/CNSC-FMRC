@@ -635,7 +635,7 @@ final class EmailTemplate
     }
 
     /**
-     * The one 600 px table shell all 27 notifications share, lifted from the
+     * The one 600 px table shell all registered notifications share, lifted from the
      * order builder because that was already the most complete of the three
      * near-identical shells this replaced.
      *
@@ -644,7 +644,7 @@ final class EmailTemplate
      *
      * @param  array<string, string>  $parts
      */
-    public static function shell(array $parts, string $extraHtml = ''): string
+    public static function shell(array $parts, string $extraHtml = '', ?array $contactFooter = null): string
     {
         $headerColor = self::color($parts['header_color'] ?? '');
         $title = self::text($parts['header_title'] ?? Branding::NAME);
@@ -667,6 +667,7 @@ final class EmailTemplate
         $noteHtml = $note === '' ? '' : "\n            "
             . "<p style=\"margin:0;color:#718096;font-size:12px;\">{$note}</p>";
         $extra = trim($extraHtml) === '' ? '' : "\n            " . trim($extraHtml);
+        $contactsHtml = EmailContacts::html($contactFooter);
 
         return <<<HTML
 <!DOCTYPE html>
@@ -694,6 +695,7 @@ final class EmailTemplate
         <!-- Footer -->
         <tr>
           <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
+            {$contactsHtml}
             <p style="margin:0;color:#a0aec0;font-size:11px;">
               &copy; {$year} {$appName} &middot; {$institution}. All rights reserved.<br>
               This is an automated notification &mdash; please do not reply to this email.
@@ -802,8 +804,12 @@ HTML;
     }
 
     /** One notification rendered with sample content, for the editor preview. */
-    public static function preview(string $slug): string
+    public static function preview(string $slug, ?array $contactFooter = null): string
     {
+        if ($contactFooter !== null) {
+            return self::shell(self::resolve($slug, self::sampleTokens($slug)), self::previewExtra($slug), $contactFooter);
+        }
+
         return self::render($slug, self::sampleTokens($slug), self::previewExtra($slug));
     }
 
@@ -814,10 +820,10 @@ HTML;
      *
      * @param  array<string, mixed>  $draft
      */
-    public static function previewDraft(string $slug, array $draft): string
+    public static function previewDraft(string $slug, array $draft, ?array $contactFooter = null): string
     {
         $parts = self::merge($slug, $draft, self::sampleTokens($slug));
 
-        return self::shell($parts, self::previewExtra($slug, $parts['header_color']));
+        return self::shell($parts, self::previewExtra($slug, $parts['header_color']), $contactFooter);
     }
 }

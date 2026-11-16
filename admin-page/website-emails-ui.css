@@ -70,3 +70,11 @@ html[data-portal][data-theme="dark"] body[data-portal-email-dialogs] .btn-admin.
   body[data-portal-email-dialogs] .et-save-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
   body[data-portal-email-dialogs] .et-save-actions .btn-admin { display:flex; align-items:center; justify-content:center; gap:6px; padding-inline:8px; font-size:12px; white-space:normal; }
 }
+
+.email-contacts-card {margin-bottom:24px;}
+.email-contacts-card fieldset {border:0;padding:0;margin:20px 0 0;min-width:0;}
+.email-contacts-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+.email-contacts-grid .form-group {min-width:0;}
+.email-contacts-grid label {display:block;margin-bottom:8px;font-size:14px;font-weight:600;}
+.email-contacts-grid input {width:100%;min-height:44px;padding:11px 13px;border:1px solid var(--border-color);border-radius:8px;background:var(--surface);color:var(--text-main);font:inherit;box-sizing:border-box;}
+@media(max-width:900px){.email-contacts-grid{grid-template-columns:minmax(0,1fr);}}

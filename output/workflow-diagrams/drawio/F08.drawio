@@ -1,0 +1,117 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="F08" name="F08 Personal Settings and sidebar customization">
+    <mxGraphModel dx="1191" dy="842" grid="0" page="1" pageScale="1" pageWidth="1191" pageHeight="842">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="F08  |  Personal Settings and sidebar customization" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=23;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="42" width="1118.5511811023623" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" value="Save account-specific appearance, display, branding and sidebar preferences." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="95" width="1118.5511811023623" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lane0" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="1118.5511811023623" height="208.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead0" value="Admin / Staff" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="118" height="208.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#F7F5F2;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="398.0" width="1118.5511811023623" height="208.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead1" value="System" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="398.0" width="118" height="208.0" as="geometry" />
+        </mxCell>
+        <mxCell id="ref-label" value="CONNECTED FLOWS" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="772" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="KEY RULES&#10;Theme, reduced motion, table density and branding belong to the authenticated user, not every operator.&#10;A logo editor Cancel leaves the saved logo unchanged; Use logo applies its prepared canvas.&#10;Offline changes remain local with explicit sync feedback; Restore defaults keeps its immediate behavior." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="638" width="1118.5511811023623" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="edge0" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="327.4251968503937" y="294.0" />
+              <mxPoint x="327.4251968503937" y="294.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge1" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="492.85039370078744" y="294.0" />
+              <mxPoint x="492.85039370078744" y="502.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="658.2755905511812" y="502.0" />
+              <mxPoint x="658.2755905511812" y="502.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="823.7007874015749" y="502.0" />
+              <mxPoint x="823.7007874015749" y="502.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge4" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="989.1259842519686" y="502.0" />
+              <mxPoint x="989.1259842519686" y="294.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch0" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="retry0" value="Retry" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="b1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="496.5629921259843" y="294.0" />
+              <mxPoint x="496.5629921259843" y="172" />
+              <mxPoint x="331.1377952755906" y="172" />
+              <mxPoint x="331.1377952755906" y="294.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1" value="Select personal preferences" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#800000;strokeColor=#800000;fontColor=#FFFFFF;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="172.71259842519686" y="253.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Adjust logo or sidebar width" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="338.1377952755906" y="253.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Values valid?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="503.5629921259843" y="461.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Apply local preview and save" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="668.9881889763781" y="461.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Sync account and same-user tabs" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="834.4133858267717" y="461.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="Use personal workspace" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#EFF7F1;strokeColor=#246744;fontColor=#246744;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="999.8385826771655" y="253.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="Correct values or cancel editor" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="503.5629921259843" y="253.0" width="144" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="ref0" value="F05" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F05.drawio">
+          <mxGeometry x="160.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref1" value="F07" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F07.drawio">
+          <mxGeometry x="204.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

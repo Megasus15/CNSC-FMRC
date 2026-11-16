@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\SiteSetting;
 use App\Support\EmailTemplate;
+use App\Support\EmailContacts;
 use App\Support\PaymentMethodAvailability;
 use App\Support\PortalAppearanceSettings;
 use App\Support\SiteSettingsVideo;
@@ -184,6 +185,7 @@ class SiteSettingController extends Controller
             }
         }
 
+        if (array_key_exists(EmailContacts::KEY, $input)) $input[EmailContacts::KEY] = EmailContacts::setting($input[EmailContacts::KEY]);
         $uploadToken = $input['about_video_upload_token'] ?? null;
         unset($input['about_video_upload_token']);
         if ($uploadToken) {
@@ -226,6 +228,7 @@ class SiteSettingController extends Controller
                 'editable_parts' => EmailTemplate::EDITABLE_PARTS,
                 'clearable_parts' => EmailTemplate::CLEARABLE_PARTS,
                 'templates' => EmailTemplate::registry(),
+                'contact_footer' => EmailContacts::configuration(),
             ],
         ]);
     }
@@ -246,6 +249,7 @@ class SiteSettingController extends Controller
         $validated = $request->validate([
             'slug' => 'required|string|max:80',
             'parts' => 'sometimes|array',
+            'contact_footer' => 'sometimes|array',
         ]);
 
         $slug = (string) $validated['slug'];
@@ -264,12 +268,14 @@ class SiteSettingController extends Controller
             }
         }
 
+        $contactFooter = isset($validated['contact_footer']) ? EmailContacts::validate($validated['contact_footer'], false) : null;
+
         return response()->json([
             'data' => [
                 'slug' => $slug,
-                'html' => $draft === []
-                    ? EmailTemplate::preview($slug)
-                    : EmailTemplate::previewDraft($slug, $draft),
+                'html' => $draft
+                    ? EmailTemplate::previewDraft($slug, $draft, $contactFooter)
+                    : EmailTemplate::preview($slug, $contactFooter),
             ],
         ]);
     }

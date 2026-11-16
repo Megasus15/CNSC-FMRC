@@ -299,7 +299,7 @@
   background: var(--customer-paper, #ffffff);
   width: min(100%, 460px);
   max-width: min(100%, 460px);
-  border: 1px solid var(--ux-dlg-edge, rgba(241, 237, 18, 0.6));
+  border: 1px solid var(--ux-dlg-edge, var(--customer-paper-edge, #e7ded9));
   border-radius: var(--ux-dlg-radius, 8px);
   box-shadow: var(--ux-dlg-shadow, 0 30px 78px rgba(27, 4, 4, 0.5));
   overflow: hidden;

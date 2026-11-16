@@ -311,7 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem(infoKey);
         localStorage.removeItem(`fmrc_${role}_session_timing`);
         if (data.code === "SESSION_EXPIRED") {
-          showSessionNotice("Your six-hour session has ended. Sign in again.");
+          showSessionNotice("Your session has reached its time limit. Sign in again.");
         } else if (data.code === "SESSION_IDLE") {
           showSessionNotice("Your session ended after inactivity. Sign in again.");
         } else {

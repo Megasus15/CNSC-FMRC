@@ -1,0 +1,286 @@
+{
+  "source_commit": "c499fa5d03fc89ef8dc10ab828c4f1b3df4b35b4",
+  "flows": [
+    {
+      "id": "F00",
+      "nodes": 0,
+      "sources": 1,
+      "decision_branches": 0
+    },
+    {
+      "id": "F01",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F02",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F03",
+      "nodes": 7,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F04",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F05",
+      "nodes": 7,
+      "sources": 5,
+      "decision_branches": 0
+    },
+    {
+      "id": "F06",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F07",
+      "nodes": 7,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F08",
+      "nodes": 7,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F09",
+      "nodes": 9,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F10",
+      "nodes": 10,
+      "sources": 6,
+      "decision_branches": 2
+    },
+    {
+      "id": "F11",
+      "nodes": 8,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F12",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F13",
+      "nodes": 9,
+      "sources": 6,
+      "decision_branches": 1
+    },
+    {
+      "id": "F14",
+      "nodes": 10,
+      "sources": 5,
+      "decision_branches": 2
+    },
+    {
+      "id": "F15",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F16",
+      "nodes": 10,
+      "sources": 4,
+      "decision_branches": 2
+    },
+    {
+      "id": "F17",
+      "nodes": 8,
+      "sources": 3,
+      "decision_branches": 1
+    },
+    {
+      "id": "F18",
+      "nodes": 10,
+      "sources": 3,
+      "decision_branches": 2
+    },
+    {
+      "id": "F19",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F20",
+      "nodes": 7,
+      "sources": 2,
+      "decision_branches": 1
+    },
+    {
+      "id": "F21",
+      "nodes": 10,
+      "sources": 5,
+      "decision_branches": 2
+    },
+    {
+      "id": "F22",
+      "nodes": 10,
+      "sources": 5,
+      "decision_branches": 3
+    },
+    {
+      "id": "F23",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F24",
+      "nodes": 8,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F25",
+      "nodes": 7,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F26",
+      "nodes": 7,
+      "sources": 3,
+      "decision_branches": 1
+    },
+    {
+      "id": "F27",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F28",
+      "nodes": 7,
+      "sources": 3,
+      "decision_branches": 1
+    },
+    {
+      "id": "F29",
+      "nodes": 8,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F30",
+      "nodes": 8,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F31",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F32",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F33",
+      "nodes": 6,
+      "sources": 4,
+      "decision_branches": 0
+    },
+    {
+      "id": "F34",
+      "nodes": 7,
+      "sources": 6,
+      "decision_branches": 1
+    },
+    {
+      "id": "F35",
+      "nodes": 7,
+      "sources": 2,
+      "decision_branches": 1
+    },
+    {
+      "id": "F36",
+      "nodes": 7,
+      "sources": 2,
+      "decision_branches": 1
+    },
+    {
+      "id": "F37",
+      "nodes": 7,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F38",
+      "nodes": 7,
+      "sources": 2,
+      "decision_branches": 1
+    },
+    {
+      "id": "F39",
+      "nodes": 7,
+      "sources": 2,
+      "decision_branches": 1
+    },
+    {
+      "id": "F40",
+      "nodes": 8,
+      "sources": 3,
+      "decision_branches": 1
+    },
+    {
+      "id": "F41",
+      "nodes": 7,
+      "sources": 3,
+      "decision_branches": 1
+    },
+    {
+      "id": "F42",
+      "nodes": 8,
+      "sources": 5,
+      "decision_branches": 1
+    },
+    {
+      "id": "F43",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F44",
+      "nodes": 8,
+      "sources": 4,
+      "decision_branches": 1
+    },
+    {
+      "id": "F45",
+      "nodes": 7,
+      "sources": 3,
+      "decision_branches": 1
+    }
+  ],
+  "booklet_pages": 51,
+  "all_sources_exist": true,
+  "node_overlap_check": "passed",
+  "searchable_pdf_text": "passed",
+  "minimum_shape_label_pt": 12
+}

@@ -100,15 +100,16 @@ class AppointmentCompleted extends Mailable
         $hoursDays = $pick(['footer_hours_days'], self::FALLBACKS['hours_days']);
         $hoursTime = $pick(['footer_hours_time'], self::FALLBACKS['hours_time']);
 
+        $shared = \App\Support\EmailContacts::resolve();
         return [
             'location' => $pick(['contact_location', 'footer_contact_location'], self::FALLBACKS['location']),
             'location_url' => $pick(['contact_location_url', 'footer_contact_location_url'], ''),
             'email' => $pick(['contact_email', 'footer_contact_email'], self::FALLBACKS['email']),
-            'phone' => $pick(['contact_phone', 'footer_contact_phone'], self::FALLBACKS['phone']),
+            'phone' => $shared['phone'] ?: $pick(['contact_phone', 'footer_contact_phone'], self::FALLBACKS['phone']),
             'facebook' => $pick(['contact_facebook', 'footer_contact_facebook'], self::FALLBACKS['facebook']),
-            'facebook_url' => $pick(['contact_facebook_url', 'footer_contact_facebook_url'], self::FALLBACKS['facebook_url']),
+            'facebook_url' => $shared['facebook_url'] ?: $pick(['contact_facebook_url', 'footer_contact_facebook_url'], self::FALLBACKS['facebook_url']),
             'hours' => trim($hoursDays . ' · ' . $hoursTime, ' ·'),
-            'site_url' => rtrim((string) (config('app.frontend_url') ?: self::FALLBACKS['site_url']), '/'),
+            'site_url' => $shared['website_url'],
         ];
     }
 

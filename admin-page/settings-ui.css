@@ -53,3 +53,13 @@ html[data-portal][data-theme="dark"] body[data-portal-settings-ui] .btn-admin.bt
  body[data-portal-settings-ui] .settings-logo-actions .btn-admin { flex:1 1 auto; }
 }
 }
+
+/* Security settings use the same readable controls as workspace preferences. */
+body[data-portal-settings-ui] .settings-rows.session-policy-fields {padding-bottom:24px;}
+body[data-portal-settings-ui] .session-policy-duration {display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,220px);gap:16px;align-items:center;margin-bottom:14px;}
+body[data-portal-settings-ui] .session-policy-duration label {font-weight:600;font-size:14px;}
+body[data-portal-settings-ui] .session-policy-duration select {width:100%;min-height:44px;padding:10px 14px;border:1px solid var(--border-color);border-radius:8px;background:var(--surface);color:var(--text-main);font:inherit;}
+#sessionPolicyRetry[hidden] {display:none!important;}
+body[data-portal-settings-ui] .session-policy-fields .field-hint {color:var(--text-muted);margin:14px 0;}
+body[data-portal-settings-ui] #sessionPolicyCurrent {border-top:1px solid var(--border-color);padding-top:16px;}
+@media(max-width:480px){body[data-portal-settings-ui] .session-policy-duration{grid-template-columns:minmax(0,1fr);gap:8px;}}

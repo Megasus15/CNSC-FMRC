@@ -181,6 +181,8 @@ Route::post('/webhooks/17track', [ShipmentTrackingController::class, 'webhook17'
 
 Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
     Route::get('/admin/session', [AdminSessionController::class, 'status']);
+    Route::get('/admin/session/preferences', [AdminSessionController::class, 'preferences']);
+    Route::put('/admin/session/preferences', [AdminSessionController::class, 'updatePreferences']);
     Route::post('/admin/session/activity', [AdminSessionController::class, 'activity']);
     Route::get('/admin/preferences', [PortalPreferenceController::class, 'show']);
     Route::put('/admin/preferences', [PortalPreferenceController::class, 'update']);

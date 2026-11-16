@@ -1,0 +1,3802 @@
+{
+  "title": "UCN-FMRC System Workflow Library",
+  "source_commit": "c499fa5d03fc89ef8dc10ab828c4f1b3df4b35b4",
+  "reviewed": "2026-11-15",
+  "overview": {
+    "id": "F00",
+    "title": "System overview: separate, connected workflows",
+    "slug": "system-overview",
+    "lanes": [
+      "Customer / Guest",
+      "Admin / Staff",
+      "System"
+    ],
+    "purpose": "Use this map to locate the independent workflow files. It does not replace any detailed end-to-end process.",
+    "trigger": "Choose the journey you need to explain.",
+    "steps": [],
+    "branches": [],
+    "rules": [
+      "The six groups are independent entry points, not a mandatory sequence of unrelated tasks.",
+      "Use the index to open an individual workflow. Customer and operator actions are separated by responsibility.",
+      "External email, payment, push and courier services are shown only in the workflows that use them."
+    ],
+    "sources": [
+      "backend/routes/api.php"
+    ],
+    "related": [
+      "F01",
+      "F09",
+      "F10",
+      "F13",
+      "F26",
+      "F35"
+    ],
+    "map_only": true,
+    "groups": [
+      [
+        "Customer access",
+        "F01 - F08",
+        "Accounts, credentials and workspace preferences",
+        "F01"
+      ],
+      [
+        "Appointments",
+        "F09 - F12",
+        "Service consultations and custom-product requests",
+        "F09"
+      ],
+      [
+        "Orders and money",
+        "F13 - F23",
+        "Purchase, payment, fulfillment, returns and refunds",
+        "F13"
+      ],
+      [
+        "Customer support",
+        "F24 - F25",
+        "Product reviews, FMRC replies and inquiries",
+        "F25"
+      ],
+      [
+        "Shared operations",
+        "F26 - F34",
+        "Inventory, products, reports, notifications and archives",
+        "F26"
+      ],
+      [
+        "Website administration",
+        "F35 - F45",
+        "Content, branding, policies and operating settings",
+        "F35"
+      ]
+    ]
+  },
+  "workflows": [
+    {
+      "id": "F01",
+      "title": "Customer registration and sign-in",
+      "slug": "customer-access",
+      "lanes": [
+        "Customer / Guest",
+        "System",
+        "External Provider"
+      ],
+      "purpose": "Create a Customer account or sign in through the available password or Google path.",
+      "trigger": "A visitor wants an authenticated Customer session.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer / Guest",
+          "label": "Choose sign-in or registration",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Customer / Guest",
+          "label": "Provide required account details",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "External Provider",
+          "label": "Verify Google or challenge, if used",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Access valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Create account or issue session",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer / Guest",
+          "label": "Open Customer workspace",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b4",
+          "from": "n4",
+          "lane": "Customer / Guest",
+          "label": "Correct details; try again",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "New public registration creates Customer accounts, never Admin or Staff accounts.",
+        "Google sign-in and CAPTCHA depend on configured keys. Failed login and lockout do not grant access.",
+        "Forgotten passwords follow F04; sessions and sign-out follow F07."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AuthController.php::register",
+        "backend/app/Http/Controllers/Api/AuthController.php::login",
+        "backend/app/Http/Controllers/Api/AuthController.php::googleLogin",
+        "backend/routes/api.php"
+      ],
+      "related": [
+        "F04",
+        "F07",
+        "F13"
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "Staff account application and approval",
+      "slug": "staff-application",
+      "lanes": [
+        "Customer / Guest",
+        "System",
+        "Admin"
+      ],
+      "purpose": "An applicant requests Staff access; an Admin reviews and approves or declines the application.",
+      "trigger": "A prospective Staff member opens the account-request form.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer / Guest",
+          "label": "Submit Staff application",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Validate and queue request",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin",
+          "label": "Review applicant",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Approve request?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Create Staff account; send decision",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer / Guest",
+          "label": "Sign in with approved account",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n4",
+          "lane": "Customer / Guest",
+          "label": "Request declined; read decision",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Application alone does not create an active Staff session.",
+        "Admin approval rechecks identifiers; a username or Gmail taken after submission blocks creation.",
+        "Requests are subject to CAPTCHA, rate limits and installed storage."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/StaffAccountRequestController.php::store",
+        "backend/app/Http/Controllers/Api/StaffAccountRequestController.php::approve",
+        "backend/app/Http/Controllers/Api/StaffAccountRequestController.php::reject",
+        "admin-page/accounts.js"
+      ],
+      "related": [
+        "F01",
+        "F03",
+        "F07"
+      ]
+    },
+    {
+      "id": "F03",
+      "title": "Admin user management",
+      "slug": "admin-user-management",
+      "lanes": [
+        "Admin",
+        "System"
+      ],
+      "purpose": "An Admin creates separate user accounts or deletes eligible accounts through User Management.",
+      "trigger": "An Admin opens User Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Choose create or delete",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Enter user details or select account",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Action allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Confirm authority or deletion",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Save account or revoke access",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin",
+          "label": "Review refreshed directory",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Read protection or validation reason",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Only full Admin accounts manage users. A new Admin has separate credentials and personal settings.",
+        "The built-in Admin, signed-in account and last full Admin are protected by current safeguards.",
+        "Deletion eligibility and retained history are enforced by the server; direct requests cannot bypass them."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AuthController.php::adminCreateUser",
+        "backend/app/Http/Controllers/Api/AuthController.php::adminDeleteUser",
+        "backend/app/Http/Controllers/Api/AuthController.php::adminDeleteUsersBulk",
+        "backend/app/Models/User.php",
+        "admin-page/accounts.js"
+      ],
+      "related": [
+        "F02",
+        "F05",
+        "F08"
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "Password reset",
+      "slug": "password-reset",
+      "lanes": [
+        "Customer / Guest",
+        "System",
+        "External Provider"
+      ],
+      "purpose": "Recover account access using the existing emailed one-time-code flow.",
+      "trigger": "An account holder chooses Forgot password.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer / Guest",
+          "label": "Enter account identifier",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Check request limits",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "External Provider",
+          "label": "Deliver reset code by email",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Customer / Guest",
+          "label": "Enter code and new password",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Code valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Update password securely",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Customer / Guest",
+          "label": "Sign in with new password",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n5",
+          "lane": "Customer / Guest",
+          "label": "Correct code or request a new one",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n4"
+        }
+      ],
+      "rules": [
+        "Code expiry, retry limits and throttling remain authoritative; invalid attempts do not reset a password.",
+        "An Admin unable to receive email may use an existing unused recovery code through F06.",
+        "Email delivery depends on the configured mail service."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/PasswordResetController.php::sendOtp",
+        "backend/app/Http/Controllers/Api/PasswordResetController.php::resendOtp",
+        "backend/app/Http/Controllers/Api/PasswordResetController.php::verifyOtpAndReset",
+        "backend/routes/api.php"
+      ],
+      "related": [
+        "F01",
+        "F06",
+        "F07"
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "Personal profile and credential updates",
+      "slug": "profile-credentials",
+      "lanes": [
+        "Account holder",
+        "System"
+      ],
+      "purpose": "Each signed-in person updates only the profile and sign-in fields their portal permits.",
+      "trigger": "A signed-in user opens personal account details.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Account holder",
+          "label": "Open profile or My Account",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Account holder",
+          "label": "Edit permitted fields",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Validate changes and identity",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Email check required?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "Account holder",
+          "label": "Verify emailed change code",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Save authorized changes",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Account holder",
+          "label": "Read saved account details",
+          "kind": "end"
+        }
+      ],
+      "branches": [],
+      "rules": [
+        "Customer, Staff and Admin use separate account entry points. Only their own permitted fields can change.",
+        "Admin Gmail changes use emailed verification when its storage is installed. Staff and Customer use their existing update path.",
+        "Password changes require the current password; unchanged forms cannot submit. Read-only Staff name stays protected."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AuthController.php::updateSelfProfile",
+        "backend/app/Http/Controllers/Api/AuthController.php::updateCustomerProfile",
+        "backend/app/Http/Controllers/Api/AuthController.php::confirmEmailChange",
+        "backend/app/Http/Controllers/Api/AuthController.php::changePassword",
+        "admin-page/my-account.js"
+      ],
+      "related": [
+        "F04",
+        "F06",
+        "F08"
+      ],
+      "shortcuts": [
+        {
+          "from": "n4",
+          "to": "n6",
+          "condition": "No"
+        }
+      ]
+    },
+    {
+      "id": "F06",
+      "title": "Admin recovery-code generation and redemption",
+      "slug": "admin-recovery-codes",
+      "lanes": [
+        "Admin",
+        "System"
+      ],
+      "purpose": "A full Admin generates one-time recovery codes and can later redeem one to recover access.",
+      "trigger": "An Admin manages or needs existing recovery codes.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Choose generate or redeem",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Supply password or unused code",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Security check valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Complete selected recovery action",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Send security alert; retain audit",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin",
+          "label": "Store codes or sign in securely",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b3",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Retry within limits; no access granted",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Generate: validate current password, invalidate the old set, then show the new codes once for offline storage.",
+        "Redeem: validate an unused code and new password, consume that code, reset the password and send an alert.",
+        "Recovery-code endpoints are Admin-only; Staff and Customer do not gain this path."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AdminRecoveryController.php::generate",
+        "backend/app/Http/Controllers/Api/AdminRecoveryController.php::redeem",
+        "backend/app/Http/Controllers/Api/AdminRecoveryController.php::status",
+        "admin-page/my-account.js"
+      ],
+      "related": [
+        "F03",
+        "F04",
+        "F05"
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "Session renewal, expiry and logout",
+      "slug": "session-lifecycle",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Authenticated operators renew an eligible session or safely end access.",
+      "trigger": "An operator signs in or a session reaches its warning window.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Use authenticated workspace",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Track idle and absolute expiry",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Session valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Renew or choose Logout",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Renew eligible session or revoke token",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Continue or return to sign-in",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Session expired: sign in again",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Idle warning, renewal and absolute lifetime are distinct. An expired session cannot be renewed as an active one.",
+        "Logout confirmation cancellation preserves the session; confirmed logout revokes its access.",
+        "The diagram shows operator session controls. Customer token-based logout also ends the current device session."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AdminSessionController.php::status",
+        "admin-page/admin-session.js",
+        "admin-page/session-helper.js",
+        "backend/routes/api.php",
+        "backend/app/Http/Controllers/Api/AuthController.php::logout"
+      ],
+      "related": [
+        "F01",
+        "F04",
+        "F08"
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "Personal Settings and sidebar customization",
+      "slug": "personal-settings",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Save account-specific appearance, display, branding and sidebar preferences.",
+      "trigger": "An operator opens Settings.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Select personal preferences",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Adjust logo or sidebar width",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Values valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Apply local preview and save",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Sync account and same-user tabs",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Use personal workspace",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct values or cancel editor",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Theme, reduced motion, table density and branding belong to the authenticated user, not every operator.",
+        "A logo editor Cancel leaves the saved logo unchanged; Use logo applies its prepared canvas.",
+        "Offline changes remain local with explicit sync feedback; Restore defaults keeps its immediate behavior."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/PortalPreferenceController.php::show",
+        "backend/app/Http/Controllers/Api/PortalPreferenceController.php::update",
+        "admin-page/settings.js",
+        "admin-page/dark-mode.js",
+        "admin-page/portal-sidebar.js"
+      ],
+      "related": [
+        "F05",
+        "F07"
+      ]
+    },
+    {
+      "id": "F09",
+      "title": "Service consultation: booking to completion",
+      "slug": "service-consultation",
+      "lanes": [
+        "Customer / Guest",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Book and attend a consultation without automatically creating a custom-product order.",
+      "trigger": "A visitor selects Book a consultation.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer / Guest",
+          "label": "Choose service and meeting method",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Customer / Guest",
+          "label": "Enter details; choose open slot",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Slot valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save booking; send reference",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Review; set online link if needed",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer / Guest",
+          "label": "Attend online or in person",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin / Staff",
+          "label": "Confirm consultation completed",
+          "kind": "process"
+        },
+        {
+          "id": "n8",
+          "lane": "System",
+          "label": "Retain consultation history",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Customer / Guest",
+          "label": "Choose another valid slot",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Online and face-to-face are meeting-method branches, not the two separate appointment business workflows.",
+        "Booking uses shared calendar availability and validation. Private file uploads require the permitted signed-in path.",
+        "A meeting link is not evidence that a consultation happened. Custom-product work is separately tracked in F10."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AppointmentController.php::store",
+        "backend/app/Http/Controllers/Api/AppointmentController.php::updateMeeting",
+        "backend/app/Http/Controllers/Api/AppointmentController.php::markCompleted",
+        "backend/app/Services/AppointmentScheduling.php",
+        "home-page/main.js"
+      ],
+      "related": [
+        "F10",
+        "F11",
+        "F12"
+      ]
+    },
+    {
+      "id": "F10",
+      "title": "Custom-product appointment: request to fulfillment",
+      "slug": "custom-product-appointment",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Connect consultation, agreed specifications, quotation, full payment, production and fulfillment.",
+      "trigger": "A signed-in Customer requests a custom product with a consultation.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Submit brief, files and booking",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Save linked request and consultation",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Attend and confirm discussion",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Ready to quote?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Send quotation and agreed terms",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Accept current quote?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin / Staff",
+          "label": "Payment, production and handover\nF17",
+          "kind": "subprocess",
+          "link": "F17"
+        },
+        {
+          "id": "n8",
+          "lane": "System",
+          "label": "Retain completed linked history",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n4",
+          "lane": "Customer",
+          "label": "Clarify brief, follow up or close",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b6",
+          "lane": "System",
+          "label": "Close declined or expired offer",
+          "kind": "stop",
+          "condition": "No",
+          "from": "n6"
+        }
+      ],
+      "rules": [
+        "Only an attended, confirmed consultation may advance to quotation. More information, follow-up or decline are real alternatives.",
+        "Acceptance creates one linked Order; full online or advance-cash payment is required before production.",
+        "Expired or unpaid quotations may need renewal. Resolve prior orders, held money and refunds before re-quoting."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AppointmentProductController.php::outcome",
+        "backend/app/Http/Controllers/Api/AppointmentProductController.php::quotation",
+        "backend/app/Http/Controllers/Api/AppointmentProductController.php::accept",
+        "backend/app/Http/Controllers/Api/AppointmentProductController.php::expire",
+        "backend/app/Services/AppointmentProducts.php",
+        "home-page/appointment-products.js"
+      ],
+      "related": [
+        "F09",
+        "F11",
+        "F14",
+        "F17",
+        "F18"
+      ]
+    },
+    {
+      "id": "F11",
+      "title": "Appointment rescheduling and cancellation",
+      "slug": "appointment-changes",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Change an eligible consultation schedule or cancel it while keeping linked work protected.",
+      "trigger": "A Customer opens an owned appointment.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Choose reschedule or cancel",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Change allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "Customer",
+          "label": "Select new slot or confirm cancel",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Lock and recheck latest schedule",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Commit schedule or cancellation",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "See updated calendar and history",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Customer",
+          "label": "Read confirmed result",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Read blocker; keep current booking",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Rescheduling is restricted by the existing time and ownership rules; a stale schedule must be refreshed.",
+        "A slot change preserves the consultation identity and respects current availability.",
+        "Custom jobs, accepted orders and held payments use their own guards; cancelling a meeting is not an automatic refund."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AppointmentController.php::reschedule",
+        "backend/app/Http/Controllers/Api/AppointmentController.php::customerDestroy",
+        "backend/app/Services/AppointmentScheduling.php",
+        "backend/app/Services/AppointmentProducts.php",
+        "home-page/my-appointments.js"
+      ],
+      "related": [
+        "F09",
+        "F10",
+        "F12",
+        "F18"
+      ]
+    },
+    {
+      "id": "F12",
+      "title": "Calendar availability management",
+      "slug": "calendar-management",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Manage bookable dates, notes and time slots while protecting current appointments.",
+      "trigger": "An operator opens Manage Calendar.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Choose calendar date",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Edit blocks, notes or time slots",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Changes valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save calendar changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist shared availability",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "See updated bookable slots",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct changes; preserve draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Default schedules, day-specific changes and existing reservations are checked by current scheduling rules.",
+        "Calendar changes do not silently rebook existing Customers.",
+        "Both operator portals read the same shared calendar; personal Settings do not alter it."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AppointmentController.php::calendar",
+        "backend/app/Http/Controllers/Api/AppointmentController.php::updateCalendar",
+        "backend/app/Services/AppointmentScheduling.php",
+        "admin-page/appointments.js"
+      ],
+      "related": [
+        "F09",
+        "F10",
+        "F11"
+      ]
+    },
+    {
+      "id": "F13",
+      "title": "Product purchase: browse to completion",
+      "slug": "product-purchase",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Follow a normal product order through checkout, FMRC review, payment and fulfillment.",
+      "trigger": "A Customer browses available products.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Select products or edit cart",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Customer",
+          "label": "Select fulfillment, payment and terms",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Validate and save order request",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Approve request?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Online: pay now. Cash: pay at pickup.",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Start preparation when eligible",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin / Staff",
+          "label": "Complete pickup or delivery",
+          "kind": "process"
+        },
+        {
+          "id": "n8",
+          "lane": "System",
+          "label": "Retain completed order and payment",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n4",
+          "lane": "Customer",
+          "label": "Request declined; read reason",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "FMRC request review comes before payment availability; approval reserves stock and is separate from starting preparation.",
+        "New normal orders support enabled online payment or cash on pickup. Delivery uses the eligible online-payment path.",
+        "Online payment: F14. Cash pickup and collection: F15. Delivery: F16. Legacy COD is not a new-order default."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/OrderController.php::customerStore",
+        "backend/app/Http/Controllers/Api/OrderController.php::review",
+        "backend/app/Support/OrderReview.php",
+        "backend/app/Support/OrderApproval.php",
+        "products-page/products.js",
+        "home-page/main.js"
+      ],
+      "related": [
+        "F14",
+        "F15",
+        "F16",
+        "F18",
+        "F19",
+        "F21",
+        "F22"
+      ]
+    },
+    {
+      "id": "F14",
+      "title": "Online payment and provider confirmation",
+      "slug": "online-payment",
+      "lanes": [
+        "Customer",
+        "System",
+        "External Provider"
+      ],
+      "purpose": "Create an eligible checkout and confirm payment using verified provider evidence.",
+      "trigger": "An approved normal order or accepted custom quotation is awaiting online payment.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Open payment action",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Payment eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Create or reuse checkout attempt",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "External Provider",
+          "label": "Host secure QR Ph checkout",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Authorize payment; return",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Verify webhook or reconcile",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Confirmed full payment?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n8",
+          "lane": "Customer",
+          "label": "Follow fulfillment; do not pay twice",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Wait for approval or readiness",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b2",
+          "from": "n7",
+          "lane": "External Provider",
+          "label": "Pending or failed: check status first",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Returning from checkout, a screenshot or a manually typed reference does not establish provider-managed payment.",
+        "Pending or uncertain attempts are checked before retry; duplicate or late payments require recorded review.",
+        "Cash on pickup bypasses hosted checkout. Custom advance cash follows F17 instead."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/PayMongoWebhookController.php::retry",
+        "backend/app/Http/Controllers/Api/PayMongoWebhookController.php::checkPaymentStatus",
+        "backend/app/Services/GatewayPayments.php",
+        "backend/app/Http/Controllers/Api/GatewayManagementController.php::reconcile",
+        "backend/config/payments.php"
+      ],
+      "related": [
+        "F13",
+        "F17",
+        "F20",
+        "F22"
+      ]
+    },
+    {
+      "id": "F15",
+      "title": "Pickup fulfillment and collection",
+      "slug": "pickup-collection",
+      "lanes": [
+        "Customer",
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Prepare an eligible pickup order and confirm physical collection using the Customer pickup code.",
+      "trigger": "A pickup order is approved for preparation.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Prepare eligible pickup order",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Publish ready-for-pickup status",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Customer",
+          "label": "Bring pickup code to FMRC",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Record cash if due; verify code",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Collection allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Complete order and retain evidence",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Customer",
+          "label": "Receive collected order",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n5",
+          "lane": "Admin / Staff",
+          "label": "Resolve code, payment or hold",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Unresolved payment, cancellation, refund or custom-production holds prevent collection.",
+        "Custom orders must already have full payment and ready production; normal pickup cash is recorded at collection.",
+        "Delivery orders use F16 instead. A Customer cannot manually force completion through the retired receive action."
+      ],
+      "sources": [
+        "backend/app/Services/OrderCompletion.php::collect",
+        "backend/app/Services/OrderCompletion.php::collectionBlocker",
+        "backend/app/Http/Controllers/Api/OrderController.php::complete",
+        "backend/app/Http/Controllers/Api/OrderController.php::updatePaymentStatus"
+      ],
+      "related": [
+        "F13",
+        "F16",
+        "F17",
+        "F21"
+      ]
+    },
+    {
+      "id": "F16",
+      "title": "Delivery handover and courier tracking",
+      "slug": "delivery-tracking",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "External Provider",
+        "Customer"
+      ],
+      "purpose": "Record genuine J&T handover, track the parcel and complete eligible delivery from verified courier evidence.",
+      "trigger": "A paid order is ready for courier dispatch.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Check parcel and paid order",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Record J&T waybill and handover",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Tracking ready?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "External Provider",
+          "label": "Deliver parcel; publish scans",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Verify and apply 17TRACK events",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Delivered and eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Complete eligible delivery",
+          "kind": "process"
+        },
+        {
+          "id": "n8",
+          "lane": "Customer",
+          "label": "View delivered order and timeline",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Resolve setup; do not invent scans",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b2",
+          "from": "n6",
+          "lane": "External Provider",
+          "label": "In transit or exception: await review",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "The current automatic tracking integration is 17TRACK for J&T; activation and provider credentials are configuration-dependent.",
+        "FMRC notes do not rewrite courier events. Exceptions, corrected waybills and unverified evidence need review.",
+        "The accepted shipping fee stays recorded; later actual courier charges do not silently change the Customer agreement."
+      ],
+      "sources": [
+        "backend/app/Services/ShipmentTracking.php",
+        "backend/app/Services/OrderCompletion.php::delivered",
+        "backend/app/Services/SeventeenTrackTracking.php",
+        "backend/app/Http/Controllers/Api/ShipmentTrackingController.php"
+      ],
+      "related": [
+        "F13",
+        "F15",
+        "F17",
+        "F42"
+      ]
+    },
+    {
+      "id": "F17",
+      "title": "Custom production and advance cash",
+      "slug": "custom-production-cash",
+      "lanes": [
+        "Customer",
+        "Admin / Staff",
+        "System",
+        "Admin"
+      ],
+      "purpose": "Record full custom-order payment before starting production and then complete fulfillment.",
+      "trigger": "A Customer accepts an eligible custom quotation.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Choose online or advance cash",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Read online receipt or record cash",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Full payment cleared?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Start production",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Mark finished product ready",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Collect or dispatch finished product",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Retain payment and production log",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Resolve payment, correction or refund",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Online: provider confirmation (F14). Advance cash: record the full amount actually received at FMRC before production.",
+        "Only Admin may correct an eligible cash receipt or issue a custom cash refund; these are auditable separate actions.",
+        "Paid work is not silently rewritten. Close and reconcile the existing order before a new quotation."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AppointmentProductOrderController.php::action",
+        "backend/app/Http/Controllers/Api/AppointmentProductOrderController.php::switchPayment",
+        "backend/app/Services/AppointmentProducts.php"
+      ],
+      "related": [
+        "F10",
+        "F14",
+        "F15",
+        "F16",
+        "F18",
+        "F22"
+      ]
+    },
+    {
+      "id": "F18",
+      "title": "Order cancellation",
+      "slug": "order-cancellation",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Cancel an eligible order directly or request an operator decision when required.",
+      "trigger": "A Customer opens Cancel order.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Request cancellation with reason",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Change allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Cancel directly?",
+          "kind": "decision",
+          "next": "No"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Review pending request",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Approve request?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Cancel; restore stock once",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Queue refund review if due",
+          "kind": "process"
+        },
+        {
+          "id": "n8",
+          "lane": "Customer",
+          "label": "Read saved cancellation status",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b2",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Read blocker; keep order",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b5",
+          "from": "n5",
+          "lane": "Admin / Staff",
+          "label": "Decline; tell Customer why",
+          "kind": "stop",
+          "condition": "No",
+          "col": 5
+        }
+      ],
+      "rules": [
+        "Eligible immediate cancellations bypass operator review. Other eligible requests wait for an explicit decision.",
+        "Cancellation and refund are separate outcomes. A paid order can be cancelled while its money still needs review (F22).",
+        "Paid cancellations require the applicable refund process; recording cancellation alone does not return money."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/OrderController.php::customerCancel",
+        "backend/app/Http/Controllers/Api/OrderController.php::decideCancellation",
+        "backend/app/Support/OrderRefundEligibility.php"
+      ],
+      "related": [
+        "F13",
+        "F17",
+        "F22",
+        "F34"
+      ],
+      "shortcuts": [
+        {
+          "from": "n3",
+          "to": "n6",
+          "condition": "Yes"
+        }
+      ]
+    },
+    {
+      "id": "F19",
+      "title": "Order rejection",
+      "slug": "order-rejection",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Decline an eligible order request or reject eligible unfulfilled work with a recorded reason.",
+      "trigger": "An operator identifies an order that cannot be fulfilled.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Review current order and reason",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Rejection allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Confirm rejection",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Record decision and release eligibility",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Queue refund review if money held",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read declined order and reason",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Admin / Staff",
+          "label": "Refresh or resolve fulfillment blocker",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Request review and later fulfillment rejection use their own current server safeguards.",
+        "A recorded rejection does not by itself certify that held money has been refunded.",
+        "Bulk decisions recheck each selected record; protected records are not forced through."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/OrderController.php::review",
+        "backend/app/Http/Controllers/Api/OrderController.php::reject",
+        "backend/app/Http/Controllers/Api/OrderController.php::rejectBulk",
+        "backend/app/Support/OrderReview.php"
+      ],
+      "related": [
+        "F13",
+        "F18",
+        "F22",
+        "F34"
+      ]
+    },
+    {
+      "id": "F20",
+      "title": "Refunded-order review",
+      "slug": "refunded-order-review",
+      "lanes": [
+        "Admin",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Resolve a normal active order whose payment has already been refunded before fulfillment.",
+      "trigger": "An order displays Refunded - FMRC review required.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Identify refunded active order",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Review refund and delivery evidence",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Closure eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Confirm closure and stock decision",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Record closure without new refund",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Read resolved order history",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Reconcile evidence; keep review hold",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Only eligible normal orders use this path; it is not a second refund or a replacement checkout.",
+        "Courier handover, collection, pending cancellation or incomplete refund evidence blocks closure.",
+        "Stock decisions respect any quantity already released; refresh stale records before confirming."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/OrderController.php::closeRefunded",
+        "backend/app/Support/RefundedOrderReview.php"
+      ],
+      "related": [
+        "F19",
+        "F21",
+        "F22",
+        "F34"
+      ]
+    },
+    {
+      "id": "F21",
+      "title": "Returns and resolution",
+      "slug": "returns-resolution",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Review a Customer return, receive the item and apply the approved resolution.",
+      "trigger": "A Customer requests help with a completed order.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Select items, evidence and reason",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Return eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Review return request",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Approve request?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Send item; record return shipment",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Receive and inspect item",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin / Staff",
+          "label": "Record agreed resolution",
+          "kind": "process"
+        },
+        {
+          "id": "n8",
+          "lane": "System",
+          "label": "Retain return and financial history",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Read eligibility reason",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b2",
+          "from": "n4",
+          "lane": "System",
+          "label": "Record rejection and explanation",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "The current return window is seven days after completion; only one open return is allowed per order.",
+        "Online refunds follow F22 after the approved return is received and inspected; custom cash refunds require Admin authority.",
+        "Repair or replacement is recorded as a resolution; that label alone does not create automatic replacement fulfillment."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/OrderReturnController.php::eligibility",
+        "backend/app/Http/Controllers/Api/OrderReturnController.php::decision",
+        "backend/app/Http/Controllers/Api/OrderReturnController.php::received",
+        "backend/app/Http/Controllers/Api/OrderReturnController.php::resolution",
+        "backend/app/Models/OrderReturn.php"
+      ],
+      "related": [
+        "F15",
+        "F16",
+        "F17",
+        "F22"
+      ]
+    },
+    {
+      "id": "F22",
+      "title": "Online refund request, approval and retry",
+      "slug": "online-refunds",
+      "lanes": [
+        "Admin / Staff",
+        "Admin",
+        "System",
+        "External Provider"
+      ],
+      "purpose": "Request an eligible refund, obtain Admin authorization and confirm its actual provider result.",
+      "trigger": "A closed order, approved return or verified extra payment needs a refund.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Identify receipt, amount and reason",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Refund eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin",
+          "label": "Approve request?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Submit authorized refund once",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "External Provider",
+          "label": "Process refund and QR Ph claim",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Confirmed succeeded?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin / Staff",
+          "label": "Read confirmed refund and balance",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Admin / Staff",
+          "label": "Resolve eligibility before requesting",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b2",
+          "from": "n6",
+          "lane": "Admin",
+          "label": "Check status; review retry or rejection",
+          "kind": "stop",
+          "condition": "No"
+        },
+        {
+          "id": "b3",
+          "from": "n3",
+          "lane": "System",
+          "label": "Record decline; no refund issued",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Staff can request a refund; issuing, approval and rejection follow Admin-only authority.",
+        "A confirmed receipt and remaining refundable amount are required. Requested or processing is not Refund confirmed.",
+        "Check failed/unknown attempts before retry. QR Ph completion depends on the provider claim and funded merchant wallet."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/GatewayManagementController.php::requestRefund",
+        "backend/app/Http/Controllers/Api/GatewayManagementController.php::approve",
+        "backend/app/Http/Controllers/Api/GatewayManagementController.php::retry",
+        "backend/app/Support/OrderRefundEligibility.php",
+        "backend/app/Services/GatewayPayments.php"
+      ],
+      "related": [
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F34"
+      ]
+    },
+    {
+      "id": "F23",
+      "title": "Walk-in sales",
+      "slug": "walk-in-sales",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Record a walk-in transaction and its existing cashier-based payment information.",
+      "trigger": "An operator opens Add Walk-in.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Enter Customer and project details",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Select item, cost and cashier record",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Record valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save sale; adjust linked stock",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Update or mark work completed",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Include eligible totals in reports",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields and save again",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Walk-in payment is recorded as WALKIN VIA CASHIER, not as hosted checkout.",
+        "A linked product quantity updates product stock through the existing transaction behavior.",
+        "Completion and archiving preserve their existing eligibility and reporting rules."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/WalkInOrderController.php::store",
+        "backend/app/Http/Controllers/Api/WalkInOrderController.php::update",
+        "backend/app/Http/Controllers/Api/WalkInOrderController.php::complete",
+        "admin-page/orders.js"
+      ],
+      "related": [
+        "F29",
+        "F32",
+        "F34"
+      ]
+    },
+    {
+      "id": "F24",
+      "title": "Product reviews and FMRC replies",
+      "slug": "product-reviews",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Publish an eligible Customer product review and allow operators to respond or archive it.",
+      "trigger": "A Customer opens the review action for an order.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Enter rating and review",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Review eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Save Customer review",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Read review; reply if needed",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Browse reviews or like a review",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Keep or archive eligible review",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Refresh visible review totals",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Read eligibility reason",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Order ownership and review eligibility are checked server-side; a public visitor cannot impersonate a purchaser.",
+        "Replying and archiving are operator actions; Customer likes and public visibility follow existing rules.",
+        "Archiving is distinct from editing a Customer rating or changing a product purchase."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/ProductRatingController.php::store",
+        "backend/app/Http/Controllers/Api/ProductRatingController.php::reply",
+        "backend/app/Http/Controllers/Api/ProductRatingController.php::toggleLike",
+        "backend/app/Http/Controllers/Api/ProductRatingController.php::archiveBulk",
+        "admin-page/ratings.html"
+      ],
+      "related": [
+        "F13",
+        "F34"
+      ]
+    },
+    {
+      "id": "F25",
+      "title": "Customer inquiry submission and resolution",
+      "slug": "customer-inquiries",
+      "lanes": [
+        "Customer",
+        "System",
+        "Admin / Staff"
+      ],
+      "purpose": "Send a signed-in Customer inquiry and track the operator read/resolution process.",
+      "trigger": "A Customer opens the Contact inquiry form.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Customer",
+          "label": "Enter name, email and message",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Message valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Save inquiry; notify operators",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Open details; mark read",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "Mark inquiry resolved",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Refresh inquiry counts and history",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Customer",
+          "label": "Correct message and resubmit",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n1"
+        }
+      ],
+      "rules": [
+        "Submitting an inquiry requires the existing signed-in Customer path.",
+        "The inquiry module records read and resolved states; it does not include an in-app conversation thread.",
+        "Delete actions require explicit confirmation and existing permissions."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/CustomerMessageController.php::store",
+        "backend/app/Http/Controllers/Api/CustomerMessageController.php::markRead",
+        "backend/app/Http/Controllers/Api/CustomerMessageController.php::resolve",
+        "backend/app/Http/Controllers/Api/CustomerMessageController.php::destroy",
+        "admin-page/customer-inquiries.html"
+      ],
+      "related": [
+        "F33",
+        "F38"
+      ]
+    },
+    {
+      "id": "F26",
+      "title": "Inventory items and variants",
+      "slug": "inventory-records",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Create or edit inventory records while preserving variant-level stock ownership.",
+      "trigger": "An operator opens Add or Edit Item.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Enter item information",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Add units and optional variants",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Record valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save item and variant records",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin / Staff",
+          "label": "View item and variant details",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Refresh shared inventory",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct values; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Variant stock is tracked separately; mixed units must not be shown as one misleading combined quantity.",
+        "Editing identity fields does not bypass read-only stock controls; adjustments use F27.",
+        "Failed saves retain entered values; archiving uses the existing confirmation flow."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::store",
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::update",
+        "admin-page/inventory.js"
+      ],
+      "related": [
+        "F27",
+        "F28",
+        "F34"
+      ]
+    },
+    {
+      "id": "F27",
+      "title": "Inventory stock adjustments",
+      "slug": "stock-adjustments",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Add or deduct an allowed quantity for an inventory item or a selected variant.",
+      "trigger": "An operator opens Adjust Stocks.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Select item or variant",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Choose add or deduct; enter amount",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Record person and purpose",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Adjustment allowed?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Save quantity and transaction",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Read updated stock and status",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n4",
+          "lane": "Admin / Staff",
+          "label": "Correct amount or resolve blocker",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "A positive amount and existing stock rules govern adjustments; missing data is not treated as zero.",
+        "Select the actual variant when stock is variant-owned.",
+        "An inventory adjustment is not automatically a product catalog purchase or an online payment."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::adjust",
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::deduct",
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::transactions",
+        "admin-page/inventory.js"
+      ],
+      "related": [
+        "F26",
+        "F28",
+        "F32"
+      ]
+    },
+    {
+      "id": "F28",
+      "title": "Low-stock rules",
+      "slug": "low-stock-rules",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Set fixed or percentage thresholds with the existing override inheritance order.",
+      "trigger": "An operator opens Stock Level Rules.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Review current stock rules",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Edit default or overrides",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Threshold valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save rule changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Apply variant-to-default precedence",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Read updated stock indicators",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct threshold; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Precedence is variant, item, category, then default. Empty overrides inherit the next applicable rule.",
+        "Fixed and percentage thresholds retain their existing calculations; zero stock remains Out of Stock.",
+        "Background refresh does not overwrite an actively edited draft."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::stockRuleSettings",
+        "backend/app/Http/Controllers/Api/InventoryItemController.php::updateStockRuleSettings",
+        "admin-page/inventory.js"
+      ],
+      "related": [
+        "F26",
+        "F27"
+      ]
+    },
+    {
+      "id": "F29",
+      "title": "Product catalog and media management",
+      "slug": "product-catalog",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Manage products, prices, stock, visibility and gallery media for the public catalog.",
+      "trigger": "An operator opens Products.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Add or edit product details",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Prepare cover and gallery media",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Product valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save product and media changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Browse visible available products",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Maintain or delete eligible products",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Refresh catalog and reports",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields or media; retry",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Checked visibility controls retain their existing is_blocked meaning; labels must not imply an inverted value.",
+        "Gallery slots, upload limits, cover assignment and draft recovery are preserved.",
+        "Permanent deletion remains guarded by server restrictions and explicit confirmation."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/ProductController.php::store",
+        "backend/app/Http/Controllers/Api/ProductController.php::update",
+        "backend/app/Http/Controllers/Api/ProductController.php::destroy",
+        "backend/app/Http/Controllers/Api/ProductMediaController.php",
+        "admin-page/products.js"
+      ],
+      "related": [
+        "F13",
+        "F23",
+        "F30",
+        "F32"
+      ]
+    },
+    {
+      "id": "F30",
+      "title": "Promotions management",
+      "slug": "promotions",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Create, update and retire promotions while preserving public eligibility and timing.",
+      "trigger": "An operator opens Promotions.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Select promotion products",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Set offer, dates and appearance",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Promotion valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save promotion",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "See currently eligible offers",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Edit, archive or delete as allowed",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Refresh shared promotion state",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct offer; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "The active-public query, dates and product eligibility decide what Customers see.",
+        "Promotion changes do not rewrite accepted historical order totals.",
+        "Failed saves preserve drafts; destructive actions require existing confirmations."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/PromotionController.php::store",
+        "backend/app/Http/Controllers/Api/PromotionController.php::update",
+        "backend/app/Http/Controllers/Api/PromotionController.php::active",
+        "backend/app/Http/Controllers/Api/PromotionController.php::archiveBulk",
+        "admin-page/promotions.html"
+      ],
+      "related": [
+        "F13",
+        "F29",
+        "F34"
+      ]
+    },
+    {
+      "id": "F31",
+      "title": "Announcements management",
+      "slug": "announcements",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Publish and manage Customer-facing announcements using the existing promotion-page editor.",
+      "trigger": "An operator opens Add or Edit Announcement.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Enter announcement content",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Review visibility and preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Save announcement",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "Customer",
+          "label": "Read public announcement",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Edit or retire announcement",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Refresh shared announcement state",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct content; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Public visibility follows the current announcement endpoint and saved settings.",
+        "Announcements communicate information; they do not approve appointments, orders or payments.",
+        "Archive and delete actions remain distinct and explicitly confirmed."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/AnnouncementController.php::store",
+        "backend/app/Http/Controllers/Api/AnnouncementController.php::update",
+        "backend/app/Http/Controllers/Api/AnnouncementController.php::publicIndex",
+        "admin-page/promotions.html"
+      ],
+      "related": [
+        "F30",
+        "F34"
+      ]
+    },
+    {
+      "id": "F32",
+      "title": "Reports, letterhead and printing",
+      "slug": "reports",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Generate a report from existing shared records and prepare an official print/PDF output.",
+      "trigger": "An operator opens Reports.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Choose category and period",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Load matching records and totals",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Review summary and transactions",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Edit letterhead if required",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Report available?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Preview and print or export",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Retain operational source records",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n5",
+          "lane": "Admin / Staff",
+          "label": "Review empty results or load error",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Reports derive totals from orders, payments, walk-in sales and refunds; generating a report does not mutate revenue.",
+        "Inventory and Product Stock categories retain their existing period and data rules.",
+        "Letterhead settings and print layout are shared; previews do not submit new transactions."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/ReportController.php::generate",
+        "backend/app/Http/Controllers/Api/ReportController.php::index",
+        "admin-page/reports.js",
+        "admin-page/report-document.css"
+      ],
+      "related": [
+        "F21",
+        "F23",
+        "F26",
+        "F29"
+      ]
+    },
+    {
+      "id": "F33",
+      "title": "Notifications and personal feed state",
+      "slug": "notifications",
+      "lanes": [
+        "System",
+        "Recipient"
+      ],
+      "purpose": "Distribute eligible system events while keeping operator read and dismissal state personal.",
+      "trigger": "An event creates an eligible notification.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "System",
+          "label": "Create eligible notification event",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Apply recipient and role filters",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Recipient",
+          "label": "Open dropdown or full feed",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "Recipient",
+          "label": "Read, mark or dismiss entries",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Save this recipient feed state",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Recipient",
+          "label": "Read updated personal feed",
+          "kind": "end"
+        }
+      ],
+      "branches": [],
+      "rules": [
+        "Admin/Staff read and dismissal timestamps are personal; one operator does not clear another feed.",
+        "Staff cannot view Admin-only notification types. Missing notification-state setup is an error, not shared-state fallback.",
+        "Customer and operator feeds are separate. Email, in-app and optional push channels are not transaction evidence."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/NotificationController.php::index",
+        "backend/app/Http/Controllers/Api/NotificationController.php::markAllRead",
+        "backend/app/Http/Controllers/Api/CustomerNotificationController.php",
+        "admin-page/admin-common.js"
+      ],
+      "related": [
+        "F07",
+        "F09",
+        "F13",
+        "F25"
+      ]
+    },
+    {
+      "id": "F34",
+      "title": "Archives, restoration and permanent cleanup",
+      "slug": "archives",
+      "lanes": [
+        "Admin / Staff",
+        "System"
+      ],
+      "purpose": "Move eligible records into Archives, restore them or permanently delete only permitted records.",
+      "trigger": "An operator selects an archive or cleanup action.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Select records and action",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "System",
+          "label": "Records eligible?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin / Staff",
+          "label": "Confirm archive, restore or delete",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Recheck and process eligible rows",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Preserve protected financial history",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Admin / Staff",
+          "label": "Review results and skipped records",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n2",
+          "lane": "Admin / Staff",
+          "label": "Read blocker; retain record",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Active work, pending cancellations and unresolved money can block archive actions.",
+        "Online refunds and cancellation history retain restore-only protection and are excluded from automatic deletion.",
+        "Automatic retention uses the existing eligible modules and saved period; permanent deletion is not the same as archive."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/ArchiveController.php::restoreBulk",
+        "backend/app/Http/Controllers/Api/ArchiveController.php::deleteBulk",
+        "backend/app/Http/Controllers/Api/ArchiveController.php::autoDelete",
+        "backend/app/Support/AdminArchiveRecords.php",
+        "backend/app/Services/AppointmentWorkState.php",
+        "admin-page/archives.js"
+      ],
+      "related": [
+        "F18",
+        "F20",
+        "F22",
+        "F26"
+      ]
+    },
+    {
+      "id": "F35",
+      "title": "Home content management",
+      "slug": "website-home",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Edit shared Home content while preserving the existing preview, validation and save behavior.",
+      "trigger": "An operator opens Home Page Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Edit section text and media",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Adjust images; review preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save existing page changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist and publish shared content",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read updated Home page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Hero, fabrication scene, brand logos, SDGs, service cards and section text retain existing bindings.",
+        "Image adjustment prepares a draft; Save All Changes remains the publication boundary for draft-managed content.",
+        "Operator changes are shared content, distinct from personal sidebar branding."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-home.js"
+      ],
+      "related": [
+        "F33"
+      ]
+    },
+    {
+      "id": "F36",
+      "title": "About Us content management",
+      "slug": "website-about",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Edit shared About Us content while preserving the existing preview, validation and save behavior.",
+      "trigger": "An operator opens About Us Page Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Edit section text and media",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Adjust images; review preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save existing page changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist and publish shared content",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read updated About Us page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "University name, Vision and Mission keep all editable fields, plain text and paragraph breaks.",
+        "A missing Vision or Mission keeps the Customer university section hidden; loading does not display stale content.",
+        "Gallery and video operations retain validation, draft cleanup and save/readback behavior."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-home.js"
+      ],
+      "related": [
+        "F33"
+      ]
+    },
+    {
+      "id": "F37",
+      "title": "Services content management",
+      "slug": "website-services",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Edit shared Services content while preserving the existing preview, validation and save behavior.",
+      "trigger": "An operator opens Services Page Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Edit section text and media",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Adjust images; review preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save existing page changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist and publish shared content",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read updated Services page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Service cards and categories retain their existing add, edit and delete controls and permissions.",
+        "Custom-product request availability depends on the service eligibility flag and installed custom-product feature.",
+        "Deleting a service or category does not bypass retained-record checks."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-services.js",
+        "backend/app/Http/Controllers/Api/ServiceController.php::store",
+        "backend/app/Http/Controllers/Api/ServiceController.php::update"
+      ],
+      "related": [
+        "F33"
+      ]
+    },
+    {
+      "id": "F38",
+      "title": "Contact content management",
+      "slug": "website-contact",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Edit shared Contact content while preserving the existing preview, validation and save behavior.",
+      "trigger": "An operator opens Contact Page Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Edit permitted text and links",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Review fields and preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save existing page changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist and publish shared content",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read updated Contact page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Contact details and section copy use existing limits and save/readback behavior.",
+        "Editing the Contact page is separate from resolving submitted Customer inquiries in F25.",
+        "Failed saves keep field entries; public readers see saved shared content."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-contact.js"
+      ],
+      "related": [
+        "F33"
+      ]
+    },
+    {
+      "id": "F39",
+      "title": "Footer content management",
+      "slug": "website-footer",
+      "lanes": [
+        "Admin / Staff",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Edit shared Footer content while preserving the existing preview, validation and save behavior.",
+      "trigger": "An operator opens Footer Page Management.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin / Staff",
+          "label": "Edit permitted text and links",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin / Staff",
+          "label": "Review fields and preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Content valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin / Staff",
+          "label": "Save existing page changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Persist and publish shared content",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read updated Footer page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin / Staff",
+          "label": "Correct fields; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Footer text, contact details and links keep their existing fields and validation.",
+        "Shared footer changes affect their existing Customer page consumers, not operator personal preferences.",
+        "Failed saves retain drafts; only a successful save establishes the saved shared state."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-footer.js"
+      ],
+      "related": [
+        "F33"
+      ]
+    },
+    {
+      "id": "F40",
+      "title": "Login Portal branding",
+      "slug": "login-portal-branding",
+      "lanes": [
+        "Admin",
+        "System",
+        "Customer / Guest"
+      ],
+      "purpose": "An Admin configures the existing sign-in branding and previews its appearance.",
+      "trigger": "An Admin opens Login Portals.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Choose Customer or operator portal",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Edit branding, copy and imagery",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "Admin",
+          "label": "Review live preview",
+          "kind": "process"
+        },
+        {
+          "id": "n4",
+          "lane": "System",
+          "label": "Branding valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n5",
+          "lane": "Admin",
+          "label": "Save portal appearance",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "System",
+          "label": "Persist shared portal settings",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Customer / Guest",
+          "label": "See updated sign-in portal",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n4",
+          "lane": "Admin",
+          "label": "Correct branding; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Login Portal configuration is Admin-only; it does not create or authenticate an account.",
+        "Saved portal branding is shared; personal sidebar title and logo remain separate in F08.",
+        "Preview and discard operations preserve existing drafts and upload limits."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-portals.js",
+        "backend/app/Support/PortalAppearanceSettings.php"
+      ],
+      "related": [
+        "F01",
+        "F08"
+      ]
+    },
+    {
+      "id": "F41",
+      "title": "Payment Methods configuration",
+      "slug": "payment-method-settings",
+      "lanes": [
+        "Admin",
+        "System",
+        "Customer"
+      ],
+      "purpose": "An Admin controls the payment methods available to eligible new Customer product orders.",
+      "trigger": "An Admin opens Payment Methods.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Review cash and QR Ph readiness",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Enable or disable available methods",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Settings valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Save method availability",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Publish allowed checkout choices",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Choose eligible enabled method",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Resolve configuration or validation",
+          "kind": "stop",
+          "condition": "No"
+        }
+      ],
+      "rules": [
+        "Payment availability is Admin-only and does not confirm, refund or rewrite existing payments.",
+        "Cash on pickup applies to eligible pickup orders; online readiness depends on the real provider configuration.",
+        "Disabling all methods can pause new product orders. Existing payments retain their recorded workflow."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "backend/app/Support/PaymentMethodAvailability.php",
+        "admin-page/website-payments.js"
+      ],
+      "related": [
+        "F13",
+        "F14",
+        "F17"
+      ]
+    },
+    {
+      "id": "F42",
+      "title": "Shipping, delivery and tracking settings",
+      "slug": "shipping-settings",
+      "lanes": [
+        "Admin",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Configure delivery coverage, pricing, preparation periods and the current automatic-tracking connection.",
+      "trigger": "An Admin opens Shipping & Delivery.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Edit areas, fees and working days",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Review tracking connection readiness",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Draft valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Save draft; approve publication",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Publish current delivery settings",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Get eligible shipping quotation",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Keep accepted order snapshot",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Correct coverage or configuration",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n1"
+        }
+      ],
+      "rules": [
+        "City choices follow Province; the explicit province-wide option preserves broad coverage.",
+        "Draft and published settings differ. New quotations use published values; accepted quotes are retained.",
+        "Tracking requires the configured 17TRACK account and J&T carrier verification; a preview is not a live delivery test."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/ShippingController.php::saveDraft",
+        "backend/app/Http/Controllers/Api/ShippingController.php::publish",
+        "backend/app/Http/Controllers/Api/ShippingController.php::quote",
+        "backend/app/Http/Controllers/Api/ShipmentTrackingController.php::updateSettings",
+        "admin-page/website-shipping.js"
+      ],
+      "related": [
+        "F13",
+        "F16",
+        "F43"
+      ]
+    },
+    {
+      "id": "F43",
+      "title": "Transaction Policy drafting and publication",
+      "slug": "transaction-policies",
+      "lanes": [
+        "Admin",
+        "System",
+        "Customer"
+      ],
+      "purpose": "Publish an approved version of transaction and refund terms for new Customer acceptance.",
+      "trigger": "An Admin opens Transaction Policies.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Edit transaction and refund text",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Review draft and public preview",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Draft valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Confirm approved policy; publish",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Create published policy version",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer",
+          "label": "Read and accept at checkout",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "System",
+          "label": "Save accepted version on order",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Correct draft before publication",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n1"
+        }
+      ],
+      "rules": [
+        "Admin publication creates a version; editing a draft alone does not replace the published policy.",
+        "An order retains its accepted terms/version rather than silently adopting later policy wording.",
+        "Publishing text does not override implemented payment, cancellation or refund guards."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/CommercePolicyController.php::saveDraft",
+        "backend/app/Http/Controllers/Api/CommercePolicyController.php::publish",
+        "backend/app/Http/Controllers/Api/CommercePolicyController.php::published",
+        "admin-page/website-policies.js"
+      ],
+      "related": [
+        "F13",
+        "F21",
+        "F22"
+      ]
+    },
+    {
+      "id": "F44",
+      "title": "Email Template customization",
+      "slug": "email-templates",
+      "lanes": [
+        "Admin",
+        "System",
+        "External Provider"
+      ],
+      "purpose": "Customize permitted notification copy while preserving required transaction data and actual event triggers.",
+      "trigger": "An Admin opens Email Templates.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Choose template",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Edit permitted copy and appearance",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Preview valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Save template changes",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Render template when event occurs",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "External Provider",
+          "label": "Deliver through configured mail",
+          "kind": "process"
+        },
+        {
+          "id": "n7",
+          "lane": "Admin",
+          "label": "Read saved template state",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Correct content; retain draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Email Templates are Admin-only. Template editing does not send a Customer transaction or approve its state.",
+        "Required tokens and protected transactional content retain their existing rules.",
+        "A successful save or preview is not proof of actual SMTP delivery."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::emailTemplates",
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::previewEmailTemplate",
+        "backend/app/Http/Controllers/Api/SiteSettingController.php::bulkUpdate",
+        "admin-page/website-emails.js"
+      ],
+      "related": [
+        "F09",
+        "F13",
+        "F33"
+      ]
+    },
+    {
+      "id": "F45",
+      "title": "Maintenance controls",
+      "slug": "maintenance",
+      "lanes": [
+        "Admin",
+        "System",
+        "Customer / Guest"
+      ],
+      "purpose": "An Admin applies existing Customer-facing maintenance scopes and page notices.",
+      "trigger": "An Admin opens Maintenance.",
+      "steps": [
+        {
+          "id": "n1",
+          "lane": "Admin",
+          "label": "Select affected scopes and notice",
+          "kind": "start"
+        },
+        {
+          "id": "n2",
+          "lane": "Admin",
+          "label": "Review intended restrictions",
+          "kind": "process"
+        },
+        {
+          "id": "n3",
+          "lane": "System",
+          "label": "Changes valid?",
+          "kind": "decision",
+          "next": "Yes"
+        },
+        {
+          "id": "n4",
+          "lane": "Admin",
+          "label": "Confirm and save maintenance",
+          "kind": "process"
+        },
+        {
+          "id": "n5",
+          "lane": "System",
+          "label": "Enforce scopes on requests",
+          "kind": "process"
+        },
+        {
+          "id": "n6",
+          "lane": "Customer / Guest",
+          "label": "See maintenance notice or open page",
+          "kind": "end"
+        }
+      ],
+      "branches": [
+        {
+          "id": "b1",
+          "from": "n3",
+          "lane": "Admin",
+          "label": "Correct settings; keep draft",
+          "kind": "process",
+          "condition": "No",
+          "retry": "n2"
+        }
+      ],
+      "rules": [
+        "Maintenance settings are Admin-only and are enforced by existing request middleware, not only frontend visibility.",
+        "Customer scopes retain their current boundaries; Staff account applications are not blocked by Customer-site maintenance.",
+        "A preview is separate from saving the actual maintenance configuration."
+      ],
+      "sources": [
+        "backend/app/Http/Controllers/Api/MaintenanceController.php::update",
+        "backend/app/Http/Middleware/EnsureNotUnderMaintenance.php",
+        "admin-page/website-maintenance.html"
+      ],
+      "related": [
+        "F01",
+        "F02",
+        "F09",
+        "F13"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="F22" name="F22 Online refund request, approval and retry">
+    <mxGraphModel dx="1191" dy="842" grid="0" page="1" pageScale="1" pageWidth="1191" pageHeight="842">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="F22  |  Online refund request, approval and retry" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=23;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="42" width="1118.5511811023623" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" value="Request an eligible refund, obtain Admin authorization and confirm its actual provider result." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="95" width="1118.5511811023623" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lane0" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="1118.5511811023623" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead0" value="Admin / Staff" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="118" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#F7F5F2;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="294.0" width="1118.5511811023623" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead1" value="Admin" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="294.0" width="118" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="398.0" width="1118.5511811023623" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead2" value="System" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="398.0" width="118" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lane3" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#F7F5F2;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="502.0" width="1118.5511811023623" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead3" value="External Provider" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="502.0" width="118" height="104.0" as="geometry" />
+        </mxCell>
+        <mxCell id="ref-label" value="CONNECTED FLOWS" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="772" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="KEY RULES&#10;Staff can request a refund; issuing, approval and rejection follow Admin-only authority.&#10;A confirmed receipt and remaining refundable amount are required. Requested or processing is not Refund confirmed.&#10;Check failed/unknown attempts before retry. QR Ph completion depends on the provider claim and funded merchant wallet." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="638" width="1118.5511811023623" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="edge0" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="303.7930258717661" y="242.0" />
+              <mxPoint x="303.7930258717661" y="450.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge1" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="445.58605174353215" y="450.0" />
+              <mxPoint x="445.58605174353215" y="346.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="587.3790776152981" y="346.0" />
+              <mxPoint x="587.3790776152981" y="450.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="729.1721034870642" y="450.0" />
+              <mxPoint x="729.1721034870642" y="554.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge4" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="870.9651293588303" y="554.0" />
+              <mxPoint x="870.9651293588303" y="450.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1012.7581552305962" y="450.0" />
+              <mxPoint x="1012.7581552305962" y="242.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch0" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch1" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n6" target="b2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch2" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="b3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1" value="Identify receipt, amount and reason" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#800000;strokeColor=#800000;fontColor=#FFFFFF;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="171.0" y="201.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Refund eligible?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="312.7930258717661" y="409.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Approve request?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="454.5860517435321" y="305.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Submit authorized refund once" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="596.3790776152981" y="409.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Process refund and QR Ph claim" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="738.1721034870642" y="513.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="Confirmed succeeded?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="879.9651293588303" y="409.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="Read confirmed refund and balance" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#EFF7F1;strokeColor=#246744;fontColor=#246744;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1021.7581552305962" y="201.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="Resolve eligibility before requesting" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#FCF0EE;strokeColor=#9A3030;fontColor=#9A3030;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="312.7930258717661" y="201.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="Check status; review retry or rejection" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#FCF0EE;strokeColor=#9A3030;fontColor=#9A3030;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="879.9651293588303" y="305.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="Record decline; no refund issued" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#FCF0EE;strokeColor=#9A3030;fontColor=#9A3030;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="454.5860517435321" y="409.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="ref0" value="F18" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F18.drawio">
+          <mxGeometry x="160.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref1" value="F19" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F19.drawio">
+          <mxGeometry x="204.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref2" value="F20" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F20.drawio">
+          <mxGeometry x="248.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref3" value="F21" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F21.drawio">
+          <mxGeometry x="292.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref4" value="F34" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F34.drawio">
+          <mxGeometry x="336.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

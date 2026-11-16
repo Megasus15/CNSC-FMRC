@@ -111,6 +111,10 @@ const state = {
 };
 
 const el = (id) => document.getElementById(id);
+const footerFields = ['facebook_url', 'website_url', 'phone'];
+const currentFooter = () => Object.fromEntries(footerFields.map(key => [key, String(el('emailContact_'+key)?.value || '').trim()]));
+const footerDirty = () => Boolean(state.footer) && (state.footerReset ? Boolean(state.footer.saved) : JSON.stringify(currentFooter()) !== JSON.stringify(state.footer.effective));
+const fillFooter = values => footerFields.forEach(key => { if (el('emailContact_'+key)) el('emailContact_'+key).value = values[key] || ''; });
 
 const escHtml = (value) => {
   const holder = document.createElement("div");
@@ -265,7 +269,7 @@ const rememberActive = () => {
   if (state.editableParts.some(part => partsOf(row)[part] !== now[part])) state.drafts.set(row.slug, now);
   else state.drafts.delete(row.slug);
 };
-const isDirty = () => state.drafts.size > 0 || state.resets.size > 0;
+const isDirty = () => state.drafts.size > 0 || state.resets.size > 0 || footerDirty();
 
 /** What the status line reads while the form matches what is stored. */
 const savedStatusMessage = (row) =>
@@ -391,7 +395,7 @@ const renderPreviewData = async () => {
         Accept: "application/json",
         Authorization: `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ slug, parts: currentParts() }),
+      body: JSON.stringify({ slug, parts: currentParts(), ...(state.footer ? {contact_footer:currentFooter()} : {}) }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -449,16 +453,26 @@ const persist = async (isReset) => {
   }
   if (!isDirty()) return;
   const submitted = new Map(state.drafts), resets = new Set(state.resets);
+  const changedFooter = footerDirty(), footerDraft = currentFooter(), resetFooter = state.footerReset;
+  if (changedFooter && !resetFooter && footerFields.some(key => !el('emailContact_'+key).reportValidity())) return;
   const payload = Object.fromEntries([...submitted].map(([slug, parts]) => [state.keyPrefix + slug, JSON.stringify(parts)]));
+  if (changedFooter) payload[state.footer.key] = resetFooter ? '' : JSON.stringify(footerDraft);
   resets.forEach(slug => { payload[state.keyPrefix + slug] = ''; });
   state.saving = true;
   el('emailTemplateForm').inert = true;
+  if (el('emailContactsCard')) el('emailContactsCard').inert = true;
   setButtonPending(el('emailTemplateSaveBtn'), true, 'Saving...');
   try {
     const response = await fetch(`${API}/admin/site-settings`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token() }, body: JSON.stringify(payload),
     });
-    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Sign in with an authorized Admin account before saving.' : 'Your template changes could not be saved. Please try again.');
+    if (!response.ok) { const error = await response.json().catch(()=>({})); throw new Error(response.status === 401 || response.status === 403 ? 'Sign in with an authorized Admin account before saving.' : error.message || 'Your template changes could not be saved. Please try again.'); }
+    if (changedFooter) {
+      const check = await fetch(`${API}/admin/email-templates`, {headers:{Accept:'application/json',Authorization:'Bearer '+token()},cache:'no-store'});
+      const saved = check.ok ? (await check.json())?.data?.contact_footer : null;
+      if (!saved || (!resetFooter && JSON.stringify(saved.effective) !== JSON.stringify(footerDraft)) || (resetFooter && saved.saved)) throw new Error('The save could not be confirmed. Your edits are kept; refresh or retry.');
+      state.footer = saved; state.footerReset = false; fillFooter(saved.effective);
+    }
     submitted.forEach((parts, slug) => { state.bySlug.get(slug).saved = { ...parts }; });
     resets.forEach(slug => { state.bySlug.get(slug).saved = {}; });
     state.drafts.clear(); state.resets.clear();
@@ -469,6 +483,7 @@ const persist = async (isReset) => {
     window.showAdminPopup?.(error.message || 'Please try saving again.', { title: 'Changes Not Saved', type: 'error' });
   } finally {
     state.saving = false; el('emailTemplateForm').inert = false;
+    if (el('emailContactsCard')) el('emailContactsCard').inert = false;
     setButtonPending(el('emailTemplateSaveBtn'), false);
     el('emailTemplateSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save All Changes'; syncDirty();
   }
@@ -514,6 +529,9 @@ const loadTemplatesData = async ({ keepActive = true } = {}) => {
     const data = (await response.json())?.data;
     if (!data || !Array.isArray(data.templates)) throw new Error('Template content unavailable.');
     state.loaded = true; state.drafts.clear(); state.resets.clear();
+    state.footer = data.contact_footer || null; state.footerReset = false;
+    if (state.footer) fillFooter(state.footer.effective);
+    if (el('emailContactsFields')) el('emailContactsFields').disabled = !state.footer;
     state.keyPrefix =
       typeof data.key_prefix === "string" && data.key_prefix
         ? data.key_prefix
@@ -558,6 +576,11 @@ const requestSelect = slug => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  footerFields.forEach(key => el('emailContact_'+key)?.addEventListener('input',()=>{state.footerReset=false;requestPreview();}));
+  el('emailContactsRestore')?.addEventListener('click',()=>{
+    if (!state.footer || state.saving) return;
+    window.showAdminConfirmPopup?.('Use the published website contacts in the shared email footer? Apply with Save All Changes.', {title:'Restore Contact Defaults',confirmText:'Restore',onConfirm:()=>{state.footerReset=true;fillFooter(state.footer.defaults);requestPreview();}});
+  });
   el('emailTplColorSwatches')?.querySelectorAll('[data-color]').forEach(button => button.setAttribute('aria-label','Use header color '+button.dataset.color));
   window.AdminWebsiteDraft?.register({ isDirty, busy: () => state.saving });
   const search = el("emailTemplateSearch");

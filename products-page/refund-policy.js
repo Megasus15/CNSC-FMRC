@@ -16,7 +16,21 @@
     }
     const api = (window.APP_API_BASE_URL || (['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '8000'
       ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
-    let busy = false;
+    let busy = false, sectionObserver;
+    const disclosure = get('policyContentsDisclosure');
+    const mobile = window.matchMedia?.('(max-width:800px)');
+    if (disclosure && mobile?.matches) disclosure.open = false;
+    mobile?.addEventListener('change', event => { if (disclosure) disclosure.open = !event.matches; });
+    const header = document.querySelector?.('.site-header');
+    const measureHeader = () => {
+      if (header) root.style.setProperty('--policy-header-height', Math.ceil(header.getBoundingClientRect().height)+'px');
+    };
+    if (header && typeof ResizeObserver === 'function') new ResizeObserver(measureHeader).observe(header);
+    measureHeader();
+    const iconFor = heading => {
+      const icons = [['refund|return','fa-arrow-rotate-left'],['payment|paying|price','fa-credit-card'],['deliver|ship|pickup','fa-truck'],['order|purchas','fa-bag-shopping'],['cancel','fa-circle-xmark'],['contact|help','fa-headset'],['privacy|data','fa-shield-halved'],['eligib|concern','fa-circle-check']];
+      return icons.find(([pattern]) => new RegExp(pattern,'i').test(heading))?.[1] || 'fa-file-lines';
+    };
     const linkPages = policyVersion => {
       const query = policyVersion ? '?version=' + encodeURIComponent(policyVersion) : '';
       get('policyTermsPageLink').href = '/products-page/transaction-terms.html' + query;
@@ -36,6 +50,9 @@
       const contents = get('policyContentsLinks');
       target.replaceChildren();
       contents.replaceChildren();
+      sectionObserver?.disconnect();
+      const sections = [], links = [];
+      const activate = id => links.forEach(link => { if (link.hash === '#'+id || link.href === '#'+id) link.setAttribute('aria-current','location'); else link.removeAttribute?.('aria-current'); });
       for (const [index, paragraph] of text.split(/\n\s*\n/).entries()) {
         const parts = paragraph.trim().split('\n');
         if (!parts[0]) continue;
@@ -44,7 +61,9 @@
         section.id = type + '-section-' + (index + 1);
         const heading = parts.length > 1 ? parts.shift() : 'Policy details';
         const h2 = document.createElement('h2');
-        h2.textContent = heading;
+        const icon = document.createElement('i'); icon.className = 'fa-solid '+iconFor(heading); icon.setAttribute('aria-hidden','true');
+        const label = document.createElement('span'); label.textContent = heading;
+        h2.append(icon,label);
         const body = document.createElement('p');
         body.textContent = parts.join('\n');
         section.append(h2, body);
@@ -53,6 +72,16 @@
         link.href = '#' + section.id;
         link.textContent = heading;
         contents.append(link);
+        sections.push(section); links.push(link);
+        link.addEventListener('click',()=>{activate(section.id);if(mobile?.matches && disclosure)disclosure.open=false;});
+      }
+      if (sections.length) activate(sections[0].id);
+      if (typeof IntersectionObserver === 'function') {
+        sectionObserver = new IntersectionObserver(entries=>{
+          const visible = entries.filter(entry=>entry.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top);
+          if (visible.length) activate(visible[0].target.id);
+        },{rootMargin:'-130px 0px -45% 0px'});
+        sections.forEach(section=>sectionObserver.observe(section));
       }
     };
     const load = async () => {
@@ -89,6 +118,7 @@
         get('policySections').hidden = false;
         get('fmrcPolicyState').hidden = true;
         if (location.hash === '#' + type) get(type).scrollIntoView({ block: 'start' });
+        else if (location.hash.startsWith('#'+type+'-section-')) get(location.hash.slice(1))?.scrollIntoView({block:'start'});
       } catch {
         notice('Policy temporarily unavailable', 'We could not load the policy. Please try again or contact FMRC for assistance.', { retry: true });
       } finally {

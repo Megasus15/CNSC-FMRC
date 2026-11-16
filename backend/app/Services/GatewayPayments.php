@@ -89,7 +89,7 @@ class GatewayPayments
         // It must remain possible after a quote closes; otherwise a lost create response can never be reconciled.
         if (AppointmentProducts::custom($order) && !$recoverForClosure && ($order->collection_hold || !\App\Models\AppointmentProductQuote::whereKey($order->appointment_product_quote_id)->where('state','accepted')->where('expires_at','>',now())->exists())) return;
         if ($payment->status !== 'pending' || in_array($order->lifecycle_status, ['cancelled','rejected','completed'], true)) return;
-        $session = $this->provider->createCheckoutSession((int) $attempt->amount_centavos, 'FMRC Order '.$order->order_no, $order->order_no, $order->id, $payment->id, $attempt->app_context, $attempt->token, $attempt->checkout_method);
+        $session = $this->provider->createCheckoutSession((int) $attempt->amount_centavos, \App\Support\Branding::NAME.' Order '.$order->order_no, $order->order_no, $order->id, $payment->id, $attempt->app_context, $attempt->token, $attempt->checkout_method);
         if ($session['rejected'] ?? false) { DB::table('payment_attempts')->where('id', $attempt->id)->whereNull('checkout_id')->update(['status' => 'failed', 'updated_at' => now()]); return; }
         $id = $session['data']['id'] ?? null; $attrs = $session['data']['attributes'] ?? [];
         if (!$id || !$this->safeUrl($attrs['checkout_url'] ?? null) || ($attrs['livemode'] ?? null) !== (bool) $attempt->livemode) {

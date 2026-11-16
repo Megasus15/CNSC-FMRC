@@ -1,0 +1,124 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="F24" name="F24 Product reviews and FMRC replies">
+    <mxGraphModel dx="1191" dy="842" grid="0" page="1" pageScale="1" pageWidth="1191" pageHeight="842">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="F24  |  Product reviews and FMRC replies" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=23;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="42" width="1118.5511811023623" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" value="Publish an eligible Customer product review and allow operators to respond or archive it." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="95" width="1118.5511811023623" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lane0" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead0" value="Customer" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#F7F5F2;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="328.66666666666663" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead1" value="System" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="328.66666666666663" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="467.3333333333333" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead2" value="Admin / Staff" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="467.3333333333333" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="ref-label" value="CONNECTED FLOWS" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="772" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="KEY RULES&#10;Order ownership and review eligibility are checked server-side; a public visitor cannot impersonate a purchaser.&#10;Replying and archiving are operator actions; Customer likes and public visibility follow existing rules.&#10;Archiving is distinct from editing a Customer rating or changing a product purchase." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="638" width="1118.5511811023623" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="edge0" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="303.7930258717661" y="259.3333333333333" />
+              <mxPoint x="303.7930258717661" y="398.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge1" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="445.58605174353215" y="398.0" />
+              <mxPoint x="445.58605174353215" y="398.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="587.3790776152981" y="398.0" />
+              <mxPoint x="587.3790776152981" y="536.6666666666666" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="729.1721034870642" y="536.6666666666666" />
+              <mxPoint x="729.1721034870642" y="259.3333333333333" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge4" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="870.9651293588303" y="259.3333333333333" />
+              <mxPoint x="870.9651293588303" y="536.6666666666666" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1012.7581552305962" y="536.6666666666666" />
+              <mxPoint x="1012.7581552305962" y="398.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch0" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1" value="Enter rating and review" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#800000;strokeColor=#800000;fontColor=#FFFFFF;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="171.0" y="218.33333333333331" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Review eligible?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="312.7930258717661" y="357.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Save Customer review" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="454.5860517435321" y="357.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Read review; reply if needed" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="596.3790776152981" y="495.66666666666663" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Browse reviews or like a review" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="738.1721034870642" y="218.33333333333331" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="Keep or archive eligible review" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="879.9651293588303" y="495.66666666666663" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="Refresh visible review totals" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#EFF7F1;strokeColor=#246744;fontColor=#246744;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1021.7581552305962" y="357.0" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="Read eligibility reason" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#FCF0EE;strokeColor=#9A3030;fontColor=#9A3030;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="312.7930258717661" y="218.33333333333331" width="123.79302587176605" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="ref0" value="F13" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F13.drawio">
+          <mxGeometry x="160.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref1" value="F34" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F34.drawio">
+          <mxGeometry x="204.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

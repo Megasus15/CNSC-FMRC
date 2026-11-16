@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1105.1" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
     <link rel="stylesheet" href="portal-detail-dialog.css?v=2026.1115.3" />
-    <link rel="stylesheet" href="settings-ui.css?v=2026.1115.12" />
+    <link rel="stylesheet" href="settings-ui.css?v=2026.1116.2" />
   </head>
   <body data-portal-settings-ui data-portal-popups="refined" data-portal-popup-context="Settings">
     <div class="dashboard-container">
@@ -216,6 +216,16 @@
               <div class="settings-preference-row"><div><label for="settingReducedMotion" class="settings-preference-label">Reduce motion</label><span id="motionDescription" class="settings-preference-desc">Keep loading indicators and transitions still. Your device's reduced motion preference is always respected.</span></div><label class="settings-switch"><input id="settingReducedMotion" type="checkbox" data-portal-preference="reducedMotion" aria-describedby="motionDescription" aria-label="Reduce motion" /><span class="settings-switch-track" aria-hidden="true"></span></label></div>
             </div>
           </section>
+          <section class="settings-section" id="sessionPolicyCard" aria-labelledby="sessionPolicyHeading">
+            <div class="settings-section-heading"><h3 id="sessionPolicyHeading"><i class="fa-solid fa-clock" aria-hidden="true"></i> Automatic sign-out</h3><p>Choose the maximum time you stay signed in. Changes apply from your next sign-in.</p></div>
+            <div class="settings-rows session-policy-fields">
+            <div class="settings-preference-row"><div><label class="settings-preference-label" for="sessionPolicyEnabled">Scheduled sign-out</label><span class="settings-preference-desc" id="sessionPolicyHint">When off, active sessions have no scheduled time limit. Inactivity protection stays on.</span></div><label class="settings-switch"><input id="sessionPolicyEnabled" type="checkbox" checked disabled aria-describedby="sessionPolicyHint"><span class="settings-switch-track" aria-hidden="true"></span></label></div>
+            <div class="session-policy-duration"><label for="sessionPolicyHours">Maximum session length</label><select id="sessionPolicyHours" disabled><option value="6">6 hours</option><option value="12">12 hours</option></select></div>
+            <p class="field-hint">A warning appears after 60 minutes of inactivity. Choose Stay signed in within 3 minutes to prevent sign-out at 63 minutes.</p>
+            <p class="field-hint" id="sessionPolicyCurrent">Checking your current session…</p>
+            <p id="sessionPolicyStatus" class="settings-field-message" role="status" aria-live="polite">Loading your session settings…</p><button type="button" class="btn-admin btn-secondary" id="sessionPolicyRetry" hidden>Retry</button>
+            </div>
+          </section>
           <section class="settings-section" aria-labelledby="workspaceHeading">
             <div class="settings-section-heading">
               <h3 id="workspaceHeading"><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Sidebar &amp; branding</h3>
@@ -263,11 +273,12 @@
       <footer class="sidebar-logo-dialog-footer portal-detail-dialog__footer"><button class="btn-admin btn-secondary" id="sidebarLogoCancel" type="button">Cancel</button><button class="btn-admin" id="sidebarLogoApply" type="button">Use logo</button></footer></section>
     </dialog>
     <script src="session-helper.js?v=2026.1113.9"></script>
-    <script src="admin-session.js?v=2026.1114.5"></script>
+    <script src="admin-session.js?v=2026.1116.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=2026.1115.1"></script>
     <script src="portal-detail-dialog.js?v=2026.1115.4"></script>
     <script src="admin-table-resize.js?v=2026.1113.9" defer></script>
     <script src="settings.js?v=3.3"></script>
+    <script src="session-settings.js?v=2026.1116.2"></script>
   </body>
 </html>

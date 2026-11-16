@@ -1,0 +1,150 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="F13" name="F13 Product purchase: browse to completion">
+    <mxGraphModel dx="1191" dy="842" grid="0" page="1" pageScale="1" pageWidth="1191" pageHeight="842">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="F13  |  Product purchase: browse to completion" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=23;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="42" width="1118.5511811023623" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" value="Follow a normal product order through checkout, FMRC review, payment and fulfillment." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="95" width="1118.5511811023623" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lane0" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead0" value="Customer" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="190.0" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#F7F5F2;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="328.66666666666663" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead1" value="System" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="328.66666666666663" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" value="" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="467.3333333333333" width="1118.5511811023623" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="lanehead2" value="Admin / Staff" style="rounded=0;html=0;whiteSpace=wrap;fillColor=#FBF0F1;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="467.3333333333333" width="118" height="138.66666666666666" as="geometry" />
+        </mxCell>
+        <mxCell id="ref-label" value="CONNECTED FLOWS" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="772" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="KEY RULES&#10;FMRC request review comes before payment availability; approval reserves stock and is separate from starting preparation.&#10;New normal orders support enabled online payment or cash on pickup. Delivery uses the eligible online-payment path.&#10;Online payment: F14. Cash pickup and collection: F15. Delivery: F16. Legacy COD is not a new-order default." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="638" width="1118.5511811023623" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="edge0" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="286.0688976377953" y="259.3333333333333" />
+              <mxPoint x="286.0688976377953" y="259.3333333333333" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge1" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410.13779527559063" y="259.3333333333333" />
+              <mxPoint x="410.13779527559063" y="398.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="534.2066929133858" y="398.0" />
+              <mxPoint x="534.2066929133858" y="536.6666666666666" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="Yes" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="658.2755905511812" y="536.6666666666666" />
+              <mxPoint x="658.2755905511812" y="259.3333333333333" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge4" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="782.3444881889765" y="259.3333333333333" />
+              <mxPoint x="782.3444881889765" y="536.6666666666666" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="906.4133858267717" y="536.6666666666666" />
+              <mxPoint x="906.4133858267717" y="536.6666666666666" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge6" value="" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n7" target="n8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1030.482283464567" y="536.6666666666666" />
+              <mxPoint x="1030.482283464567" y="398.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="branch0" value="No" style="edgeStyle=none;html=0;endArrow=block;endFill=1;strokeColor=#626B78;fontSize=12;fontFamily=Montserrat;" edge="1" parent="1" source="n4" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n1" value="Select products or edit cart" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#800000;strokeColor=#800000;fontColor=#FFFFFF;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="171.0" y="218.33333333333331" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Select fulfillment, payment and terms" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="295.0688976377953" y="218.33333333333331" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Validate and save order request" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="419.1377952755906" y="357.0" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Approve request?" style="rhombus;html=0;whiteSpace=wrap;fillColor=#FFF6DF;strokeColor=#785B16;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="543.2066929133858" y="495.66666666666663" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Online: pay now. Cash: pay at pickup." style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="667.2755905511812" y="218.33333333333331" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="Start preparation when eligible" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="791.3444881889765" y="495.66666666666663" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="Complete pickup or delivery" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#DCDDE2;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="915.4133858267717" y="495.66666666666663" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="n8" value="Retain completed order and payment" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#EFF7F1;strokeColor=#246744;fontColor=#246744;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1039.482283464567" y="357.0" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="Request declined; read reason" style="rounded=1;arcSize=50;html=0;whiteSpace=wrap;fillColor=#FCF0EE;strokeColor=#9A3030;fontColor=#9A3030;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="543.2066929133858" y="218.33333333333331" width="106.06889763779529" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="ref0" value="F14" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F14.drawio">
+          <mxGeometry x="160.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref1" value="F15" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F15.drawio">
+          <mxGeometry x="204.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref2" value="F16" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F16.drawio">
+          <mxGeometry x="248.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref3" value="F18" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F18.drawio">
+          <mxGeometry x="292.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref4" value="F19" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F19.drawio">
+          <mxGeometry x="336.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref5" value="F21" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F21.drawio">
+          <mxGeometry x="380.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ref6" value="F22" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#205B80;fontFamily=Montserrat;fontSize=10;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F22.drawio">
+          <mxGeometry x="424.7" y="772" width="32" height="18" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

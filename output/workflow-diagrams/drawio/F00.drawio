@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="F00" name="F00 System overview: separate, connected workflows">
+    <mxGraphModel dx="1191" dy="842" grid="0" page="1" pageScale="1" pageWidth="1191" pageHeight="842">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="F00  |  System overview: separate, connected workflows" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#800000;fontFamily=Montserrat;fontSize=23;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="42" width="1118.5511811023623" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" value="Use this map to locate the independent workflow files. It does not replace any detailed end-to-end process." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="95" width="1118.5511811023623" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc0" value="Accounts, credentials and workspace preferences" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="54.0" y="304" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc1" value="Service consultations and custom-product requests" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="433.5170603674541" y="304" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc2" value="Purchase, payment, fulfillment, returns and refunds" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="813.0341207349082" y="304" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc3" value="Product reviews, FMRC replies and inquiries" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="54.0" y="494" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc4" value="Inventory, products, reports, notifications and archives" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="433.5170603674541" y="494" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="mapdesc5" value="Content, branding, policies and operating settings" style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="813.0341207349082" y="494" width="323.5170603674541" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="KEY RULES&#10;The six groups are independent entry points, not a mandatory sequence of unrelated tasks.&#10;Use the index to open an individual workflow. Customer and operator actions are separated by responsibility.&#10;External email, payment, push and courier services are shown only in the workflows that use them." style="text;html=0;whiteSpace=wrap;fillColor=none;strokeColor=none;fontColor=#273142;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="36" y="638" width="1118.5511811023623" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="map0" value="Customer access&#10;F01 - F08" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F01.drawio">
+          <mxGeometry x="36.0" y="195" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="map1" value="Appointments&#10;F09 - F12" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F09.drawio">
+          <mxGeometry x="415.5170603674541" y="195" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="map2" value="Orders and money&#10;F13 - F23" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F13.drawio">
+          <mxGeometry x="795.0341207349082" y="195" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="map3" value="Customer support&#10;F24 - F25" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F25.drawio">
+          <mxGeometry x="36.0" y="385" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="map4" value="Shared operations&#10;F26 - F34" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F26.drawio">
+          <mxGeometry x="415.5170603674541" y="385" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="map5" value="Website administration&#10;F35 - F45" style="rounded=1;arcSize=15;html=0;whiteSpace=wrap;fillColor=#EFF5FA;strokeColor=#205B80;fontColor=#205B80;fontFamily=Montserrat;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1" link="F35.drawio">
+          <mxGeometry x="795.0341207349082" y="385" width="359.5170603674541" height="148" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

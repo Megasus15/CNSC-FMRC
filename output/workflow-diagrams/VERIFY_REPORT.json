@@ -1,0 +1,19 @@
+{
+  "workflows": 45,
+  "overview": 1,
+  "booklet_pages": 51,
+  "individual_pdfs": 46,
+  "editable_pages": 46,
+  "native_shapes": 939,
+  "native_connectors": 330,
+  "standalone_pdf_crosslinks": 150,
+  "svg_font_embedding": true,
+  "png_dpi": 300,
+  "graph_reachability": "passed",
+  "diagram_xml_roundtrip": "passed",
+  "pdf_text_and_bookmarks": "passed",
+  "export_counts": "passed",
+  "external_editor_import": "Not performed: user chose local verification after automatic approval review blocked third-party transmission",
+  "production_workflow_mutations": "None; documentation generation only",
+  "source_commit": "c499fa5d03fc89ef8dc10ab828c4f1b3df4b35b4"
+}
