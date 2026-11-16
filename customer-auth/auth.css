@@ -890,7 +890,7 @@ body {
 
 .otp-lockout-banner {
   background: #fefce8;
-  border: 1px solid #fef08a;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: var(--ux-dlg-radius);
   padding: 10px 14px;
   margin-bottom: 16px;
@@ -2312,12 +2312,12 @@ svg {
 }
 
 /* --- Visible keyboard focus ------------------------------------ */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid rgba(241, 189, 18, 0.85);
+:root a:focus-visible,
+:root button:focus-visible,
+:root input:focus-visible,
+:root select:focus-visible,
+:root textarea:focus-visible {
+  outline: 3px solid var(--customer-wine, #6b202b);
   outline-offset: 2px;
 }
 

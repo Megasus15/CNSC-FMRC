@@ -208,6 +208,21 @@
 .fmrc-announcement-card button:disabled { opacity: 0.4; cursor: default; }
 .fmrc-announcement-card :is(button, a):focus-visible { outline: 2px solid #c2ad18; outline-offset: 2px; }
 
+/* Customer dialogs use the same neutral edges as the profile dropdown.
+   The shared Admin/Staff preview card keeps its current presentation. */
+#announcementModal .fmrc-announcement-card {
+  border-color: var(--customer-paper-edge, #e7ded9);
+}
+#announcementModal .fmrc-announcement__footer {
+  border-top-color: var(--customer-paper-edge, #e7ded9);
+}
+#announcementModal .fmrc-announcement-card :is(button, a):focus-visible {
+  outline-color: var(--customer-wine, #6b202b);
+}
+#announcementModal .fmrc-announcement__header :is(button, a):focus-visible {
+  outline-color: #fffaf5;
+}
+
 /* Respond to the actual preview/card width, including narrow Admin panels. */
 @container fmrc-announcement (max-width: 400px) {
   .fmrc-announcement-card .fmrc-announcement__header { padding-left: 16px; }

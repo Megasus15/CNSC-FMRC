@@ -89,6 +89,11 @@ AddType application/manifest+json .webmanifest
     <FilesMatch "^(sw\.js|worker\.js|manifest\.webmanifest)$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
     </FilesMatch>
+    # Policy versions identify the published text, not a frozen reader UI.
+    # Revalidate both reader shells so historical links receive current assets.
+    <FilesMatch "^(refund-policy|transaction-terms)\.html$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
 </IfModule>
 
 # ------------------------------------------------------------------------------

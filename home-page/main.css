@@ -3393,7 +3393,7 @@ body {
   line-height: 1.45;
   color: #6d5b1e;
   background: rgba(214, 158, 46, 0.12);
-  border: 1px solid rgba(214, 158, 46, 0.28);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: 10px;
   padding: 8px 10px;
 }
@@ -3632,7 +3632,7 @@ body {
   line-height: 1.45;
   color: #6d5b1e;
   background: rgba(214, 158, 46, 0.12);
-  border: 1px solid rgba(214, 158, 46, 0.28);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: 10px;
   padding: 8px 10px;
 }
@@ -7049,7 +7049,7 @@ input:checked + .toggle-slider:before {
 
 .sidebar-close-btn:hover {
   background: var(--apt-panel, #fffbed);
-  border-color: var(--apt-panel-edge, #eadc9a);
+  border-color: var(--apt-panel-edge, #e7ded9);
 }
 
 .sidebar-close-btn:active {
@@ -9740,7 +9740,7 @@ body.sidebar-open {
 
 .guest-access-close:hover {
   background: var(--apt-panel, #fffbed);
-  border-color: var(--apt-panel-edge, #eadc9a);
+  border-color: var(--apt-panel-edge, #e7ded9);
   color: var(--apt-head, var(--customer-wine-hover));
 }
 
@@ -9833,7 +9833,7 @@ body.sidebar-open {
 
 .guest-access-btn.close:hover {
   background: var(--apt-panel, #fffbed);
-  border-color: var(--apt-panel-edge, #eadc9a);
+  border-color: var(--apt-panel-edge, #e7ded9);
 }
 
 .popup-logout {
@@ -11776,7 +11776,7 @@ body.sidebar-open {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  border: 1px solid #f0d89c;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: 10px;
   background: #fffaeb;
   padding: 9px 11px;
@@ -12135,7 +12135,7 @@ body.sidebar-open {
   margin: 0;
   padding: 9px 11px;
   border-radius: 10px;
-  border: 1px solid rgba(214, 158, 46, 0.3);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   background: rgba(214, 158, 46, 0.1);
   font-size: 0.73rem;
   line-height: 1.5;
@@ -12289,7 +12289,7 @@ body.sidebar-open {
   margin: 0;
   padding: 9px 11px;
   border-radius: 10px;
-  border: 1px solid rgba(214, 158, 46, 0.3);
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   background: rgba(214, 158, 46, 0.1);
   font-size: 0.73rem;
   font-weight: 700;
@@ -12484,7 +12484,7 @@ body.sidebar-open {
 /* The pending variant is a status, not an action - it opens an explanation
    instead of a form, so it must not look pressable in the same way. */
 .customer-order-cancel-btn.is-pending {
-  border-color: #f0d89c;
+  border-color: var(--customer-paper-edge, #e7ded9);
   background: #fff8e8;
   color: var(--customer-wine);
   cursor: help;
@@ -12492,7 +12492,7 @@ body.sidebar-open {
 
 .customer-order-cancel-btn.is-pending:hover {
   background: #fff2d6;
-  border-color: #e6c777;
+  border-color: var(--customer-wine, #6b202b);
   color: var(--customer-wine-hover);
 }
 
@@ -12529,7 +12529,7 @@ body.sidebar-open {
 
 .customer-order-cancel-band.is-pending {
   background: #fff8e8;
-  border-color: #f2e0b4;
+  border-color: var(--customer-paper-edge, #e7ded9);
   color: var(--customer-wine);
 }
 
@@ -12585,7 +12585,7 @@ body.sidebar-open {
 
 .customer-order-cancel-detail.is-pending {
   background: #fff8e8;
-  border-color: #f2e0b4;
+  border-color: var(--customer-paper-edge, #e7ded9);
   color: var(--customer-wine);
 }
 
@@ -12648,7 +12648,7 @@ body.sidebar-open {
   gap: 8px;
   margin: 0;
   padding: 9px 11px;
-  border: 1px solid #f2e0b4;
+  border: 1px solid var(--customer-paper-edge, #e7ded9);
   border-radius: 10px;
   background: #fff8e8;
   font-size: 0.71rem;

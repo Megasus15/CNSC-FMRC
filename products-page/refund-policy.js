@@ -77,9 +77,13 @@
       }
       if (sections.length) activate(sections[0].id);
       if (typeof IntersectionObserver === 'function') {
+        const visibleSections = new Set();
         sectionObserver = new IntersectionObserver(entries=>{
-          const visible = entries.filter(entry=>entry.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top);
-          if (visible.length) activate(visible[0].target.id);
+          entries.forEach(entry=>{ if (entry.isIntersecting) visibleSections.add(entry.target); else visibleSections.delete(entry.target); });
+          // Entries contain only visibility changes. Keep the full visible set
+          // so a newly visible later section cannot displace an earlier one.
+          const first = sections.find(section=>visibleSections.has(section));
+          if (first) activate(first.id);
         },{rootMargin:'-130px 0px -45% 0px'});
         sections.forEach(section=>sectionObserver.observe(section));
       }
