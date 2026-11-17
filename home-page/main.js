@@ -7694,9 +7694,13 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnSuccessHome", closeAppointmentOverlay);
 
   const contactMessageForm = document.getElementById("contactMessageForm");
+  let contactMessageBusy = false;
+  let contactMessageRequest = null;
   if (contactMessageForm) {
     contactMessageForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+
+      if (contactMessageBusy) return;
 
       if (!requireCustomerAuth("send a message")) {
         return;
@@ -7734,6 +7738,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!confirmed) {
         return;
       }
+
+      if (contactMessageBusy) return;
+      contactMessageBusy = true;
+      const contactSignature = JSON.stringify(payload);
+      if (contactMessageRequest?.signature !== contactSignature) {
+        contactMessageRequest = {signature: contactSignature, key: crypto.randomUUID()};
+      }
+      payload.source = 'contact';
+      payload.request_key = contactMessageRequest.key;
 
       const previousText = submitBtn?.textContent || "Send Message";
       if (submitBtn) {
@@ -7778,6 +7791,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.FMRCLoader?.hide();
 
         contactMessageForm.reset();
+        contactMessageRequest = null;
         await showCustomerPopup(
           data?.message ||
             "Thank you. Your message has been sent successfully.",
@@ -7786,6 +7800,9 @@ document.addEventListener("DOMContentLoaded", () => {
             allowBackdropClose: false,
           },
         );
+        if (data?.data?.source && data?.data?.id) {
+          await window.FMRCSupport?.openConversation(data.data.id);
+        }
       } catch (error) {
         /* The other end of the same rule: a failed or timed-out request has
            finished waiting too, and this popup is awaited as well. Exactly one
@@ -7798,6 +7815,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         );
       } finally {
+        contactMessageBusy = false;
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.classList.remove("is-loading");
@@ -14133,6 +14151,7 @@ const openReturnRequestModal = (() => {
     hideDropdown(dropdown);
     openProfileModal(userInfo, token);
   });
+  if (new URLSearchParams(location.search).get('account') === '1') openProfileModal(userInfo, token);
 
   dropdown
     .querySelector("#viewOrdersBtn")

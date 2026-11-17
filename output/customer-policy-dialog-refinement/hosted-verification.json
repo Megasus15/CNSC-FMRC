@@ -1,0 +1,75 @@
+{
+  "release_commit": "ee62ea7bf8a3b7d2f65069ee47d679f5985e7645",
+  "checked_on": "2026-11-16 (Asia/Manila)",
+  "assets": [
+    {
+      "path": "home-page/main.css",
+      "matches_commit": true,
+      "sha256": "eea760b26f92ce48de72298b8b41fd0cc21ee91fdf6ce2ac351e3ded6fcb9c68"
+    },
+    {
+      "path": "home-page/announcement-card.css",
+      "matches_commit": true,
+      "sha256": "4466ac5cf358155bae97c0fdd4f496e3eb55716dbf1b93b0b73bf0e14d4a55f6"
+    },
+    {
+      "path": "home-page/customer-notifications.css",
+      "matches_commit": true,
+      "sha256": "388e914dff3884d95734f81e371be6a20fd52ac45b241e0bf92767242179c7fd"
+    },
+    {
+      "path": "home-page/my-appointments.css",
+      "matches_commit": true,
+      "sha256": "3dabff9cba56beca973f4b5318d114d81513bb14be450b2eec26f2ac58d58dc9"
+    },
+    {
+      "path": "products-page/gateway-payments.css",
+      "matches_commit": true,
+      "sha256": "dfe5e055b54887fae42d9c2bc959f8e62bc2a09640d09afeeccc76391f97922d"
+    },
+    {
+      "path": "customer-auth/auth.css",
+      "matches_commit": true,
+      "sha256": "6ccfa7d89cd478f85c5134115526fc0d212f787895d40db8d3739e32f94e3077"
+    },
+    {
+      "path": "products-page/refund-policy.css",
+      "matches_commit": true,
+      "sha256": "12e6ab914191ebf46f17604ff9791a69b85dda145c3f04d6ac48a402dbf1e5f4"
+    },
+    {
+      "path": "products-page/refund-policy.js",
+      "matches_commit": true,
+      "sha256": "7760660595b239a4c8e567b00db3c71b7050dfb7242d5ba904e32aef7277a33a"
+    }
+  ],
+  "policy_pages": [
+    {
+      "path": "products-page/refund-policy",
+      "refined_reader": true,
+      "cache_control": "no-cache, must-revalidate"
+    },
+    {
+      "path": "products-page/transaction-terms",
+      "refined_reader": true,
+      "cache_control": "no-cache, must-revalidate"
+    },
+    {
+      "path": "apps/customer/products-page/refund-policy",
+      "refined_reader": true,
+      "cache_control": "no-cache, must-revalidate"
+    }
+  ],
+  "published_wording_unchanged": true,
+  "browser_visual_checks": [
+    "Refund Policy: desktop and phone",
+    "Transaction Terms: desktop",
+    "Guest notification shell: desktop and phone; all frame/divider borders rgb(239, 230, 218)"
+  ],
+  "local_tests": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0
+  },
+  "private_order_payment_booking_mutations": "isolated local fixtures only"
+}

@@ -1,0 +1,621 @@
+{
+  "config": {
+    "enabled": true,
+    "name": "FMRC Help",
+    "icon": "brand",
+    "placement": "right",
+    "accent": "#6b202b",
+    "header_color": "#561b26",
+    "surface": "#fdfaf6",
+    "avatar": "",
+    "welcome": {
+      "en": "Welcome to FMRC. How can we help you today? Choose a topic below or send our team a message.",
+      "fil": "Kumusta! Paano kami makatutulong? Pumili ng paksa sa ibaba o magpadala ng mensahe sa aming team."
+    },
+    "offline": {
+      "en": "The team is away right now. Leave a message and check back for a reply.",
+      "fil": "Wala pang available na team member. Mag-iwan ng mensahe at balikan ang sagot."
+    },
+    "fallback": {
+      "en": "I couldn’t find a clear answer. Try a topic below or message the FMRC team.",
+      "fil": "Wala akong nakitang malinaw na sagot. Subukan ang paksa sa ibaba o i-message ang FMRC team."
+    },
+    "suggestions": [
+      "order-products",
+      "book-consultation",
+      "custom-product",
+      "online-payment",
+      "return-refund",
+      "contact-team"
+    ]
+  },
+  "faqs": [
+    {
+      "key": "order-products",
+      "enabled": true,
+      "en": {
+        "question": "How do I order a product?",
+        "answer": "Choose a product and submit an order request. FMRC reviews the request before payment becomes available.",
+        "steps": [
+          "Open Products and choose an item. Review its details, price and available stock.",
+          "Sign in, then use Buy Now or add the item to your cart. Check the item and quantity.",
+          "At checkout, choose an available pickup or delivery option and complete the required details.",
+          "Review the total, delivery fee and published transaction terms and refund policy. Submit your order request once.",
+          "Open My Orders to follow FMRC’s review. An approved request makes the permitted payment action available.",
+          "Pay using the method offered for that order. Online payments are confirmed by the payment provider.",
+          "Follow the preparation and pickup or delivery updates in My Orders. Confirm receipt when the option is available."
+        ]
+      },
+      "fil": {
+        "question": "Paano ako oorder ng produkto?",
+        "answer": "Pumili ng produkto at magsumite ng order request. Susuriin muna ito ng FMRC bago maging available ang pagbabayad.",
+        "steps": [
+          "Buksan ang Products at pumili ng item. Basahin ang detalye, presyo at available na stock.",
+          "Mag-sign in, pagkatapos ay piliin ang Buy Now o idagdag ang item sa cart. Suriin ang item at dami.",
+          "Sa checkout, pumili ng available na pickup o delivery at kumpletuhin ang mga detalye.",
+          "Suriin ang kabuuang bayad, delivery fee, Transaction Terms at Refund Policy. Isumite nang isang beses ang order request.",
+          "Buksan ang My Orders para sa resulta ng pagsusuri ng FMRC. Kapag aprubado, lalabas ang angkop na paraan ng pagbabayad.",
+          "Magbayad gamit ang paraang available sa order. Ang payment provider ang nagkukumpirma ng online payment.",
+          "Subaybayan sa My Orders ang paghahanda at pickup o delivery. Kumpirmahin ang pagtanggap kapag available na ang opsyon."
+        ]
+      },
+      "aliases": [
+        "how to buy",
+        "buy product",
+        "ordering products",
+        "paano bumili",
+        "paano umorder",
+        "paano mag order",
+        "order process",
+        "bumili ng produkto"
+      ],
+      "actions": [
+        "products",
+        "orders"
+      ]
+    },
+    {
+      "key": "appointment-types",
+      "enabled": true,
+      "en": {
+        "question": "What are the two appointment processes?",
+        "answer": "There are two business processes: a service consultation and a custom-product request. Online and face-to-face are meeting methods within those processes.",
+        "steps": [
+          "For advice or a service discussion, book a service consultation. Completing it does not automatically create an order.",
+          "For a product made to your requirements, choose Request a custom product. FMRC confirms the consultation outcome before preparing a quotation.",
+          "Choose Online or Face-to-face at FMRC when booking either applicable appointment."
+        ]
+      },
+      "fil": {
+        "question": "Ano ang dalawang proseso ng appointment?",
+        "answer": "May dalawang proseso: service consultation at custom-product request. Ang Online at Face-to-face ay paraan ng pagpupulong sa loob ng mga prosesong ito.",
+        "steps": [
+          "Para sa payo o pagtalakay ng serbisyo, pumili ng service consultation. Hindi ito awtomatikong lumilikha ng order.",
+          "Para sa produktong ayon sa iyong pangangailangan, piliin ang Request a custom product. Kukumpirmahin muna ng FMRC ang resulta ng konsultasyon bago maghanda ng quotation.",
+          "Pumili ng Online o Face-to-face at FMRC kapag nagbu-book ng angkop na appointment."
+        ]
+      },
+      "aliases": [
+        "two appointments",
+        "appointment types",
+        "consultation or custom",
+        "dalawang appointment",
+        "uri ng appointment"
+      ],
+      "actions": [
+        "appointments"
+      ]
+    },
+    {
+      "key": "book-consultation",
+      "enabled": true,
+      "en": {
+        "question": "How do I book a consultation?",
+        "answer": "Use Set an Appointment and complete the booking steps. Available dates and times come from the FMRC calendar.",
+        "steps": [
+          "Open Set an Appointment. Sign in when the booking flow asks you to.",
+          "Complete your personal and contact details.",
+          "Choose your Purpose of Visit and the meeting method. Add relevant notes.",
+          "Choose an available date and time, then review the complete appointment details.",
+          "Submit once and keep the confirmation. Use My Appointments for the current schedule and available actions."
+        ]
+      },
+      "fil": {
+        "question": "Paano mag-book ng konsultasyon?",
+        "answer": "Gamitin ang Set an Appointment at kumpletuhin ang mga hakbang. Ang available na petsa at oras ay mula sa kalendaryo ng FMRC.",
+        "steps": [
+          "Buksan ang Set an Appointment. Mag-sign in kapag hiningi ng booking flow.",
+          "Kumpletuhin ang personal at contact details.",
+          "Piliin ang Purpose of Visit at paraan ng pagpupulong. Magdagdag ng mahahalagang tala.",
+          "Pumili ng available na petsa at oras, at suriin ang lahat ng detalye.",
+          "Isumite nang isang beses at itago ang kumpirmasyon. Buksan ang My Appointments para sa kasalukuyang iskedyul at mga available na aksyon."
+        ]
+      },
+      "aliases": [
+        "book appointment",
+        "set appointment",
+        "schedule consultation",
+        "paano magpa appointment",
+        "mag book",
+        "appointment steps",
+        "paano mag book ng appointment",
+        "how do I schedule an appointment"
+      ],
+      "actions": [
+        "appointments"
+      ]
+    },
+    {
+      "key": "custom-product",
+      "enabled": true,
+      "en": {
+        "question": "How do I request a custom product?",
+        "answer": "A custom product starts with an appointment and an attended consultation. A meeting link alone does not advance a request to quotation.",
+        "steps": [
+          "In Set an Appointment, choose Request a custom product and the relevant FMRC service.",
+          "Describe the product, quantity and requirements. Supply permitted design files through the booking or appointment tools when needed.",
+          "Choose an available consultation schedule, review the information and submit.",
+          "Attend the consultation. FMRC records the outcome and confirms specifications before issuing an eligible quotation.",
+          "Review the quotation and agreements. Acceptance creates one linked order. Complete the offered full payment before production proceeds.",
+          "Follow production and pickup or delivery through the linked order. Ask FMRC before changing accepted specifications."
+        ]
+      },
+      "fil": {
+        "question": "Paano humiling ng custom na produkto?",
+        "answer": "Nagsisimula ang custom na produkto sa appointment at konsultasyong nadaluhan. Hindi sapat ang meeting link lamang para umabot sa quotation.",
+        "steps": [
+          "Sa Set an Appointment, piliin ang Request a custom product at ang angkop na serbisyo ng FMRC.",
+          "Ilarawan ang produkto, dami at mga kinakailangan. Kung kailangan, isumite ang pinapayagang design files sa booking o appointment tools.",
+          "Pumili ng available na iskedyul, suriin ang impormasyon at isumite.",
+          "Dumalo sa konsultasyon. Itatala ng FMRC ang resulta at kukumpirmahin ang mga detalye bago magbigay ng angkop na quotation.",
+          "Suriin ang quotation at kasunduan. Ang pagtanggap nito ay lumilikha ng isang linked order. Kumpletuhin ang iniaalok na buong bayad bago ang produksyon.",
+          "Subaybayan ang produksyon at pickup o delivery sa linked order. Makipag-ugnayan muna sa FMRC bago baguhin ang napagkasunduang detalye."
+        ]
+      },
+      "aliases": [
+        "custom order",
+        "customized product",
+        "request design",
+        "pagawa",
+        "magpagawa",
+        "custom quotation",
+        "custom product appointment"
+      ],
+      "actions": [
+        "appointments",
+        "orders"
+      ]
+    },
+    {
+      "key": "online-meeting",
+      "enabled": true,
+      "en": {
+        "question": "Where is my online meeting link?",
+        "answer": "FMRC supplies the meeting platform and secure meeting link for an online appointment.",
+        "steps": [
+          "Open My Appointments and select the appointment.",
+          "Check its current meeting details. Meeting link pending means the team has not supplied a link yet.",
+          "Use the link at the confirmed schedule. If it is still missing or does not work, message the FMRC team with your appointment reference."
+        ]
+      },
+      "fil": {
+        "question": "Nasaan ang link ng aking online meeting?",
+        "answer": "Ang FMRC ang nagbibigay ng meeting platform at secure na link para sa online appointment.",
+        "steps": [
+          "Buksan ang My Appointments at piliin ang appointment.",
+          "Tingnan ang meeting details. Ang Meeting link pending ay nangangahulugang wala pang ibinigay na link ang team.",
+          "Gamitin ang link sa nakumpirmang iskedyul. Kung wala pa o hindi gumagana, i-message ang FMRC kasama ang appointment reference."
+        ]
+      },
+      "aliases": [
+        "meeting url",
+        "zoom link",
+        "google meet",
+        "online consultation link",
+        "walang meeting link"
+      ],
+      "actions": [
+        "appointments"
+      ]
+    },
+    {
+      "key": "reschedule",
+      "enabled": true,
+      "en": {
+        "question": "How do I reschedule an appointment?",
+        "answer": "Available rescheduling actions depend on the appointment’s current status and original start time.",
+        "steps": [
+          "Open My Appointments and select the appointment.",
+          "If Reschedule is available, choose a new available date and time and review the details.",
+          "Confirm the change and check the updated schedule. If the option is unavailable, contact FMRC rather than making a duplicate booking."
+        ]
+      },
+      "fil": {
+        "question": "Paano magpalit ng iskedyul ng appointment?",
+        "answer": "Nakabatay sa kasalukuyang status at orihinal na oras ng simula ang mga available na opsyon sa rescheduling.",
+        "steps": [
+          "Buksan ang My Appointments at piliin ang appointment.",
+          "Kung available ang Reschedule, pumili ng bagong available na petsa at oras at suriin ang detalye.",
+          "Kumpirmahin ang pagbabago at tingnan ang bagong iskedyul. Kung wala ang opsyon, makipag-ugnayan sa FMRC sa halip na gumawa ng dobleng booking."
+        ]
+      },
+      "aliases": [
+        "move appointment",
+        "change booking date",
+        "change schedule",
+        "resched",
+        "ilipat appointment",
+        "baguhin petsa"
+      ],
+      "actions": [
+        "appointments"
+      ]
+    },
+    {
+      "key": "payment-approval",
+      "enabled": true,
+      "en": {
+        "question": "Why can’t I pay for my order yet?",
+        "answer": "For a normal product order, FMRC must review and approve the request before payment is available. Approval and starting preparation are separate actions.",
+        "steps": [
+          "Open the order in My Orders and read its current status.",
+          "Wait for FMRC’s review or follow any request for information.",
+          "After approval, use only the payment action offered on that order. If an approved order still has no available payment action, message FMRC with the order reference."
+        ]
+      },
+      "fil": {
+        "question": "Bakit hindi pa ako makapagbayad sa order?",
+        "answer": "Para sa karaniwang product order, kailangan munang suriin at aprubahan ng FMRC ang request bago maging available ang pagbabayad. Magkaiba ang approval at pagsisimula ng paghahanda.",
+        "steps": [
+          "Buksan ang order sa My Orders at basahin ang status.",
+          "Hintayin ang pagsusuri ng FMRC o sagutin ang hinihinging impormasyon.",
+          "Kapag aprubado, gamitin lamang ang payment action na nasa order. Kung wala pa ring opsyon sa aprubadong order, i-message ang FMRC kasama ang order reference."
+        ]
+      },
+      "aliases": [
+        "cannot pay",
+        "payment unavailable",
+        "awaiting review",
+        "pending approval",
+        "bawal magbayad",
+        "di makabayad",
+        "walang payment",
+        "when can I pay",
+        "when do I pay for my order"
+      ],
+      "actions": [
+        "orders"
+      ]
+    },
+    {
+      "key": "online-payment",
+      "enabled": true,
+      "en": {
+        "question": "How do I pay online with GCash or a bank app?",
+        "answer": "Use the secure online payment action provided for your approved order. The available method and instructions appear there.",
+        "steps": [
+          "Open My Orders, select the approved order and choose its available online payment action.",
+          "For QR Ph, follow the provider’s QR instructions using a supported bank or e-wallet app. Check the amount and recipient details before confirming.",
+          "Complete the payment in your app, then return to FMRC and refresh the order if needed.",
+          "Wait for confirmed payment status. A redirect, screenshot or typed reference alone does not confirm payment. Do not repeatedly pay a pending transaction; contact FMRC if you need help."
+        ]
+      },
+      "fil": {
+        "question": "Paano magbayad online gamit ang GCash o bank app?",
+        "answer": "Gamitin ang secure online payment action sa aprubadong order. Makikita roon ang available na paraan at mga tagubilin.",
+        "steps": [
+          "Buksan ang My Orders, piliin ang aprubadong order at ang available nitong online payment action.",
+          "Para sa QR Ph, sundin ang QR instructions ng provider gamit ang suportadong bank o e-wallet app. Suriin ang halaga at recipient details bago kumpirmahin.",
+          "Kumpletuhin ang bayad sa iyong app, pagkatapos ay bumalik sa FMRC at i-refresh ang order kung kailangan.",
+          "Hintayin ang confirmed payment status. Hindi sapat ang redirect, screenshot o inilagay na reference lamang. Huwag paulit-ulit magbayad sa pending na transaksyon; humingi ng tulong sa FMRC kung kailangan."
+        ]
+      },
+      "aliases": [
+        "gcash payment",
+        "qrph",
+        "qr ph",
+        "maribank",
+        "bank transfer",
+        "pay online",
+        "paano magbayad online",
+        "maya"
+      ],
+      "actions": [
+        "orders"
+      ]
+    },
+    {
+      "key": "cash-pickup",
+      "enabled": true,
+      "en": {
+        "question": "Can I pay cash when I collect my order?",
+        "answer": "Cash on pickup is available for eligible normal pickup orders when FMRC has enabled that method. It is not a delivery cash-on-delivery option.",
+        "steps": [
+          "Choose Pickup at checkout and select Cash on pickup if it is offered.",
+          "Wait for the order’s approval and collection instructions in My Orders.",
+          "Visit FMRC when instructed and complete the required payment at the counter. Custom-product orders follow their separate quotation and advance-payment requirements."
+        ]
+      },
+      "fil": {
+        "question": "Puwede bang cash kapag kukunin ang order?",
+        "answer": "Available ang Cash on pickup para sa angkop na karaniwang pickup orders kapag naka-enable ito sa FMRC. Hindi ito cash-on-delivery para sa delivery orders.",
+        "steps": [
+          "Piliin ang Pickup sa checkout at Cash on pickup kung iniaalok ito.",
+          "Hintayin sa My Orders ang approval at mga tagubilin sa pagkuha.",
+          "Pumunta sa FMRC ayon sa tagubilin at kumpletuhin ang bayad sa counter. May hiwalay na quotation at advance-payment requirements ang custom-product orders."
+        ]
+      },
+      "aliases": [
+        "cash payment",
+        "cash on pickup",
+        "cod",
+        "cash on delivery",
+        "cash ba",
+        "bayad sa pickup"
+      ],
+      "actions": [
+        "products",
+        "orders"
+      ]
+    },
+    {
+      "key": "track-order",
+      "enabled": true,
+      "en": {
+        "question": "How do I check my order status?",
+        "answer": "My Orders shows the current review, payment, preparation and fulfillment information for your account.",
+        "steps": [
+          "Sign in and open My Orders from your profile menu.",
+          "Select the order and review its current status and available actions.",
+          "For delivery, check the recorded courier and tracking details when available.",
+          "If an update is unclear, message FMRC with the order reference. This help assistant cannot look up or change your private order status."
+        ]
+      },
+      "fil": {
+        "question": "Paano tingnan ang status ng order ko?",
+        "answer": "Makikita sa My Orders ang kasalukuyang review, payment, preparation at fulfillment information ng iyong account.",
+        "steps": [
+          "Mag-sign in at buksan ang My Orders sa profile menu.",
+          "Piliin ang order at suriin ang status at available na mga aksyon.",
+          "Para sa delivery, tingnan ang courier at tracking details kapag available na.",
+          "Kung hindi malinaw ang update, i-message ang FMRC kasama ang order reference. Hindi kayang tingnan o baguhin ng help assistant ang pribadong status ng order mo."
+        ]
+      },
+      "aliases": [
+        "where is my order",
+        "track parcel",
+        "order status",
+        "my orders",
+        "nasaan order",
+        "status ng order",
+        "tracking number"
+      ],
+      "actions": [
+        "orders"
+      ]
+    },
+    {
+      "key": "delivery",
+      "enabled": true,
+      "en": {
+        "question": "Where can FMRC deliver and how much does it cost?",
+        "answer": "Delivery availability and fees depend on your selected address and the current published delivery settings.",
+        "steps": [
+          "At checkout, enter the correct province, city or municipality and postal code.",
+          "Choose an available delivery option and review the quoted fee, preparation time and delivery estimate.",
+          "Review the total before submitting. If the address is not supported, use an offered alternative or ask FMRC for guidance."
+        ]
+      },
+      "fil": {
+        "question": "Saan puwedeng mag-deliver at magkano ang bayad?",
+        "answer": "Nakabatay sa napiling address at kasalukuyang published delivery settings ang availability at bayad sa delivery.",
+        "steps": [
+          "Sa checkout, ilagay nang tama ang probinsya, lungsod o munisipalidad at postal code.",
+          "Pumili ng available na delivery option at suriin ang quoted fee, preparation time at delivery estimate.",
+          "Suriin ang kabuuang bayad bago isumite. Kung hindi supported ang address, gumamit ng iniaalok na alternatibo o magtanong sa FMRC."
+        ]
+      },
+      "aliases": [
+        "shipping fee",
+        "delivery area",
+        "shipping cost",
+        "delivery charge",
+        "magkano delivery",
+        "saan delivery"
+      ],
+      "actions": [
+        "products",
+        "terms"
+      ]
+    },
+    {
+      "key": "return-refund",
+      "enabled": true,
+      "en": {
+        "question": "How do I request a return or refund?",
+        "answer": "Use the available Return / Refund action in My Orders and refer to the published Refund Policy. FMRC reviews requests and available remedies.",
+        "steps": [
+          "Open My Orders and select the affected order.",
+          "Choose Return / Refund if the action is available. Identify the item, explain the concern and provide the evidence requested by that form.",
+          "Submit once and follow the review and any return instructions.",
+          "Check the current request status. Refund approval and payment-provider processing are separate stages. If the online option is unavailable, contact FMRC promptly."
+        ]
+      },
+      "fil": {
+        "question": "Paano humiling ng return o refund?",
+        "answer": "Gamitin ang available na Return / Refund sa My Orders at basahin ang published Refund Policy. Sinusuri ng FMRC ang request at mga angkop na solusyon.",
+        "steps": [
+          "Buksan ang My Orders at piliin ang kaugnay na order.",
+          "Piliin ang Return / Refund kung available. Tukuyin ang item, ipaliwanag ang problema at ibigay ang ebidensyang hinihingi ng form.",
+          "Isumite nang isang beses at sundin ang pagsusuri at mga tagubilin sa pagbabalik.",
+          "Tingnan ang kasalukuyang status. Magkaiba ang refund approval at pagproseso ng payment provider. Kung wala ang online na opsyon, agad makipag-ugnayan sa FMRC."
+        ]
+      },
+      "aliases": [
+        "refund",
+        "return item",
+        "damaged item",
+        "defective",
+        "ibalik produkto",
+        "refund request",
+        "sira ang item",
+        "how can I refund an order",
+        "can I return a defective item",
+        "return a damaged product",
+        "paano mag refund"
+      ],
+      "actions": [
+        "orders",
+        "refunds"
+      ]
+    },
+    {
+      "key": "cancel-order",
+      "enabled": true,
+      "en": {
+        "question": "How do I cancel an order?",
+        "answer": "Cancellation actions depend on the order’s current stage. Paid orders and refunds follow the published policy and applicable review.",
+        "steps": [
+          "Open the order in My Orders.",
+          "Use the available cancellation action, read the instructions and provide the required reason.",
+          "Check the result or review status. If cancellation is unavailable, message FMRC with the reference instead of placing another order."
+        ]
+      },
+      "fil": {
+        "question": "Paano magkansela ng order?",
+        "answer": "Nakabatay sa kasalukuyang yugto ng order ang cancellation actions. Ang paid orders at refunds ay sumusunod sa published policy at angkop na pagsusuri.",
+        "steps": [
+          "Buksan ang order sa My Orders.",
+          "Gamitin ang available na cancellation action, basahin ang mga tagubilin at ibigay ang dahilan.",
+          "Tingnan ang resulta o review status. Kung wala ang cancellation, i-message ang FMRC kasama ang reference sa halip na gumawa ng panibagong order."
+        ]
+      },
+      "aliases": [
+        "cancel my order",
+        "cancellation",
+        "kansela order",
+        "cancel request"
+      ],
+      "actions": [
+        "orders",
+        "terms"
+      ]
+    },
+    {
+      "key": "quotation",
+      "enabled": true,
+      "en": {
+        "question": "How do I accept a custom-product quotation?",
+        "answer": "Review the quotation and final specifications after FMRC has confirmed your consultation outcome.",
+        "steps": [
+          "Open the custom-product request from My Appointments and read the offered quotation and agreements.",
+          "If the specifications and amount are correct, use the available acceptance action before the quotation expires.",
+          "Open the linked order and complete the offered full payment before production.",
+          "For changes to an accepted or paid agreement, ask FMRC about the close-and-requote process. Do not assume the old payment or specifications can simply be edited."
+        ]
+      },
+      "fil": {
+        "question": "Paano tanggapin ang quotation ng custom na produkto?",
+        "answer": "Suriin ang quotation at final specifications matapos kumpirmahin ng FMRC ang resulta ng konsultasyon.",
+        "steps": [
+          "Buksan ang custom-product request sa My Appointments at basahin ang quotation at kasunduan.",
+          "Kung tama ang mga detalye at halaga, gamitin ang available na acceptance action bago mag-expire ang quotation.",
+          "Buksan ang linked order at kumpletuhin ang iniaalok na buong bayad bago ang produksyon.",
+          "Para sa pagbabago sa tinanggap o bayad nang kasunduan, itanong sa FMRC ang close-and-requote process. Huwag ipagpalagay na basta mae-edit ang dating bayad o detalye."
+        ]
+      },
+      "aliases": [
+        "quotation",
+        "quote expired",
+        "accept quote",
+        "price quote",
+        "presyo ng custom",
+        "tanggapin quotation"
+      ],
+      "actions": [
+        "appointments",
+        "orders"
+      ]
+    },
+    {
+      "key": "account",
+      "enabled": true,
+      "en": {
+        "question": "How do I sign in or reset my password?",
+        "answer": "Use the Customer sign-in page. Never send your password, one-time code or bank credentials in support messages.",
+        "steps": [
+          "Choose Sign In and use your registered account details or an offered Google sign-in option.",
+          "If you forgot your password, select Forgot password and follow the email verification steps.",
+          "If you still cannot access your account, contact FMRC through the official contact channels. Do not share your one-time code with the team."
+        ]
+      },
+      "fil": {
+        "question": "Paano mag-sign in o mag-reset ng password?",
+        "answer": "Gamitin ang Customer sign-in page. Huwag ipadala sa support ang password, one-time code o bank credentials.",
+        "steps": [
+          "Piliin ang Sign In at gamitin ang rehistradong account details o ang available na Google sign-in.",
+          "Kung nakalimutan ang password, piliin ang Forgot password at sundin ang email verification steps.",
+          "Kung hindi pa rin makapasok, gamitin ang official contact channels ng FMRC. Huwag ibahagi sa team ang one-time code."
+        ]
+      },
+      "aliases": [
+        "login",
+        "sign in",
+        "forgot password",
+        "reset password",
+        "register",
+        "account access",
+        "di makalogin",
+        "nakalimutan password"
+      ],
+      "actions": [
+        "signin",
+        "contact"
+      ]
+    },
+    {
+      "key": "contact-team",
+      "enabled": true,
+      "en": {
+        "question": "How can I contact the FMRC team?",
+        "answer": "Choose Message FMRC here or use Send Us a Message on the Contact page. Both open the same support inbox.",
+        "steps": [
+          "Sign in to send a private message and keep your conversation history.",
+          "Describe your concern and include the relevant order or appointment reference if you have one.",
+          "If the team is available, an operator can reply while you are connected. Otherwise leave your message and check back for a reply.",
+          "For the published phone number, Facebook page and other official contact details, open Contact."
+        ]
+      },
+      "fil": {
+        "question": "Paano makipag-ugnayan sa FMRC team?",
+        "answer": "Piliin ang Message FMRC rito o ang Send Us a Message sa Contact page. Iisa ang support inbox na binubuksan ng mga ito.",
+        "steps": [
+          "Mag-sign in upang makapagpadala ng pribadong mensahe at magkaroon ng conversation history.",
+          "Ilarawan ang tanong o problema at isama ang order o appointment reference kung mayroon.",
+          "Kung available ang team, maaaring sumagot ang operator habang konektado kayo. Kung wala, iwan ang mensahe at balikan ang sagot.",
+          "Para sa published na numero, Facebook page at iba pang official contact details, buksan ang Contact."
+        ]
+      },
+      "aliases": [
+        "human",
+        "agent",
+        "live chat",
+        "talk to fmrc",
+        "customer service",
+        "contact number",
+        "office hours",
+        "kausap tao",
+        "tulong",
+        "makipag usap",
+        "help",
+        "hello",
+        "hi",
+        "good morning",
+        "kumusta"
+      ],
+      "actions": [
+        "contact"
+      ]
+    }
+  ]
+}

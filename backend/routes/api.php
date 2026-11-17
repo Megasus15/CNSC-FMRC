@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerMessageController;
+use App\Http\Controllers\Api\CustomerSupportController;
 use App\Http\Controllers\Api\CustomerPaymentMethodController;
 use App\Http\Controllers\Api\HomeSdgController;
 use App\Http\Controllers\Api\InventoryItemController;
@@ -141,6 +142,8 @@ Route::get('/promotions/active', [PromotionController::class, 'active']);
 
 // Public: Site settings (read-only for customer pages)
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
+Route::get('/support/assistant', [CustomerSupportController::class, 'assistant']);
+Route::get('/support/availability', [CustomerSupportController::class, 'availability'])->middleware('throttle:120,1');
 Route::get('/site-settings/about-video', [SiteSettingController::class, 'aboutVideo']);
 // Public: lightweight browser icon snapshot for the Admin/Staff shell.
 Route::get('/site-favicon', [SiteSettingController::class, 'favicon']);
@@ -316,7 +319,20 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::get('/customer/cart', [CartItemController::class, 'index']);
     Route::post('/customer/cart/sync', [CartItemController::class, 'sync']);
     Route::post('/customer/messages', [CustomerMessageController::class, 'store'])
-        ->middleware(EnsureNotUnderMaintenance::class . ':page_contact');
+        ->middleware([EnsureNotUnderMaintenance::class . ':page_contact', 'throttle:10,1']);
+    Route::get('/customer/messages', [CustomerSupportController::class, 'index'])->middleware('throttle:120,1');
+    Route::delete('/customer/messages/history', [CustomerSupportController::class, 'deleteHistory'])->middleware('throttle:20,1');
+    Route::delete('/customer/messages/{customerMessage}/history', [CustomerSupportController::class, 'deleteHistory'])->middleware('throttle:20,1');
+    Route::get('/customer/messages/{customerMessage}', [CustomerSupportController::class, 'show']);
+    Route::get('/customer/messages/{customerMessage}/entries', [CustomerSupportController::class, 'entries'])->middleware('throttle:120,1');
+    Route::post('/customer/messages/{customerMessage}/entries', [CustomerSupportController::class, 'send'])
+        ->middleware([EnsureNotUnderMaintenance::class . ':page_contact', 'throttle:30,1']);
+    Route::patch('/customer/messages/{customerMessage}/read', [CustomerSupportController::class, 'read'])->middleware('throttle:120,1');
+    Route::post('/customer/messages/{customerMessage}/end', [CustomerSupportController::class, 'end'])->middleware('throttle:20,1');
+    Route::post('/customer/messages/{customerMessage}/reopen', [CustomerSupportController::class, 'reopen'])->middleware([EnsureNotUnderMaintenance::class . ':page_contact', 'throttle:20,1']);
+    Route::get('/admin/support/assistant', [CustomerSupportController::class, 'settings']);
+    Route::put('/admin/support/assistant', [CustomerSupportController::class, 'saveSettings'])->middleware('throttle:20,1');
+    Route::match(['GET', 'POST'], '/admin/customer-support/presence', [CustomerSupportController::class, 'presence'])->middleware('throttle:30,1');
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
@@ -453,6 +469,11 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     // Admin/Staff: Customer inquiries from Contact page
     Route::get('/admin/customer-messages', [CustomerMessageController::class, 'index']);
     Route::get('/admin/customer-messages/summary', [CustomerMessageController::class, 'summary']);
+    Route::get('/admin/customer-messages/{customerMessage}', [CustomerSupportController::class, 'show']);
+    Route::get('/admin/customer-messages/{customerMessage}/entries', [CustomerSupportController::class, 'entries'])->middleware('throttle:120,1');
+    Route::post('/admin/customer-messages/{customerMessage}/entries', [CustomerSupportController::class, 'send'])->middleware('throttle:30,1');
+    Route::patch('/admin/customer-messages/{customerMessage}/conversation-read', [CustomerSupportController::class, 'read'])->middleware('throttle:120,1');
+    Route::post('/admin/customer-messages/{customerMessage}/reopen', [CustomerSupportController::class, 'reopen'])->middleware('throttle:20,1');
     Route::patch('/admin/customer-messages/{customerMessage}/read', [CustomerMessageController::class, 'markRead']);
     Route::patch('/admin/customer-messages/{customerMessage}/resolve', [CustomerMessageController::class, 'resolve']);
     Route::delete('/admin/customer-messages/delete-bulk', [CustomerMessageController::class, 'deleteBulk']);

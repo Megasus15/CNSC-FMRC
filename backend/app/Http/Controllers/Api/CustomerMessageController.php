@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\CustomerMessage;
+use App\Support\CustomerSupport;
+use App\Support\SupportConversations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +25,17 @@ class CustomerMessageController extends Controller
             'name' => 'required|string|max:120',
             'email' => 'required|string|email|max:190',
             'message' => 'required|string|max:3000',
+            'request_key' => 'sometimes|nullable|uuid',
+            'source' => 'sometimes|in:contact,widget',
         ]);
 
         $actor = $request->user();
+
+        if (CustomerSupport::installed()) {
+            $message = SupportConversations::create($actor, $validated);
+            return response()->json(['message' => 'Your message has been sent. Continue the conversation in FMRC Help.',
+                'data' => $this->transformMessage($message)], 201)->header('Cache-Control', 'private, no-store');
+        }
 
         $message = CustomerMessage::create([
             'user_id' => $actor->id,
@@ -61,6 +71,11 @@ class CustomerMessageController extends Controller
                 $inner->where('sender_name', 'like', "%{$search}%")
                     ->orWhere('sender_email', 'like', "%{$search}%")
                     ->orWhere('message', 'like', "%{$search}%");
+                if (CustomerSupport::installed()) {
+                    $inner->orWhereExists(fn ($entry) => $entry->selectRaw('1')->from('customer_message_entries')
+                        ->whereColumn('customer_message_entries.customer_message_id', 'customer_messages.id')
+                        ->where('body', 'like', "%{$search}%"));
+                }
             });
         }
 
@@ -72,17 +87,24 @@ class CustomerMessageController extends Controller
             $query->where('is_read', false);
         }
 
-        $messages = $query->orderByDesc('created_at')->limit(500)->get();
+        $request->validate(['page' => 'sometimes|integer|min:1', 'per_page' => 'sometimes|integer|min:1|max:50']);
+        $query->orderByDesc(CustomerSupport::installed() ? 'last_entry_at' : 'created_at')->orderByDesc('id');
+        $eligibleIds = $request->has('page') ? (clone $query)->pluck('id')->all() : null;
+        $paginator = $request->has('page') ? $query->paginate((int) $request->input('per_page', 10)) : null;
+        $messages = $paginator ? $paginator->getCollection() : $query->limit(500)->get();
 
         return response()->json([
             'data' => $messages->map(fn (CustomerMessage $msg) => $this->transformMessage($msg)),
+            'meta' => $paginator ? ['page' => $paginator->currentPage(), 'last_page' => $paginator->lastPage(), 'total' => $paginator->total()] : null,
+            'support_installed' => CustomerSupport::installed(),
+            'eligible_ids' => $eligibleIds,
             'summary' => [
                 'total' => CustomerMessage::count(),
                 'new' => CustomerMessage::where('status', 'new')->count(),
                 'unread' => CustomerMessage::where('is_read', false)->count(),
                 'resolved' => CustomerMessage::where('status', 'resolved')->count(),
             ],
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function markRead(Request $request, CustomerMessage $customerMessage): JsonResponse
@@ -92,7 +114,10 @@ class CustomerMessageController extends Controller
             return $denied;
         }
 
-        if (!$customerMessage->is_read) {
+        if (CustomerSupport::installed()) {
+            $maximum = (int) DB::table('customer_message_entries')->where('customer_message_id', $customerMessage->id)->max('id');
+            SupportConversations::read($customerMessage, $request->user()->role, $maximum);
+        } elseif (!$customerMessage->is_read) {
             $customerMessage->is_read = true;
             $customerMessage->read_at = now();
             $customerMessage->save();
@@ -111,12 +136,19 @@ class CustomerMessageController extends Controller
             return $denied;
         }
 
-        $customerMessage->status = 'resolved';
-        $customerMessage->is_read = true;
-        $customerMessage->read_at = $customerMessage->read_at ?: now();
-        $customerMessage->resolved_at = now();
-        $customerMessage->resolved_by_user_id = $request->user()?->id;
-        $customerMessage->save();
+        DB::transaction(function () use ($request, $customerMessage) {
+            $root = CustomerMessage::whereKey($customerMessage->id)->lockForUpdate()->firstOrFail();
+            if (CustomerSupport::installed()) {
+                $root->team_last_read_entry_id = (int) DB::table('customer_message_entries')->where('customer_message_id', $root->id)->max('id');
+                $root->closed_by_role = $request->user()->role;
+            }
+            $root->status = 'resolved';
+            $root->is_read = true;
+            $root->read_at = $root->read_at ?: now();
+            $root->resolved_at = now();
+            $root->resolved_by_user_id = $request->user()?->id;
+            $root->save();
+        });
 
         return response()->json([
             'message' => 'Message marked as resolved.',
@@ -239,6 +271,7 @@ class CustomerMessageController extends Controller
     private function transformMessage(CustomerMessage $message): array
     {
         return [
+            ...(CustomerSupport::installed() ? SupportConversations::present($message) : []),
             'id' => $message->id,
             'user_id' => $message->user_id,
             'sender_name' => $message->sender_name,

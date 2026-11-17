@@ -12,6 +12,7 @@
     order:svg('<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7 5l9 5"/>'),
     payment:svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>'),
     return:svg('<path d="M9 10H3V4m0 6 4-4a8 8 0 1 1-1 11"/>'),
+    support:svg('<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 11H3v7h4v-7H4Zm16 0h1v7h-4v-7h3Zm0 7a4 4 0 0 1-4 4h-4"/>'),
     previous:svg('<path d="m14 6-6 6 6 6"/>'),next:svg('<path d="m10 6 6 6-6 6"/>'),
     delete:svg('<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>'),
   };
@@ -39,7 +40,7 @@
     else if(error)body.innerHTML=`<div class="fmrc-notifications-empty">${icons.bell}<h3>Updates are unavailable</h3><p>${esc(error)}</p><button type="button" class="fmrc-announcement__button" data-notifications-retry>Try again</button></div>`;
     else if(loading&&!rows.length)body.innerHTML='<div class="fmrc-notifications-empty" role="status"><p>Loading your updates…</p></div>';
     else if(!rows.length)body.innerHTML=`<div class="fmrc-notifications-empty">${icons.bell}<h3>You’re all caught up</h3><p>Your appointment, quotation and order updates will appear here.</p></div>`;
-    else body.innerHTML=rows.map(row=>`<article class="fmrc-notification-row${row.read_at?'':' is-unread'}"><button type="button" class="fmrc-notification-item" data-notification-id="${row.id}" ${busy?'disabled':''}><span class="fmrc-notification-icon">${icons[row.type]||icons.bell}</span><span class="fmrc-notification-copy"><span class="fmrc-notification-meta">${esc(({appointment:'Appointment',order:'Order',payment:'Payment',return:'Return or refund'})[row.type]||'Account update')}<span class="fmrc-notification-dot" ${row.read_at?'hidden':''} aria-label="Unread"></span></span><strong>${esc(row.title)}</strong><span>${esc(row.message)}</span><time datetime="${esc(row.published_at)}">${esc(date(row.published_at))}</time></span><span class="fmrc-notification-arrow">${icons.next}</span></button><button type="button" class="fmrc-notification-delete" data-notification-delete="${row.id}" aria-label="Delete notification: ${esc(row.title)}" title="Delete notification" ${busy||loading?'disabled':''}>${icons.delete}</button></article>`).join('');
+    else body.innerHTML=rows.map(row=>`<article class="fmrc-notification-row${row.read_at?'':' is-unread'}"><button type="button" class="fmrc-notification-item" data-notification-id="${row.id}" ${busy?'disabled':''}><span class="fmrc-notification-icon">${icons[row.type]||icons.bell}</span><span class="fmrc-notification-copy"><span class="fmrc-notification-meta">${esc(({appointment:'Appointment',order:'Order',payment:'Payment',return:'Return or refund',support:'Customer support'})[row.type]||'Account update')}<span class="fmrc-notification-dot" ${row.read_at?'hidden':''} aria-label="Unread"></span></span><strong>${esc(row.title)}</strong><span>${esc(row.message)}</span><time datetime="${esc(row.published_at)}">${esc(date(row.published_at))}</time></span><span class="fmrc-notification-arrow">${icons.next}</span></button><button type="button" class="fmrc-notification-delete" data-notification-delete="${row.id}" aria-label="Delete notification: ${esc(row.title)}" title="Delete notification" ${busy||loading?'disabled':''}>${icons.delete}</button></article>`).join('');
     body.setAttribute('aria-busy',String(loading));
     footer.innerHTML=`<span class="fmrc-notifications-page">${rows.length?`Page ${page} of ${pages}`:'Personal updates'}</span><div class="fmrc-announcement__actions"><button type="button" class="fmrc-announcement__button" data-notifications-read-all ${!token()||!personalUnread||!rows.length||busy||loading||error?'disabled':''}>Mark all as read</button><button type="button" class="fmrc-announcement__button" data-notifications-clear ${!token()||!rows.length||busy||loading||error?'disabled':''}>Clear all</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page-1}" aria-label="Previous notifications" ${page<=1||busy||loading||error?'disabled':''}>${icons.previous}</button><button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-notifications-page="${page+1}" aria-label="Next notifications" ${page>=pages||busy||loading||error?'disabled':''}>${icons.next}</button></div>`;
     if(active)body.querySelector(`[data-notification-id="${active}"]`)?.focus({preventScroll:true});
@@ -88,7 +89,8 @@
       if(!row.read_at)personalUnread=Math.max(0,personalUnread-1);row.read_at=new Date().toISOString();updateBadge();
       localStorage.setItem('fmrc_customer_notifications_changed',String(Date.now()));
       const appointmentId=target.searchParams.get('appointment_id');
-      if(target.searchParams.get('my_appointments')==='1'&&window.FMRCAppointments){window.FMRCAnnouncements.close();await window.FMRCAppointments.open(appointmentId||undefined);}
+      if(target.searchParams.get('support')==='1'&&window.FMRCSupport){window.FMRCAnnouncements.close();await window.FMRCSupport.openConversation(target.searchParams.get('conversation'));}
+      else if(target.searchParams.get('my_appointments')==='1'&&window.FMRCAppointments){window.FMRCAnnouncements.close();await window.FMRCAppointments.open(appointmentId||undefined);}
       else location.assign(target.href);
     }catch(problem){await window.showCustomerPopup?.(problem.message||'This update could not be opened. Please try again.',{title:'Notification unavailable'});}
     finally{busy=false;render();}
@@ -141,7 +143,7 @@
     for(const event of ['focus','online'])window.addEventListener(event,()=>void refresh(visible()));
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh(visible());});
     window.addEventListener('storage',event=>{if(['customer_token','customer_info','fmrc_customer_notifications_changed'].includes(event.key))void refresh(visible());});
-    for(const event of ['fmrc:custom-product-updated','fmrc:appointment-updated','fmrc:orders-updated'])window.addEventListener(event,()=>void refresh(visible()));
+    for(const event of ['fmrc:custom-product-updated','fmrc:appointment-updated','fmrc:orders-updated','fmrc:support-updated'])window.addEventListener(event,()=>void refresh(visible()));
   }
   window.addEventListener('fmrc:announcements-ready',mount,{once:true});
   if(document.readyState==='complete')mount();else document.addEventListener('DOMContentLoaded',mount,{once:true});

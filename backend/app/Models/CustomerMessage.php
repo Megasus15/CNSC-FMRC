@@ -20,12 +20,21 @@ class CustomerMessage extends Model
         'status',
         'resolved_at',
         'resolved_by_user_id',
+        'source',
+        'request_key',
+        'customer_last_read_entry_id',
+        'team_last_read_entry_id',
+        'last_entry_at',
+        'closed_by_role',
+        'customer_hidden_at',
     ];
 
     protected $casts = [
         'is_read' => 'boolean',
         'read_at' => 'datetime',
         'resolved_at' => 'datetime',
+        'last_entry_at' => 'datetime',
+        'customer_hidden_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo

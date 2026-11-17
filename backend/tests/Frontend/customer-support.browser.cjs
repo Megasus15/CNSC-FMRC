@@ -1,0 +1,112 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {browserFixture,chrome,root}=require('./helpers/website-browser.cjs');
+const defaults=JSON.parse(fs.readFileSync(path.join(root,'backend/resources/support-assistant.json'),'utf8'));
+const out=path.join(root,'output/customer-support');
+const fontPath=path.join(root,'tmp/support-browser-fonts.css');
+const fonts=fs.existsSync(fontPath)?fs.readFileSync(fontPath,'utf8'):'';
+const fontSetup=fonts?`{const s=document.createElement('style');s.textContent=${JSON.stringify(fonts)};document.head.append(s);}`:'';
+function fixture(){
+ let rows=[],messages=new Map(),next=1,entryId=1,failSend=false,available=false,saveFails=false,pack={...structuredClone(defaults),installed:true,revision:'r1'};pack.config.revision='r1';
+ const writes=[];
+ function present(row){const all=messages.get(row.id)||[],last=all.at(-1),unread=all.filter(e=>['admin','staff'].includes(e.sender_role)&&e.id>row.customer_last_read_entry_id).length;return{...row,last_message:last?.body,last_entry_id:last?.id||0,customer_unread:unread,can_reply:!row.customer_hidden,waiting_for:last?.sender_role==='customer'?'team':'customer',last_team_entry_id:all.filter(e=>e.sender_role!=='customer').at(-1)?.id||0};}
+ function create(body='A question for the team.',source='contact'){const id=next++,e={id:entryId++,sender_role:'customer',sender_name:'Customer Fixture',body,created_at:new Date().toISOString()};const row={id,user_id:50,sender_name:'Customer Fixture',sender_email:'customer@example.test',message:body,source,status:'new',is_read:false,last_entry_at:e.created_at,created_at:e.created_at,customer_last_read_entry_id:e.id,team_last_read_entry_id:0,can_reply:true};rows.push(row);messages.set(id,[e]);return present(row);}
+ function addReply(id,body='Hello! We can help you with this request. Please tell us the order reference.'){const row=rows.find(r=>r.id===id),e={id:entryId++,sender_role:'staff',sender_name:'FMRC Team',body,created_at:new Date().toISOString()};messages.get(id).push(e);row.last_entry_at=e.created_at;return e;}
+ async function handle({req,route,json}){
+  const query=new URL(req.url,'http://fixture').searchParams;
+  const body=async()=>{let data='';for await(const chunk of req)data+=chunk;return data?JSON.parse(data):{};};
+  if(route==='/api/user'){json({id:50,role:'customer',name:'Customer Fixture',email:'customer@example.test'});return true;}
+  if(route==='/api/support/assistant'){json({data:pack});return true;}
+  if(route==='/api/support/availability'){json({installed:true,available});return true;}
+  if(route==='/api/admin/customer-support/presence'){if(req.method==='POST')available=(await body()).available;json({available});return true;}
+  if(route==='/api/admin/support/assistant'){
+   if(req.method==='PUT'){const data=await body();writes.push({action:'settings',data});if(saveFails){json({message:'Save failed. Your draft is kept.'},503);return true;}pack={...structuredClone(data),installed:true,revision:'r'+Date.now()};pack.config.revision=pack.revision;}
+   json({data:pack,defaults});return true;
+  }
+  if(route==='/api/customer/messages'&&req.method==='POST'){const data=await body();writes.push({action:'create',data});if(failSend){json({message:'Connection interrupted. Please retry.'},503);return true;}json({data:create(data.message,data.source),message:'Message sent.'},201);return true;}
+  if(route==='/api/customer/messages/history'){
+   const data=await body(),ids=data.ids,eligible=rows.filter(r=>ids.includes(r.id)&&r.status==='resolved'&&!r.customer_hidden);eligible.forEach(r=>r.customer_hidden=true);writes.push({action:'delete-history',ids});json({processed_ids:eligible.map(r=>r.id),skipped_ids:ids.filter(id=>!eligible.some(r=>r.id===id))});return true;
+  }
+  if(route==='/api/customer/messages') {const data=rows.filter(r=>!r.customer_hidden).map(present);json({data,meta:{page:1,last_page:1,total:data.length},unread_count:data.reduce((n,r)=>n+r.customer_unread,0)});return true;}
+  if(route==='/api/admin/customer-messages'){const filter=query.get('search')||'',status=query.get('status'),filtered=rows.filter(r=>(r.message+r.sender_name).toLowerCase().includes(filter.toLowerCase())&&(!status||status==='all'||status===r.status||status==='unread'&&!r.is_read)),per=Number(query.get('per_page')||10),page=Number(query.get('page')||1);json({data:filtered.slice((page-1)*per,page*per).map(present),eligible_ids:filtered.map(r=>r.id),meta:{page,last_page:Math.max(1,Math.ceil(filtered.length/per)),total:filtered.length},support_installed:true,summary:{total:rows.length,new:rows.filter(r=>r.status==='new').length,unread:rows.filter(r=>!r.is_read).length,resolved:rows.filter(r=>r.status==='resolved').length}});return true;}
+  const match=route.match(/^\/api\/(customer|admin)\/messages\/(\d+)(?:\/(entries|read|end|reopen))?$/)||route.match(/^\/api\/(customer|admin)\/customer-messages\/(\d+)(?:\/(entries|conversation-read|read|resolve|reopen))?$/);
+  if(match){const side=match[1],id=Number(match[2]),action=match[3],row=rows.find(r=>r.id===id);if(!row||(side==='customer'&&row.customer_hidden)){json({message:'Not found.'},404);return true;}
+   if(action==='entries'&&req.method==='POST'){const data=await body();writes.push({action:'reply',side,id,data});if(failSend){json({message:'Send failed. Please retry.'},503);return true;}const e={id:entryId++,sender_role:side==='customer'?'customer':'staff',sender_name:side==='customer'?'Customer Fixture':'FMRC Team',body:data.body,created_at:new Date().toISOString()};messages.get(id).push(e);row.last_entry_at=e.created_at;json({entry:e,conversation:present(row)});return true;}
+   if(action==='entries'){let data=messages.get(id);if(query.has('after'))data=data.filter(e=>e.id>Number(query.get('after')));if(query.has('before'))data=data.filter(e=>e.id<Number(query.get('before')));json({data,has_more:false,conversation:present(row)});return true;}
+   if(action==='read'||action==='conversation-read'){const data=await body();if(side==='customer')row.customer_last_read_entry_id=data.through;else{row.team_last_read_entry_id=data.through||messages.get(id).at(-1).id;row.is_read=true;}json({data:present(row)});return true;}
+   if(action==='end'||action==='reopen'||action==='resolve'){await body();row.status=action==='reopen'?'new':'resolved';row.closed_by_role=side==='customer'?'customer':'staff';if(action!=='resolve')messages.get(id).push({id:entryId++,event:action==='end'?'ended':'reopened',sender_role:'system',sender_name:'FMRC Support',body:action==='end'?'Chat ended by the customer.':'Chat reopened.',created_at:new Date().toISOString()});writes.push({action,id,side});json({data:present(row)});return true;}
+   json({data:present(row)});return true;
+  }
+  return false;
+ }
+ return{handle,create,addReply,rows,messages,writes,get pack(){return pack},get available(){return available},set failSend(v){failSend=v},set saveFails(v){saveFails=v},set available(v){available=v}};
+}
+const setup=`localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',JSON.stringify({id:50,role:'customer',name:'Customer Fixture',email:'customer@example.test'}));${fontSetup}`;
+async function click(h,selector){await h.run(`document.querySelector(${JSON.stringify(selector)}).click()`);await h.pause(50);}
+async function type(h,selector,value){await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(selector)});n.value=${JSON.stringify(value)};n.dispatchEvent(new Event('input',{bubbles:true}));})()`);}
+async function size(h,width,height=900){await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await h.pause(80);}
+async function shot(h,name){await h.run('document.fonts.ready');await h.shot(name);fs.mkdirSync(out,{recursive:true});fs.copyFileSync(path.join(h.artifacts,name+'.png'),path.join(out,name+'.png'));}
+
+test('Customer help, connected messaging, ending/reopening and single/bulk history controls',{skip:!chrome,timeout:120000},async t=>{
+ const f=fixture();const h=await browserFixture(t,f.handle,{setup});await h.send('Network.setBlockedURLs',{urls:['https://*']});
+ await size(h,1440);await h.go('/home-page/main.html');await h.until('window.FMRCSupport');await click(h,'.fmrc-support__launcher');await h.until(`document.querySelector('[data-support-topic="order-products"]')`);
+ await shot(h,'customer-help-welcome-desktop');await size(h,390);await shot(h,'customer-help-welcome-mobile');await size(h,1440);
+ assert(await h.run(`document.querySelector('.fmrc-support__avatar img').src.includes('FMRC%20Logo.png')`));
+ await type(h,'#supportInput','How to oder a prodcut');await h.run(`document.getElementById('supportComposer').requestSubmit()`);await h.until(`document.querySelector('#supportHelpLog ol')`);assert.match(await h.run(`document.getElementById('supportHelpLog').textContent`),/before payment/);
+ assert.equal(f.writes.length,0,'automated help stays local');
+ for(const width of [320,390,768,1024,1440]){await size(h,width);const geometry=await h.run(`(()=>{const p=document.getElementById('fmrcSupportPanel'),b=document.getElementById('supportBody'),r=p.getBoundingClientRect();return {fit:r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight,overflow:b.scrollWidth>b.clientWidth+1,textarea:getComputedStyle(document.getElementById('supportInput')).fontFamily}})()`);assert(geometry.fit&&!geometry.overflow,JSON.stringify({width,geometry}));assert.match(geometry.textarea,/Montserrat/);}
+ await size(h,390);await shot(h,'customer-help-mobile');await size(h,1440);await shot(h,'customer-help-desktop');
+ await click(h,'[data-support-handoff]');await h.until(`document.getElementById('supportConsent')`);assert.equal(await h.run(`document.getElementById('supportInput').value`),'How to oder a prodcut');
+ await h.run(`document.getElementById('supportConsent').checked=true`);await type(h,'#supportInput','A private question.\nSecond paragraph.');f.failSend=true;await h.run(`document.getElementById('supportComposer').requestSubmit()`);await h.until(`!document.getElementById('supportError').hidden`);assert.equal(await h.run(`document.getElementById('supportInput').value`),'A private question.\nSecond paragraph.');f.failSend=false;await h.run(`document.getElementById('supportComposer').requestSubmit()`);await h.until(`document.querySelector('[data-support-end]')`);assert.equal(f.rows.length,1);assert.equal(f.writes[0].data.request_key,f.writes[1].data.request_key,'retry keeps idempotency key');
+ const reply=f.addReply(1,'Hello from FMRC. <img src=x onerror="window.unsafeSupport=true">\nA preserved paragraph.');await h.until(`document.querySelector('[data-support-entry="${reply.id}"]')`);assert.equal(await h.run('window.unsafeSupport===true'),false);assert(await h.run(`document.querySelector('[data-support-entry="${reply.id}"] img').src.includes('FMRC%20Logo.png')`));
+ await size(h,390);await shot(h,'customer-conversation-mobile');
+ await click(h,'[data-support-end]');await h.until(`document.querySelector('[role=alertdialog]')`);assert.equal(await h.run(`document.querySelectorAll('.fmrc-support__confirm button').length`),2);await click(h,'[data-support-cancel]');assert.equal(f.rows[0].status,'new');
+ await click(h,'[data-support-end]');await click(h,'[data-support-confirm]');await h.until(`!document.getElementById('supportEnded').hidden`);assert.equal(f.rows[0].status,'resolved');assert(await h.run(`document.getElementById('supportComposer').hidden`));
+ await click(h,'[data-support-reopen]');await h.until(`!document.getElementById('supportComposer').hidden`);assert.equal(f.rows[0].status,'new');
+ await click(h,'[data-support-end]');await click(h,'[data-support-confirm]');await h.until(`!document.getElementById('supportEnded').hidden`);
+ await click(h,'[data-support-delete]');await click(h,'[data-support-confirm]');await h.until(`document.querySelector('[data-support-new]')&&!document.querySelector('[data-support-conversation="1"]')`);assert(f.rows[0].customer_hidden);assert.equal(f.messages.get(1).length,5,'deleting customer history preserves records');
+ const two=f.create('Second inquiry'),three=f.create('Third inquiry'),active=f.create('Active inquiry');f.rows.find(r=>r.id===two.id).status='resolved';f.rows.find(r=>r.id===three.id).status='resolved';await h.until(`document.querySelector('[data-support-conversation="${two.id}"]')`);
+ assert(await h.run(`document.querySelector('[data-support-select="${active.id}"]').disabled`));await click(h,'[data-support-select-all]');await click(h,'[data-support-bulk]');await click(h,'[data-support-confirm]');await h.until(`!document.querySelector('[data-support-conversation="${two.id}"]')`);assert(!f.rows.find(r=>r.id===active.id).customer_hidden);
+ await click(h,`[data-support-conversation="${active.id}"]`);await type(h,'#supportInput','Private unsent draft');await h.run(`localStorage.setItem('customer_token','another-account');localStorage.setItem('customer_info',JSON.stringify({id:99,name:'Other account',email:'other@example.test'}));dispatchEvent(new Event('storage'));`);assert.equal(await h.run(`document.getElementById('supportInput').value`),'');assert.equal(await h.run(`document.querySelector('#supportMessages')?.textContent||''`),'');
+ assert.deepEqual(await h.run('fixtureErrors'),[]);
+});
+
+for(const role of ['admin','staff'])test(role+' support inbox replies, availability, responsive layout and Admin-only settings',{skip:!chrome,timeout:120000},async t=>{
+ const f=fixture();f.create('Please help with my order.\nHere is my question.');const h=await browserFixture(t,f.handle,{setup:fontSetup});await h.send('Network.setBlockedURLs',{urls:['https://*']});await size(h,1440);await h.go('/'+role+'-page/customer-inquiries.html');await h.until(`document.querySelector('[data-action=view]')&&window.FMRCInquirySupport`);await click(h,'[data-action=view]');await h.until(`document.querySelector('#supportThreadLog [data-support-entry]')`);
+ assert(await h.run(`document.body.style.position==='fixed'`));
+ f.failSend=true;await type(h,'#supportTeamReply','Hello! We can help with that.');await h.run(`document.querySelector('.support-reply-form').requestSubmit()`);await h.until(`!document.getElementById('supportTeamError').hidden`);assert.equal(await h.run(`document.getElementById('supportTeamReply').value`),'Hello! We can help with that.');f.failSend=false;await h.run(`document.querySelector('.support-reply-form').requestSubmit()`);await h.until(`document.querySelectorAll('#supportThreadLog [data-support-entry]').length===2`);assert.equal(await h.run(`document.getElementById('supportTeamReply').value`),'');
+ for(const width of [320,390,768,1024,1440])for(const theme of ['light','dark']){await size(h,width);await h.run(`document.documentElement.dataset.theme='${theme}'`);assert(await h.run(`(()=>{const c=document.querySelector('#inquiryDetailModal .portal-detail-dialog__card'),b=document.querySelector('#inquiryDetailModal .portal-detail-dialog__body'),f=c.querySelector('footer').getBoundingClientRect(),r=c.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&f.bottom<=innerHeight+1&&b.scrollWidth<=b.clientWidth+1})()`),role+' '+theme+' '+width);}
+ await size(h,390);await h.run(`document.documentElement.dataset.theme='light'`);await shot(h,role+'-support-mobile');await size(h,1440);await shot(h,role+'-support-desktop');await click(h,'#inquiryDetailModal [data-modal-close]');await h.until(`!document.getElementById('inquiryDetailModal').classList.contains('show')`);await click(h,'#supportAvailability');await h.until(`document.getElementById('supportAvailability').checked`);assert(f.available);
+ if(role==='staff'){assert.equal(await h.run(`!!document.getElementById('supportSettingsOpen')`),false);return;}
+ await click(h,'#supportSettingsOpen');await h.until(`!document.getElementById('supportSettingsEditor').hidden`);assert(await h.run(`document.getElementById('supportSettingsSave').disabled`));
+ await type(h,'#supportField-config-name','FMRC Customer Care');assert.equal(await h.run(`document.getElementById('supportSettingsSave').disabled`),false);
+ f.saveFails=true;await click(h,'#supportSettingsSave');await h.until(`!document.getElementById('supportSettingsError').hidden`);assert.equal(await h.run(`document.getElementById('supportField-config-name').value`),'FMRC Customer Care');f.saveFails=false;await click(h,'#supportSettingsSave');await h.until(`document.getElementById('supportSettingsSave').disabled&&!document.getElementById('supportSettingsModal').hasAttribute('data-saving')`);assert.equal(f.pack.config.name,'FMRC Customer Care');
+ await h.run(`document.querySelector('.admin-success-notification__close')?.click()`);await h.pause(250);
+ await click(h,'[data-settings-tab=answers]');await h.until(`document.getElementById('supportAnswerSelect')`);await type(h,'#supportField-faq-en-answer','A revised approved answer.');await click(h,'[data-settings-tab=preview]');assert.match(await h.run(`document.querySelector('.support-settings-preview').textContent`),/A revised approved answer/);
+ await click(h,'[data-settings-tab=appearance]');await size(h,1440);await shot(h,'admin-support-appearance-desktop');await size(h,390);await shot(h,'admin-support-appearance-mobile');await click(h,'[data-settings-tab=answers]');await size(h,1440);await shot(h,'admin-support-answers-desktop');await click(h,'[data-settings-tab=preview]');
+ await size(h,390);await shot(h,'admin-support-settings-mobile');await size(h,1440);await shot(h,'admin-support-settings-desktop');
+ await click(h,'#supportSettingsCancel');await h.until(`document.querySelector('.admin-system-popup.show')`);assert(await h.run(`document.getElementById('supportSettingsModal').classList.contains('show')`));
+ assert.deepEqual(await h.run('fixtureErrors'),[]);
+});
+
+test('Contact creates the same support conversation; widget works across Customer, PWA and booking screens',{skip:!chrome,timeout:120000},async t=>{
+ const f=fixture(),h=await browserFixture(t,f.handle,{setup});await h.send('Network.setBlockedURLs',{urls:['https://*']});await size(h,1440);
+ for(const route of ['/about-page/about.html','/services-page/service.html','/products-page/product.html','/products-page/transaction-terms.html','/products-page/refund-policy.html','/customer-auth/auth.html','/apps/customer/home-page/']){
+  await h.go(route);await h.until('window.FMRCSupport');assert.equal(await h.run(`document.querySelectorAll('.fmrc-support').length`),1,route);await click(h,'.fmrc-support__launcher');await h.until(`document.querySelector('[data-support-topic]')`);await click(h,'[data-support-close]');
+ }
+ await h.go('/contact-page/contact.html');await h.until(`document.getElementById('contactMessageForm')&&window.FMRCSupport`);
+ await type(h,'#contactName','Customer Fixture');await type(h,'#contactEmail','customer@example.test');await type(h,'#contactMessage','Contact inquiry connected to chat.');await h.run(`document.getElementById('contactConsent').checked=true;document.getElementById('contactMessageForm').requestSubmit()`);await h.until(`document.getElementById('customerSystemPopup').classList.contains('show')`);await click(h,'#customerSystemPopupOk');await h.until(`document.getElementById('customerSystemPopupTitle').textContent==='Message Sent'`);await click(h,'#customerSystemPopupOk');await h.until(`document.querySelector('#supportMessages [data-support-entry]')`);assert.equal(f.rows.length,1);assert.equal(f.rows[0].source,'contact');assert.match(await h.run(`document.getElementById('supportMessages').textContent`),/Contact inquiry connected to chat/);
+ await h.go('/home-page/main.html');await h.until(`window.FMRCSupport&&document.getElementById('appointmentFlow')`);
+ await h.run(`document.getElementById('appointmentFlow').classList.add('show-modal');document.body.style.overflow='hidden';document.getElementById('aptFName').value='Preserved';`);
+ for(let step=1;step<=5;step++){
+  await h.run(`document.querySelectorAll('#appointmentFlow .apt-content-section').forEach(n=>n.classList.remove('active'));document.getElementById('aptStep${step}')?.classList.add('active');`);
+  await click(h,'.fmrc-support__launcher');await h.until(`!document.getElementById('fmrcSupportPanel').hidden`);
+  const top=await h.run(`(()=>{const b=document.querySelector('.fmrc-support__header'),r=b.getBoundingClientRect();return document.elementFromPoint(r.left+20,r.top+20)?.closest('.fmrc-support')!==null})()`);assert(top,'Support stays reachable above booking step '+step);
+  await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape'});assert(await h.run(`document.getElementById('appointmentFlow').classList.contains('show-modal')`),'Escape keeps booking open');assert.equal(await h.run(`document.getElementById('aptFName').value`),'Preserved');
+ }
+ await h.run(`document.getElementById('appointmentFlow').classList.remove('show-modal');document.body.style.overflow='';localStorage.removeItem('customer_token');localStorage.removeItem('customer_info');dispatchEvent(new Event('storage'));`);
+ await click(h,'.fmrc-support__launcher');await click(h,'[data-support-tab=team]');assert.match(await h.run(`document.getElementById('supportBody').textContent`),/Sign in/);assert(await h.run(`document.getElementById('supportComposer').hidden`));
+ await click(h,'[data-support-tab=help]');await size(h,640,450);await h.run(`const s=document.createElement('style');s.textContent='.fmrc-support *{letter-spacing:.12em!important;word-spacing:.16em!important;line-height:1.8!important}';document.head.append(s);`);
+ assert(await h.run(`(()=>{const p=document.getElementById('fmrcSupportPanel'),r=p.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.bottom<=innerHeight+1&&r.right<=innerWidth+1&&p.scrollWidth<=p.clientWidth+1})()`),'200% equivalent with adjusted text spacing');
+ await size(h,844,390);assert(await h.run(`(()=>{const p=document.getElementById('fmrcSupportPanel'),r=p.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})()`),'Short landscape');
+ assert.deepEqual(await h.run('fixtureErrors'),[]);
+});

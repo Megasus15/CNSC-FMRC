@@ -27,7 +27,15 @@ for(const role of ['admin','staff'])test(role+' Inquiries refinement preserves r
  const key=async key=>{await h.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Escape'?27:9});await h.send('Input.dispatchKeyEvent',{type:'keyUp',key});};
  const shot=async name=>{await h.run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);await h.shot(name);};
  await h.go('/'+role+'-page/customer-inquiries.html');await h.until(`document.querySelector('[data-action=view]')`);
- const hoverInquiry=async s=>{const r=await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(s)});n.scrollIntoView({block:'center',behavior:'instant'});const r=n.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',...r});await h.pause(60);await h.run(`Promise.all(document.querySelector(${JSON.stringify(s)}).getAnimations().map(a=>a.finished.catch(()=>{})))`);return h.run(`getComputedStyle(document.querySelector(${JSON.stringify(s)})).backgroundColor`);};
+ const hoverInquiry=async s=>{
+  for(let attempt=0;attempt<4;attempt++){
+   const r=await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(s)});n.scrollIntoView({block:'center',behavior:'instant'});const r=n.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+   await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',...r});await h.pause(100);
+   await h.run(`Promise.all(document.querySelector(${JSON.stringify(s)}).getAnimations().map(a=>a.finished.catch(()=>{})))`);
+   if(await h.run(`document.querySelector(${JSON.stringify(s)}).matches(':hover')`))return h.run(`getComputedStyle(document.querySelector(${JSON.stringify(s)})).backgroundColor`);
+  }
+  throw Error('Hover target remained covered: '+s+' '+JSON.stringify(await h.run(`(()=>{const n=document.querySelector(${JSON.stringify(s)}),r=n.getBoundingClientRect();return {rect:r.toJSON(),cover:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML?.slice(0,500)}})()`)));
+ };
  assert.equal(await hoverInquiry('[data-action=delete][data-id="1"]'),await hoverInquiry('[data-action=view][data-id="1"]'),'Inquiry delete hover uses the standard maroon');await h.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
  for(const width of [320,390,768,1024,1440]){
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});
@@ -41,7 +49,7 @@ for(const role of ['admin','staff'])test(role+' Inquiries refinement preserves r
   await h.send('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:width<600});await h.run(`document.documentElement.dataset.theme='${theme}'`);
   const g=await h.run(`(()=>{let r=document.getElementById('inquiryDetailModal'),c=r.querySelector('.portal-detail-dialog__card'),b=r.querySelector('.portal-detail-dialog__body'),f=r.querySelector('footer').getBoundingClientRect(),head=r.querySelector('header').getBoundingClientRect(),q=c.getBoundingClientRect();return {fits:q.left>=0&&q.right<=innerWidth+1&&f.bottom<=innerHeight+1,overflow:c.scrollHeight>c.clientHeight+1||b.scrollWidth>b.clientWidth+1,locked:document.body.style.position==='fixed',scroll:b.scrollHeight>b.clientHeight,header:head.bottom<=b.getBoundingClientRect().top+1}})()`);
   assert(g.fits&&!g.overflow&&g.locked&&g.scroll&&g.header,JSON.stringify({width,theme,g}));
-  assert(await h.run(`[...document.querySelectorAll('#inquiryDetailModal footer button')].every(b=>b.scrollWidth<=b.clientWidth+1&&b.getBoundingClientRect().height>=44)`),'Footer labels fit at '+width);
+  assert(await h.run(`[...document.querySelectorAll('#inquiryDetailModal footer button')].filter(b=>b.getClientRects().length).every(b=>b.scrollWidth<=b.clientWidth+1&&b.getBoundingClientRect().height>=44)`),'Visible footer labels fit at '+width);
   if([390,1440].includes(width))await shot(role+'-inquiry-details-'+width+'-'+theme);
  }
  await h.send('Emulation.setDeviceMetricsOverride',{width:740,height:360,deviceScaleFactor:1,mobile:false});assert(await h.run(`document.querySelector('#inquiryDetailModal footer').getBoundingClientRect().bottom<=innerHeight`));

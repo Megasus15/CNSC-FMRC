@@ -31,6 +31,7 @@ class SiteSettingController extends Controller
 
         $data = [];
         foreach ($rows as $row) {
+            if (str_starts_with((string) $row->key, 'support_')) continue;
             // The email-template overrides are back-office copy, not page
             // content. Serving ~20 KB of notification text to every customer
             // page load would be pure waste; the editor reads them through
@@ -143,6 +144,13 @@ class SiteSettingController extends Controller
         }
 
         $input = $request->all();
+        // Support settings have their own validation, revision and Admin-only
+        // editor. The generic content endpoint must not bypass that contract.
+        foreach (array_keys($input) as $key) {
+            if (str_starts_with((string) $key, 'support_')) {
+                return response()->json(['message' => 'Use the Admin Support Settings editor to change support settings.'], 403);
+            }
+        }
 
         // Staff may edit ordinary customer content, but login branding and
         // checkout availability are Admin-only, including legacy portal logos.

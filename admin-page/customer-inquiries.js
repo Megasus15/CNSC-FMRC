@@ -81,10 +81,14 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedId: null,
     lastSignalTs: 0,
     realtimeChannel: null,
+    serverMeta: null,
+    eligibleIds: null,
+    supportInstalled: false,
   };
   let inquiryBulkController = null;
   let resolvingId = null;
   let detailDecisionOpen = false;
+  let inquiryRequestSequence = 0;
 
   if (!tableBody) return;
 
@@ -274,17 +278,17 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    const totalPages = state.serverMeta?.last_page || Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
     state.currentPage = Math.min(Math.max(state.currentPage, 1), totalPages);
 
     const start = (state.currentPage - 1) * PAGE_SIZE;
-    const pageRows = rows.slice(start, start + PAGE_SIZE);
+    const pageRows = state.serverMeta ? rows : rows.slice(start, start + PAGE_SIZE);
 
     tableBody.innerHTML = pageRows
       .map((row) => {
         const statusClass =
           row.status === "resolved" ? "inq-status-resolved" : "inq-status-new";
-        const statusText = row.status === "resolved" ? "Resolved" : "New";
+        const statusText = row.status === "resolved" ? "Resolved" : "Open";
         const readClass = row.is_read ? "read" : "unread";
         const readText = row.is_read ? "Read" : "Unread";
 
@@ -295,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div><strong>${window.AdminTableValue.html(row.sender_name)}</strong></div>
               <div class="inq-text-muted">${escapeHtml(row.sender_email)}</div>
             </td>
-            <td><div class="inq-message-preview">${window.AdminTableValue.html(row.message)}</div></td>
+            <td><div class="inq-message-preview">${window.AdminTableValue.html(row.last_message ?? row.message)}</div></td>
             <td>${window.AdminTableValue.html(formatDateTime(row.created_at))}</td>
             <td><span class="inq-status-pill ${statusClass}">${statusText}</span></td>
             <td><span class="inq-read-badge ${readClass}">${readText}</span></td>
@@ -312,7 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .join("");
 
-    pageMeta.textContent = window.AdminTablePagination.label(state.currentPage, rows.length, PAGE_SIZE);
+    pageMeta.textContent = window.AdminTablePagination.label(state.currentPage, state.serverMeta?.total ?? rows.length, PAGE_SIZE);
     pageNumber.value = String(state.currentPage);
     pageNumber.max = String(totalPages);
     prevBtn.disabled = state.currentPage <= 1;
@@ -326,10 +330,10 @@ document.addEventListener("DOMContentLoaded", () => {
       table: inquiriesTable,
       footer: inquiriesFooter,
       tableLabel: "Inbox Directory",
-      getEligibleRows: () => state.rows,
+      getEligibleRows: () => state.eligibleIds ? state.eligibleIds.map(id => ({id})) : state.rows,
       getPageRows: () => {
         const start = (state.currentPage - 1) * PAGE_SIZE;
-        return state.rows.slice(start, start + PAGE_SIZE);
+        return state.serverMeta ? state.rows : state.rows.slice(start, start + PAGE_SIZE);
       },
       idleAction: {
         label: "Select inquiries to delete",
@@ -369,35 +373,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const openDetail = (id) => {
-    const row = state.rows.find((item) => String(item.id) === String(id));
+  const openDetail = (id, suppliedRow) => {
+    const row = suppliedRow || state.rows.find((item) => String(item.id) === String(id));
     if (!row) return;
 
     state.selectedId = row.id;
     detailSenderName.textContent = row.sender_name || "-";
     detailSenderEmail.textContent = row.sender_email || "-";
     detailSubmittedAt.textContent = formatDateTime(row.created_at);
-    detailStatus.textContent = row.status === "resolved" ? "Resolved" : "New";
+    detailStatus.textContent = row.status === "resolved" ? "Resolved" : "Open";
     detailStatus.className = 'status-pill ' + (row.status === 'resolved' ? 'status-green' : 'status-yellow');
     detailMessage.textContent = row.message || "-";
     detailResolveBtn.disabled = row.status === "resolved";
 
     if (window.PortalDetailDialog) window.PortalDetailDialog.open(detailModal);
     else detailModal.classList.add("show");
+    window.FMRCInquirySupport?.open(row, state.supportInstalled);
   };
 
   const closeDetail = () => {
+    if (detailModal.dataset.supportPending === 'true') return;
     if (resolvingId !== null && String(resolvingId) === String(state.selectedId)) return;
     detailModal.classList.remove("show");
   };
   window.PortalDetailDialog?.registerClose(detailModal, closeDetail);
   detailModal.addEventListener('click', event => {
-    if (event.target.closest('[data-modal-close]') && resolvingId !== null && String(resolvingId) === String(state.selectedId)) {
+    if (event.target.closest('[data-modal-close]') && (detailModal.dataset.supportPending === 'true' || (resolvingId !== null && String(resolvingId) === String(state.selectedId)))) {
       event.preventDefault(); event.stopImmediatePropagation();
     }
   }, true);
 
   const syncData = async (isSilent = false) => {
+    const sequence = ++inquiryRequestSequence;
     if (!token) {
       if (!isSilent) {
         showPopup("Session not found. Please log in again.", {
@@ -412,10 +419,18 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const status = encodeURIComponent(statusFilter?.value || "all");
       const search = encodeURIComponent((searchInput?.value || "").trim());
-      const query = `/admin/customer-messages?status=${status}&search=${search}`;
+      const query = `/admin/customer-messages?status=${status}&search=${search}&page=${state.currentPage}&per_page=${PAGE_SIZE}`;
       const payload = await request(query);
+      if (sequence !== inquiryRequestSequence) return;
 
       state.rows = Array.isArray(payload.data) ? payload.data : [];
+      state.serverMeta = payload.meta || null;
+      state.eligibleIds = Array.isArray(payload.eligible_ids) ? payload.eligible_ids : null;
+      state.supportInstalled = !!payload.support_installed;
+      if (state.serverMeta && state.currentPage > state.serverMeta.last_page) {
+        state.currentPage = state.serverMeta.last_page || 1;
+        return syncData(isSilent);
+      }
       state.summary = payload.summary || {
         total: 0,
         new: 0,
@@ -524,7 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (action === "delete") {
       const ok = await askConfirm(
-        "Delete this inquiry? This cannot be undone.",
+        "Permanently delete this inquiry and its complete conversation? This cannot be undone.",
         {
           title: "Delete Inquiry",
           confirmText: "Delete",
@@ -554,21 +569,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   prevBtn?.addEventListener("click", () => {
     state.currentPage = Math.max(1, state.currentPage - 1);
-    renderRows();
+    if (state.serverMeta) void syncData(); else renderRows();
   });
 
   nextBtn?.addEventListener("click", () => {
-    const maxPage = Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
+    const maxPage = state.serverMeta?.last_page || Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE));
     state.currentPage = Math.min(maxPage, state.currentPage + 1);
-    renderRows();
+    if (state.serverMeta) void syncData(); else renderRows();
   });
 
   window.AdminPageNumberInput?.bind(pageNumber, {
     getPage: () => state.currentPage,
-    getTotalPages: () => Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE)),
+    getTotalPages: () => state.serverMeta?.last_page || Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE)),
     onChange: (page) => {
       state.currentPage = page;
-      renderRows();
+      if (state.serverMeta) void syncData(); else renderRows();
     },
   });
 
@@ -634,11 +649,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // A customer-inquiry notification in the header opens the message itself.
     // Returning false when the row is gone lets the shared fallback flash the
     // table instead of leaving the click with nothing to show.
-    window.AdminNotifFocus?.onFocus(["inquiry"], (intent) => {
+    window.AdminNotifFocus?.onFocus(["inquiry"], async (intent) => {
       const id = String(intent?.id || "");
       if (!id) return false;
       const exists = state.rows.some((item) => String(item?.id) === id);
-      if (!exists) return false;
+      if (!exists) {
+        try { const result = await request(`/admin/customer-messages/${id}`); if (result.data) { openDetail(id, result.data); return true; } } catch {}
+        return false;
+      }
 
       openDetail(id);
       const row = document.querySelector(`tr[data-row-id="${id}"]`);
