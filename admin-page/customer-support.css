@@ -1,4 +1,19 @@
 /* Support-only additions reuse the established Inventory/portal dialog frame. */
+.support-inquiries-page .page-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.support-inquiries-page .page-toolbar .toolbar-title{flex:1;min-width:220px}
+.support-inquiries-page .page-toolbar .toolbar-actions{margin-left:auto;flex:none}
+.support-control-card{padding:22px 24px;margin-bottom:22px;border:1px solid var(--border-color,#e2e8f0);border-radius:12px;background:var(--surface,#fdfaf6)}
+.support-control-header{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.support-control-settings{flex:none;margin-left:auto}
+.support-control-heading{display:flex;align-items:center;gap:13px;min-width:0}
+.support-control-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:10px;color:var(--portal-accent,#800000);background:var(--portal-accent-soft,#fbf1f2);font-size:19px}
+.support-control-icon svg{width:23px;height:23px}
+.support-control-heading h3{margin:0 0 4px;color:var(--portal-accent,#800000);font-size:17px;font-weight:600;line-height:1.5}
+.support-control-heading p{margin:0;font-size:13px;line-height:1.7;color:var(--text-muted,#6b7280)}
+.support-control-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-color,#e2e8f0);min-width:0}
+.support-control-actions .support-inbox-tools{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:12px 24px;width:100%}
+.support-control-actions .support-availability{margin:0}
+.support-control-actions .support-inbox-hint{margin:0;max-width:440px;text-align:right;justify-self:end}
 .support-inbox-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .support-inbox-tools[hidden]{display:none!important}
 .support-availability{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--text-main,#2b2b31);min-height:44px;cursor:pointer}
@@ -60,6 +75,8 @@
 @media(max-width:639px){.support-choice-list{grid-template-columns:1fr}}
 .support-settings-preview{max-width:390px;width:100%;margin:0 auto;border:1px solid #e3d9d5;border-radius:14px;overflow:hidden;color:#243247;background:var(--preview-surface,#fdfaf6);font-family:Montserrat,sans-serif;font-size:14px}
 .support-settings-preview header{display:flex;align-items:center;gap:12px;background:var(--preview-header,#561b26);color:#fff;padding:18px}
+.support-settings-preview header{position:relative;isolation:isolate;overflow:hidden;background:var(--preview-header-band,linear-gradient(135deg,#3d0808 0%,#5f0d0d 52%,#851313 100%))}
+.support-settings-preview header::after{content:"";position:absolute;z-index:-1;right:-38px;bottom:-105px;width:170px;height:170px;border:1px solid rgb(241 237 18 / 26%);border-radius:50%;box-shadow:0 0 0 26px rgb(241 237 18 / 6%);pointer-events:none}
 .support-settings-preview header span{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:50%;background:#fff;overflow:hidden;font-weight:600}
 .support-settings-preview img{width:100%;height:100%;object-fit:contain;padding:3px}
 .support-settings-preview header strong{font-size:18px;overflow-wrap:anywhere}
@@ -71,4 +88,18 @@
 .support-settings-preview li+li{margin-top:8px}
 .support-settings-preview .preview-topic{padding:11px;border:1px solid #e3d9d5;border-radius:9px;color:var(--preview-accent,#6b202b);font-weight:600;margin-top:12px}
 .support-settings :is(button,input,select,textarea):focus-visible{outline:2px solid var(--portal-accent,#800000);outline-offset:3px}
+.support-settings .support-avatar-upload{display:flex;align-items:center;gap:16px;padding:16px;border:1px solid var(--border-color,#e2e8f0);border-radius:10px;background:var(--surface-hover,#f6f2ed);min-width:0}
+.support-avatar-upload>img{width:56px;height:56px;object-fit:contain;background:#fff;border:1px solid var(--border-color,#e2e8f0);border-radius:50%;padding:4px;flex:none}
+.support-avatar-file{display:grid;gap:7px;min-width:0;justify-items:start}
+.support-avatar-file small{overflow-wrap:anywhere;max-width:100%}
+.support-avatar-file button{display:inline-flex;align-items:center;gap:9px;min-height:44px}
+.support-avatar-file svg{width:19px;height:19px;flex:none}
+.support-settings .support-avatar-default{justify-self:start;min-height:44px}
+#supportSettingsModal .portal-detail-dialog__footer{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px}
+#supportSettingsDefaults{justify-self:start;margin-right:auto}
+#inquiryDetailModal .portal-detail-dialog__footer .btn-secondary:not(:disabled):is(:hover,:focus-visible,:active),
+#supportSettingsModal .portal-detail-dialog__footer .btn-secondary:not(:disabled):is(:hover,:focus-visible,:active),
+#supportSettingsModal .support-avatar-upload .btn-secondary:not(:disabled):is(:hover,:focus-visible,:active),
+#supportSettingsModal .support-avatar-default:not(:disabled):is(:hover,:focus-visible,:active){background:var(--portal-accent-soft,#fbf1f2);border-color:var(--portal-accent,#800000);color:var(--portal-accent,#800000);transform:none;box-shadow:none}
+@media(max-width:639px){.support-control-card{padding:18px 16px}.support-control-header{gap:14px}.support-control-settings:has(button){width:100%;margin:0}.support-control-settings>button{width:100%;justify-content:center}.support-control-actions .support-inbox-tools{grid-template-columns:1fr;gap:2px}.support-control-actions .support-inbox-hint{text-align:left;margin-left:27px;max-width:none;justify-self:start}#supportSettingsModal .portal-detail-dialog__footer{grid-template-columns:repeat(2,minmax(0,1fr))}#supportSettingsDefaults{grid-column:1/-1}.support-avatar-file button{padding:10px 12px}.support-settings .support-avatar-upload{padding:12px;gap:12px}}
 @media(max-width:639px){.support-settings-grid{grid-template-columns:1fr}.support-settings-section{padding:14px}.support-reply-row{gap:8px}.support-reply-row button{padding:10px 12px;font-size:13px}.support-inbox-actions>button{flex:1}.support-thread-entry[data-role=customer]{margin-right:14px}.support-thread-entry:is([data-role=admin],[data-role=staff]){margin-left:14px}.support-inbox-tools{width:100%}}

@@ -21,7 +21,7 @@
     const input = form.querySelector('textarea'), send = form.querySelector('[type=submit]'), reopen = form.querySelector('#supportTeamReopen'), error = form.querySelector('[role=alert]');
     const tools = document.createElement('div'); tools.className = 'support-inbox-tools'; tools.hidden = true;
     tools.innerHTML = '<label class="support-availability"><input type="checkbox" id="supportAvailability">Available for chat</label><span class="support-inbox-hint" id="supportAvailabilityNote">Switch on when you can reply. Keep this inbox open.</span>';
-    document.querySelector('.toolbar-actions')?.prepend(tools);
+    document.getElementById('supportInboxControls')?.append(tools);
     const availability = tools.querySelector('input'), availabilityNote = tools.querySelector('span');
     function note(text = '') { error.textContent = text; error.hidden = !text; }
     async function request(path, options = {}) {

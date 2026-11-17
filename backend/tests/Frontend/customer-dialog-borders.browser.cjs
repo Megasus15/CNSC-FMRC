@@ -24,6 +24,8 @@ test('shared Customer dialogs and booking steps use neutral frames with maroon f
   await h.send('Network.setBlockedURLs',{urls:['https://*']});
   const size=async width=>{await h.send('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<600});await h.pause(100);};
   const audit=async(selector,label)=>{
+    const visible=await h.run(`[...document.querySelectorAll(${JSON.stringify(selector)})].some(n=>!n.closest('[hidden],[aria-hidden="true"]')&&n.checkVisibility({visibilityProperty:true}))`);
+    if(visible)await h.until(`!document.querySelector('.fmrc-support')||document.querySelector('.fmrc-support').hidden`);
     // Keep branded badges and semantic status pills. Warning cards still keep
     // their background/text colour, but their frames must also be neutral.
     const bad=await h.run(`(()=>{const yellow=c=>{const m=c.match(/[\\d.]+/g)||[],[r,g,b]=m.map(Number);return r>170&&g>130&&r>=g-12&&g-b>20&&(m.length<4||Number(m[3])>0)};return [...document.querySelectorAll(${JSON.stringify(selector)})].flatMap(root=>[root,...root.querySelectorAll('*')]).filter(n=>!n.closest('.ux-dlg__badge,.apt-icon,.success-icon,.success-icon-circle,.user-avatar-initial,.appointment-status,.customer-order-status,.customer-return-status,[class*="badge"],[class*="status-pill"]')).flatMap(n=>{const s=getComputedStyle(n);return ['borderTopColor','borderBottomColor','borderLeftColor','borderRightColor','outlineColor'].filter(p=>yellow(s[p])&&(p!=='outlineColor'||s.outlineStyle!=='none')&&(p==='outlineColor'||s[p.replace('Color','Style')]!=='none')&&!(p!=='outlineColor'&&n.matches('.apt-btn-blue,.ux-dlg__btn--primary')&&yellow(s.backgroundColor))).map(p=>({id:n.id,tag:n.tagName,classes:n.className,property:p,value:s[p]}))})})()`);

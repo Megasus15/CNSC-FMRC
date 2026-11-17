@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if (window.FMRCSupport || /\/(?:admin-page|staff-page|admin-auth)\//.test(location.pathname)) return;
-  const VERSION = '2026.1117.2';
+  const VERSION = '2026.1117.3';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const svg = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
   const icons = {
@@ -16,8 +16,8 @@
     delete:svg('<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>'),
   };
   const words = {
-    en:{help:'Quick help',team:'Message FMRC',auto:'FMRC guide · built-in answers',language:'Answer language',question:'Ask about FMRC',message:'Your message',send:'Send message',placeholder:'Type your question…',messagePlaceholder:'Write a message…',privacy:'Text messages only. Never share passwords, one-time codes or bank credentials.',available:'Team available',away:'Team away · messages are open',history:'Your conversations',new:'New inquiry',back:'History',end:'End chat',ended:'This chat has ended.',reopen:'Reopen chat',remove:'Delete from history',selected:'Delete selected',selectAll:'Select ended chats on this page',endFirst:'End this chat before deleting its history.',empty:'No conversations yet. Start an inquiry and the FMRC team can reply here.',signin:'Sign in to message FMRC',signNote:'Quick help is available without an account. Sign in for private messages and saved conversation history.',start:'Start a conversation',loading:'Loading conversation…',more:'Earlier messages',reset:'Start over',previous:'Previous',next:'Next',cancel:'Cancel',keep:'Keep history',endTitle:'End this chat?',endNote:'This closes the conversation without deleting it. You can reopen it or start a new inquiry.',deleteTitle:'Delete from your history?',deleteNote:'Only ended chats can be removed. They will disappear from your history. FMRC keeps its inquiry records.',unavailable:'This conversation is no longer available.',confirmDelete:'Delete history',endedEvent:'Chat ended by the customer.',reopenedEvent:'Chat reopened.',newMessages:'New messages — go to latest',failed:'Your message was not sent. Your draft is kept. Please try again.',helpUnavailable:'Quick help could not be loaded. Try again or use the Contact page.',contact:'Open Contact',refresh:'Try again',sent:'Message sent.',wait:'Please wait…',page:'Page',closed:'Ended',open:'Open',consent:'I agree to the use of my account and message to handle this support inquiry.',consentRequired:'Please confirm the support privacy notice before sending a new inquiry.',continue:'Send this question to FMRC',setup:'Chat setup is still in progress. Please use Send Us a Message on the Contact page.',helpPaused:'Quick help is paused',helpPausedNote:'You can still send a message to the FMRC team. Your conversation and replies will appear here.',teamWelcome:'Let’s talk about your question',teamWelcomeNote:'Send a message about your question or project. We’ll keep the conversation here so you can return to it.',teamAwayNote:'Our team is away right now. You can send a message now and check back for a reply.',greetingTitle:'Hello! Welcome to FMRC.',knowledgeLoading:'Getting FMRC Help ready…',knowledgeFailed:'Help could not be loaded'},
-    fil:{help:'Mabilis na tulong',team:'Message FMRC',auto:'Gabay ng FMRC · nakahandang sagot',language:'Wika ng sagot',question:'Magtanong tungkol sa FMRC',message:'Iyong mensahe',send:'Ipadala ang mensahe',placeholder:'Ilagay ang iyong tanong…',messagePlaceholder:'Sumulat ng mensahe…',privacy:'Text lamang. Huwag magbahagi ng password, one-time code o bank credentials.',available:'Available ang team',away:'Wala ang team · puwedeng mag-message',history:'Mga pag-uusap mo',new:'Bagong inquiry',back:'History',end:'Tapusin ang chat',ended:'Tapos na ang chat na ito.',reopen:'Buksan muli ang chat',remove:'Tanggalin sa history',selected:'Tanggalin ang napili',selectAll:'Piliin ang mga tapos na chat sa pahinang ito',endFirst:'Tapusin muna ang chat bago tanggalin sa history.',empty:'Wala pang pag-uusap. Magsimula ng inquiry upang makasagot dito ang FMRC team.',signin:'Mag-sign in para sa Message FMRC',signNote:'Puwedeng gumamit ng mabilis na tulong kahit walang account. Mag-sign in para sa pribadong mensahe at conversation history.',start:'Magsimula ng pag-uusap',loading:'Kinukuha ang pag-uusap…',more:'Naunang mga mensahe',reset:'Magsimula muli',previous:'Nakaraan',next:'Susunod',cancel:'Kanselahin',keep:'Panatilihin',endTitle:'Tapusin ang chat na ito?',endNote:'Isasara nito ang pag-uusap nang hindi binubura. Maaari mo itong buksan muli o gumawa ng bagong inquiry.',deleteTitle:'Tanggalin sa iyong history?',deleteNote:'Tapos na chat lamang ang matatanggal. Mawawala ito sa iyong history. Mananatili ang inquiry records ng FMRC.',unavailable:'Hindi na available ang pag-uusap na ito.',confirmDelete:'Tanggalin sa history',endedEvent:'Tinapos ng customer ang chat.',reopenedEvent:'Muling binuksan ang chat.',newMessages:'Bagong mensahe — tingnan ang pinakabago',failed:'Hindi naipadala ang mensahe. Napanatili ang iyong draft. Subukan muli.',helpUnavailable:'Hindi makuha ang mabilis na tulong. Subukan muli o buksan ang Contact.',contact:'Buksan ang Contact',refresh:'Subukan muli',sent:'Naipadala ang mensahe.',wait:'Sandali lamang…',page:'Pahina',closed:'Tapos na',open:'Bukas',consent:'Pumapayag ako sa paggamit ng aking account at mensahe para tugunan ang support inquiry na ito.',consentRequired:'Kumpirmahin muna ang support privacy notice bago magpadala ng bagong inquiry.',continue:'Ipadala ang tanong sa FMRC',setup:'Inihahanda pa ang chat. Gamitin muna ang Send Us a Message sa Contact page.',helpPaused:'Naka-pause ang mabilis na tulong',helpPausedNote:'Maaari ka pa ring mag-message sa FMRC team. Makikita rito ang pag-uusap at mga sagot.',teamWelcome:'Pag-usapan natin ang iyong tanong',teamWelcomeNote:'Magpadala ng tanong tungkol sa iyong proyekto o pangangailangan. Maaari mong balikan dito ang pag-uusap.',teamAwayNote:'Wala pang available na team member. Maaari kang mag-iwan ng mensahe ngayon at balikan ang sagot.',greetingTitle:'Kumusta! Maligayang pagdating sa FMRC.',knowledgeLoading:'Inihahanda ang FMRC Help…',knowledgeFailed:'Hindi makuha ang tulong'},
+    en:{help:'Quick help',team:'Message FMRC',auto:'FMRC guide · built-in answers',language:'Answer language',question:'Ask about FMRC',message:'Your message',send:'Send message',placeholder:'Type your question…',messagePlaceholder:'Write a message…',privacy:'Text messages only. Never share passwords, one-time codes or bank credentials.',available:'Team available',away:'Team away · messages are open',history:'Your conversations',conversation:'Conversation',new:'New inquiry',back:'History',end:'End chat',ended:'This chat has ended.',reopen:'Reopen chat',remove:'Delete from history',selected:'Delete selected',selectAll:'Select ended chats on this page',endFirst:'End this chat before deleting its history.',empty:'No conversations yet. Start an inquiry and the FMRC team can reply here.',signin:'Sign in to message FMRC',signNote:'Quick help is available without an account. Sign in for private messages and saved conversation history.',start:'Start a conversation',loading:'Loading conversation…',more:'Earlier messages',reset:'Start over',previous:'Previous',next:'Next',cancel:'Cancel',keep:'Keep history',endTitle:'End this chat?',endNote:'This closes the conversation without deleting it. You can reopen it or start a new inquiry.',deleteTitle:'Delete from your history?',deleteNote:'Only ended chats can be removed. They will disappear from your history. FMRC keeps its inquiry records.',unavailable:'This conversation is no longer available.',confirmDelete:'Delete history',endedEvent:'Chat ended by the customer.',reopenedEvent:'Chat reopened.',newMessages:'New messages — go to latest',failed:'Your message was not sent. Your draft is kept. Please try again.',helpUnavailable:'Quick help could not be loaded. Try again or use the Contact page.',contact:'Open Contact',refresh:'Try again',sent:'Message sent.',wait:'Please wait…',page:'Page',closed:'Ended',open:'Open',consent:'I agree to the use of my account and message to handle this support inquiry.',consentRequired:'Please confirm the support privacy notice before sending a new inquiry.',continue:'Send this question to FMRC',setup:'Chat setup is still in progress. Please use Send Us a Message on the Contact page.',helpPaused:'Quick help is paused',helpPausedNote:'You can still send a message to the FMRC team. Your conversation and replies will appear here.',teamWelcome:'Let’s talk about your question',teamWelcomeNote:'Send a message about your question or project. We’ll keep the conversation here so you can return to it.',teamAwayNote:'Our team is away right now. You can send a message now and check back for a reply.',greetingTitle:'Hello! Welcome to FMRC.',knowledgeLoading:'Getting FMRC Help ready…',knowledgeFailed:'Help could not be loaded'},
+    fil:{help:'Mabilis na tulong',team:'Message FMRC',auto:'Gabay ng FMRC · nakahandang sagot',language:'Wika ng sagot',question:'Magtanong tungkol sa FMRC',message:'Iyong mensahe',send:'Ipadala ang mensahe',placeholder:'Ilagay ang iyong tanong…',messagePlaceholder:'Sumulat ng mensahe…',privacy:'Text lamang. Huwag magbahagi ng password, one-time code o bank credentials.',available:'Available ang team',away:'Wala ang team · puwedeng mag-message',history:'Mga pag-uusap mo',conversation:'Pag-uusap',new:'Bagong inquiry',back:'History',end:'Tapusin ang chat',ended:'Tapos na ang chat na ito.',reopen:'Buksan muli ang chat',remove:'Tanggalin sa history',selected:'Tanggalin ang napili',selectAll:'Piliin ang mga tapos na chat sa pahinang ito',endFirst:'Tapusin muna ang chat bago tanggalin sa history.',empty:'Wala pang pag-uusap. Magsimula ng inquiry upang makasagot dito ang FMRC team.',signin:'Mag-sign in para sa Message FMRC',signNote:'Puwedeng gumamit ng mabilis na tulong kahit walang account. Mag-sign in para sa pribadong mensahe at conversation history.',start:'Magsimula ng pag-uusap',loading:'Kinukuha ang pag-uusap…',more:'Naunang mga mensahe',reset:'Magsimula muli',previous:'Nakaraan',next:'Susunod',cancel:'Kanselahin',keep:'Panatilihin',endTitle:'Tapusin ang chat na ito?',endNote:'Isasara nito ang pag-uusap nang hindi binubura. Maaari mo itong buksan muli o gumawa ng bagong inquiry.',deleteTitle:'Tanggalin sa iyong history?',deleteNote:'Tapos na chat lamang ang matatanggal. Mawawala ito sa iyong history. Mananatili ang inquiry records ng FMRC.',unavailable:'Hindi na available ang pag-uusap na ito.',confirmDelete:'Tanggalin sa history',endedEvent:'Tinapos ng customer ang chat.',reopenedEvent:'Muling binuksan ang chat.',newMessages:'Bagong mensahe — tingnan ang pinakabago',failed:'Hindi naipadala ang mensahe. Napanatili ang iyong draft. Subukan muli.',helpUnavailable:'Hindi makuha ang mabilis na tulong. Subukan muli o buksan ang Contact.',contact:'Buksan ang Contact',refresh:'Subukan muli',sent:'Naipadala ang mensahe.',wait:'Sandali lamang…',page:'Pahina',closed:'Tapos na',open:'Bukas',consent:'Pumapayag ako sa paggamit ng aking account at mensahe para tugunan ang support inquiry na ito.',consentRequired:'Kumpirmahin muna ang support privacy notice bago magpadala ng bagong inquiry.',continue:'Ipadala ang tanong sa FMRC',setup:'Inihahanda pa ang chat. Gamitin muna ang Send Us a Message sa Contact page.',helpPaused:'Naka-pause ang mabilis na tulong',helpPausedNote:'Maaari ka pa ring mag-message sa FMRC team. Makikita rito ang pag-uusap at mga sagot.',teamWelcome:'Pag-usapan natin ang iyong tanong',teamWelcomeNote:'Magpadala ng tanong tungkol sa iyong proyekto o pangangailangan. Maaari mong balikan dito ang pag-uusap.',teamAwayNote:'Wala pang available na team member. Maaari kang mag-iwan ng mensahe ngayon at balikan ang sagot.',greetingTitle:'Kumusta! Maligayang pagdating sa FMRC.',knowledgeLoading:'Inihahanda ang FMRC Help…',knowledgeFailed:'Hindi makuha ang tulong'},
   };
   const defaults = {enabled:true,name:'FMRC Help',icon:'brand',placement:'right',accent:'#6b202b',header_color:'#561b26',surface:'#fdfaf6',avatar:'',welcome:{en:'How can we help?',fil:'Paano kami makatutulong?'},offline:{en:'The team is away. Leave a message and check back for a reply.',fil:'Wala pang available na team member. Mag-iwan ng mensahe at balikan ang sagot.'},fallback:{en:'Choose a related topic or message FMRC.',fil:'Pumili ng kaugnay na paksa o i-message ang FMRC.'},suggestions:[]};
   const root = document.createElement('aside'); root.className = 'fmrc-support'; root.dataset.version = VERSION;
@@ -31,6 +31,33 @@
   let identity = owner(), accountKey = String(user().id || 'guest'), generation = 0, busy = false, loading = false, pollBusy = false, failures = 0, opener = null, timer, availabilityAt = 0, confirmation = null;
   const drafts = new Map(), requests = new Map();
   let savedView;
+  let obscured = false, deferredOpen = null, surfaceFrame = 0;
+  // Observe the existing dialog owners instead of changing their close, focus or
+  // scroll handlers. This includes booking, native dialogs and injected popups.
+  const dialogSelector = '[aria-modal="true"],[role="dialog"],[role="alertdialog"],dialog[open],.ux-dlg,.modal-overlay,.shop-modal-overlay,.success-modal-overlay,.apt-overlay,.apt-nested-modal,.forgot-modal,.status-modal,.success-modal,.about-video-modal,.guest-access-modal,.customer-orders-overlay,.customer-rating-overlay,.lightbox-overlay';
+  function shown(element) {
+    if (root.contains(element) || element.closest('[hidden],[aria-hidden="true"]')) return false;
+    if (element.tagName === 'DIALOG' && !element.open) return false;
+    if (!element.getClientRects().length) return false;
+    const style = getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse';
+  }
+  function syncSurfaces() {
+    surfaceFrame = 0;
+    const blocked = [...document.querySelectorAll(dialogSelector)].some(shown);
+    if (blocked !== obscured) {
+      obscured = blocked;
+      root.hidden = blocked;
+      if (blocked) { root.setAttribute('aria-hidden','true'); clearTimeout(timer); }
+      else {
+        root.removeAttribute('aria-hidden');
+        if (deferredOpen) { const {id} = deferredOpen; deferredOpen = null; queueMicrotask(() => void open(id)); }
+        else if (!panel.hidden) void poll();
+      }
+    }
+    fitViewport();
+  }
+  function scheduleSurfaces() { if (!surfaceFrame) surfaceFrame = requestAnimationFrame(syncSurfaces); }
   try { savedView = JSON.parse(sessionStorage.getItem('fmrc_support_view:'+accountKey) || 'null'); } catch {}
   if (savedView && Date.now()-savedView.at < 30*60*1000) { mode = savedView.mode === 'team' ? 'team' : 'help'; }
   function rememberView() {
@@ -58,7 +85,7 @@
   function resetPrivate() {
     try { sessionStorage.removeItem('fmrc_support_view:'+accountKey); } catch {}
     identity = owner(); accountKey = String(user().id || 'guest'); generation++; conversation = null; entries = []; list = []; selected.clear(); drafts.clear(); requests.clear(); log = []; latestQuestion = ''; page = 1; pages = 1; view = 'history'; busy = false; loading = false;
-    input.value = ''; savedView = null; root.querySelector('.fmrc-support__count').hidden = true; textError(); closeConfirmation();
+    input.value = ''; savedView = null; deferredOpen = null; root.querySelector('.fmrc-support__count').hidden = true; textError(); closeConfirmation();
     if (!panel.hidden) render();
   }
   function sessionCheck() { if (identity !== owner()) resetPrivate(); }
@@ -78,15 +105,18 @@
   function applyBrand() {
     const c = pack.config;
     for (const [key,value] of [['accent',c.accent],['header',c.header_color],['surface',c.surface]]) if (/^#[a-f\d]{6}$/i.test(value)) root.style.setProperty('--help-'+key,value);
-    root.style.right = c.placement === 'left' ? 'auto' : 'var(--help-gap)'; root.style.left = c.placement === 'left' ? 'var(--help-gap)' : 'auto';
+    root.style.setProperty('--help-header-band',c.header_color === defaults.header_color ? 'var(--ux-dlg-band,linear-gradient(135deg,#3d0808 0%,#5f0d0d 52%,#851313 100%))' : 'linear-gradient(135deg,color-mix(in srgb,var(--help-header),#000 28%),var(--help-header) 52%,color-mix(in srgb,var(--help-header),#851313 45%))');
+    root.dataset.placement = c.placement;
     panel.style.right = c.placement === 'left' ? 'auto' : '0'; panel.style.left = c.placement === 'left' ? '0' : 'auto';
     root.querySelector('#fmrcSupportTitle').textContent = c.name;
     launcher.querySelector('span').textContent = c.name;
+    launcher.setAttribute('aria-label','Open '+c.name);
     const brand = `<img class="fmrc-support__brand" src="${esc(url('/images/FMRC%20Logo.png'))}" alt="" width="32" height="32">`;
     launcher.firstElementChild.outerHTML = c.icon === 'brand' ? brand : (icons[c.icon] || brand);
     const avatar = root.querySelector('.fmrc-support__avatar');
     if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(c.avatar || '')) { avatar.replaceChildren(Object.assign(new Image(), {src:c.avatar,alt:''})); }
     else avatar.innerHTML = brand;
+    fitViewport();
   }
   function actionUrl(action) { return url(({products:'/products-page/product.html',appointments:'/home-page/?appointment=1',orders:'/home-page/?orders=1',contact:'/contact-page/contact.html',terms:'/products-page/transaction-terms.html',refunds:'/products-page/refund-policy.html',signin:'/customer-auth/auth.html#login',account:'/home-page/?account=1'})[action] || '/contact-page/contact.html'); }
   function actionLabel(action) { return ({products:'Products',appointments:'Set an Appointment',orders:'My Orders',contact:'Contact',terms:'Transaction Terms',refunds:'Refund Policy',signin:'Sign In',account:'My Account'})[action] || 'Contact'; }
@@ -122,7 +152,7 @@
   function renderHistory() {
     composer.hidden = true;
     panel.dataset.supportView = list.length ? 'team-history' : 'team-empty';
-    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><strong>${esc(t('history'))}</strong>${list.length ? `<button type="button" class="fmrc-support__primary" data-support-new>${esc(t('new'))}</button>` : ''}</div><p class="fmrc-support__note">${esc(language === 'fil' ? 'Makikita rito ang mga sagot ng FMRC at ang iyong mga dating pag-uusap.' : 'Your conversations and replies from the FMRC team appear here.')}</p>${loading ? `<p role="status">${esc(t('loading'))}</p>` : !list.length ? stateCard(t('teamWelcome'),available ? t('teamWelcomeNote') : t('teamAwayNote'),'data-support-new',t('start')) : `<label class="fmrc-support__select-all"><input type="checkbox" data-support-select-all ${list.filter(c => c.status === 'resolved').length && list.filter(c => c.status === 'resolved').every(c => selected.has(c.id)) ? 'checked' : ''}>${esc(t('selectAll'))}</label><div class="fmrc-support__history-list">${list.map(c => `<div class="fmrc-support__history-row"><label class="fmrc-support__history-check" title="${esc(c.status === 'resolved' ? t('selectAll') : t('endFirst'))}"><input type="checkbox" data-support-select="${c.id}" aria-label="Select conversation ${c.id}" ${selected.has(c.id) ? 'checked' : ''} ${c.status !== 'resolved' ? 'disabled' : ''}></label><button class="fmrc-support__conversation" type="button" data-support-conversation="${c.id}">${esc(c.message.slice(0,100))}${c.message.length > 100 ? '…' : ''}<span>#${c.id} · ${esc(c.status === 'resolved' ? t('closed') : t('open'))} · ${esc(date(c.last_entry_at || c.created_at))}${c.customer_unread ? ' · '+(language === 'fil' ? 'Bagong sagot' : 'New reply') : ''}</span></button>${c.status === 'resolved' ? `<button type="button" class="fmrc-support__history-delete" data-support-delete="${c.id}" aria-label="${esc(t('remove'))}">${icons.delete}</button>` : ''}</div>`).join('')}</div><div class="fmrc-support__toolbar"><button type="button" data-support-bulk ${selected.size ? '' : 'disabled'}>${esc(t('selected'))} (${selected.size})</button><span class="fmrc-support__note">${esc(t('page'))} ${page}/${pages}</span></div><div class="fmrc-support__toolbar"><button type="button" data-support-page="-1" ${page <= 1 ? 'disabled' : ''}>${esc(t('previous'))}</button><button type="button" data-support-page="1" ${page >= pages ? 'disabled' : ''}>${esc(t('next'))}</button></div>`}`;
+    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><strong>${esc(t('history'))}</strong>${list.length ? `<button type="button" class="fmrc-support__primary" data-support-new>${esc(t('new'))}</button>` : ''}</div><p class="fmrc-support__note">${esc(language === 'fil' ? 'Makikita rito ang mga sagot ng FMRC at ang iyong mga dating pag-uusap.' : 'Your conversations and replies from the FMRC team appear here.')}</p>${loading ? `<p role="status">${esc(t('loading'))}</p>` : !list.length ? stateCard(t('teamWelcome'),available ? t('teamWelcomeNote') : t('teamAwayNote'),'data-support-new',t('start')) : `<label class="fmrc-support__select-all"><input type="checkbox" data-support-select-all ${list.filter(c => c.status === 'resolved').length && list.filter(c => c.status === 'resolved').every(c => selected.has(c.id)) ? 'checked' : ''}>${esc(t('selectAll'))}</label><div class="fmrc-support__history-list">${list.map(c => `<div class="fmrc-support__history-row"><label class="fmrc-support__history-check" title="${esc(c.status === 'resolved' ? t('selectAll') : t('endFirst'))}"><input type="checkbox" data-support-select="${c.id}" aria-label="${esc((language === 'fil' ? 'Piliin ang pag-uusap: ' : 'Select conversation: ')+c.message.slice(0,100))}" ${selected.has(c.id) ? 'checked' : ''} ${c.status !== 'resolved' ? 'disabled' : ''}></label><button class="fmrc-support__conversation" type="button" data-support-conversation="${c.id}">${esc(c.message.slice(0,100))}${c.message.length > 100 ? '…' : ''}<span>${esc(c.status === 'resolved' ? t('closed') : t('open'))} · ${esc(date(c.last_entry_at || c.created_at))}${c.customer_unread ? ' · '+(language === 'fil' ? 'Bagong sagot' : 'New reply') : ''}</span></button>${c.status === 'resolved' ? `<button type="button" class="fmrc-support__history-delete" data-support-delete="${c.id}" aria-label="${esc(t('remove'))}">${icons.delete}</button>` : ''}</div>`).join('')}</div><div class="fmrc-support__toolbar"><button type="button" data-support-bulk ${selected.size ? '' : 'disabled'}>${esc(t('selected'))} (${selected.size})</button><span class="fmrc-support__note">${esc(t('page'))} ${page}/${pages}</span></div><div class="fmrc-support__toolbar"><button type="button" data-support-page="-1" ${page <= 1 ? 'disabled' : ''}>${esc(t('previous'))}</button><button type="button" data-support-page="1" ${page >= pages ? 'disabled' : ''}>${esc(t('next'))}</button></div>`}`;
   }
   function entryHtml(e) {
     if (e.event) return `<p class="fmrc-support__system" data-support-entry="${e.id}">${esc(e.event === 'ended' ? t('endedEvent') : t('reopenedEvent'))} <time>${esc(date(e.created_at))}</time></p>`;
@@ -131,7 +161,7 @@
   }
   function renderConversation() {
     panel.dataset.supportView = 'team-conversation';
-    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><button type="button" data-support-history>${icons.back} ${esc(t('back'))}</button><strong>#${conversation?.id || ''}</strong>${conversation?.status !== 'resolved' ? `<button type="button" data-support-end>${esc(t('end'))}</button>` : `<button type="button" data-support-new>${esc(t('new'))}</button>`}</div><button type="button" data-support-earlier ${hasEarlier ? '' : 'hidden'}>${esc(t('more'))}</button><div role="log" aria-live="polite" aria-relevant="additions" id="supportMessages">${entries.map(entryHtml).join('')}</div><button type="button" class="fmrc-support__new-messages" data-support-latest hidden>${esc(t('newMessages'))}</button><div id="supportEnded" ${conversation?.status === 'resolved' ? '' : 'hidden'}><p>${esc(t('ended'))}</p><p class="fmrc-support__note">${esc(t('endNote'))}</p><div class="fmrc-support__ended-actions"><button type="button" data-support-reopen>${esc(t('reopen'))}</button><button type="button" data-support-delete="${conversation?.id}">${esc(t('remove'))}</button></div></div>`;
+    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar fmrc-support__toolbar--conversation"><button type="button" data-support-history>${icons.back} ${esc(t('back'))}</button><strong>${esc(t('conversation'))}</strong>${conversation?.status !== 'resolved' ? `<button type="button" data-support-end>${esc(t('end'))}</button>` : `<button type="button" data-support-new>${esc(t('new'))}</button>`}</div><button type="button" data-support-earlier ${hasEarlier ? '' : 'hidden'}>${esc(t('more'))}</button><div role="log" aria-live="polite" aria-relevant="additions" id="supportMessages">${entries.map(entryHtml).join('')}</div><button type="button" class="fmrc-support__new-messages" data-support-latest hidden>${esc(t('newMessages'))}</button><div id="supportEnded" ${conversation?.status === 'resolved' ? '' : 'hidden'}><p>${esc(t('ended'))}</p><p class="fmrc-support__note">${esc(t('endNote'))}</p><div class="fmrc-support__ended-actions"><button type="button" data-support-reopen>${esc(t('reopen'))}</button><button type="button" data-support-delete="${conversation?.id}">${esc(t('remove'))}</button></div></div>`;
     composer.hidden = loading || !conversation || conversation.status === 'resolved'; setupComposer();
     if (loading) body.insertAdjacentHTML('beforeend', `<p role="status" data-support-loading>${esc(t('loading'))}</p>`);
   }
@@ -182,7 +212,7 @@
     if (changed && mode === 'team' && view === 'history' && !confirmation) renderHistory();
   }
   async function readVisible() {
-    if (panel.hidden || document.hidden || view !== 'conversation' || !conversation || body.scrollHeight - body.clientHeight - body.scrollTop > 70 || confirmation) return;
+    if (panel.hidden || obscured || document.hidden || view !== 'conversation' || !conversation || body.scrollHeight - body.clientHeight - body.scrollTop > 70 || confirmation) return;
     const through = entries.at(-1)?.id || 0;
     if (through <= conversation.customer_last_read_entry_id) return;
     const id = conversation.id; await request('/customer/messages/'+id+'/read',{method:'PATCH',body:JSON.stringify({through})});
@@ -228,7 +258,7 @@
   function closeConfirmation() {
     if (!confirmation) return;
     const {node,children,background,previous} = confirmation; node.remove(); children.forEach(([el,inert]) => el.inert = inert); background.forEach(([el,inert]) => el.inert = inert); confirmation = null;
-    if (previous?.isConnected) previous.focus({preventScroll:true});
+    if (!obscured && previous?.isConnected) previous.focus({preventScroll:true});
   }
   function confirmAction(title, note, label, action) {
     if (confirmation || busy) return;
@@ -254,7 +284,7 @@
   }
   async function poll() {
     clearTimeout(timer); sessionCheck();
-    if (!panel.hidden && !document.hidden && navigator.onLine && !pollBusy && !busy) {
+    if (!panel.hidden && !obscured && !document.hidden && navigator.onLine && !pollBusy && !busy) {
       pollBusy = true;
       try { await updateAvailability(); if (mode === 'team' && token() && pack.installed) { if (view === 'conversation') await refreshConversation(); else if (view === 'history') await history(); } failures = 0; }
       catch (e) {
@@ -269,11 +299,13 @@
       }
       finally { pollBusy = false; }
     }
-    if (!panel.hidden && !document.hidden) timer = setTimeout(poll,Math.min(30000,3000*2**Math.min(failures,3)));
+    if (!panel.hidden && !obscured && !document.hidden) timer = setTimeout(poll,Math.min(30000,3000*2**Math.min(failures,3)));
   }
   async function open(id) {
+    syncSurfaces();
+    if (obscured) { deferredOpen = {id}; return; }
     if (busy || confirmation) return;
-    sessionCheck(); opener = document.activeElement; panel.hidden = false; launcher.hidden = true; launcher.setAttribute('aria-expanded','true');
+    sessionCheck(); opener = document.activeElement; panel.hidden = false; launcher.hidden = true; launcher.setAttribute('aria-expanded','true'); fitViewport();
     render(); root.querySelector('[data-support-close]').focus({preventScroll:true});
     await knowledge(); if (panel.hidden) return; render();
     if (!id && savedView?.id && token()) id = savedView.id;
@@ -282,7 +314,7 @@
     else if (mode === 'team' && token() && pack.installed) { try { await history(); } catch (e) { textError(e.message); } }
     void poll();
   }
-  function minimize() { if (busy || confirmation) return; panel.hidden = true; launcher.hidden = false; launcher.setAttribute('aria-expanded','false'); clearTimeout(timer); (opener?.isConnected ? opener : launcher).focus({preventScroll:true}); }
+  function minimize() { if (busy || confirmation) return; panel.hidden = true; launcher.hidden = false; launcher.setAttribute('aria-expanded','false'); clearTimeout(timer); fitViewport(); if (!obscured) (opener?.isConnected ? opener : launcher).focus({preventScroll:true}); }
   input.addEventListener('input',() => { drafts.set(currentDraft(),input.value); composer.querySelector('button').disabled = !input.value.trim() || busy; });
   composer.addEventListener('submit',async event => {
     event.preventDefault(); sessionCheck(); const text = input.value.trim(); if (!text || busy || loading) return;
@@ -343,15 +375,14 @@
     const tab = event.target.closest('[role=tab]'); if (tab && ['ArrowLeft','ArrowRight'].includes(event.key)) { event.preventDefault(); const other = panel.querySelector('[data-support-tab="'+(mode === 'help' ? 'team' : 'help')+'"]'); other.click(); other.focus(); }
     if (event.target === input && event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); composer.requestSubmit(); }
   });
-  // Keep Escape inside this panel from dismissing a booking/password dialog
-  // underneath it. Other Customer handlers remain untouched.
+  // Escape belongs to the active surface; other Customer handlers stay intact.
   window.addEventListener('keydown',event => {
-    if (panel.hidden || !root.contains(event.target) || event.key !== 'Escape') return;
+    if (panel.hidden || obscured || !root.contains(event.target) || event.key !== 'Escape') return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (confirmation && !busy) closeConfirmation(); else minimize();
   },true);
-  document.addEventListener('focusin',event => { if (confirmation && !confirmation.node.contains(event.target)) confirmation.node.querySelector('button:not(:disabled)')?.focus({preventScroll:true}); });
-  document.addEventListener('wheel',event => { if (confirmation && !confirmation.node.contains(event.target)) event.preventDefault(); },{capture:true,passive:false});
+  document.addEventListener('focusin',event => { if (confirmation && !obscured && !confirmation.node.contains(event.target)) confirmation.node.querySelector('button:not(:disabled)')?.focus({preventScroll:true}); });
+  document.addEventListener('wheel',event => { if (confirmation && !obscured && !confirmation.node.contains(event.target)) event.preventDefault(); },{capture:true,passive:false});
   let readTimer; body.addEventListener('scroll',() => { clearTimeout(readTimer); readTimer = setTimeout(() => { void readVisible().catch(() => {}); },200); },{passive:true});
   window.addEventListener('storage',sessionCheck); window.addEventListener('fmrc:customer-session-changed',sessionCheck);
   window.addEventListener('pagehide',rememberView);
@@ -360,10 +391,25 @@
   function fitViewport() {
     const viewport = window.visualViewport, height = viewport?.height || innerHeight;
     const keyboard = Math.max(0,innerHeight-height-(viewport?.offsetTop || 0));
-    root.style.setProperty('--help-viewport',height+'px');
-    root.style.setProperty('--help-bottom',(keyboard > 80 ? keyboard+12 : 84)+'px');
+    const arrow = document.getElementById('customerBackToTop'), style = arrow && getComputedStyle(arrow);
+    const bottom = style ? parseFloat(style.bottom) || 44 : innerWidth <= 480 ? 38 : 44;
+    const edge = style ? parseFloat(style.right) || 32 : innerWidth <= 480 ? 22 : 32;
+    const raised = root.dataset.placement !== 'left' && arrow?.classList.contains('is-visible') && shown(arrow);
+    const offset = keyboard > 80 ? keyboard+12 : innerHeight <= 500 && !panel.hidden ? 12 : bottom+(raised ? arrow.offsetHeight+12 : 0);
+    const set = (key,value) => { if (root.style.getPropertyValue(key) !== value) root.style.setProperty(key,value); };
+    set('--help-viewport',height+'px'); set('--help-bottom',offset+'px'); set('--help-gap',Math.max(14,edge-2)+'px');
+    set('--help-panel-room',Math.max(0,Math.min(height,innerHeight-offset)-(viewport?.offsetTop || 0)-12)+'px');
   }
-  window.visualViewport?.addEventListener('resize',fitViewport); window.addEventListener('resize',fitViewport); fitViewport();
+  new MutationObserver(records => {
+    if (records.some(record => {
+      const target = record.target;
+      if (target === root || root.contains(target)) return false;
+      if (record.type === 'attributes') return target === document.body || target === document.documentElement || target.id === 'customerBackToTop' || target.matches(dialogSelector) || !!target.closest(dialogSelector) || !!target.querySelector(dialogSelector);
+      return [...record.addedNodes,...record.removedNodes].some(node => node.nodeType === 1 && node !== root && (node.id === 'customerBackToTop' || node.matches(dialogSelector) || node.querySelector(dialogSelector)));
+    })) scheduleSurfaces();
+  }).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','open','style','aria-hidden']});
+  document.addEventListener('transitionend',scheduleSurfaces,true);
+  window.visualViewport?.addEventListener('resize',scheduleSurfaces); window.addEventListener('resize',scheduleSurfaces); syncSurfaces();
   window.FMRCSupport = {open,close:minimize,openConversation:open,version:VERSION};
   const params = new URLSearchParams(location.search);
   let resume; try { resume = JSON.parse(sessionStorage.getItem('fmrc_support_resume') || 'null'); } catch {}
