@@ -78,7 +78,7 @@ class CustomerSupportController extends Controller
     {
         $this->access($request, $customerMessage);
         $cursor = $request->validate(['after' => 'sometimes|integer|min:0|prohibits:before', 'before' => 'sometimes|integer|min:1|prohibits:after']);
-        return response()->json(SupportConversations::entries($customerMessage, $cursor))->header('Cache-Control', 'private, no-store');
+        return response()->json(SupportConversations::entries($customerMessage, $cursor, $request->user()->role === 'customer'))->header('Cache-Control', 'private, no-store');
     }
 
     public function send(Request $request, CustomerMessage $customerMessage)
@@ -86,7 +86,9 @@ class CustomerSupportController extends Controller
         $this->access($request, $customerMessage);
         abort_unless($customerMessage->user_id, 409, 'This historical inquiry has no linked customer account and cannot receive private replies.');
         $data = $request->validate(['body' => 'required|string|max:3000', 'request_key' => 'required|uuid']);
-        return response()->json(['message' => 'Message sent.', ...SupportConversations::send($customerMessage, $request->user(), trim($data['body']), $data['request_key'])])->header('Cache-Control', 'private, no-store');
+        $result = SupportConversations::send($customerMessage, $request->user(), trim($data['body']), $data['request_key']);
+        if ($request->user()->role === 'customer') $result['entry'] = SupportConversations::customerEntry($result['entry']);
+        return response()->json(['message' => 'Message sent.', ...$result])->header('Cache-Control', 'private, no-store');
     }
 
     public function read(Request $request, CustomerMessage $customerMessage)

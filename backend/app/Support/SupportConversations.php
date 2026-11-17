@@ -82,7 +82,7 @@ class SupportConversations
         ];
     }
 
-    public static function entries(CustomerMessage $root, array $cursor): array
+    public static function entries(CustomerMessage $root, array $cursor, bool $customerView = false): array
     {
         $query = DB::table('customer_message_entries')->where('customer_message_id', $root->id);
         if (isset($cursor['after'])) $query->where('id', '>', $cursor['after']);
@@ -92,7 +92,7 @@ class SupportConversations
         $more = $rows->count() > 50;
         $rows = $rows->take(50);
         if (! $forward) $rows = $rows->reverse();
-        return ['data' => $rows->map(fn ($row) => self::entry($row))->values(), 'has_more' => $more,
+        return ['data' => $rows->map(fn ($row) => $customerView ? self::customerEntry(self::entry($row)) : self::entry($row))->values(), 'has_more' => $more,
             'conversation' => self::present($root->fresh())];
     }
 
@@ -116,6 +116,12 @@ class SupportConversations
     {
         return ['id' => (int) $row->id, 'sender_role' => $row->sender_role, 'sender_name' => $row->sender_name,
             'body' => $row->body, 'event' => $row->event ?? null, 'created_at' => $row->created_at ? \Illuminate\Support\Carbon::parse($row->created_at)->toISOString() : null];
+    }
+
+    public static function customerEntry(array $entry): array
+    {
+        if (in_array($entry['sender_role'], ['admin', 'staff'], true)) $entry['sender_name'] = 'FMRC Team';
+        return $entry;
     }
 
     public static function changeState(CustomerMessage $root, User $actor, bool $end, int $through): array

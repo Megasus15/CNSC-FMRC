@@ -20,7 +20,7 @@
     [...footer.children].forEach(child => actions.append(child)); footer.append(form,actions);
     const input = form.querySelector('textarea'), send = form.querySelector('[type=submit]'), reopen = form.querySelector('#supportTeamReopen'), error = form.querySelector('[role=alert]');
     const tools = document.createElement('div'); tools.className = 'support-inbox-tools'; tools.hidden = true;
-    tools.innerHTML = '<label class="support-availability"><input type="checkbox" id="supportAvailability">Available for chat</label><span class="support-inbox-hint" id="supportAvailabilityNote">Only while this inbox is active.</span>';
+    tools.innerHTML = '<label class="support-availability"><input type="checkbox" id="supportAvailability">Available for chat</label><span class="support-inbox-hint" id="supportAvailabilityNote">Switch on when you can reply. Keep this inbox open.</span>';
     document.querySelector('.toolbar-actions')?.prepend(tools);
     const availability = tools.querySelector('input'), availabilityNote = tools.querySelector('span');
     function note(text = '') { error.textContent = text; error.hidden = !text; }
@@ -95,29 +95,32 @@
     reopen.addEventListener('click',async () => { if (!thread || pending) return; setPending(true); note(); try { const result = await request('/admin/customer-messages/'+thread.id+'/reopen',{method:'POST',body:'{}'}); thread = result.data; await refresh(); signal(); } catch (e) { if (!e.stale) note(e.message); } finally { setPending(false); } });
     section.querySelector('#supportThreadEarlier').onclick = () => { if (entries.length && !pending) void refresh(false,entries[0].id).catch(e => note(e.message)); };
     let readTimer; body.addEventListener('scroll',() => { clearTimeout(readTimer); readTimer = setTimeout(() => { void markRead().catch(() => {}); },250); },{passive:true});
-    async function presence(value) { const result = await request('/admin/customer-support/presence',{method:'POST',body:JSON.stringify({available:value})}); presenceEnabled = !!result.available; availability.checked = presenceEnabled; leaseAt = Date.now(); availabilityNote.textContent = presenceEnabled ? 'Available while this inbox is active.' : 'Customers can still leave a message.'; }
+    async function presence(value) { const result = await request('/admin/customer-support/presence',{method:'POST',body:JSON.stringify({available:value})}); presenceEnabled = !!result.available; availability.checked = presenceEnabled; leaseAt = Date.now(); availabilityNote.textContent = presenceEnabled ? 'You are available. Keep this inbox open; other tabs are fine.' : 'You are away. Customers can still leave a message.'; }
     availability.addEventListener('change',async () => { const requested = availability.checked; availability.disabled = true; try { await presence(requested); } catch (e) { availability.checked = presenceEnabled; availabilityNote.textContent = e.message; } finally { availability.disabled = false; } });
     async function tick() {
       clearTimeout(timer);
       if (identity !== owner()) { identity = owner(); generation++; drafts.clear(); requestKeys.clear(); thread = null; entries = []; presenceEnabled = false; availability.checked = false; section.hidden = form.hidden = true; }
-      if (!document.hidden && navigator.onLine && !polling) {
+      if ((!document.hidden || presenceEnabled) && navigator.onLine && !polling) {
         polling = true;
         try {
           if (installed && presenceEnabled && Date.now()-leaseAt >= 18000) await presence(true);
-          if (installed && thread && modal.classList.contains('show') && !pending) await refresh();
-          if (Date.now()-inboxAt >= 14000 && !pending) { inboxAt = Date.now(); signal(); }
+          if (!document.hidden && installed && thread && modal.classList.contains('show') && !pending) await refresh();
+          if (!document.hidden && Date.now()-inboxAt >= 14000 && !pending) { inboxAt = Date.now(); signal(); }
           failures = 0;
         } catch (e) { if (!e.stale) { failures++; if (e.status === 401 || e.status === 403) { presenceEnabled = false; availability.checked = false; } if (modal.classList.contains('show')) note(e.message); } }
         finally { polling = false; }
       }
-      if (!document.hidden) timer = setTimeout(tick,Math.min(30000,3000*2**Math.min(failures,3)));
+      if (!document.hidden || presenceEnabled) timer = setTimeout(tick,document.hidden ? 20000 : Math.min(30000,3000*2**Math.min(failures,3)));
     }
-    document.addEventListener('visibilitychange',() => { clearTimeout(timer); if (document.hidden) { if (presenceEnabled) { leaseAt = 0; void request('/admin/customer-support/presence',{method:'POST',body:'{"available":false}'}).catch(() => {}); } } else { leaseAt = 0; void tick(); } });
+    // A connected, opted-in inbox remains available while the operator looks
+    // at another tab. The short server lease and session expiry still decide
+    // presence; heartbeats never count as account activity.
+    document.addEventListener('visibilitychange',() => { clearTimeout(timer); if (!document.hidden || presenceEnabled) void tick(); });
     window.addEventListener('online',() => { failures = 0; void tick(); });
     window.FMRCInquirySupport = {open};
     void request('/support/availability').then(async result => {
       installed = !!result.installed; tools.hidden = !installed;
-      if (installed) { const lease = await request('/admin/customer-support/presence'); presenceEnabled = !!lease.available; availability.checked = presenceEnabled; }
+      if (installed) { const lease = await request('/admin/customer-support/presence'); presenceEnabled = !!lease.available; availability.checked = presenceEnabled; availabilityNote.textContent = presenceEnabled ? 'You are available. Keep this inbox open; other tabs are fine.' : 'Switch on when you can reply. Keep this inbox open.'; }
     }).catch(() => {}).finally(() => void tick());
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();

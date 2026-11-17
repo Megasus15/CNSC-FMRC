@@ -24,7 +24,13 @@
     return row[b.length] <= limit;
   }
   function find(question, faqs) {
-    const text = normalize(question), terms = tokens(question);
+    const text = normalize(question);
+    // Greetings are a conversational intent, not a knowledge article. Keep
+    // this separate even when an older saved FAQ still has "hi" as an alias.
+    if (/^(?:(?:hi+|hello+|hey+|good (?:morning|afternoon|evening)|magandang (?:umaga|hapon|gabi)|(?:ka|ku)musta)(?:\s+(?:po|there|fmrc|team|everyone|sa lahat|kayo))*)$/.test(text)) {
+      return {kind:'greeting',answer:null,suggestions:[]};
+    }
+    const terms = tokens(text.replace(/^(?:hi+|hello+|hey+)(?:\s+(?:po|there|fmrc|team))*\s+/, ''));
     if (!terms.length || text.length > 500) return {answer:null, suggestions:[]};
     const ranked = faqs.filter(f => f.enabled !== false).map(faq => {
       const phrases = [faq.en.question, faq.fil.question, ...(faq.aliases || [])];

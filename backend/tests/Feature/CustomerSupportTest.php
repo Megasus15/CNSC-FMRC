@@ -74,6 +74,7 @@ class CustomerSupportTest extends TestCase
         $this->assertDatabaseHas('customer_notifications', ['user_id' => $customer->id, 'type' => 'support', 'event_key' => 'support:'.$entry]);
         $this->patchJson("/api/admin/customer-messages/$id/resolve")->assertOk();
         Sanctum::actingAs($customer);
+        $this->getJson("/api/customer/messages/$id/entries")->assertOk()->assertJsonPath('data.1.sender_name','FMRC Team');
         $this->getJson('/api/customer/messages')->assertOk()->assertJsonPath('unread_count', 1);
         $this->patchJson("/api/customer/messages/$id/read", ['through' => $entry])->assertOk();
         $this->getJson('/api/customer/messages')->assertJsonPath('unread_count', 0);
@@ -83,6 +84,7 @@ class CustomerSupportTest extends TestCase
         $this->assertDatabaseHas('customer_messages', ['id' => $id, 'status' => 'new', 'is_read' => false, 'message' => "Hello\nSecond paragraph."]);
         // A stale cursor cannot mark a newer incoming message as read.
         Sanctum::actingAs($staff);
+        $this->getJson("/api/admin/customer-messages/$id/entries")->assertOk()->assertJsonPath('data.1.sender_name',$staff->name);
         $this->patchJson("/api/admin/customer-messages/$id/conversation-read", ['through' => $entry])->assertOk();
         $this->assertDatabaseHas('customer_messages', ['id' => $id, 'is_read' => false]);
         $this->patchJson("/api/admin/customer-messages/$id/conversation-read", ['through' => $followup->json('entry.id')])->assertOk();
