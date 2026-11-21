@@ -8,7 +8,9 @@ $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 try {
     $status = $kernel->call('payments:reconcile');
     echo $kernel->output();
-    exit($status);
+    $receipts = $kernel->call('payment-receipts:process');
+    echo $kernel->output();
+    exit($status ?: $receipts);
 } catch (Throwable $e) {
     if ($app->bound('log')) $app->make('log')->error('Payment reconciliation command failed.', ['exception' => $e]);
     fwrite(STDERR, "Payment reconciliation failed. Check the protected application log.\n");

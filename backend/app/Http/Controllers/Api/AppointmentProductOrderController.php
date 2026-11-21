@@ -11,6 +11,7 @@ use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
 use App\Services\AppointmentProducts as Products;
 use App\Services\GatewayPayments;
+use App\Services\OrderPaymentReceipts;
 use App\Support\OrderNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +51,8 @@ class AppointmentProductOrderController extends Controller
             }
             abort_unless((int) $o->production_revision === (int) $v['expected_revision'], 409, 'This order changed. Review its latest payment and production details before continuing.');
             $title = '';
+            $receiptQueued = false;
+            $voidedReceipt = null;
             if (str_starts_with($action, 'cash_')) {
                 abort_unless($p->method === 'Cash at FMRC' && ! GatewayPayments::managed($p), 422, 'This order does not use advance cash payment.');
                 $held = Products::cashHeld($p);
@@ -105,9 +108,17 @@ class AppointmentProductOrderController extends Controller
                     }
                 }
                 abort_if(DB::table('appointment_cash_entries')->where('kind', $kind)->where('receipt_reference', trim($v['receipt_reference']))->exists(), 422, 'This receipt reference is already recorded. Check the existing receipt before trying again.');
-                DB::table('appointment_cash_entries')->insert(['payment_id' => $p->id, 'kind' => $kind, 'amount_centavos' => $amount,
+                $entryId = DB::table('appointment_cash_entries')->insertGetId(['payment_id' => $p->id, 'kind' => $kind, 'amount_centavos' => $amount,
                     'receipt_reference' => trim($v['receipt_reference']), 'request_key' => $v['request_key'], 'actor_id' => $r->user()->id, 'note' => $v['note'] ?? null, 'confirmed_at' => now(), 'created_at' => now()]);
                 $p->save();
+                if ($action === 'cash_receipt') {
+                    $receiptQueued = app(OrderPaymentReceipts::class)->record(
+                        $o, $p, 'advance-cash:'.$entryId, $amount,
+                        reference: trim($v['receipt_reference']),
+                    ) !== null;
+                } elseif ($action === 'cash_reverse') {
+                    $voidedReceipt = app(OrderPaymentReceipts::class)->void($p);
+                }
             } else {
                 Products::assertProduction($o, $action === 'collect');
                 if ($action === 'start') {
@@ -135,7 +146,10 @@ class AppointmentProductOrderController extends Controller
             $job = AppointmentProductJob::findOrFail($o->appointment_product_job_id);
             Products::event($job, $action, $title, $r->user()->id, ['order_id' => $o->id]);
             OrderNotifier::notifyAdmins('order', $title, $o->order_no, ['order_id' => $o->id, 'appointment_id' => $job->appointment_id]);
-            OrderNotifier::emailCustomer($o, $title, OrderNotifier::buildEmailHtml($o, $title, $title));
+            if (! $receiptQueued) {
+                $description = $voidedReceipt ? $title.'. Payment receipt '.$voidedReceipt.' has been voided.' : $title;
+                OrderNotifier::emailCustomer($o, $title, OrderNotifier::buildEmailHtml($o, $title, $description));
+            }
         });
 
         return app(OrderController::class)->adminShow($r, $order->fresh());

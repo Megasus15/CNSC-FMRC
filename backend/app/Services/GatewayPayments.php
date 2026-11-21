@@ -180,13 +180,25 @@ class GatewayPayments
                 $order->payment_reference = $p['id'];
                 if ($order->lifecycle_status === 'pending' && $order->customer_stage === 'to_pay') $order->customer_stage = 'to_ship';
                 $order->save();
+                $receiptEligible = ! $closed && ! $reviewBlocked && count($paid) === 1;
+                $providerPaidAt = filter_var($p['attributes']['paid_at'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                $paidAt = $providerPaidAt ? Carbon::createFromTimestampUTC($providerPaidAt) : $payment->paid_at;
                 if (AppointmentProducts::custom($order)) {
                     $quote=\App\Models\AppointmentProductQuote::find($order->appointment_product_quote_id);
-                    $paidAt=isset($p['attributes']['paid_at']) ? Carbon::createFromTimestampUTC($p['attributes']['paid_at']) : now();
                     if (!$quote || $quote->state!=='accepted' || $closed || $paidAt->gt($quote->expires_at)) {
                         $order->forceFill(['appointment_production_status'=>'payment_review'])->save();
                         DB::table('payment_attempts')->where('id',$a->id)->update(['exception'=>'quotation_payment_review']);
+                        $receiptEligible = false;
                     }
+                }
+                if ($receiptEligible) {
+                    app(OrderPaymentReceipts::class)->record(
+                        $order, $payment, 'paymongo:'.$p['id'], (int) $a->amount_centavos,
+                        method: PayMongoService::methodLabel($a->checkout_method),
+                        reference: $p['id'],
+                        paidAt: $paidAt,
+                        testPayment: ! (bool) $a->livemode,
+                    );
                 }
             }
             OrderTrackingEvent::create(['order_id' => $order->id, 'stage' => $order->customer_stage, 'event_type' => 'system',

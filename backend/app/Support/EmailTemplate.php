@@ -189,9 +189,9 @@ final class EmailTemplate
             'defaults' => [
                 'header_title' => Branding::NAME,
                 'header_subtitle' => self::SUB,
-                'header_color' => '#059669',
-                'body_heading' => 'Payment Confirmed',
-                'body_text' => "Hi {customer_name},\n\nYour payment for order {order_number} has been confirmed. Your order is now being prepared for shipping or pickup.\n\nThank you for your purchase!",
+                'header_color' => self::MAROON,
+                'body_heading' => 'Payment confirmed',
+                'body_text' => "Hi {customer_name},\n\nWe confirmed your payment for order {order_number}. Your FMRC payment receipt is attached.\n\nYou can also download a copy from the payment section in My Orders.",
                 'footer_note' => self::ORDER_NOTE,
             ],
         ],
@@ -779,6 +779,19 @@ HTML;
      */
     public static function previewExtra(string $slug, ?string $accent = null): string
     {
+        if ($slug === 'payment_confirmed') {
+            $tokens = self::sampleTokens($slug);
+
+            return view('receipts.email-summary', [
+                'number' => 'FMRC-PR-000123',
+                'orderNumber' => $tokens['order_number'],
+                'amount' => $tokens['amount'],
+                'method' => 'QR Ph',
+                'paidOn' => 'Nov 21, 2026, 9:30 AM PHT',
+                'orderUrl' => null,
+            ])->render();
+        }
+
         $accent = self::color($accent ?? self::resolve($slug)['header_color']);
         $rows = '';
 

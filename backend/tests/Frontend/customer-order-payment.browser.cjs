@@ -2,11 +2,14 @@
 // fixtures; no live checkout, payment or customer record is contacted by this test.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {browserFixture, chrome} = require('./helpers/website-browser.cjs');
 
 test('order details share hosted checkout and verified refresh on normal and Customer PWA routes', {skip:!chrome,timeout:120000}, async t => {
-  const confirmed = new Set(), checkoutPosts = [], hosted = [], errors = [];
-  let checkoutFailure = true, statusFailure = false;
+  const confirmed = new Set(), checkoutPosts = [], hosted = [], errors = [], receiptRequests = [];
+  const receiptFile = Buffer.from('%PDF-1.7\nReceipt download fixture\n%%EOF');
+  let checkoutFailure = true, statusFailure = false, receiptFailure = true;
   const profile = {id:33,role:'customer',name:'Customer Fixture',email:'customer@example.test'};
   const order = id => {
     const paid=confirmed.has(id),custom=id===102;
@@ -14,6 +17,7 @@ test('order details share hosted checkout and verified refresh on normal and Cus
       total_amount:160,total_label:'₱160.00',subtotal_amount:150,shipping_fee:10,shipping_fee_label:'₱10.00',
       lifecycle_status:'incoming',customer_stage:'to_pay',payment_status:paid?'paid':'pending',payment_method:'GCash',payment_method_label:'QR Ph',
       payment_is_automated:true,payment_is_confirmed:paid,payment_is_refunded:false,payment_checkout_method:'qrph',
+      payment_receipt:paid?{number:`FMRC-PR-000${id}`,state:'ready'}:null,
       awaiting_customer_payment:!paid,fulfillment_type:'delivery',order_type:custom?'custom':'regular',created_at:new Date().toISOString(),
       accepted_policy:{version:'accepted-fixture',accepted_at_label:'Nov 07, 2026 02:32 PM'},
       items:[{product_name:custom?'Cup':'Catalog cup',quantity:3,unit_price:50,line_total:150}],tracking_events:[],
@@ -22,18 +26,26 @@ test('order details share hosted checkout and verified refresh on normal and Cus
         agreement:{specifications:{name:'Cup',description:'Cup with handle',quantity:3,dimensions:'8 x 10 cm',material:'PLA',colors:'Red and white',finish:'Matte'},
           design_notes:'Agreed design',lead_time:'Five working days',total:160,shipping_fee:10,fulfillment_type:'delivery'}}}:{})};
   };
-  const h=await browserFixture(t,async({req,route,json})=>{
+  const h=await browserFixture(t,async({req,res,route,json})=>{
     if(route==='/api/user'){json(profile);return true;}
     if(route==='/api/site-settings'){json({data:{payment_checkout_method:'qrph',payment_gcash_ready:'1'}});return true;}
     const cached=data=>{const etag='"'+[...confirmed].sort().join('-')+'"';json(data,req.headers['if-none-match']===etag?304:200,{ETag:etag});};
     if(route==='/api/customer/orders'){cached({data:[order(102),order(103)],returns:[]});return true;}
-    const match=route.match(/^\/api\/customer\/orders\/(102|103)(?:\/(payment-status|payment-checkout))?$/);
+    const match=route.match(/^\/api\/customer\/orders\/(102|103)(?:\/(payment-status|payment-checkout|payment-receipt))?$/);
     if(!match)return false;
     const id=Number(match[1]),paid=confirmed.has(id);
     if(!match[2]){cached({data:order(id)});return true;}
     if(match[2]==='payment-status'){
       if(statusFailure){statusFailure=false;json({message:'Payment check is unavailable. Please try again.'},503);return true;}
       json({status:paid?'paid':'pending',order_status:'incoming',checkout_method:'qrph',method_label:'QR Ph',retry_allowed:!paid,checkout_url:null,refunds:[]});return true;
+    }
+    if (match[2] === 'payment-receipt') {
+      receiptRequests.push({id, authorization: req.headers.authorization});
+      await h.pause(120);
+      if (receiptFailure) { receiptFailure = false; json({message:'Receipt temporarily unavailable'},503); return true; }
+      res.writeHead(200, {'Content-Type':'application/pdf','Cache-Control':'private, no-store'});
+      res.end(receiptFile);
+      return true;
     }
     let body='';for await(const chunk of req)body+=chunk;
     checkoutPosts.push({id,...JSON.parse(body||'{}')});
@@ -58,7 +70,9 @@ test('order details share hosted checkout and verified refresh on normal and Cus
     catch(error){await h.shot('order-error');t.diagnostic(JSON.stringify(await h.run(`({url:location.href,token:!!localStorage.getItem('customer_token'),title:document.title,modal:document.querySelector('#customerOrdersModal')?.className,detail:document.querySelector('#customerOrderDetailContent')?.textContent,body:document.body.innerText.slice(-1000)})`)));t.diagnostic('Screenshots: '+h.artifacts);throw error;}
   };
   const paymentButton='#customerOrderDetailContent .customer-order-detail-payment [data-gateway-order]';
+  const receiptButton = '#customerOrderDetailContent .customer-order-detail-payment [data-receipt-order]';
   await openOrder('/home-page/',102);
+  assert.equal(await h.run(`!!document.querySelector('${receiptButton}')`), false);
   const links=await h.run(`Array.from(document.querySelectorAll('.customer-order-policy-link')).map(a=>({label:a.textContent.trim(),href:a.getAttribute('href'),target:a.target}))`);
   assert.deepEqual(links.map(a=>a.label),['Transaction Terms','Refund Policy']);
   for(const a of links){assert(a.href.includes('version=accepted-fixture'));assert.equal(a.target,'_blank');}
@@ -126,6 +140,24 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   assert.equal(await h.run(`document.querySelector(${JSON.stringify(paymentButton)}).textContent`),'Payment details');
   assert.equal(await h.run(`document.querySelector('#customerOrderDetailModal').classList.contains('show')`),true);
 
+  await h.send('Browser.setDownloadBehavior', {behavior:'allow',downloadPath:h.artifacts});
+  await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+  await h.until(`document.querySelector('${receiptButton}')?.innerText.trim()==='Download Receipt'`);
+  await h.run(`document.querySelector('${receiptButton}').scrollIntoView({block:'center',behavior:'instant'})`);
+  const receiptLayout = await h.run(`(() => {const b=document.querySelector('${receiptButton}'),r=b.getBoundingClientRect();b.focus();return {height:r.height,left:r.left,right:r.right,focus:document.activeElement===b};})()`);
+  assert(receiptLayout.height >= 40 && receiptLayout.left >= 0 && receiptLayout.right <= 390 && receiptLayout.focus);
+  await h.shot('custom-order-receipt-phone');
+  await h.run(`document.querySelector('${receiptButton}').click();document.querySelector('${receiptButton}').click()`);
+  await h.until(`!document.querySelector('[data-receipt-feedback]').hidden`);
+  assert.equal(receiptRequests.length,1,'In-flight receipt downloads cannot be duplicated');
+  assert.equal(await h.run(`document.querySelector('#customerOrderDetailModal').classList.contains('show')`),true);
+  await h.run(`document.querySelector('${receiptButton}').click()`);
+  const savedPdf = path.join(h.artifacts,'FMRC-PR-000102.pdf');
+  for (let i = 0; i < 80 && !fs.existsSync(savedPdf); i++) await h.pause(50);
+  assert.deepEqual(fs.readFileSync(savedPdf),receiptFile);
+  assert.deepEqual(receiptRequests,Array(2).fill({id:102,authorization:'Bearer fixture-customer'}));
+  await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+
   // Regular catalog orders and the PWA use the identical payment dialog/endpoint.
   await openOrder('/services-page/service.html',102);
   assert.equal(await h.run(`document.querySelector(${JSON.stringify(paymentButton)}).textContent`),'Payment details');
@@ -136,6 +168,11 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   await h.run(`document.querySelector('[data-gateway-continue]').click()`);
   await h.until(`document.title==='Isolated hosted checkout'`);
   assert.equal(hosted.at(-1),'https://checkout.paymongo.com/fixture-103');
+  confirmed.add(103);
+  await openOrder('/apps/customer/products-page/product.html',103);
+  await h.until(`document.querySelector('${receiptButton}')?.dataset.receiptNumber==='FMRC-PR-000103'`);
+  await h.run(`document.querySelector('${receiptButton}').scrollIntoView({block:'center',behavior:'instant'})`);
+  await h.shot('catalog-order-receipt-desktop');
   confirmed.delete(102);
   await openOrder('/apps/customer/home-page/',102);
   const scoped=await h.run(`({app:window.FMRCApp?.inApp,links:[...document.querySelectorAll('.customer-order-policy-link')].map(a=>a.getAttribute('href'))})`);

@@ -9139,6 +9139,8 @@ body.sidebar-open {
 .customer-order-policy-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex:0 0 36px; border-radius:8px; color:var(--customer-wine,#6b202b); background:rgba(107,32,43,.07); }
 .customer-order-policy-heading p { margin:5px 0 0; color:var(--customer-ink-muted,#716770); font-size:12px; font-weight:500; line-height:1.6; overflow-wrap:anywhere; }
 .customer-order-policy-links { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.customer-order-detail-payment .customer-order-payment-receipt { margin-block-start:12px; }
+.customer-order-payment-receipt [data-receipt-feedback] { flex-basis:100%; }
 .customer-order-policy-links .customer-order-policy-link { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; max-width:100%; box-sizing:border-box; padding:9px 13px; border:1px solid var(--customer-wine,#6b202b); border-radius:8px; color:var(--customer-wine,#6b202b); background:var(--customer-paper,#fdfaf6); font:600 12px/1.5 "Montserrat",sans-serif; text-decoration:none; white-space:nowrap; transition:background-color 120ms ease,color 120ms ease,border-color 120ms ease; }
 .customer-order-policy-link svg { flex:0 0 14px; }
 .customer-order-policy-links .customer-order-policy-link:is(:hover,:active) { background:var(--customer-wine,#6b202b); color:#fff; }

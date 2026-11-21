@@ -20,6 +20,7 @@ use App\Services\CommercePolicy;
 use App\Services\NinjaVanShipping;
 use App\Services\ShipmentTracking;
 use App\Services\OrderCompletion;
+use App\Services\OrderPaymentReceipts;
 use App\Support\OrderNotifier;
 use App\Support\OrderApproval;
 use App\Support\OrderReview;
@@ -43,6 +44,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
@@ -809,9 +811,9 @@ class OrderController extends Controller
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
-        $payload = [
-            'data' => $this->transformOrderDetail($order, false, true),
-        ];
+        $detail = $this->transformOrderDetail($order, false, true);
+        $detail['payment_receipt'] = app(OrderPaymentReceipts::class)->availability($order);
+        $payload = ['data' => $detail];
         $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
         $responseHeaders = [
             'Cache-Control' => 'private, no-cache, must-revalidate',
@@ -824,6 +826,27 @@ class OrderController extends Controller
         }
 
         return response()->json($payload)->withHeaders($responseHeaders);
+    }
+
+    public function customerPaymentReceipt(Request $request, Order $order, OrderPaymentReceipts $receipts): StreamedResponse|JsonResponse
+    {
+        if ($denied = $this->ensureCustomer($request)) {
+            return $denied;
+        }
+
+        abort_unless((int) $order->customer_id === (int) $request->user()->id, 404);
+        abort_if($order->customer_hidden_at, 410, 'This order was removed from My Orders.');
+        $receipt = $receipts->forOrder($order);
+        abort_unless($receipt, 404, 'A payment receipt is not available for this order.');
+
+        $disk = Storage::disk('local');
+        abort_unless($receipt->pdf_ready_at && $disk->exists($receipt->pdfPath()), 503, 'Your receipt is unavailable right now. Please try again later.');
+
+        return $disk->download($receipt->pdfPath(), $receipt->filename(), [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function customerItemImage(Request $request, Order $order, int|string $orderItem): Response|JsonResponse
@@ -2498,7 +2521,12 @@ class OrderController extends Controller
                     .($payment->hasCustomerClaim() ? ' Your submitted reference is still on file for review. Do not send another payment while FMRC checks it.' : ' Contact FMRC to confirm what is owed before sending a payment.'),
                 'refunded' => 'FMRC recorded your refund as sent. Refund reference: '.$refundReference.'. Your order remains '.$fresh->lifecycle_status.'.',
             };
-            $this->createTrackingEvent($fresh, [
+            $receiptService = app(OrderPaymentReceipts::class);
+            if ($nextStatus === 'pending' && ($voided = $receiptService->void($payment))) {
+                $description .= ' Payment receipt '.$voided.' has been voided.';
+            }
+
+            $confirmation = $this->createTrackingEvent($fresh, [
                 'created_by_user_id' => $request->user()?->id,
                 'stage' => $fresh->customer_stage,
                 'event_type' => 'admin_update',
@@ -2513,12 +2541,17 @@ class OrderController extends Controller
                 ],
             ]);
 
-            return [$fresh, $title, $description];
+            $receipt = $nextStatus === 'paid' ? $receiptService->record(
+                $fresh, $payment, 'manual:'.$confirmation->id,
+                GatewayPayments::centavos($payment->amount),
+            ) : null;
+
+            return [$fresh, $title, $description, $receipt !== null];
         });
         if ($result instanceof JsonResponse) {
             return $result;
         }
-        [$order, $title, $description] = $result;
+        [$order, $title, $description, $receiptQueued] = $result;
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
@@ -2531,14 +2564,16 @@ class OrderController extends Controller
             ['order_id' => $order->id, 'order_no' => $orderNoLabel, 'payment_status' => $nextStatus]
         );
 
-        $emailHtml = OrderNotifier::buildEmailHtml(
-            $order,
-            $title,
-            "Hi {$order->customer_name},\n\n{$description}",
-            $nextStatus === 'pending' ? '#b45309' : '#059669',
-            statusOverride: $nextStatus === 'paid' && $order->lifecycle_status === 'incoming' ? ($order->review_status === 'approved' ? 'Ready for preparation' : 'Awaiting approval') : $title,
-        );
-        $this->sendCustomerOrderEmail($order, "{$title} - {$orderNoLabel}", $emailHtml);
+        if (! $receiptQueued) {
+            $emailHtml = OrderNotifier::buildEmailHtml(
+                $order,
+                $title,
+                "Hi {$order->customer_name},\n\n{$description}",
+                $nextStatus === 'pending' ? '#b45309' : '#059669',
+                statusOverride: $nextStatus === 'paid' && $order->lifecycle_status === 'incoming' ? ($order->review_status === 'approved' ? 'Ready for preparation' : 'Awaiting approval') : $title,
+            );
+            $this->sendCustomerOrderEmail($order, "{$title} - {$orderNoLabel}", $emailHtml);
+        }
 
         return response()->json([
             'message' => $nextStatus === 'paid' && $order->lifecycle_status === 'incoming'
@@ -2829,9 +2864,9 @@ class OrderController extends Controller
         return 'PAY-' . now()->format('ymd') . '-' . str_pad((string) $orderId, 5, '0', STR_PAD_LEFT);
     }
 
-    private function createTrackingEvent(Order $order, array $payload): void
+    private function createTrackingEvent(Order $order, array $payload): OrderTrackingEvent
     {
-        OrderTrackingEvent::query()->create([
+        return OrderTrackingEvent::query()->create([
             'order_id' => $order->id,
             'created_by_user_id' => $payload['created_by_user_id'] ?? null,
             'stage' => $payload['stage'] ?? 'to_pay',

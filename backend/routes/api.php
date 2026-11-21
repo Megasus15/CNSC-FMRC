@@ -251,6 +251,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/customer/orders/history/clear', [\App\Http\Controllers\Api\CustomerOrderHistoryController::class, 'clear'])->middleware('throttle:20,1');
     Route::delete('/customer/orders/{order}/history', [\App\Http\Controllers\Api\CustomerOrderHistoryController::class, 'destroy'])->middleware('throttle:30,1');
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
+    Route::get('/customer/orders/{order}/payment-receipt', [OrderController::class, 'customerPaymentReceipt'])->middleware('throttle:30,1');
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);
     Route::post('/customer/orders/{order}/received', [OrderController::class, 'customerMarkReceived']);
 

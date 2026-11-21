@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\AppointmentProductJob;
 use App\Models\AppointmentProductQuote;
 use App\Models\Order;
+use App\Models\OrderPaymentReceipt;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\User;
@@ -1002,7 +1003,7 @@ class OptionalAppointmentProductsTest extends TestCase
     #[\PHPUnit\Framework\Attributes\TestWith(['online'])]
     public function test_custom_delivery_uses_same_order_and_ready_guard_then_verified_courier_completion(string $method): void
     {
-        config(['payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_live_fixture',
+        config(['order_receipts.enabled' => true, 'payments.gateway' => 'paymongo', 'payments.paymongo.enabled' => true, 'payments.paymongo.secret_key' => 'sk_live_fixture',
             'payments.paymongo.webhook_secret' => 'fixture-hook', 'payments.paymongo.checkout_method' => 'qrph']);
         Http::preventStrayRequests();
         $j = $this->booked();
@@ -1016,6 +1017,13 @@ class OptionalAppointmentProductsTest extends TestCase
             $attempt = $this->paymentAttempt($o, true, 'qrph');
             app(GatewayPayments::class)->applySession($attempt->id, $this->providerFixture($attempt, $o, true));
         }
+        $receipt = OrderPaymentReceipt::sole();
+        $this->assertSame($j->appointment->reference_no.' / Version '.$q->version, $receipt->snapshot['quote']);
+        $this->assertSame(110000, $receipt->snapshot['amount_centavos']);
+        $this->assertSame(100000, $receipt->snapshot['subtotal_centavos']);
+        $this->assertSame(10000, $receipt->snapshot['shipping_centavos']);
+        $this->assertSame('Desk sign', $receipt->snapshot['lines'][0]['name']);
+        $this->assertSame($method === 'cash' ? 'ADVANCE-JT' : 'pay_fixture'.$o->id, $receipt->snapshot['reference']);
         $this->act($o, 'start')->assertOk();
         $endpoint = '/api/admin/orders/'.$o->id.'/shipment/tracking';
         $handover = ['request_key' => (string) Str::uuid(), 'tracking_number' => '001234567890', 'handed_over_at' => now()->toIso8601String(), 'handover_confirmed' => true, 'actual_shipping_cost' => 150];
@@ -1118,6 +1126,7 @@ return Http::response(['data' => $s]);
 
     public function test_late_payment_is_recorded_but_does_not_revive_expired_specifications(): void
     {
+        config(['order_receipts.enabled' => true]);
         $j = $this->booked();
         $q = $this->quote($j);
         $o = $this->accept($j, $q);
@@ -1130,12 +1139,14 @@ return Http::response(['data' => $s]);
         $this->assertSame('cancelled', $o->fresh()->lifecycle_status);
         app(GatewayPayments::class)->applySession($a->id, $this->providerFixture($a, $o, true));
         $this->assertSame('payment_review', $o->fresh()->appointment_production_status);
+        $this->assertDatabaseCount('order_payment_receipts', 0);
         $this->act($o, 'start')->assertUnprocessable();
         $this->assertDatabaseCount('orders', 1);
     }
 
     public function test_draft_files_failed_save_and_duplicate_cash_actions_preserve_data(): void
     {
+        config(['order_receipts.enabled' => true]);
         $key = (string) Str::uuid();
         $input = ['requirements' => json_encode($this->brief()), 'request_key' => $key, 'attachments' => [UploadedFile::fake()->create('design.step', 2, 'application/octet-stream')]];
         $j = $this->post('/api/customer/appointment-products/drafts', $input, ['Accept' => 'application/json'])->assertOk()->json('data');
@@ -1151,11 +1162,19 @@ return Http::response(['data' => $s]);
             $this->act($o, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'IDEMPOTENT', 'confirmed_received' => true, 'request_key' => $actionKey, 'expected_revision' => 0])->assertOk();
         }
         $this->assertDatabaseCount('appointment_cash_entries', 1);
+        $originalReceipt = OrderPaymentReceipt::sole();
         Sanctum::actingAs($this->staff);
         $this->postJson('/api/admin/orders/'.$o->id.'/custom-product', ['action' => 'cash_reverse', 'request_key' => (string) Str::uuid(), 'expected_revision' => 1, 'receipt_reference' => 'REV', 'note' => 'Wrong entry'])->assertForbidden();
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/admin/orders/'.$o->id.'/custom-product', ['action' => 'cash_reverse', 'request_key' => (string) Str::uuid(), 'expected_revision' => 1, 'receipt_reference' => 'REV', 'note' => 'Wrong entry'])->assertOk();
+        $this->assertNotNull($originalReceipt->fresh()->voided_at);
+        $this->act($o, 'cash_receipt', ['amount' => 1000, 'receipt_reference' => 'CORRECTED', 'confirmed_received' => true])->assertOk();
+        $receipt = OrderPaymentReceipt::whereNull('voided_at')->sole();
+        $this->assertSame('CORRECTED', $receipt->snapshot['reference']);
         $o->forceFill(['lifecycle_status' => 'cancelled'])->save();
         Sanctum::actingAs($this->admin);
-        $this->postJson('/api/admin/orders/'.$o->id.'/custom-product', ['action' => 'cash_refund', 'request_key' => (string) Str::uuid(), 'expected_revision' => 1, 'receipt_reference' => 'REF', 'note' => 'Released refund', 'amount' => 200, 'refund_released' => true])->assertOk();
+        $this->postJson('/api/admin/orders/'.$o->id.'/custom-product', ['action' => 'cash_refund', 'request_key' => (string) Str::uuid(), 'expected_revision' => $o->fresh()->production_revision, 'receipt_reference' => 'REF', 'note' => 'Released refund', 'amount' => 200, 'refund_released' => true])->assertOk();
+        $this->assertNull($receipt->fresh()->voided_at);
         $this->assertEquals(800, FinancialMetrics::collected(null, null)['collected']);
     }
 

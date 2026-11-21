@@ -8820,6 +8820,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Panel indexes used by handlers that jump the drawer to a tab.
       const RETURNS_PANEL_INDEX = stageByPanel.indexOf("returns");
 
+      const receiptDownloads = new Set();
       const state = {
         activeIndex: 0,
         userInfo: null,
@@ -11760,6 +11761,19 @@ document.addEventListener("DOMContentLoaded", () => {
           ["Refunded", detail.payment_refunded_label],
           ["Refund reference", detail.payment_refund_reference],
         ];
+        const receipt = detail.payment_receipt;
+        const downloadingReceipt = receiptDownloads.has(String(detail.id));
+        const receiptControl = receipt?.state === "ready"
+          ? `<div class="customer-order-policy-links customer-order-payment-receipt">
+               <button type="button" class="customer-order-policy-link" data-receipt-order="${escapeHtml(String(detail.id))}" data-receipt-number="${escapeHtml(String(receipt.number))}" ${downloadingReceipt ? "disabled aria-busy=\"true\"" : ""}>
+                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+                 <span>${downloadingReceipt ? "Downloading…" : "Download Receipt"}</span>
+               </button>
+               <p class="customer-order-logistics-note" data-receipt-feedback role="status" hidden></p>
+             </div>`
+          : receipt
+            ? `<p class="customer-order-logistics-note customer-order-payment-receipt" role="status">${receipt.state === "preparing" ? "Your payment receipt is being prepared." : "Your payment receipt is unavailable right now. Please check again later."}</p>`
+            : "";
         const paymentDetailHtml = `
           <div class="customer-order-detail-fulfillment customer-order-detail-payment">
             <div class="customer-order-section-head"><h4>Payment status</h4>${renderOrderPaymentAction(detail)}</div>
@@ -11768,6 +11782,7 @@ document.addEventListener("DOMContentLoaded", () => {
               .map(([label, value]) => `<div class="customer-order-fulfillment-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd></div>`)
               .join("")}</dl>
             <p class="customer-order-logistics-note">${escapeHtml(paymentNotice.note)}</p>
+            ${receiptControl}
           </div>
         `;
         const acceptedPolicy = detail.accepted_policy;
@@ -12520,7 +12535,66 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
+      const downloadPaymentReceipt = async (button) => {
+        const orderId = button.dataset.receiptOrder;
+        const token = state.token;
+        if (!orderId || !token || token !== getCustomerToken() || receiptDownloads.has(orderId)) return;
+
+        const setBusy = (control, busy) => {
+          control.disabled = busy;
+          control.setAttribute("aria-busy", String(busy));
+          control.querySelector("span").textContent = busy ? "Downloading…" : "Download Receipt";
+        };
+        const activeControl = () => detailContent.querySelector("[data-receipt-order]");
+        const feedback = () => detailContent.querySelector("[data-receipt-feedback]");
+        if (feedback()) feedback().hidden = true;
+        receiptDownloads.add(orderId);
+        setBusy(button, true);
+
+        try {
+          const response = await fetchBinaryWithTimeout(
+            `${API_BASE_URL}/customer/orders/${encodeURIComponent(orderId)}/payment-receipt`,
+            { headers: { Accept: "application/json, application/pdf", Authorization: `Bearer ${token}` }, cache: "no-store" },
+          );
+          if (token !== state.token || token !== getCustomerToken()) return;
+          if (response.status === 401) {
+            void handleSessionExpired();
+            return;
+          }
+          if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().startsWith("application/pdf")) {
+            throw new Error("Receipt download unavailable");
+          }
+
+          const file = await response.blob();
+          if (token !== state.token || token !== getCustomerToken()) return;
+          const fileUrl = URL.createObjectURL(file);
+          const link = document.createElement("a");
+          link.href = fileUrl;
+          link.download = /^FMRC-PR-\d+$/.test(button.dataset.receiptNumber)
+            ? `${button.dataset.receiptNumber}.pdf`
+            : "FMRC-Payment-Receipt.pdf";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(fileUrl), 30_000);
+        } catch {
+          if (token === state.token && token === getCustomerToken() && activeControl()?.dataset.receiptOrder === orderId && feedback()) {
+            feedback().textContent = "We couldn’t download your receipt. Please try again.";
+            feedback().hidden = false;
+          }
+        } finally {
+          receiptDownloads.delete(orderId);
+          const current = activeControl();
+          if (token === state.token && current?.dataset.receiptOrder === orderId) setBusy(current, false);
+        }
+      };
+
       overlay.addEventListener("click", (event) => {
+        const receiptButton = event.target.closest("[data-receipt-order]");
+        if (receiptButton) {
+          void downloadPaymentReceipt(receiptButton);
+          return;
+        }
         const remove = event.target.closest('[data-order-remove]');
         if (remove && !remove.disabled) { event.preventDefault(); void removeOrderHistory(remove.dataset.orderRemove); return; }
         if (event.target.closest('[data-orders-clear]')) { event.preventDefault(); void removeOrderHistory(); return; }

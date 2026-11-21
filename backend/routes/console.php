@@ -11,6 +11,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
+Schedule::command('payment-receipts:process')->everyMinute();
 Artisan::command('products:clean-media', function () {
     \App\Support\ProductMedia::cleanup();
     $this->info('Expired product uploads and unreferenced gallery files cleaned.');

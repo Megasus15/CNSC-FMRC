@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use App\Models\{Order, Payment, Product, User};
+use App\Models\{Order, OrderPaymentReceipt, Payment, Product, User};
 use App\Services\{GatewayPayments, PayMongoService};
 use App\Support\GatewayFinancials;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,7 +87,9 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertSame('pending',$o->fresh()->payment->status);
     }
     public function test_unexpected_payment_evidence_never_approves_a_catalog_request(): void {
+        config(['order_receipts.enabled' => true]);
         $o=$this->order(['review_status'=>'pending']);$a=$this->attempt($o);$g=app(GatewayPayments::class);
+        $o->items()->create(['product_name' => 'Catalog item', 'quantity' => 1, 'unit_price' => 500, 'line_total' => 500]);
         $this->assertTrue($g->applySession($a->id,$this->providerSession($a)));
         $g->applySession($a->id,$this->providerSession($a));
         $fresh=$o->fresh();
@@ -96,6 +98,7 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertSame('incoming',$fresh->lifecycle_status);
         $this->assertNull($fresh->approved_at);$this->assertNull($fresh->stock_reserved_at);
         $this->assertDatabaseCount('payment_receipts',1);
+        $this->assertDatabaseCount('order_payment_receipts', 0);
         $this->assertDatabaseHas('payment_attempts',['id'=>$a->id,'exception'=>'order_review_required']);
         $this->assertDatabaseHas('admin_notifications',['message'=>'Payment received before FMRC approval. Review the transaction and order request before preparation.']);
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
@@ -354,8 +357,9 @@ class GatewayPaymentsTest extends TestCase {
     }
 
     public function test_signed_v2_qrph_notification_confirms_once_using_retrieved_payment(): void {
-        config(['payments.paymongo.checkout_method'=>'qrph']);
+        config(['payments.paymongo.checkout_method'=>'qrph', 'order_receipts.enabled' => true]);
         $o=$this->order(); $a=$this->attempt($o,false,'qrph');
+        $o->items()->create(['product_name' => 'Catalog item', 'quantity' => 1, 'unit_price' => 500, 'line_total' => 500]);
         $session=$this->providerSession($a,['source'=>['type'=>'qrph']]);
         Http::fake(['api.paymongo.com/v1/checkout_sessions/*'=>Http::response(['data'=>$session])]);
         $event=['event_type'=>'send.webhook','data'=>['type'=>'checkout_session.payment.paid','livemode'=>false,'data'=>$session]];
@@ -363,6 +367,12 @@ class GatewayPaymentsTest extends TestCase {
         for($i=0;$i<2;$i++) $this->call('POST','/api/webhooks/paymongo',[],[],[],['CONTENT_TYPE'=>'application/json','HTTP_PAYMONGO_SIGNATURE'=>'t='.$ts.',te='.$sig],$body)->assertOk();
         $this->assertDatabaseCount('payment_webhook_events',1);
         $this->assertDatabaseCount('payment_receipts',1);
+        app(GatewayPayments::class)->applySession($a->id, $session);
+        $document = OrderPaymentReceipt::sole();
+        $this->assertSame(50000, $document->snapshot['amount_centavos']);
+        $this->assertSame('QR Ph', $document->snapshot['method']);
+        $this->assertSame($session['attributes']['payments'][0]['id'], $document->snapshot['reference']);
+        $this->assertTrue($document->snapshot['test_payment']);
         $this->assertDatabaseHas('payment_receipts',['payment_id'=>$o->payment->id,'source_type'=>'qrph']);
         $this->assertDatabaseHas('order_tracking_events',['order_id'=>$o->id,'title'=>'QR Ph payment confirmed']);
         $this->assertSame('incoming',$o->fresh()->lifecycle_status);
@@ -375,13 +385,16 @@ class GatewayPaymentsTest extends TestCase {
     }
 
     public function test_qrph_attempt_rejects_other_sources_and_unverified_amounts(): void {
+        config(['order_receipts.enabled' => true]);
         foreach ([['source'=>['type'=>'gcash']],['source'=>['type'=>'card']],['amount'=>49999],['currency'=>'USD'],['livemode'=>true]] as $override) {
             $o=$this->order(); $a=$this->attempt($o,false,'qrph');
+            $o->items()->create(['product_name' => 'Catalog item', 'quantity' => 1, 'unit_price' => 500, 'line_total' => 500]);
             $session=$this->providerSession($a,array_merge(['source'=>['type'=>'qrph']],$override));
             $this->assertFalse(app(GatewayPayments::class)->applySession($a->id,$session));
             $this->assertSame('pending',$o->fresh()->payment->status);
         }
         $this->assertDatabaseCount('payment_receipts',0);
+        $this->assertDatabaseCount('order_payment_receipts', 0);
     }
 
     public function test_pending_retry_keeps_original_method_and_idempotency_payload_after_config_change(): void {
