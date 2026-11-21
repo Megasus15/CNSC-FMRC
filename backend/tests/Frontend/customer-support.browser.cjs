@@ -115,10 +115,31 @@ for(const role of ['admin','staff'])test(role+' support inbox replies, availabil
  assert.deepEqual(await h.run('fixtureErrors'),[]);
 });
 
-test('Contact creates the same support conversation; widget works across Customer, PWA and booking screens',{skip:!chrome,timeout:120000},async t=>{
+test('FMRC Help loads on five Customer pages, connects Contact, and hides during booking',{skip:!chrome,timeout:120000},async t=>{
  const f=fixture(),h=await browserFixture(t,f.handle,{setup});await h.send('Network.setBlockedURLs',{urls:['https://*']});await size(h,1440);
- for(const route of ['/about-page/about.html','/services-page/service.html','/products-page/product.html','/products-page/transaction-terms.html','/products-page/refund-policy.html','/customer-auth/auth.html','/apps/customer/home-page/']){
-  await h.go(route);await h.until('window.FMRCSupport');assert.equal(await h.run(`document.querySelectorAll('.fmrc-support').length`),1,route);await click(h,'.fmrc-support__launcher');await h.until(`document.querySelector('[data-support-topic]')`);await click(h,'[data-support-close]');
+ const publicPages = ['/home-page/', '/about-page/about', '/services-page/service', '/products-page/product', '/contact-page/contact'];
+ const pagesWithoutChat = [
+  '/customer-auth/auth#login',
+  '/products-page/transaction-terms?version=fixture-version',
+  '/products-page/refund-policy?version=fixture-version',
+  '/customer-auth/auth#signup',
+ ];
+ for (const prefix of ['', '/apps/customer']) {
+  for (const route of publicPages) {
+   await h.go(prefix + route);
+   await h.until('window.FMRCSupport');
+   assert.equal(await h.run(`document.querySelectorAll('.fmrc-support').length`), 1, prefix + route);
+   await click(h, '.fmrc-support__launcher');
+   await h.until(`document.querySelector('[data-support-topic]')`);
+   await click(h, '[data-support-close]');
+  }
+  for (const route of pagesWithoutChat) {
+   await h.go(prefix + route);
+   assert(await h.run(`!window.FMRCSupport && !document.querySelector('.fmrc-support, link[href*="customer-support.css"], script[src*="customer-support.js"], script[src*="support-assistant.js"]')`), prefix + route);
+   if (route.startsWith('/customer-auth/')) {
+    assert(await h.run(`typeof window.FMRC_TURNSTILE?.requireToken === 'function'`), 'The sign-in security check still loads');
+   }
+  }
  }
  await h.go('/contact-page/contact.html');await h.until(`document.getElementById('contactMessageForm')&&window.FMRCSupport`);
  await type(h,'#contactName','Customer Fixture');await type(h,'#contactEmail','customer@example.test');await type(h,'#contactMessage','Contact inquiry connected to chat.');await h.run(`document.getElementById('contactConsent').checked=true;document.getElementById('contactMessageForm').requestSubmit()`);await h.until(`document.getElementById('customerSystemPopup').classList.contains('show')`);await click(h,'#customerSystemPopupOk');await h.until(`document.getElementById('customerSystemPopupTitle').textContent==='Message Sent'`);await click(h,'#customerSystemPopupOk');await h.until(`document.querySelector('#supportMessages [data-support-entry]')`);assert.equal(f.rows.length,1);assert.equal(f.rows[0].source,'contact');assert.match(await h.run(`document.getElementById('supportMessages').textContent`),/Contact inquiry connected to chat/);

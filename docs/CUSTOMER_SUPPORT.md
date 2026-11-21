@@ -13,11 +13,11 @@ refund, order or appointment action is performed by the assistant.
 
 ## Customer controls
 
-- Read and resume conversations from the widget across Customer pages and PWA
-  routes. While another dialog or any booking step is open, the entire widget is
-  hidden and cannot be clicked or focused. It returns after the last dialog
-  closes, preserving drafts. The website keeps the selected conversation
-  reference, not a local copy of its messages.
+- Read and resume conversations on Home, About Us, Services, Products and
+  Contact, including their installed Customer app routes. While another dialog
+  or any booking step is open, the entire widget is hidden and cannot be
+  clicked or focused. It returns after the last dialog closes, preserving
+  drafts. The website keeps only the selected conversation reference locally.
 - The launcher starts as a labelled, accessible circular icon; hover or keyboard
   focus reveals its name. It shares Back to top's column and moves above the
   arrow while it is visible. Left placement, mobile keyboards and reduced motion
