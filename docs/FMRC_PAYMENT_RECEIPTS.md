@@ -7,16 +7,20 @@ Customers can find eligible receipts in **My Orders → Order Details → Paymen
 Deploy the commit through the existing Git deployment. Open the terminal in this site's backend. Install the locked dependencies and run the receipt migration with issuance disabled.
 
 ```sh
-cd ~/domains/ucn-fabmanlab.com/public_html/backend
-composer2 install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-php artisan migrate --path=database/migrations/2027_01_20_000000_create_order_payment_receipts_table.php --force
-php artisan config:clear
+cd ~/domains/ucn-fabmanlab.com/public_html/backend &&
+composer2 install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts &&
+php artisan clear-compiled &&
+php artisan package:discover --no-interaction &&
+php artisan migrate --path=database/migrations/2027_01_20_000000_create_order_payment_receipts_table.php --force &&
+php artisan config:clear &&
 php artisan route:clear
-php artisan schedule:list
-php artisan payments:check
 ```
 
-Keep `FMRC_PAYMENT_RECEIPTS_ENABLED=false` or omit the setting until the release check succeeds. Verify that the existing Hostinger job runs every minute using `artisan schedule:run` or `payments-hostinger-cron.php`. Both already include receipt processing. The PWA notification job is separate.
+Hostinger disables `proc_open` on this site. Composer uses PHP's ZIP extension to extract packages. `--no-scripts` skips the attempted child process, and the following Artisan commands register packages directly. [Composer scripts](https://getcomposer.org/doc/articles/scripts.md)
+
+Keep `FMRC_PAYMENT_RECEIPTS_ENABLED=false` or omit the setting until the release check succeeds. The existing every-minute `artisan schedule:run` cron runs payment reconciliation and receipt processing in its PHP process. On hosts using the standalone `payments-hostinger-cron.php` job, that job runs both workers. Use one payment runner per environment. [Hostinger cron jobs](https://www.hostinger.com/support/1583465-how-to-set-up-a-cron-job-at-hostinger/)
+
+Check the latest scheduled output in hPanel for both workers. From the production backend, run `php artisan payments:check` and look for `PASS Reconciliation scheduler: Recent heartbeat found`.
 
 Send one sample through the host's configured mail transport, substituting the designated test Gmail address. The command uses fictional order details and needs no customer order or payment.
 

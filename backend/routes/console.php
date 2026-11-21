@@ -10,8 +10,16 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
-Schedule::command('payment-receipts:process')->everyMinute();
+// Hostinger disables proc_open. Run both workers inside the scheduler's PHP
+// process and let their own locks guard against overlapping runs.
+foreach (['payments:reconcile', 'payment-receipts:process'] as $command) {
+    Schedule::call(function () use ($command) {
+        $status = Artisan::call($command);
+        echo Artisan::output();
+
+        return $status === 0;
+    })->name($command)->everyMinute();
+}
 Artisan::command('products:clean-media', function () {
     \App\Support\ProductMedia::cleanup();
     $this->info('Expired product uploads and unreferenced gallery files cleaned.');

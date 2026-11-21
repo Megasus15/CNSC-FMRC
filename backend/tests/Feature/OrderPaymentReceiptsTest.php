@@ -5,7 +5,11 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\OrderPaymentReceipt;
 use App\Models\User;
+use Illuminate\Console\Scheduling\CallbackEvent;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -25,6 +29,26 @@ class OrderPaymentReceiptsTest extends TestCase
             'root' => storage_path('framework/testing/receipts-'.Str::random(12)),
         ]));
         config(['order_receipts.enabled' => true, 'mail.default' => 'array', 'mail.from.address' => 'receipts@example.test']);
+    }
+
+    public function test_hosting_schedule_processes_payments_and_receipts_without_starting_child_processes(): void
+    {
+        Http::preventStrayRequests();
+        $order = $this->order();
+        $this->asStaff();
+        $this->confirm($order)->assertOk();
+
+        $events = collect($this->app->make(Schedule::class)->events());
+        foreach (['payments:reconcile', 'payment-receipts:process'] as $command) {
+            $worker = $events->sole('description', $command);
+            $this->assertInstanceOf(CallbackEvent::class, $worker);
+            $this->assertSame('* * * * *', $worker->expression);
+            $this->assertTrue($worker->run($this->app));
+        }
+
+        $this->assertNotNull(Cache::get('payments:last_reconciled_at'));
+        $this->assertDatabaseHas('order_payment_receipts', ['order_id' => $order->id, 'delivery_state' => 'sent']);
+        $this->assertCount(1, Mail::mailer('array')->getSymfonyTransport()->messages());
     }
 
     public function test_the_email_and_owner_download_use_the_same_saved_pdf(): void
