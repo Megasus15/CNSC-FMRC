@@ -8,6 +8,17 @@
   let overlay,active=null,calendar=null,busy=false,loadVersion=0,opener,meetingTimer,meetingBusy=false;
   const statusBadge=item=>{const status=item.status==='Archived'?'Completed':item.status;return '<span class="appointment-status" data-status="'+escape(String(status||'').toLowerCase())+'">'+escape(status||'Status unavailable')+'</span>';};
   const deleteButton=item=>item.can_delete?'<button type="button" class="appointment-button ux-dlg__btn ux-dlg__btn--ghost appointment-delete" data-appointment-action data-appointment-delete="'+item.id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>Delete</button>':'';
+  const stackedActions=matchMedia('(max-width: 640px), (max-width: 1024px) and (max-height: 540px) and (pointer: coarse) and (hover: none)');
+  stackedActions.addEventListener('change',()=>{
+    const firstAction=stackedActions.matches?'[data-appointment-view]':'[data-appointment-delete]';
+    overlay?.querySelectorAll('.appointment-card-actions').forEach(row=>{
+      const first=row.querySelector(firstAction);
+      if(!first||first===row.firstElementChild)return;
+      const restoreFocus=document.activeElement===first;
+      row.prepend(first);
+      if(restoreFocus)first.focus({preventScroll:true});
+    });
+  });
   const methodLabel=item=>item.appointment_method==='online'?'Online':item.appointment_method==='face_to_face'?'Face-to-face at FMRC':'Not recorded';
   const schedule=item=>'<dl class="appointment-schedule"><div><dt>Date</dt><dd>'+escape(dateLabel(item.appointment_date))+'</dd></div><div><dt>Time</dt><dd>'+escape(item.appointment_time)+'</dd></div><div><dt>Method</dt><dd>'+escape(methodLabel(item))+'</dd></div></dl>';
   const heading=detail=>{
@@ -103,7 +114,14 @@
       json.data=[...json.data].sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0)||Number(b.id)-Number(a.id));
       heading(false);overlay.querySelector('.appointment-modal').classList.remove('has-custom-product');
       overlay.querySelector('[data-appointment-content]').innerHTML=json.data.length?'<div class="appointment-list-heading"><p>All times are in Philippine time (UTC+8).</p><span>'+json.data.length+' '+(json.data.length===1?'appointment':'appointments')+'</span></div><div class="appointment-list">'+json.data.map(item=>'<article class="appointment-card"><div class="appointment-card-heading"><span class="appointment-reference">'+escape(item.reference_no)+'</span>'+statusBadge(item)+'</div><h3 class="appointment-service">'+escape(item.purpose||'FMRC appointment')+'</h3>'+schedule(item)+'<div class="appointment-card-actions"><button type="button" class="appointment-button ux-dlg__btn ux-dlg__btn--primary" data-appointment-action data-appointment-view="'+item.id+'">View appointment </button></div></article>').join('')+'</div>':'<div class="appointment-empty"><span class="appointment-empty-icon" aria-hidden="true">◷</span><h3>No appointments yet</h3><p>Your bookings will appear here. Visit the Home page to schedule an appointment with the FMRC team.</p></div>';
-      overlay.querySelectorAll('[data-appointment-view]').forEach(button=>button.onclick=()=>detail(json.data.find(item=>item.id===Number(button.dataset.appointmentView))));overlay.querySelectorAll('.appointment-card').forEach((card,index)=>{const item=json.data[index];if(item.can_delete){card.querySelector('.appointment-card-actions').insertAdjacentHTML('afterbegin',deleteButton(item));card.querySelector('[data-appointment-delete]').onclick=()=>remove(item);}});message('');overlay.querySelector('[data-appointment-content]').scrollTop=0;window.FMRCAppointmentProducts?.draftList(overlay.querySelector('[data-appointment-content]'));if(pendingId){const id=pendingId;pendingId=null;const match=json.data.find(a=>String(a.id)===String(id))||(await request('/customer/appointments/'+encodeURIComponent(id))).data;if(match){detail(match);if(match.deleted_from_list)message('This appointment was deleted from your list. Its custom-product history remains available here.');}}}
+      overlay.querySelectorAll('.appointment-card').forEach((card,index)=>{
+        const item=json.data[index];
+        card.querySelector('[data-appointment-view]').onclick=()=>detail(item);
+        if(!item.can_delete)return;
+        card.querySelector('.appointment-card-actions').insertAdjacentHTML(stackedActions.matches?'beforeend':'afterbegin',deleteButton(item));
+        card.querySelector('[data-appointment-delete]').onclick=()=>remove(item);
+      });
+      message('');overlay.querySelector('[data-appointment-content]').scrollTop=0;window.FMRCAppointmentProducts?.draftList(overlay.querySelector('[data-appointment-content]'));if(pendingId){const id=pendingId;pendingId=null;const match=json.data.find(a=>String(a.id)===String(id))||(await request('/customer/appointments/'+encodeURIComponent(id))).data;if(match){detail(match);if(match.deleted_from_list)message('This appointment was deleted from your list. Its custom-product history remains available here.');}}}
     catch(error){message(error.message,true);}finally{busy=false;controls();if(preserveScroll){overlay.querySelector('[data-appointment-content]').scrollTop=scroll;overlay.querySelector('[data-appointments-refresh]').focus({preventScroll:true});}}
   };
   const refresh=async()=>{

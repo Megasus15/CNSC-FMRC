@@ -118,7 +118,8 @@ test('optional appointment products preserve drafts and share the existing modal
     const input=async(id,value)=>run(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     const key=async(value,modifiers=0)=>{await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:value,modifiers,windowsVirtualKeyCode:({Tab:9,Escape:27})[value]});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:value});};
     const confirm=async title=>{await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent===${JSON.stringify(title)}`);await run(`document.getElementById('adminSystemPopupOk').click()`);};
-    const shot=async name=>{await until(`!document.querySelector('.fmrc-load-veil.is-on')&&!document.querySelector('.fmrc-load-boot')`);await run(`document.querySelector(${JSON.stringify(name.includes('conversation')?'[data-ap-chat]':'[data-ap-job]')})?.scrollIntoView({block:'start',behavior:'instant'});new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(image.data,'base64'));};
+    const alignChat=`(()=>{const chat=document.querySelector('[data-ap-chat]'),host=chat.closest('.modal-body-scroll,.appointment-content');host.scrollTop+=chat.getBoundingClientRect().top-host.getBoundingClientRect().top-12;})()`;
+    const shot=async name=>{await until(`!document.querySelector('.fmrc-load-veil.is-on')&&!document.querySelector('.fmrc-load-boot')`);await run(`${name.includes('conversation')?alignChat:`document.querySelector('[data-ap-job]')?.scrollIntoView({block:'start',behavior:'instant'})`};new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(image.data,'base64'));};
     const centered=async()=>{
       const layout=await run(`(()=>{const card=document.querySelector('#customerAppointmentsModal .appointment-modal'),r=card.getBoundingClientRect();return {x:Math.abs(r.left+r.width/2-innerWidth/2),y:Math.abs(r.top+r.height/2-innerHeight/2),fits:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,overflow:card.scrollWidth>card.clientWidth+1,bodyOverflow:document.querySelector('[data-appointment-content]').scrollWidth>document.querySelector('[data-appointment-content]').clientWidth+1};})()`);
       assert(layout.x<2&&layout.y<2,'Customer appointment dialog stays centered: '+JSON.stringify(layout));assert(layout.fits);assert.equal(layout.overflow,false);assert.equal(layout.bodyOverflow,false);
@@ -166,7 +167,7 @@ test('optional appointment products preserve drafts and share the existing modal
       await until(`!!document.querySelector('[data-chat-message="${id}"]')`);
       assert.deepEqual(await run(`(()=>{const f=document.querySelector('[data-ap-form="messages"]');return {form:f===chatNodes.form,input:f.elements.body===chatNodes.input,text:f.elements.body.value,focused:document.activeElement===f.elements.body,selection:[f.elements.body.selectionStart,f.elements.body.selectionEnd],file:f.elements.attachments.files[0]?.name};})()`),{form:true,input:true,text:'My unsent draft',focused:true,selection:[3,7],file:'private-design.step'},role+' receives replies without replacing the composer');
       assert.equal(await run(`document.querySelector('[data-ap-chat-log]').getAttribute('role')`),'log');
-      assert.equal(await run(`document.querySelector('[data-chat-message="${id}"]').classList.contains('is-own')`),false);
+      assert.equal(await run(`document.querySelector('[data-chat-message="${id}"]').classList.contains('is-customer')`),role!=='customer');
       // File-only sending and attachment removal use the same private endpoint.
       await run(`document.querySelector('[data-chat-remove="0"]').click();document.querySelector('[name="body"]').value='';document.querySelector('[name="body"]').dispatchEvent(new Event('input',{bubbles:true}))`);
       assert.equal(await run(`document.querySelector('[data-ap-form="messages"] [type="submit"]').disabled`),true);
@@ -201,24 +202,57 @@ test('optional appointment products preserve drafts and share the existing modal
       assert.equal(await run(`phoneResult`),true,'Phone Enter keeps native newline behavior');assert.equal(messagePosts,desktopPosts+1);
       await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await run(`chatNodes.form.elements.body.value='';chatNodes.form.elements.body.dispatchEvent(new Event('input',{bubbles:true}))`);
       // A bounded history preserves the reader's anchor and offers a new-message action.
-      for(let i=0;i<22;i++)job.messages.push({id:Math.max(...job.messages.map(m=>m.id))+1,sender_id:33,sender_role:'customer',sender_name:'Maria Santos',body:'Design discussion '+i+' — '+('A useful detail. '.repeat(5)),created_at:new Date().toISOString()});
+      for(let i=0;i<22;i++){
+        const customer=i%2===1;
+        const body=i===4?'Drawing reference: '+'LongDesignReference'.repeat(30):customer?'I’ve added a note about the lettering on the draft.':'Thanks, we’ll review the layout and confirm the dimensions.';
+        job.messages.push({id:Math.max(...job.messages.map(m=>m.id))+1,sender_id:customer?33:11,sender_role:customer?'customer':'admin',sender_name:customer?'Maria Santos':'Alex Reyes',body,created_at:new Date().toISOString()});
+      }
       await until(`document.querySelectorAll('[data-chat-message]').length===${job.messages.length}`);
       await run(`(()=>{const l=document.querySelector('[data-ap-chat-log]');l.scrollTop=40;window.chatScroll=l.scrollTop;})()`);
-      job.messages.push({id:Math.max(...job.messages.map(m=>m.id))+1,sender_id:11,sender_role:'admin',sender_name:'Alex Reyes',body:'A fresh reply while reading earlier messages.',created_at:new Date().toISOString()});
+      job.messages.push({id:Math.max(...job.messages.map(m=>m.id))+1,sender_id:11,sender_role:'admin',sender_name:'Alex Reyes',body:'We can review the lettering and share the next proof here.',created_at:new Date().toISOString()});
       await until(`!document.querySelector('[data-ap-chat-latest]').hidden`);
       assert.equal(await run(`Math.abs(document.querySelector('[data-ap-chat-log]').scrollTop-chatScroll)<3`),true);
       await run(`document.querySelector('[data-ap-chat-latest]').click()`);
       await until(`(()=>{const l=document.querySelector('[data-ap-chat-log]');return l.scrollHeight-l.scrollTop-l.clientHeight<3})()`);
-      for(const width of [375,390,430,768,1440])for(const theme of ['light','dark']){
+      for(const width of [320,390,412,440,768,1440])for(const theme of role==='customer'?['light']:['light','dark']){
         fixtureTheme=theme;
-        await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-        await run(`if(window.setAdminTheme)window.setAdminTheme(${JSON.stringify(theme)});else document.documentElement.dataset.theme=${JSON.stringify(theme)};document.body.classList.toggle('dark-mode',${theme==='dark'});document.querySelector('[data-ap-chat]').scrollIntoView({block:'center',behavior:'instant'})`);
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===1440?1100:900,deviceScaleFactor:1,mobile:false});
+        await run(`if(window.setAdminTheme)window.setAdminTheme(${JSON.stringify(theme)});else document.documentElement.dataset.theme=${JSON.stringify(theme)};document.body.classList.toggle('dark-mode',${theme==='dark'});${alignChat}`);
         await run(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
         assert.equal(await run(`getComputedStyle(document.querySelector('[data-ap-form="messages"] [type="file"]')).display`),'none','Only the consistent Attach files control is visible');
         assert.equal(await run(`(()=>{const c=document.querySelector('[data-ap-chat]'),l=c.querySelector('[data-ap-chat-log]'),f=c.querySelector('form');return c.scrollWidth<=c.clientWidth+1&&l.scrollWidth<=l.clientWidth+1&&f.scrollWidth<=f.clientWidth+1})()`),true,role+' chat fits '+width);
         const composer=await run(`(()=>{const f=document.querySelector('[data-ap-form="messages"]'),h=f.closest('.modal-body-scroll,.appointment-content'),r=f.getBoundingClientRect(),c=f.closest('[data-ap-chat]');return {visible:r.bottom<=h.getBoundingClientRect().bottom+2,bottom:r.bottom,hostBottom:h.getBoundingClientRect().bottom,hostHeight:h.clientHeight,chatHeight:c.getBoundingClientRect().height,logHeight:c.querySelector('[data-ap-chat-log]').clientHeight};})()`);
         assert.equal(composer.visible,true,'The composer stays inside the visible modal body: '+JSON.stringify({role,width,theme,...composer}));
+        assert(composer.logHeight<=(width<=640?481:561),'History respects its responsive cap');
+        if(width===1440)assert(composer.logHeight>430,'Roomy desktop dialogs show more than the old 430px transcript cap');
+        const sides=await run(`(()=>{
+          const customer=[...document.querySelectorAll('.ap-chat-message.is-customer')].at(-1),team=[...document.querySelectorAll('.ap-chat-message:not(.is-customer)')].at(-1);
+          const align=row=>[...row.querySelectorAll('.ap-chat-sender,.ap-chat-text,time')].map(n=>getComputedStyle(n).textAlign);
+          const bubble=row=>row.querySelector('.ap-chat-bubble').getBoundingClientRect();
+          return {customer:align(customer),team:align(team),rightGap:customer.getBoundingClientRect().right-bubble(customer).right,leftGap:bubble(team).left-team.getBoundingClientRect().left,logo:team.querySelector('img').src.includes('FMRC%20Logo.png')};
+        })()`);
+        assert.deepEqual(sides.customer,['right','right','right'],role+' shows customer details on the right');
+        assert.deepEqual(sides.team,['left','left','left'],role+' shows team details on the left');
+        assert(sides.rightGap>=29&&sides.rightGap<=39&&sides.leftGap>=29&&sides.leftGap<=39&&sides.logo,JSON.stringify({role,width,theme,sides}));
         if([390,1440].includes(width)){await run(`document.querySelector('[data-ap-chat-log]').scrollTop=document.querySelector('[data-ap-chat-log]').scrollHeight`);await shot(role+'-conversation-'+theme+'-'+width);}
+      }
+      if(role==='customer'){
+        await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width:956,height:440,deviceScaleFactor:1,mobile:true});
+        await until(`getComputedStyle(document.querySelector('[data-ap-chat-log]')).getPropertyValue('--ap-chat-history-limit').trim()==='480px'`);
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+        await run(`(()=>{
+          const f=document.querySelector('[data-ap-form="messages"]');
+          const files=new DataTransfer();files.items.add(new File(['fixture'],'design-notes.pdf'));
+          f.elements.attachments.files=files.files;f.elements.attachments.dispatchEvent(new Event('change',{bubbles:true}));
+          f.elements.body.focus();
+          Object.defineProperties(visualViewport,{height:{value:380,configurable:true},offsetTop:{value:30,configurable:true}});
+          visualViewport.dispatchEvent(new Event('resize'));
+        })()`);
+        const keyboard=await run(`(()=>{const f=document.querySelector('[data-ap-form="messages"]'),b=f.querySelector('[type=submit]').getBoundingClientRect(),l=document.querySelector('[data-ap-chat-log]');return {bottom:b.bottom,fit:b.bottom<=visualViewport.height+visualViewport.offsetTop+2,focused:document.activeElement===f.elements.body,file:f.elements.attachments.files[0]?.name,history:l.clientHeight};})()`);
+        assert(keyboard.fit&&keyboard.focused&&keyboard.file==='design-notes.pdf'&&keyboard.history>=80,JSON.stringify(keyboard));
+        await run(`delete visualViewport.height;delete visualViewport.offsetTop;visualViewport.dispatchEvent(new Event('resize'));document.querySelector('[data-chat-remove]').click();`);
+        await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
       }
       fixtureTheme='light';await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await run(`if(window.setAdminTheme)window.setAdminTheme('light');else document.documentElement.dataset.theme='light';document.body.classList.remove('dark-mode')`);
     };

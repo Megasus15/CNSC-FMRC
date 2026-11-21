@@ -26,7 +26,10 @@ function fixture(){
   if(route==='/api/customer/messages/history'){
    const data=await body(),ids=data.ids,eligible=rows.filter(r=>ids.includes(r.id)&&r.status==='resolved'&&!r.customer_hidden);eligible.forEach(r=>r.customer_hidden=true);writes.push({action:'delete-history',ids});json({processed_ids:eligible.map(r=>r.id),skipped_ids:ids.filter(id=>!eligible.some(r=>r.id===id))});return true;
   }
-  if(route==='/api/customer/messages') {const data=rows.filter(r=>!r.customer_hidden).map(present);json({data,meta:{page:1,last_page:1,total:data.length},unread_count:data.reduce((n,r)=>n+r.customer_unread,0)});return true;}
+  if(route==='/api/customer/messages') {
+   const data=rows.filter(r=>!r.customer_hidden).map(present),page=Number(query.get('page')||1),perPage=15;
+   json({data:data.slice((page-1)*perPage,page*perPage),meta:{page,last_page:Math.max(1,Math.ceil(data.length/perPage)),total:data.length},unread_count:data.reduce((n,r)=>n+r.customer_unread,0)});return true;
+  }
   if(route==='/api/admin/customer-messages'){const filter=query.get('search')||'',status=query.get('status'),filtered=rows.filter(r=>(r.message+r.sender_name).toLowerCase().includes(filter.toLowerCase())&&(!status||status==='all'||status===r.status||status==='unread'&&!r.is_read)),per=Number(query.get('per_page')||10),page=Number(query.get('page')||1);json({data:filtered.slice((page-1)*per,page*per).map(present),eligible_ids:filtered.map(r=>r.id),meta:{page,last_page:Math.max(1,Math.ceil(filtered.length/per)),total:filtered.length},support_installed:true,summary:{total:rows.length,new:rows.filter(r=>r.status==='new').length,unread:rows.filter(r=>!r.is_read).length,resolved:rows.filter(r=>r.status==='resolved').length}});return true;}
   const match=route.match(/^\/api\/(customer|admin)\/messages\/(\d+)(?:\/(entries|read|end|reopen))?$/)||route.match(/^\/api\/(customer|admin)\/customer-messages\/(\d+)(?:\/(entries|conversation-read|read|resolve|reopen))?$/);
   if(match){const side=match[1],id=Number(match[2]),action=match[3],row=rows.find(r=>r.id===id);if(!row||(side==='customer'&&row.customer_hidden)){json({message:'Not found.'},404);return true;}
@@ -76,6 +79,86 @@ test('Customer help, connected messaging, ending/reopening and single/bulk histo
  const two=f.create('Second inquiry'),three=f.create('Third inquiry'),active=f.create('Active inquiry');f.rows.find(r=>r.id===two.id).status='resolved';f.rows.find(r=>r.id===three.id).status='resolved';await h.until(`document.querySelector('[data-support-conversation="${two.id}"]')`);
  assert(await h.run(`document.querySelector('[data-support-select="${active.id}"]').disabled`));await click(h,'[data-support-select-all]');await click(h,'[data-support-bulk]');await click(h,'[data-support-confirm]');await h.until(`!document.querySelector('[data-support-conversation="${two.id}"]')`);assert(!f.rows.find(r=>r.id===active.id).customer_hidden);
  await click(h,`[data-support-conversation="${active.id}"]`);await type(h,'#supportInput','Private unsent draft');await h.run(`localStorage.setItem('customer_token','another-account');localStorage.setItem('customer_info',JSON.stringify({id:99,name:'Other account',email:'other@example.test'}));dispatchEvent(new Event('storage'));`);assert.equal(await h.run(`document.getElementById('supportInput').value`),'');assert.equal(await h.run(`document.querySelector('#supportMessages')?.textContent||''`),'');
+ assert.deepEqual(await h.run('fixtureErrors'),[]);
+});
+
+test('Help keeps footer actions, reading position and focus in all four views',{skip:!chrome,timeout:90000},async t=>{
+ const f=fixture();
+ const open=f.create('Can you review a design file?', 'widget');
+ const ended=f.create('Can I collect an order this Friday?', 'widget');
+ for(let i=0;i<20;i++){
+  f.addReply(open.id,'Design file information '+i+'. The team can review your notes and suggest options.');
+  f.addReply(ended.id,'Pickup inquiry reply '+i+'. Here are the details for your order.');
+  f.create('Past question '+i, 'widget');
+ }
+ f.rows.filter(r=>r.id!==open.id).forEach(r=>r.status='resolved');
+ const h=await browserFixture(t,f.handle,{setup});
+ await h.send('Network.setBlockedURLs',{urls:['https://*']});
+ await size(h,390,790);await h.go('/home-page/main.html');await h.until('window.FMRCSupport');
+ await click(h,'.fmrc-support__launcher');await h.until(`document.querySelector('[data-support-topic="order-products"]')`);
+ const pinned=async selectors=>{
+  const geometry=await h.run(`(()=>{
+   const panel=document.getElementById('fmrcSupportPanel'),body=document.getElementById('supportBody'),footer=panel.querySelector('footer');
+   const fixed=[panel.querySelector('header'),panel.querySelector('[role=tablist]'),footer];
+   body.scrollTop=0;
+   const top=fixed.map(node=>node.getBoundingClientRect().top);
+   body.scrollTop=body.scrollHeight;
+   const controls=${JSON.stringify(selectors)}.map(selector=>panel.querySelector(selector));
+   return {scrolled:body.scrollTop>0,pinned:fixed.every((node,i)=>node.getBoundingClientRect().top===top[i]),inside:controls.every(node=>footer.contains(node)&&node.getClientRects().length&&!body.contains(node)),edge:Math.abs(footer.getBoundingClientRect().bottom-panel.getBoundingClientRect().bottom)<2,panelScroll:panel.scrollTop};
+  })()`);
+  assert.deepEqual(geometry,{scrolled:true,pinned:true,inside:true,edge:true,panelScroll:0},selectors.join(', '));
+ };
+ await click(h,'[data-support-topic="order-products"]');
+ await pinned(['#supportComposer','[data-support-reset]','[data-support-handoff]']);
+ await type(h,'#supportInput','A different question I am still writing.');
+ await h.run(`const select=document.getElementById('supportLanguage');select.value='fil';select.dispatchEvent(new Event('change',{bubbles:true}));`);
+ await click(h,'[data-support-tab=team]');await h.until(`document.querySelector('[data-support-conversation="${ended.id}"]')`);
+ await pinned(['[data-support-bulk]','[data-support-page="-1"]','[data-support-page="1"]']);
+ const firstCheck=`[data-support-select="${ended.id}"]`;
+ await h.run(`document.querySelector(${JSON.stringify(firstCheck)}).focus();document.querySelector(${JSON.stringify(firstCheck)}).click()`);
+ assert.equal(await h.run(`document.activeElement.matches(${JSON.stringify(firstCheck)})`),true);
+ await h.run(`document.getElementById('supportBody').scrollTop=280;window.historyPosition=document.getElementById('supportBody').scrollTop;`);
+ await click(h,'[data-support-bulk]');await h.until(`document.activeElement.hasAttribute('data-support-cancel')`);
+ await h.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',windowsVirtualKeyCode:27});
+ await h.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape'});
+ const cancelled=await h.run(`({focused:document.activeElement.hasAttribute('data-support-bulk'),confirmation:!!document.querySelector('.fmrc-support__confirm'),scroll:document.getElementById('supportBody').scrollTop,expected:historyPosition})`);
+ assert(cancelled.focused&&!cancelled.confirmation&&Math.abs(cancelled.scroll-cancelled.expected)<2,'Cancel restores the bulk action and reading position: '+JSON.stringify(cancelled));
+ await h.run(`document.querySelector('[data-support-page="1"]').focus();document.querySelector('[data-support-page="1"]').click()`);
+ await h.until(`document.querySelector('.fmrc-support__pager').textContent.includes('2/2')`);
+ assert(await h.run(`document.activeElement.dataset.supportPage==='-1'&&document.querySelector('[data-support-bulk]').textContent.includes('(1)')`),'Page navigation keeps selection and focuses the remaining page button');
+ await click(h,'[data-support-page="-1"]');await h.until(`document.querySelector('.fmrc-support__pager').textContent.includes('1/2')`);
+ assert(await h.run(`document.querySelector(${JSON.stringify(firstCheck)}).checked&&Math.abs(document.getElementById('supportBody').scrollTop-historyPosition)<2`));
+ await shot(h,'customer-help-history-mobile');
+ await click(h,'[data-support-tab=help]');
+ assert(await h.run(`document.getElementById('supportLanguage').value==='fil'&&document.getElementById('supportInput').value==='A different question I am still writing.'`));
+ await click(h,'[data-support-tab=team]');
+ const added=f.create('A more recent inquiry.');f.rows.unshift(f.rows.pop());
+ await h.until(`document.querySelector('[data-support-conversation="${added.id}"]')`);
+ assert(await h.run(`document.getElementById('supportBody').scrollTop>historyPosition`),'Polling keeps the visible history entries anchored when another entry arrives above them');
+
+ await click(h,`[data-support-conversation="${open.id}"]`);
+ await h.until(`document.querySelector('#supportMessages .fmrc-support__bubble--own')&&document.getElementById('supportComposer').offsetHeight>0`);
+ await pinned(['#supportComposer']);
+ const align=await h.run(`(()=>{
+  const own=document.querySelector('#supportMessages .fmrc-support__bubble--own'),team=document.querySelector('#supportMessages .fmrc-support__bubble:not(.fmrc-support__bubble--own)');
+  return {own:[own.querySelector('strong'),own.querySelector('p'),own.querySelector('time')].map(n=>getComputedStyle(n).textAlign),team:[team.querySelector('strong'),team.querySelector('p'),team.querySelector('time')].map(n=>getComputedStyle(n).textAlign),right:own.getBoundingClientRect().right>team.getBoundingClientRect().right,logo:team.querySelector('img').src.includes('FMRC%20Logo.png')};
+ })()`);
+ assert.deepEqual(align,{own:['right','right','right'],team:['left','left','left'],right:true,logo:true});
+ await type(h,'#supportInput','Keep my private draft.');
+ await h.run(`document.getElementById('supportInput').focus({preventScroll:true});document.getElementById('supportInput').setSelectionRange(2,8);document.getElementById('supportBody').scrollTop=120;`);
+ const reply=f.addReply(open.id,'This arrives while the customer reads earlier messages.');
+ await h.until(`document.querySelector('[data-support-entry="${reply.id}"]')`);
+ assert(await h.run(`document.getElementById('supportBody').scrollTop===120&&document.activeElement.id==='supportInput'&&document.activeElement.selectionEnd===8&&document.activeElement.value==='Keep my private draft.'`));
+ await h.run(`Object.defineProperties(visualViewport,{height:{value:340,configurable:true},offsetTop:{value:65,configurable:true}});visualViewport.dispatchEvent(new Event('resize'));`);
+ await h.until(`document.querySelector('.fmrc-support--keyboard')`);
+ assert(await h.run(`(()=>{const panel=document.getElementById('fmrcSupportPanel').getBoundingClientRect(),send=document.querySelector('#supportComposer button').getBoundingClientRect();return panel.top>=visualViewport.offsetTop&&send.bottom<=visualViewport.height+visualViewport.offsetTop&&document.getElementById('supportBody').clientHeight>100;})()`),'A panned phone keyboard leaves the send button and reading space visible');
+ await h.run(`delete visualViewport.height;delete visualViewport.offsetTop;visualViewport.dispatchEvent(new Event('resize'));`);
+ await size(h,1440);await click(h,'[data-support-latest]');
+ await h.run(`(()=>{const body=document.getElementById('supportBody'),first=body.querySelector('[data-support-entry]');body.scrollTop+=first.getBoundingClientRect().top-body.getBoundingClientRect().top-14;document.activeElement.blur();})()`);
+ await shot(h,'customer-help-transcript-desktop');
+ await click(h,'[data-support-history]');await click(h,`[data-support-conversation="${ended.id}"]`);await h.until(`document.querySelector('[data-support-reopen]')`);
+ await size(h,390,790);await pinned(['[data-support-reopen]','[data-support-delete="'+ended.id+'"]']);
+ await h.run(`document.activeElement.blur()`);await shot(h,'customer-help-ended-mobile');
  assert.deepEqual(await h.run('fixtureErrors'),[]);
 });
 

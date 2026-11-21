@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if (window.FMRCSupport || /\/(?:admin-page|staff-page|admin-auth)\//.test(location.pathname)) return;
-  const VERSION = '2026.1117.3';
+  const VERSION = '2026.1121.3';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const svg = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
   const icons = {
@@ -21,15 +21,31 @@
   };
   const defaults = {enabled:true,name:'FMRC Help',icon:'brand',placement:'right',accent:'#6b202b',header_color:'#561b26',surface:'#fdfaf6',avatar:'',welcome:{en:'How can we help?',fil:'Paano kami makatutulong?'},offline:{en:'The team is away. Leave a message and check back for a reply.',fil:'Wala pang available na team member. Mag-iwan ng mensahe at balikan ang sagot.'},fallback:{en:'Choose a related topic or message FMRC.',fil:'Pumili ng kaugnay na paksa o i-message ang FMRC.'},suggestions:[]};
   const root = document.createElement('aside'); root.className = 'fmrc-support'; root.dataset.version = VERSION;
-  root.innerHTML = `<button class="fmrc-support__launcher" type="button" aria-controls="fmrcSupportPanel" aria-expanded="false">${icons.headset}<span>FMRC Help</span><span class="fmrc-support__count" hidden></span></button><section id="fmrcSupportPanel" class="fmrc-support__panel" role="dialog" aria-modal="false" aria-labelledby="fmrcSupportTitle" hidden><header class="fmrc-support__header"><span class="fmrc-support__avatar">${icons.headset}</span><div class="fmrc-support__heading"><h2 id="fmrcSupportTitle">FMRC Help</h2><p id="fmrcSupportSubtitle"></p></div><button type="button" data-support-close aria-label="Minimize FMRC Help">${icons.close}</button></header><div class="fmrc-support__tabs" role="tablist" aria-label="Support options"><button type="button" role="tab" id="supportHelpTab" aria-controls="supportBody" data-support-tab="help" aria-selected="true"></button><button type="button" role="tab" id="supportTeamTab" aria-controls="supportBody" data-support-tab="team" aria-selected="false"></button></div><div class="fmrc-support__body" id="supportBody" role="tabpanel" aria-labelledby="supportHelpTab" tabindex="0"></div><form class="fmrc-support__composer" id="supportComposer"><label for="supportInput"></label><div class="fmrc-support__compose-row"><textarea id="supportInput" rows="1" maxlength="500"></textarea><button type="submit" aria-label="Send message">${icons.send}</button></div><p class="fmrc-support__note" id="supportInputHint"></p></form><p class="fmrc-support__error" id="supportError" role="alert" hidden></p></section>`;
+  root.innerHTML = `
+    <button class="fmrc-support__launcher" type="button" aria-controls="fmrcSupportPanel" aria-expanded="false">${icons.headset}<span>FMRC Help</span><span class="fmrc-support__count" hidden></span></button>
+    <section id="fmrcSupportPanel" class="fmrc-support__panel" role="dialog" aria-modal="false" aria-labelledby="fmrcSupportTitle" hidden>
+      <header class="fmrc-support__header"><span class="fmrc-support__avatar">${icons.headset}</span><div class="fmrc-support__heading"><h2 id="fmrcSupportTitle">FMRC Help</h2><p id="fmrcSupportSubtitle"></p></div><button type="button" data-support-close aria-label="Minimize FMRC Help">${icons.close}</button></header>
+      <div class="fmrc-support__tabs" role="tablist" aria-label="Support options"><button type="button" role="tab" id="supportHelpTab" aria-controls="supportBody" data-support-tab="help" aria-selected="true"></button><button type="button" role="tab" id="supportTeamTab" aria-controls="supportBody" data-support-tab="team" aria-selected="false"></button></div>
+      <div class="fmrc-support__body" id="supportBody" role="tabpanel" aria-labelledby="supportHelpTab" tabindex="0"></div>
+      <footer class="fmrc-support__footer">
+        <p class="fmrc-support__error" id="supportError" role="alert" hidden></p>
+        <form class="fmrc-support__composer" id="supportComposer" hidden>
+          <label for="supportInput"></label><div class="fmrc-support__compose-row"><textarea id="supportInput" rows="1" maxlength="500" aria-describedby="supportInputHint"></textarea><button type="submit" aria-label="Send message">${icons.send}</button></div>
+          <p class="fmrc-support__note" id="supportInputHint" hidden></p>
+        </form>
+        <div class="fmrc-support__footer-actions"></div>
+      </footer>
+    </section>`;
   document.body.append(root);
   const panel = root.querySelector('.fmrc-support__panel'), body = root.querySelector('.fmrc-support__body'), launcher = root.querySelector('.fmrc-support__launcher'), composer = root.querySelector('form'), input = root.querySelector('textarea'), error = root.querySelector('#supportError');
+  const footer = panel.querySelector('footer'), footerActions = footer.querySelector('.fmrc-support__footer-actions'), inputHint = footer.querySelector('#supportInputHint');
   let language = localStorage.getItem('fmrc_support_language') === 'fil' ? 'fil' : 'en';
   let pack = {config:defaults,faqs:[],installed:false}, etag = '', loaded = false, knowledgePending = false, knowledgeTask = null, available = false;
   let mode = 'help', view = 'history', conversation = null, entries = [], hasEarlier = false;
   let list = [], page = 1, pages = 1, selected = new Set(), log = [], latestQuestion = '';
   let identity = owner(), accountKey = String(user().id || 'guest'), generation = 0, busy = false, loading = false, pollBusy = false, failures = 0, opener = null, timer, availabilityAt = 0, confirmation = null;
-  const drafts = new Map(), requests = new Map();
+  const drafts = new Map(), requests = new Map(), readingPositions = new Map();
+  let renderedView = '';
   let savedView;
   let obscured = false, deferredOpen = null, surfaceFrame = 0;
   // Observe the existing dialog owners instead of changing their close, focus or
@@ -85,6 +101,7 @@
   function resetPrivate() {
     try { sessionStorage.removeItem('fmrc_support_view:'+accountKey); } catch {}
     identity = owner(); accountKey = String(user().id || 'guest'); generation++; conversation = null; entries = []; list = []; selected.clear(); drafts.clear(); requests.clear(); log = []; latestQuestion = ''; page = 1; pages = 1; view = 'history'; busy = false; loading = false;
+    readingPositions.clear(); renderedView = '';
     input.value = ''; savedView = null; deferredOpen = null; root.querySelector('.fmrc-support__count').hidden = true; textError(); closeConfirmation();
     if (!panel.hidden) render();
   }
@@ -142,17 +159,28 @@
     if (!loaded) {
       body.innerHTML = languageControl + stateCard(t(knowledgePending ? 'knowledgeLoading' : 'knowledgeFailed'),knowledgePending ? '' : t('helpUnavailable'),knowledgePending ? '' : 'data-support-retry',t('refresh'));
     } else if (!pack.config.enabled) {
-      body.innerHTML = languageControl + stateCard(t('helpPaused'),t('helpPausedNote'),'data-support-handoff',t('team'));
+      body.innerHTML = languageControl + stateCard(t('helpPaused'),t('helpPausedNote'));
     } else {
-      body.innerHTML = `${languageControl}<p class="fmrc-support__welcome">${esc(pack.config.welcome[language])}</p>${suggested.length ? `<p class="fmrc-support__eyebrow">${language === 'fil' ? 'Mga mungkahing paksa' : 'Suggested topics'}</p>`+topicButtons(suggested) : ''}<div role="log" aria-live="polite" aria-relevant="additions" id="supportHelpLog">${log.map(helpLogRow).join('')}</div><div class="fmrc-support__toolbar">${log.length ? `<button data-support-reset type="button">${esc(t('reset'))}</button>` : '<span></span>'}<button data-support-handoff type="button">${esc(t('team'))}</button></div>`;
+      body.innerHTML = `${languageControl}<p class="fmrc-support__welcome">${esc(pack.config.welcome[language])}</p>${suggested.length ? `<p class="fmrc-support__eyebrow">${language === 'fil' ? 'Mga mungkahing paksa' : 'Suggested topics'}</p>`+topicButtons(suggested) : ''}<div role="log" aria-live="polite" aria-relevant="additions" id="supportHelpLog">${log.map(helpLogRow).join('')}</div>`;
     }
-    composer.hidden = !loaded || !pack.config.enabled; setupComposer();
+    composer.hidden = !loaded || !pack.config.enabled;
+    if (!loaded) return '';
+    return `<div class="fmrc-support__action-pair">${pack.config.enabled ? `<button type="button" data-support-reset ${log.length ? '' : 'disabled'}>${esc(t('reset'))}</button>` : ''}<button type="button" data-support-handoff>${esc(t('team'))}</button></div>`;
   }
   function statusHtml() { return `<div class="fmrc-support__status" data-available="${available}"><span class="fmrc-support__dot"></span><span>${esc(available ? t('available') : t('away'))}</span></div>`; }
   function renderHistory() {
     composer.hidden = true;
     panel.dataset.supportView = list.length ? 'team-history' : 'team-empty';
-    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><strong>${esc(t('history'))}</strong>${list.length ? `<button type="button" class="fmrc-support__primary" data-support-new>${esc(t('new'))}</button>` : ''}</div><p class="fmrc-support__note">${esc(language === 'fil' ? 'Makikita rito ang mga sagot ng FMRC at ang iyong mga dating pag-uusap.' : 'Your conversations and replies from the FMRC team appear here.')}</p>${loading ? `<p role="status">${esc(t('loading'))}</p>` : !list.length ? stateCard(t('teamWelcome'),available ? t('teamWelcomeNote') : t('teamAwayNote'),'data-support-new',t('start')) : `<label class="fmrc-support__select-all"><input type="checkbox" data-support-select-all ${list.filter(c => c.status === 'resolved').length && list.filter(c => c.status === 'resolved').every(c => selected.has(c.id)) ? 'checked' : ''}>${esc(t('selectAll'))}</label><div class="fmrc-support__history-list">${list.map(c => `<div class="fmrc-support__history-row"><label class="fmrc-support__history-check" title="${esc(c.status === 'resolved' ? t('selectAll') : t('endFirst'))}"><input type="checkbox" data-support-select="${c.id}" aria-label="${esc((language === 'fil' ? 'Piliin ang pag-uusap: ' : 'Select conversation: ')+c.message.slice(0,100))}" ${selected.has(c.id) ? 'checked' : ''} ${c.status !== 'resolved' ? 'disabled' : ''}></label><button class="fmrc-support__conversation" type="button" data-support-conversation="${c.id}">${esc(c.message.slice(0,100))}${c.message.length > 100 ? '…' : ''}<span>${esc(c.status === 'resolved' ? t('closed') : t('open'))} · ${esc(date(c.last_entry_at || c.created_at))}${c.customer_unread ? ' · '+(language === 'fil' ? 'Bagong sagot' : 'New reply') : ''}</span></button>${c.status === 'resolved' ? `<button type="button" class="fmrc-support__history-delete" data-support-delete="${c.id}" aria-label="${esc(t('remove'))}">${icons.delete}</button>` : ''}</div>`).join('')}</div><div class="fmrc-support__toolbar"><button type="button" data-support-bulk ${selected.size ? '' : 'disabled'}>${esc(t('selected'))} (${selected.size})</button><span class="fmrc-support__note">${esc(t('page'))} ${page}/${pages}</span></div><div class="fmrc-support__toolbar"><button type="button" data-support-page="-1" ${page <= 1 ? 'disabled' : ''}>${esc(t('previous'))}</button><button type="button" data-support-page="1" ${page >= pages ? 'disabled' : ''}>${esc(t('next'))}</button></div>`}`;
+    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><strong>${esc(t('history'))}</strong>${list.length ? `<button type="button" class="fmrc-support__primary" data-support-new>${esc(t('new'))}</button>` : ''}</div><p class="fmrc-support__note">${esc(language === 'fil' ? 'Makikita rito ang mga sagot ng FMRC at ang iyong mga dating pag-uusap.' : 'Your conversations and replies from the FMRC team appear here.')}</p>${loading ? `<p role="status">${esc(t('loading'))}</p>` : !list.length ? stateCard(t('teamWelcome'),available ? t('teamWelcomeNote') : t('teamAwayNote'),'data-support-new',t('start')) : `<label class="fmrc-support__select-all"><input type="checkbox" data-support-select-all ${list.filter(c => c.status === 'resolved').length && list.filter(c => c.status === 'resolved').every(c => selected.has(c.id)) ? 'checked' : ''}>${esc(t('selectAll'))}</label><div class="fmrc-support__history-list">${list.map(c => `<div class="fmrc-support__history-row"><label class="fmrc-support__history-check" title="${esc(c.status === 'resolved' ? t('selectAll') : t('endFirst'))}"><input type="checkbox" data-support-select="${c.id}" aria-label="${esc((language === 'fil' ? 'Piliin ang pag-uusap: ' : 'Select conversation: ')+c.message.slice(0,100))}" ${selected.has(c.id) ? 'checked' : ''} ${c.status !== 'resolved' ? 'disabled' : ''}></label><button class="fmrc-support__conversation" type="button" data-support-conversation="${c.id}">${esc(c.message.slice(0,100))}${c.message.length > 100 ? '…' : ''}<span>${esc(c.status === 'resolved' ? t('closed') : t('open'))} · ${esc(date(c.last_entry_at || c.created_at))}${c.customer_unread ? ' · '+(language === 'fil' ? 'Bagong sagot' : 'New reply') : ''}</span></button>${c.status === 'resolved' ? `<button type="button" class="fmrc-support__history-delete" data-support-delete="${c.id}" aria-label="${esc(t('remove'))}">${icons.delete}</button>` : ''}</div>`).join('')}</div>`}`;
+    if (loading || !list.length) return '';
+    return `<div class="fmrc-support__history-actions">
+      <button type="button" data-support-bulk ${selected.size ? '' : 'disabled'}>${esc(t('selected'))} (${selected.size})</button>
+      <div class="fmrc-support__pager">
+        <button type="button" data-support-page="-1" aria-label="${esc(t('previous'))}" title="${esc(t('previous'))}" ${page <= 1 ? 'disabled' : ''}>${icons.back}</button>
+        <span class="fmrc-support__note">${esc(t('page'))} ${page}/${pages}</span>
+        <button type="button" data-support-page="1" aria-label="${esc(t('next'))}" title="${esc(t('next'))}" ${page >= pages ? 'disabled' : ''}>${icons.next}</button>
+      </div>
+    </div>`;
   }
   function entryHtml(e) {
     if (e.event) return `<p class="fmrc-support__system" data-support-entry="${e.id}">${esc(e.event === 'ended' ? t('endedEvent') : t('reopenedEvent'))} <time>${esc(date(e.created_at))}</time></p>`;
@@ -161,35 +189,80 @@
   }
   function renderConversation() {
     panel.dataset.supportView = 'team-conversation';
-    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar fmrc-support__toolbar--conversation"><button type="button" data-support-history>${icons.back} ${esc(t('back'))}</button><strong>${esc(t('conversation'))}</strong>${conversation?.status !== 'resolved' ? `<button type="button" data-support-end>${esc(t('end'))}</button>` : `<button type="button" data-support-new>${esc(t('new'))}</button>`}</div><button type="button" data-support-earlier ${hasEarlier ? '' : 'hidden'}>${esc(t('more'))}</button><div role="log" aria-live="polite" aria-relevant="additions" id="supportMessages">${entries.map(entryHtml).join('')}</div><button type="button" class="fmrc-support__new-messages" data-support-latest hidden>${esc(t('newMessages'))}</button><div id="supportEnded" ${conversation?.status === 'resolved' ? '' : 'hidden'}><p>${esc(t('ended'))}</p><p class="fmrc-support__note">${esc(t('endNote'))}</p><div class="fmrc-support__ended-actions"><button type="button" data-support-reopen>${esc(t('reopen'))}</button><button type="button" data-support-delete="${conversation?.id}">${esc(t('remove'))}</button></div></div>`;
-    composer.hidden = loading || !conversation || conversation.status === 'resolved'; setupComposer();
+    body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar fmrc-support__toolbar--conversation"><button type="button" data-support-history>${icons.back} ${esc(t('back'))}</button><strong>${esc(t('conversation'))}</strong>${conversation?.status !== 'resolved' ? `<button type="button" data-support-end>${esc(t('end'))}</button>` : `<button type="button" data-support-new>${esc(t('new'))}</button>`}</div><button type="button" data-support-earlier ${hasEarlier ? '' : 'hidden'}>${esc(t('more'))}</button><div role="log" aria-live="polite" aria-relevant="additions" id="supportMessages">${entries.map(entryHtml).join('')}</div><button type="button" class="fmrc-support__new-messages" data-support-latest hidden>${esc(t('newMessages'))}</button><div id="supportEnded" ${conversation?.status === 'resolved' ? '' : 'hidden'}><p>${esc(t('ended'))}</p><p class="fmrc-support__note">${esc(t('endNote'))}</p></div>`;
+    composer.hidden = loading || !conversation || conversation.status === 'resolved';
     if (loading) body.insertAdjacentHTML('beforeend', `<p role="status" data-support-loading>${esc(t('loading'))}</p>`);
+    return conversation?.status === 'resolved' ? `<div class="fmrc-support__action-pair">
+      <button type="button" data-support-reopen>${esc(t('reopen'))}</button>
+      <button type="button" data-support-delete="${conversation.id}">${esc(t('remove'))}</button>
+    </div>` : '';
   }
   function renderTeam() {
     if (!loaded && knowledgePending) { panel.dataset.supportView = 'team-loading'; composer.hidden = true; body.innerHTML = stateCard(t('knowledgeLoading'),'','',''); return; }
     if (!token()) { panel.dataset.supportView = 'team-guest'; composer.hidden = true; body.innerHTML = stateCard(t('signin'),t('signNote'),'','')+`<div class="fmrc-support__links"><a href="${esc(actionUrl('signin'))}" data-support-signin>${esc(t('signin'))}</a></div>`; return; }
     if (!pack.installed) { panel.dataset.supportView = 'team-setup'; composer.hidden = true; body.innerHTML = stateCard(t('start'),t('setup'),'','')+`<div class="fmrc-support__links"><a href="${esc(actionUrl('contact'))}">${esc(t('contact'))}</a></div>`; return; }
-    if (view === 'history') { renderHistory(); return; }
+    if (view === 'history') return renderHistory();
     if (view === 'new') {
       panel.dataset.supportView = 'team-new';
       const consented = body.querySelector('#supportConsent')?.checked || false;
       body.innerHTML = `${statusHtml()}<div class="fmrc-support__toolbar"><strong>${esc(t('new'))}</strong><button type="button" data-support-history>${icons.back} ${esc(t('back'))}</button></div><p class="fmrc-support__welcome">${esc(available ? pack.config.welcome[language] : pack.config.offline[language])}</p><p class="fmrc-support__note">${esc(t('privacy'))}</p><label class="fmrc-support__consent"><input id="supportConsent" type="checkbox" ${consented ? 'checked' : ''}><span>${esc(t('consent'))}</span></label>`;
-      composer.hidden = false; setupComposer(); return;
+      composer.hidden = false; return;
     }
-    renderConversation();
+    return renderConversation();
   }
   function setupComposer() {
     composer.querySelector('label').textContent = t(mode === 'help' ? 'question' : 'message');
     input.placeholder = t(mode === 'help' ? 'placeholder' : 'messagePlaceholder'); input.maxLength = mode === 'help' ? 500 : 3000;
-    input.value = drafts.get(currentDraft()) || ''; input.disabled = busy || loading;
-    composer.querySelector('button').disabled = busy || loading || !input.value.trim(); composer.querySelector('button').setAttribute('aria-label', t('send'));
-    root.querySelector('#supportInputHint').textContent = mode === 'help' ? t('auto') : t('privacy');
+    const value = drafts.get(currentDraft()) || '';
+    if (input.value !== value) input.value = value;
+    input.disabled = busy || (mode === 'team' && loading);
+    composer.querySelector('button').disabled = input.disabled || !input.value.trim(); composer.querySelector('button').setAttribute('aria-label', t('send'));
+    inputHint.textContent = mode === 'help' ? '' : t('privacy');
+    inputHint.hidden = mode === 'help';
+  }
+  function elementSelector(element) {
+    if (element.id) return '#' + CSS.escape(element.id);
+    const key = element.getAttributeNames().find(name => name.startsWith('data-support-'));
+    return key ? `[${key}="${CSS.escape(element.getAttribute(key))}"]` : '';
+  }
+  function rememberReadingPosition() {
+    if (!renderedView || !body.clientHeight) return;
+    const {top,bottom} = body.getBoundingClientRect();
+    const anchor = [...body.querySelectorAll('[data-support-entry],[data-support-conversation]')].find(node => {
+      const rect = node.getBoundingClientRect();
+      return rect.bottom > top && rect.top < bottom;
+    });
+    readingPositions.set(renderedView,{scrollTop:body.scrollTop,anchor:anchor && elementSelector(anchor),offset:anchor && anchor.getBoundingClientRect().top-top});
+  }
+  function focusControl(target) {
+    const visible = target?.getClientRects().length && !target.disabled;
+    (visible ? target : body).focus({preventScroll:true});
   }
   function render() {
-    panel.querySelectorAll('[data-support-tab]').forEach(tab => { const active = tab.dataset.supportTab === mode; tab.textContent = t(active && mode === 'help' ? 'help' : tab.dataset.supportTab === 'help' ? 'help' : 'team'); tab.setAttribute('aria-selected',String(active)); tab.tabIndex = active ? 0 : -1; });
+    const previousView = renderedView, focused = document.activeElement;
+    const ownedFocus = body.contains(focused) || footer.contains(focused);
+    const focusSelector = ownedFocus ? elementSelector(focused) : '';
+    rememberReadingPosition();
+    panel.querySelectorAll('[data-support-tab]').forEach(tab => { const active = tab.dataset.supportTab === mode; tab.textContent = t(tab.dataset.supportTab); tab.setAttribute('aria-selected',String(active)); tab.tabIndex = active ? 0 : -1; });
     body.setAttribute('aria-labelledby',mode === 'help' ? 'supportHelpTab' : 'supportTeamTab');
     root.querySelector('#fmrcSupportSubtitle').textContent = mode === 'help' ? t('auto') : (available ? t('available') : t('away'));
-    if (mode === 'help') renderHelp(); else renderTeam();
+    footerActions.innerHTML = (mode === 'help' ? renderHelp() : renderTeam()) || '';
+    setupComposer();
+
+    renderedView = panel.dataset.supportView;
+    if (renderedView === 'team-history') renderedView += ':' + page;
+    if (renderedView === 'team-conversation') renderedView += ':' + conversation?.id + (loading ? ':loading' : '');
+    const position = readingPositions.get(renderedView);
+    body.scrollTop = position?.scrollTop || 0;
+    const anchor = position?.anchor && body.querySelector(position.anchor);
+    if (anchor) body.scrollTop += anchor.getBoundingClientRect().top-body.getBoundingClientRect().top-position.offset;
+
+    if (ownedFocus && !confirmation) {
+      let target = focused.isConnected ? focused : previousView === renderedView && focusSelector ? panel.querySelector(focusSelector) : null;
+      if (focused.hasAttribute('data-support-page') && (!target || target.disabled)) target = footerActions.querySelector('[data-support-page]:not(:disabled)');
+      focusControl(target);
+    }
+    return !!position;
   }
   async function updateAvailability() {
     if (Date.now() - availabilityAt < 18000) return;
@@ -197,22 +270,23 @@
     const previousInstalled = pack.installed, previousAvailable = available;
     try { const r = await request('/support/availability',{},false); available = !!r.available; if (typeof r.installed === 'boolean') pack.installed = r.installed; } catch { available = false; }
     if (!panel.hidden && mode === 'team' && !confirmation && !busy
-      && (previousInstalled !== pack.installed || (previousAvailable !== available && view === 'history' && !list.length))) renderTeam();
+      && (previousInstalled !== pack.installed || (previousAvailable !== available && view === 'history' && !list.length))) render();
     panel.querySelectorAll('.fmrc-support__status').forEach(s => { s.dataset.available = String(available); s.lastElementChild.textContent = available ? t('available') : t('away'); });
     root.querySelector('#fmrcSupportSubtitle').textContent = mode === 'help' ? t('auto') : (available ? t('available') : t('away'));
   }
-  async function history() {
+  async function history(requestedPage = page) {
     if (!token() || !pack.installed) return;
-    const ticket = generation, result = await request('/customer/messages?page=' + page);
-    if (ticket !== generation) return;
-    const changed = JSON.stringify(list) !== JSON.stringify(result.data || []);
-    list = result.data || []; pages = result.meta?.last_page || 1;
-    if (page > pages) { page = pages; return history(); }
+    const ticket = generation, previousPage = page, result = await request('/customer/messages?page=' + requestedPage);
+    if (ticket !== generation || previousPage !== page) return;
+    const lastPage = result.meta?.last_page || 1;
+    if (requestedPage > lastPage) return history(lastPage);
+    const changed = page !== requestedPage || pages !== lastPage || JSON.stringify(list) !== JSON.stringify(result.data || []);
+    list = result.data || []; page = requestedPage; pages = lastPage;
     const counter = root.querySelector('.fmrc-support__count'); counter.textContent = String(result.unread_count || ''); counter.hidden = !result.unread_count;
-    if (changed && mode === 'team' && view === 'history' && !confirmation) renderHistory();
+    if (changed && mode === 'team' && view === 'history') render();
   }
   async function readVisible() {
-    if (panel.hidden || obscured || document.hidden || view !== 'conversation' || !conversation || body.scrollHeight - body.clientHeight - body.scrollTop > 70 || confirmation) return;
+    if (panel.hidden || obscured || document.hidden || mode !== 'team' || view !== 'conversation' || !conversation || body.scrollHeight - body.clientHeight - body.scrollTop > 70 || confirmation) return;
     const through = entries.at(-1)?.id || 0;
     if (through <= conversation.customer_last_read_entry_id) return;
     const id = conversation.id; await request('/customer/messages/'+id+'/read',{method:'PATCH',body:JSON.stringify({through})});
@@ -220,53 +294,71 @@
   }
   async function refreshConversation(initial = false, before) {
     if (!conversation) return;
-    const id = conversation.id, ticket = generation, bottom = body.scrollHeight - body.clientHeight - body.scrollTop < 80;
+    const id = conversation.id, ticket = generation;
     const cursor = before ? '?before='+before : initial ? '' : '?after='+(entries.at(-1)?.id || 0);
     const result = await request('/customer/messages/'+id+'/entries'+cursor);
     if (ticket !== generation || conversation?.id !== id) return;
     const previousStatus = conversation.status; conversation = result.conversation;
-    if (initial) { entries = result.data || []; hasEarlier = !!result.has_more; loading = false; renderConversation(); body.scrollTop = body.scrollHeight; }
-    else if (before) { const height = body.scrollHeight; entries = [...result.data,...entries]; hasEarlier = !!result.has_more; renderConversation(); body.scrollTop = body.scrollHeight - height; }
-    else {
+    const visible = mode === 'team' && view === 'conversation';
+    if (initial) {
+      entries = result.data || []; hasEarlier = !!result.has_more; loading = false;
+      if (visible && !render()) body.scrollTop = body.scrollHeight;
+    } else if (before) {
+      entries = [...result.data,...entries]; hasEarlier = !!result.has_more;
+      if (visible) render();
+    } else {
       const added = (result.data || []).filter(e => !entries.some(old => old.id === e.id)); entries.push(...added);
-      const logEl = body.querySelector('#supportMessages'); if (logEl) for (const e of added) logEl.insertAdjacentHTML('beforeend',entryHtml(e));
-      if (previousStatus !== conversation.status) { const position = body.scrollTop; renderConversation(); body.scrollTop = position; }
-      if (bottom && !confirmation) body.scrollTop = body.scrollHeight;
-      else if (added.length) { body.querySelector('[data-support-latest]')?.removeAttribute('hidden'); }
-      if (result.has_more) { setTimeout(() => { if (view === 'conversation' && conversation?.id === id && !panel.hidden) void refreshConversation().catch(() => {}); },100); }
+      if (visible) {
+        const bottom = body.scrollHeight - body.clientHeight - body.scrollTop < 80;
+        if (previousStatus !== conversation.status) render();
+        else {
+          const logEl = body.querySelector('#supportMessages');
+          if (logEl) for (const e of added) logEl.insertAdjacentHTML('beforeend',entryHtml(e));
+        }
+        if (bottom && !confirmation) body.scrollTop = body.scrollHeight;
+        else if (added.length) body.querySelector('[data-support-latest]')?.removeAttribute('hidden');
+      }
+      if (result.has_more) setTimeout(() => { if (mode === 'team' && view === 'conversation' && conversation?.id === id && !panel.hidden) void refreshConversation().catch(() => {}); },100);
     }
     await readVisible();
   }
   async function selectConversation(id) {
-    if (busy) return; generation++; conversation = {id:Number(id),status:'new'}; entries = []; hasEarlier = false; view = 'conversation'; loading = true; mode = 'team'; textError(); render();
-    try { await refreshConversation(true); } catch (e) { loading = false; if (!e.stale) { if (e.status === 404) { conversation = null; view = 'history'; render(); } textError(e.status === 404 ? t('unavailable') : e.message); } }
+    if (busy) return;
+    const ticket = ++generation;
+    conversation = {id:Number(id),status:'new'}; entries = []; hasEarlier = false; view = 'conversation'; loading = true; mode = 'team'; textError(); render();
+    try { await refreshConversation(true); } catch (e) {
+      if (ticket !== generation || e.stale) return;
+      loading = false;
+      if (e.status === 404) { conversation = null; view = 'history'; render(); }
+      textError(e.status === 404 ? t('unavailable') : e.message);
+    }
   }
   function appendHelp(question, faq) {
     if (question) { latestQuestion = question; log.push({question}); }
     if (faq) log.push({faq});
     else { const match = window.FMRCSupportAnswers?.find(question,pack.faqs) || {answer:null,suggestions:[]}; log.push(match.kind === 'greeting' ? {greeting:true} : match.answer ? {faq:match.answer} : {suggestions:match.suggestions}); }
     if (log.length > 40) log.splice(0,log.length-40);
-    renderHelp();
+    render();
     const answer = body.querySelector('#supportHelpLog > article:last-child');
     if (answer) body.scrollTop += answer.getBoundingClientRect().top-body.getBoundingClientRect().top-12;
   }
   function busyState(value) {
-    busy = value; panel.setAttribute('aria-busy',String(value)); input.disabled = value;
-    composer.querySelector('button').disabled = value || !input.value.trim();
+    busy = value; panel.setAttribute('aria-busy',String(value)); input.disabled = value || (mode === 'team' && loading);
+    composer.querySelector('button').disabled = input.disabled || !input.value.trim();
     panel.querySelectorAll('[data-support-close],[data-support-tab]').forEach(b => b.disabled = value);
   }
   function closeConfirmation() {
     if (!confirmation) return;
-    const {node,children,background,previous} = confirmation; node.remove(); children.forEach(([el,inert]) => el.inert = inert); background.forEach(([el,inert]) => el.inert = inert); confirmation = null;
-    if (!obscured && previous?.isConnected) previous.focus({preventScroll:true});
+    const {node,children,background,previous,selector,viewKey} = confirmation; node.remove(); children.forEach(([el,inert]) => el.inert = inert); background.forEach(([el,inert]) => el.inert = inert); confirmation = null;
+    if (!obscured) focusControl(previous.isConnected ? previous : viewKey === renderedView && selector ? panel.querySelector(selector) : null);
   }
-  function confirmAction(title, note, label, action) {
+  function confirmAction(title, note, label, action, previous) {
     if (confirmation || busy) return;
     const node = document.createElement('div'); node.className = 'fmrc-support__confirm';
     node.innerHTML = `<section role="alertdialog" aria-modal="true" aria-labelledby="supportConfirmTitle" aria-describedby="supportConfirmNote"><h3 id="supportConfirmTitle">${esc(title)}</h3><p id="supportConfirmNote">${esc(note)}</p><div><button type="button" data-support-cancel>${esc(t('cancel'))}</button><button type="button" data-support-confirm>${esc(label)}</button></div></section>`;
     const children = [...panel.children].map(el => [el,el.inert]); children.forEach(([el]) => el.inert = true);
     const background = [...document.body.children].filter(el => el !== root && !el.matches('script,style,link')).map(el => [el,el.inert]); background.forEach(([el]) => el.inert = true);
-    confirmation = {node,children,background,previous:document.activeElement}; panel.append(node); node.querySelector('button').focus();
+    confirmation = {node,children,background,previous,selector:elementSelector(previous),viewKey:renderedView}; panel.append(node); node.querySelector('button').focus();
     node.querySelector('[data-support-cancel]').onclick = () => { if (!busy) closeConfirmation(); };
     node.querySelector('[data-support-confirm]').onclick = async () => {
       if (busy) return; busyState(true); node.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -284,7 +376,7 @@
   }
   async function poll() {
     clearTimeout(timer); sessionCheck();
-    if (!panel.hidden && !obscured && !document.hidden && navigator.onLine && !pollBusy && !busy) {
+    if (!panel.hidden && !obscured && !document.hidden && navigator.onLine && !pollBusy && !busy && !confirmation) {
       pollBusy = true;
       try { await updateAvailability(); if (mode === 'team' && token() && pack.installed) { if (view === 'conversation') await refreshConversation(); else if (view === 'history') await history(); } failures = 0; }
       catch (e) {
@@ -317,12 +409,13 @@
   function minimize() { if (busy || confirmation) return; panel.hidden = true; launcher.hidden = false; launcher.setAttribute('aria-expanded','false'); clearTimeout(timer); fitViewport(); if (!obscured) (opener?.isConnected ? opener : launcher).focus({preventScroll:true}); }
   input.addEventListener('input',() => { drafts.set(currentDraft(),input.value); composer.querySelector('button').disabled = !input.value.trim() || busy; });
   composer.addEventListener('submit',async event => {
-    event.preventDefault(); sessionCheck(); const text = input.value.trim(); if (!text || busy || loading) return;
+    event.preventDefault(); sessionCheck(); const text = input.value.trim(); if (!text || input.disabled) return;
     textError();
     if (mode === 'help') { drafts.delete('help'); appendHelp(text); input.value = ''; input.focus(); return; }
     if (!token()) { render(); return; }
     if (view === 'new' && !body.querySelector('#supportConsent')?.checked) { textError(t('consentRequired')); body.querySelector('#supportConsent')?.focus(); return; }
-    const key = currentDraft(), ticket = generation; if (!requests.has(key) || requests.get(key).body !== text) requests.set(key,{key:crypto.randomUUID(),body:text});
+    const key = currentDraft(), ticket = generation, restoreComposer = composer.contains(document.activeElement);
+    if (!requests.has(key) || requests.get(key).body !== text) requests.set(key,{key:crypto.randomUUID(),body:text});
     busyState(true);
     try {
       if (!conversation) {
@@ -336,35 +429,52 @@
       }
       window.dispatchEvent(new CustomEvent('fmrc:support-updated'));
     } catch (e) { if (!e.stale) textError(e.message || t('failed')); }
-    finally { if (ticket === generation) { busyState(false); setupComposer(); } }
+    finally {
+      if (ticket === generation) {
+        busyState(false); setupComposer();
+        if (restoreComposer && document.activeElement === document.body && !obscured && !composer.hidden) input.focus({preventScroll:true});
+      }
+    }
   });
   async function selectAfterSend(id) { conversation = {id:Number(id),status:'new'}; entries = []; view = 'conversation'; loading = true; render(); await refreshConversation(true); }
   root.addEventListener('change',event => {
     if (event.target.id === 'supportLanguage') { language = event.target.value === 'fil' ? 'fil' : 'en'; localStorage.setItem('fmrc_support_language',language); render(); }
-    if (event.target.matches('[data-support-select]')) { const id = Number(event.target.dataset.supportSelect); event.target.checked ? selected.add(id) : selected.delete(id); const check = event.target.dataset.supportSelect; renderHistory(); body.querySelector('[data-support-select="'+check+'"]')?.focus(); }
-    if (event.target.matches('[data-support-select-all]')) { list.filter(c => c.status === 'resolved').forEach(c => event.target.checked ? selected.add(c.id) : selected.delete(c.id)); renderHistory(); body.querySelector('[data-support-select-all]')?.focus(); }
+    if (event.target.matches('[data-support-select]')) { const id = Number(event.target.dataset.supportSelect); event.target.checked ? selected.add(id) : selected.delete(id); render(); }
+    if (event.target.matches('[data-support-select-all]')) { list.filter(c => c.status === 'resolved').forEach(c => event.target.checked ? selected.add(c.id) : selected.delete(c.id)); render(); }
   });
+  function newInquiry(prefill = '') {
+    generation++; mode = 'team'; view = 'new'; conversation = null; entries = []; loading = false;
+    if (prefill && !drafts.has('new')) drafts.set('new',prefill);
+    textError(); render();
+    if (!composer.hidden) input.focus({preventScroll:true});
+  }
   root.addEventListener('click',async event => {
     const button = event.target.closest('button,a'); if (!button || busy) return;
     try {
       if (button === launcher) { await open(); return; }
       if (button.hasAttribute('data-support-close')) { minimize(); return; }
-      if (button.hasAttribute('data-support-tab')) { mode = button.dataset.supportTab; textError(); render(); void poll(); return; }
+      if (button.hasAttribute('data-support-tab')) { mode = button.dataset.supportTab; textError(); render(); button.focus({preventScroll:true}); void poll(); return; }
       if (button.dataset.supportTopic) { appendHelp(button.textContent.trim(),pack.faqs.find(f => f.key === button.dataset.supportTopic)); return; }
-      if (button.hasAttribute('data-support-reset')) { log = []; latestQuestion = ''; renderHelp(); return; }
-      if (button.hasAttribute('data-support-handoff')) { mode = 'team'; view = 'new'; conversation = null; if (latestQuestion) drafts.set('new',latestQuestion); render(); input.focus(); return; }
+      if (button.hasAttribute('data-support-reset')) { log = []; latestQuestion = ''; render(); body.scrollTop = 0; return; }
+      if (button.hasAttribute('data-support-handoff')) { newInquiry(latestQuestion); return; }
       if (button.hasAttribute('data-support-retry')) { await knowledge(); render(); return; }
-      if (button.hasAttribute('data-support-new')) { conversation = null; entries = []; view = 'new'; textError(); render(); input.focus(); return; }
-      if (button.hasAttribute('data-support-history')) { generation++; view = 'history'; conversation = null; textError(); render(); await history(); render(); return; }
+      if (button.hasAttribute('data-support-new')) { newInquiry(); return; }
+      if (button.hasAttribute('data-support-history')) { generation++; view = 'history'; conversation = null; loading = false; textError(); render(); await history(); return; }
       if (button.dataset.supportConversation) { await selectConversation(button.dataset.supportConversation); return; }
-      if (button.dataset.supportPage) { page += Number(button.dataset.supportPage); await history(); render(); return; }
+      if (button.dataset.supportPage) { textError(); await history(page + Number(button.dataset.supportPage)); return; }
       if (button.hasAttribute('data-support-earlier') && entries.length) { await refreshConversation(false,entries[0].id); return; }
       if (button.hasAttribute('data-support-latest')) { body.scrollTop = body.scrollHeight; button.hidden = true; await readVisible(); return; }
       if (button.hasAttribute('data-support-end')) {
-        confirmAction(t('endTitle'),t('endNote'),t('end'),async () => { const result = await request('/customer/messages/'+conversation.id+'/end',{method:'POST',body:JSON.stringify({through:entries.at(-1)?.id || 0})}); conversation = result.data; await refreshConversation(); renderConversation(); window.dispatchEvent(new CustomEvent('fmrc:support-updated')); }); return;
+        confirmAction(t('endTitle'),t('endNote'),t('end'),async () => { const result = await request('/customer/messages/'+conversation.id+'/end',{method:'POST',body:JSON.stringify({through:entries.at(-1)?.id || 0})}); conversation = result.data; await refreshConversation(); render(); window.dispatchEvent(new CustomEvent('fmrc:support-updated')); },button); return;
       }
-      if (button.hasAttribute('data-support-reopen')) { busyState(true); try { const result = await request('/customer/messages/'+conversation.id+'/reopen',{method:'POST',body:'{}'}); conversation = result.data; await refreshConversation(); renderConversation(); input.focus(); } finally { busyState(false); } return; }
-      if (button.hasAttribute('data-support-delete') || button.hasAttribute('data-support-bulk')) { const ids = button.dataset.supportDelete ? [Number(button.dataset.supportDelete)] : [...selected]; if (ids.length) confirmAction(t('deleteTitle'),t('deleteNote'),t('confirmDelete'),() => removeHistory(ids)); return; }
+      if (button.hasAttribute('data-support-reopen')) {
+        busyState(true);
+        try { const result = await request('/customer/messages/'+conversation.id+'/reopen',{method:'POST',body:'{}'}); conversation = result.data; selected.delete(conversation.id); await refreshConversation(); render(); }
+        finally { busyState(false); }
+        if (!composer.hidden) input.focus({preventScroll:true});
+        return;
+      }
+      if (button.hasAttribute('data-support-delete') || button.hasAttribute('data-support-bulk')) { const ids = button.dataset.supportDelete ? [Number(button.dataset.supportDelete)] : [...selected]; if (ids.length) confirmAction(t('deleteTitle'),t('deleteNote'),t('confirmDelete'),() => removeHistory(ids),button); return; }
       if (button.hasAttribute('data-support-signin')) { sessionStorage.setItem('fmrc_support_resume',JSON.stringify({id:conversation?.id || null,at:Date.now()})); }
       else if (button.tagName === 'A') { minimize(); rememberView(); }
     } catch (e) { if (!e.stale) textError(e.message); }
@@ -389,16 +499,18 @@
   document.addEventListener('visibilitychange',() => { clearTimeout(timer); if (!document.hidden) void poll(); }); window.addEventListener('online',() => { failures = 0; void poll(); });
   setInterval(sessionCheck,1500);
   function fitViewport() {
-    const viewport = window.visualViewport, height = viewport?.height || innerHeight;
-    const keyboard = Math.max(0,innerHeight-height-(viewport?.offsetTop || 0));
+    const viewport = window.visualViewport, height = viewport?.height || innerHeight, top = viewport?.offsetTop || 0;
+    const belowViewport = Math.max(0,innerHeight-height-top), keyboard = belowViewport > 80;
     const arrow = document.getElementById('customerBackToTop'), style = arrow && getComputedStyle(arrow);
     const bottom = style ? parseFloat(style.bottom) || 44 : innerWidth <= 480 ? 38 : 44;
     const edge = style ? parseFloat(style.right) || 32 : innerWidth <= 480 ? 22 : 32;
     const raised = root.dataset.placement !== 'left' && arrow?.classList.contains('is-visible') && shown(arrow);
-    const offset = keyboard > 80 ? keyboard+12 : innerHeight <= 500 && !panel.hidden ? 12 : bottom+(raised ? arrow.offsetHeight+12 : 0);
+    const offset = keyboard || (height <= 500 && !panel.hidden) ? belowViewport+12 : Math.max(belowViewport+12,bottom+(raised ? arrow.offsetHeight+12 : 0));
+    const room = Math.max(0,innerHeight-offset-top-12);
     const set = (key,value) => { if (root.style.getPropertyValue(key) !== value) root.style.setProperty(key,value); };
-    set('--help-viewport',height+'px'); set('--help-bottom',offset+'px'); set('--help-gap',Math.max(14,edge-2)+'px');
-    set('--help-panel-room',Math.max(0,Math.min(height,innerHeight-offset)-(viewport?.offsetTop || 0)-12)+'px');
+    root.classList.toggle('fmrc-support--compact',room <= 440);
+    root.classList.toggle('fmrc-support--keyboard',keyboard);
+    set('--help-bottom',offset+'px'); set('--help-gap',Math.max(14,edge-2)+'px'); set('--help-panel-room',room+'px');
   }
   new MutationObserver(records => {
     if (records.some(record => {
@@ -409,7 +521,7 @@
     })) scheduleSurfaces();
   }).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','open','style','aria-hidden']});
   document.addEventListener('transitionend',scheduleSurfaces,true);
-  window.visualViewport?.addEventListener('resize',scheduleSurfaces); window.addEventListener('resize',scheduleSurfaces); syncSurfaces();
+  window.visualViewport?.addEventListener('resize',scheduleSurfaces); window.visualViewport?.addEventListener('scroll',scheduleSurfaces); window.addEventListener('resize',scheduleSurfaces); syncSurfaces();
   window.FMRCSupport = {open,close:minimize,openConversation:open,version:VERSION};
   const params = new URLSearchParams(location.search);
   let resume; try { resume = JSON.parse(sessionStorage.getItem('fmrc_support_resume') || 'null'); } catch {}

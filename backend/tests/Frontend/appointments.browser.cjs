@@ -160,20 +160,36 @@ test('appointment booking, private designs, rescheduling and meeting updates sha
     extraAppointments.push(...Array.from({length:5},(_,i)=>({...extraAppointments[0],id:54+i,reference_no:'AP-000'+(54+i),created_at:new Date(Date.now()-(i+3)*86400000).toISOString()})));
     await run(`document.querySelector('[data-appointment-back]').click()`);await until(`!!document.querySelector('[data-appointment-view="52"]')&&!document.querySelector('[data-appointments-refresh]').disabled`);
     assert.deepEqual(await run(`Array.from(document.querySelectorAll('[data-appointment-view]')).slice(0,3).map(node=>node.dataset.appointmentView)`),['51','53','52'],'Newest creation is top left, regardless of the incoming record order or ID');
-    for(const width of [320,390,768,1024,1440]){
+    for(const width of [320,390,412,440,768,1024,1440]){
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await centered();
       await until(`!document.documentElement.classList.contains('fmrc-booting')&&!document.querySelector('.fmrc-load-veil.is-on,.fmrc-load-boot')`);
       await run(`Promise.all(document.getAnimations().filter(a=>a.playState==='running'&&a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);
       const layout=await run(`(()=>{const cards=Array.from(document.querySelectorAll('.appointment-card')).map(node=>node.getBoundingClientRect()),body=document.querySelector('[data-appointment-content]'),head=document.querySelector('.appointment-modal-head').getBoundingClientRect(),foot=document.querySelector('.appointment-modal-footer').getBoundingClientRect();return {first:cards[0].top,second:cards[1].top,third:cards[2].top,head:head.top,foot:foot.top,scrollable:body.scrollHeight>body.clientHeight};})()`);
       await customerFonts('#customerAppointmentsModal');
       const actions=await run(`(()=>{const footer=document.querySelector('.appointment-modal-footer'),buttons=[...footer.querySelectorAll('button')].map(b=>b.getBoundingClientRect()),box=footer.getBoundingClientRect();return {rightGap:box.right-buttons[1].right,padding:parseFloat(getComputedStyle(footer).paddingRight),sameRow:Math.abs(buttons[0].top-buttons[1].top)<2,widths:buttons.map(b=>b.width),available:box.width};})()`);
-      const cardActions=await run(`(()=>{const rows=[...document.querySelectorAll('.appointment-card-actions')];return rows.map(row=>{const r=row.getBoundingClientRect(),buttons=[...row.querySelectorAll('button')].map(button=>{const b=button.getBoundingClientRect(),s=getComputedStyle(button);return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,height:b.height,font:parseFloat(s.fontSize),weight:Number(s.fontWeight)}});return {left:r.left,right:r.right,buttons}})})()`);
+      const cardActions=await run(`(()=>{const rows=[...document.querySelectorAll('.appointment-card-actions')];return rows.map(row=>{const r=row.getBoundingClientRect(),buttons=[...row.querySelectorAll('button')].map(button=>{const b=button.getBoundingClientRect(),s=getComputedStyle(button);return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,height:b.height,font:parseFloat(s.fontSize),weight:Number(s.fontWeight),view:button.hasAttribute('data-appointment-view')}});return {left:r.left,right:r.right,buttons}})})()`);
       for(const row of cardActions){assert(row.buttons.every(b=>b.left>=row.left-1&&b.right<=row.right+1&&b.height<=58&&b.font<=13&&b.weight===600),'Card actions stay compact and inside their row');if(row.buttons.length===2){const [a,b]=row.buttons;assert(a.right+7<=b.left||a.bottom+7<=b.top,'View and Delete have a clear gap');}}
+      for(const row of cardActions){
+        if(width<=640){
+          assert(row.buttons.every(b=>Math.abs(b.left-row.left)<1&&Math.abs(b.right-row.right)<1&&b.height>=44),'Phone actions fill the card footer at '+width);
+          assert(row.buttons[0].view,'View is first in the phone tab order');
+          if(row.buttons.length===2)assert(row.buttons[0].bottom+7<=row.buttons[1].top,'View stacks above Delete at '+width);
+        }else if(row.buttons.length===2)assert(!row.buttons[0].view&&row.buttons[1].view,'Desktop keeps its compact action order');
+      }
       assert(Math.abs(actions.rightGap-actions.padding)<2,'Footer actions align to the right');assert(actions.sameRow);assert(actions.widths.every(width=>width<actions.available/2),'Footer actions keep their natural width');
       assert(Math.abs(layout.first-layout.second)<2,'Two appointment cards share each row');assert(layout.third>layout.first,'The next appointment starts the next row');assert(layout.scrollable);
       await shot('customer-appointment-list-multiple-'+width);await run(`document.querySelector('[data-appointment-content]').scrollTop=99999;new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
       assert.deepEqual(await run(`({head:document.querySelector('.appointment-modal-head').getBoundingClientRect().top,foot:document.querySelector('.appointment-modal-footer').getBoundingClientRect().top})`),{head:layout.head,foot:layout.foot},'Only the appointment body scrolls');await run(`document.querySelector('[data-appointment-content]').scrollTop=0`);
     }
+    await run(`document.querySelector('[data-appointment-view="52"]').focus({preventScroll:true})`);
+    await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:956,height:440,deviceScaleFactor:1,mobile:true});
+    await until(`document.querySelector('[data-appointment-view="52"]').nextElementSibling?.hasAttribute('data-appointment-delete')`);
+    const landscape=await run(`(()=>{const view=document.querySelector('[data-appointment-view="52"]'),del=view.nextElementSibling,row=view.parentElement;return {focused:document.activeElement===view,stacked:view.getBoundingClientRect().bottom+7<=del.getBoundingClientRect().top,full:[view,del].every(b=>Math.abs(b.offsetWidth-row.clientWidth)<2&&b.offsetHeight>=44)};})()`);
+    assert.deepEqual(landscape,{focused:true,stacked:true,full:true},'Touch landscape restacks the card without losing focus');
+    await key('Tab');assert.equal(await run(`document.activeElement.dataset.appointmentDelete`),'52','Tab follows View with Delete');
+    await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
     assert.doesNotMatch(await run(`document.getElementById('customerAppointmentsModal').textContent`),/[↗←→↓]/,'Appointment actions have no decorative arrows');
     await run(`document.querySelector('[data-appointment-view="52"]').click()`);assert.match(await run(`document.getElementById('customerAppointmentsModal').textContent`),/Not recorded/);assert.match(await run(`document.getElementById('customerAppointmentsModal').textContent`),/No design files were submitted/);assert.equal(await run(`document.querySelector('[data-appointment-reschedule]')===null`),true);
     await run(`document.querySelector('[data-appointment-back]').click()`);await until(`!!document.querySelector('[data-appointment-view="53"]')&&!document.querySelector('[data-appointments-refresh]').disabled`);await run(`document.querySelector('[data-appointment-view="53"]').click()`);assert.match(await run(`document.getElementById('customerAppointmentsModal').textContent`),/Appointment location/);assert.equal(await run(`document.querySelector('a[href^="https://meet."]')===null`),true);await centered();await shot('customer-face-to-face-details');

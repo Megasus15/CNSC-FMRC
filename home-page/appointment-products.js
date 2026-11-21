@@ -446,20 +446,20 @@
     const messages=[...state.messages.values()].sort(chatCompare);
     let added=0,previous=null;
     for(const [index,m] of messages.entries()){
-      const day=chatDay(m.created_at),own=ctx.admin?m.sender_role!=='customer':m.sender_role==='customer';
+      const day=chatDay(m.created_at),customer=m.sender_role==='customer';
       let group=log.querySelector(`[data-chat-day="${CSS.escape(day)}"]`);
       if(!group){group=document.createElement('section');group.className='ap-chat-day';group.dataset.chatDay=day;group.innerHTML=`<h5>${esc(chatDayLabel(m.created_at))}<span class="ap-chat-sr"> · Philippine time</span></h5>`;log.append(group);}
       let row=log.querySelector(`[data-chat-message="${CSS.escape(String(m.id))}"]`);
       if(!row){
         row=document.createElement('article');row.className='ap-chat-message';row.dataset.chatMessage=m.id;
-        const customer=m.sender_role==='customer',name=customer?(m.sender_name||'Customer'):'FMRC team';
+        const name=customer?(m.sender_name||'Customer'):'FMRC team';
         const initials=name.trim().split(/\s+/).slice(0,2).map(s=>[...s][0]).join('').toLocaleUpperCase();
         row.innerHTML=`<span class="ap-chat-avatar${customer?'':' is-team'}" aria-hidden="true">${customer?esc(initials):`<img src="${esc(link('/images/FMRC%20Logo.png'))}" alt="" width="25" height="25">`}</span><div class="ap-chat-bubble"><div class="ap-chat-sender">${esc(name)}</div>${m.body?`<p class="ap-chat-text">${esc(m.body)}</p>`:''}<ul class="ap-chat-files" data-ap-chat-files hidden></ul><time title="${esc(date(m.created_at))} · Philippine time">${esc(chatTime(m.created_at))}</time></div>`;
         if(!Number.isNaN(chatDate(m.created_at).getTime()))row.querySelector('time').dateTime=chatDate(m.created_at).toISOString();
         const next=[...group.querySelectorAll('[data-chat-message]')].find(n=>chatCompare(state.messages.get(n.dataset.chatMessage),m)>0);group.insertBefore(row,next||null);
         added++;if(state.initialized&&(!wasVisible||!nearBottom))state.unseen.add(String(m.id));
       }
-      row.classList.toggle('is-own',own);
+      row.classList.toggle('is-customer',customer);
       row.classList.toggle('is-continuation',sameChatGroup(previous,m));
       row.classList.toggle('is-group-end',!sameChatGroup(m,messages[index+1]));
       const files=row.querySelector('[data-ap-chat-files]');
@@ -490,15 +490,37 @@
   }
   function fitChat(ctx) {
     const chat=ctx.root.querySelector('[data-ap-chat]');if(ctx.tab!==2||!chat?.getClientRects().length)return;
-    const log=chat.querySelector('[data-ap-chat-log]'),host=scrollContainer(chat),nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
-    const available=Math.min(host?.clientHeight||innerHeight-80,window.visualViewport?.height||innerHeight)-24;
-    const fixed=chat.getBoundingClientRect().height-log.getBoundingClientRect().height;
-    const height=Math.max(80,Math.min(430,available-fixed));
-    if(Math.abs(log.getBoundingClientRect().height-height)>1){log.style.height=height+'px';if(nearBottom)log.scrollTop=log.scrollHeight;}
+    const log=chat.querySelector('[data-ap-chat-log]'),host=scrollContainer(chat),bounds=host?.getBoundingClientRect();
+    const viewport=window.visualViewport,viewportTop=viewport?.offsetTop||0;
+    const top=Math.max(bounds?.top||0,viewportTop),bottom=Math.min(bounds?.bottom||innerHeight-80,viewportTop+(viewport?.height||innerHeight));
+    const logHeight=log.getBoundingClientRect().height;
+    const chrome=chat.getBoundingClientRect().height-logHeight;
+    const maxHeight=parseFloat(getComputedStyle(log).getPropertyValue('--ap-chat-history-limit'))||560;
+    const height=Math.max(80,Math.min(maxHeight,bottom-top-24-chrome));
+    if(Math.abs(logHeight-height)>1){
+      const nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<64;
+      log.style.height=height+'px';
+      if(nearBottom)log.scrollTop=log.scrollHeight;
+    }
+    return {host,top,bottom};
   }
-  const fitVisibleChats=()=>{for(const ctx of contexts.values())if(ctx.root.isConnected){fitChat(ctx);const form=ctx.root.querySelector('[data-ap-form="messages"]');if(form?.contains(document.activeElement)){const host=scrollContainer(form),bottom=Math.min(host?.getBoundingClientRect().bottom||innerHeight,(window.visualViewport?.offsetTop||0)+(window.visualViewport?.height||innerHeight));if(host&&form.getBoundingClientRect().bottom>bottom)host.scrollTop+=form.getBoundingClientRect().bottom-bottom+12;}}};
+  function fitVisibleChats() {
+    const focused=document.activeElement;
+    for(const ctx of contexts.values()){
+      if(!ctx.root.isConnected)continue;
+      const bounds=fitChat(ctx),form=ctx.root.querySelector('[data-ap-form="messages"]');
+      if(!bounds?.host||!form?.contains(focused))continue;
+      const {host,top,bottom}=bounds;
+      // Reveal the composer controls without scrolling the focused field behind the modal header.
+      const fieldTop=focused.getBoundingClientRect().top;
+      const actionsBottom=form.querySelector('.ap-chat-compose-actions').getBoundingClientRect().bottom;
+      const shift=Math.min(actionsBottom-bottom+8,fieldTop-top-8);
+      if(actionsBottom>bottom-8||fieldTop<top+8)host.scrollTop+=fieldTop<top+8?fieldTop-top-8:shift;
+    }
+  }
   window.addEventListener('resize',fitVisibleChats,{passive:true});
   window.visualViewport?.addEventListener('resize',fitVisibleChats,{passive:true});
+  window.visualViewport?.addEventListener('scroll',fitVisibleChats,{passive:true});
   function bindChat(ctx) {
     const chat=ctx.root.querySelector('[data-ap-chat]');if(chat.dataset.bound)return;
     chat.dataset.bound='true';syncChat(ctx);
