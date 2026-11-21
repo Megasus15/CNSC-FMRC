@@ -1,6 +1,6 @@
 # FMRC payment receipts
 
-Customers can find eligible receipts in **My Orders → Order Details → Payment → Download Receipt**. The **Orders → Payment confirmed** email template sends the same saved PDF. The receipt identifies the payment and directs customers to the UCN Cashier for official documentation.
+Customers can find eligible receipts in **My Orders → Order Details → Payment → Download Receipt**. The **Orders → Payment confirmed** email template sends the same saved PDF. The receipt identifies the payment and directs customers to the FMRC team for payment inquiries and document requests.
 
 ## Hostinger release
 

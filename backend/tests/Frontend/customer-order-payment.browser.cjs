@@ -71,6 +71,20 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   };
   const paymentButton='#customerOrderDetailContent .customer-order-detail-payment [data-gateway-order]';
   const receiptButton = '#customerOrderDetailContent .customer-order-detail-payment [data-receipt-order]';
+  const readActionPositions = () => h.run(`(() => {
+    const bounds = selector => {
+      const {top, bottom, left, right, height} = document.querySelector(selector).getBoundingClientRect();
+      return {top, bottom, left, right, center: top + height / 2};
+    };
+    return {
+      payment: bounds('${paymentButton}'),
+      receipt: bounds('${receiptButton}'),
+      notice: bounds('.customer-order-detail-payment > .customer-order-logistics-note'),
+      policyHeading: bounds('.customer-order-policy-heading'),
+      terms: bounds('.customer-order-policy-links a:first-child'),
+      refund: bounds('.customer-order-policy-links a:last-child'),
+    };
+  })()`);
   await openOrder('/home-page/',102);
   assert.equal(await h.run(`!!document.querySelector('${receiptButton}')`), false);
   const links=await h.run(`Array.from(document.querySelectorAll('.customer-order-policy-link')).map(a=>({label:a.textContent.trim(),href:a.getAttribute('href'),target:a.target}))`);
@@ -141,8 +155,15 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   assert.equal(await h.run(`document.querySelector('#customerOrderDetailModal').classList.contains('show')`),true);
 
   await h.send('Browser.setDownloadBehavior', {behavior:'allow',downloadPath:h.artifacts});
-  await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
   await h.until(`document.querySelector('${receiptButton}')?.innerText.trim()==='Download Receipt'`);
+  await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  for (const [width,height] of [[440,956],[956,440],[390,844]]) {
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    const {receipt,notice,policyHeading,terms,refund} = await readActionPositions();
+    assert(receipt.top >= notice.bottom, `The receipt stays below the payment note at ${width}px on touch screens`);
+    assert(terms.top >= policyHeading.bottom && refund.top >= policyHeading.bottom,
+      `Both policy links stay below the heading at ${width}px on touch screens`);
+  }
   await h.run(`document.querySelector('${receiptButton}').scrollIntoView({block:'center',behavior:'instant'})`);
   const receiptLayout = await h.run(`(() => {const b=document.querySelector('${receiptButton}'),r=b.getBoundingClientRect();b.focus();return {height:r.height,left:r.left,right:r.right,focus:document.activeElement===b};})()`);
   assert(receiptLayout.height >= 40 && receiptLayout.left >= 0 && receiptLayout.right <= 390 && receiptLayout.focus);
@@ -156,6 +177,7 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   for (let i = 0; i < 80 && !fs.existsSync(savedPdf); i++) await h.pause(50);
   assert.deepEqual(fs.readFileSync(savedPdf),receiptFile);
   assert.deepEqual(receiptRequests,Array(2).fill({id:102,authorization:'Bearer fixture-customer'}));
+  await h.send('Emulation.setTouchEmulationEnabled',{enabled:false});
   await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
 
   // Regular catalog orders and the PWA use the identical payment dialog/endpoint.
@@ -171,6 +193,16 @@ test('order details share hosted checkout and verified refresh on normal and Cus
   confirmed.add(103);
   await openOrder('/apps/customer/products-page/product.html',103);
   await h.until(`document.querySelector('${receiptButton}')?.dataset.receiptNumber==='FMRC-PR-000103'`);
+  for (const width of [1024,1440]) {
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    const {payment,receipt,policyHeading,terms,refund} = await readActionPositions();
+    assert(receipt.left > payment.right && Math.abs(receipt.center - payment.center) < 1,
+      `The receipt sits beside Payment details at ${width}px`);
+    assert(terms.left > policyHeading.right && refund.left > terms.right
+      && Math.abs(terms.center - policyHeading.center) < 1 && Math.abs(refund.center - terms.center) < 1,
+      `The policy links align in one row to the right of the policy heading at ${width}px`);
+    assert(Math.abs(refund.right - receipt.right) < 1, `The policy and payment actions share a right edge at ${width}px`);
+  }
   await h.run(`document.querySelector('${receiptButton}').scrollIntoView({block:'center',behavior:'instant'})`);
   await h.shot('catalog-order-receipt-desktop');
   confirmed.delete(102);

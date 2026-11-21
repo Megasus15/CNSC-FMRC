@@ -21371,6 +21371,32 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 #customerOrderDetailModal .customer-order-waybill { gap: 10px; flex-wrap: wrap; margin: 16px 0 8px; padding: 12px; background: var(--record-tint); border: 1px solid var(--record-edge); border-radius: 10px; }
 #customerOrderDetailModal :is(.customer-order-waybill-no, .customer-order-fulfillment-mode, .customer-order-detail-logistics p) { color: var(--record-ink); }
 #customerOrderDetailModal .customer-order-logistics-note { color: var(--record-muted); font-size: .76rem; line-height: 1.7; }
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  #customerOrderDetailModal .customer-order-detail-payment:has(> div.customer-order-payment-receipt) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    column-gap: 10px;
+  }
+  #customerOrderDetailModal .customer-order-detail-payment > div.customer-order-payment-receipt {
+    display: contents;
+  }
+  #customerOrderDetailModal .customer-order-detail-payment > .customer-order-section-head {
+    grid-area: 1 / 1;
+  }
+  #customerOrderDetailModal .customer-order-detail-payment [data-receipt-order] {
+    grid-area: 1 / 2;
+    margin-bottom: 16px;
+  }
+  #customerOrderDetailModal .customer-order-detail-payment :is(.customer-order-fulfillment-grid, .customer-order-logistics-note) {
+    grid-column: 1 / -1;
+  }
+  #customerOrderDetailModal .customer-order-policy {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+  }
+}
+
 #customerOrderDetailModal .customer-record-timeline { margin: 0; padding: 0; list-style: none; }
 #customerOrderDetailModal .customer-record-date { display: block; margin: 22px 0 16px; color: var(--record-ink); font-size: 13px; font-weight: 800; }
 #customerOrderDetailModal .customer-record-event:first-child .customer-record-date { margin-top: 0; }

@@ -115,7 +115,7 @@
         </table>
         <div class="foot">
             <p><strong>FMRC payment record</strong></p>
-            <p>For official documentation, contact the UCN Cashier.</p>
+            <p>For payment inquiries and document requests, contact the FMRC team.</p>
             @if ($details['phone'] || $details['website'])
                 <p>{{ implode('  |  ', array_filter([$details['website'], $details['phone']])) }}</p>
             @endif
