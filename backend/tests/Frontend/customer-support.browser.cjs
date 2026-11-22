@@ -82,6 +82,51 @@ test('Customer help, connected messaging, ending/reopening and single/bulk histo
  assert.deepEqual(await h.run('fixtureErrors'),[]);
 });
 
+test('Quick help shows usable choices below an unmatched question',{skip:!chrome,timeout:45000},async t=>{
+ const f=fixture();
+ f.pack.config.suggestions=['track-order','book-consultation','order-products','custom-product'];
+ f.pack.faqs.find(faq=>faq.key==='track-order').enabled=false;
+ const h=await browserFixture(t,f.handle,{setup});
+ await h.send('Network.setBlockedURLs',{urls:['https://*']});
+ await size(h,390,844);
+ const openHelp=async()=>{
+  await h.go('/contact-page/contact.html');
+  await h.until('window.FMRCSupport');
+  await click(h,'.fmrc-support__launcher');
+  await h.until(`!document.getElementById('supportComposer').hidden`);
+ };
+ const reply='#supportHelpLog > article:last-child';
+ const suggestionKeys=()=>h.run(`Array.from(document.querySelectorAll('${reply} [data-support-topic]'),button=>button.dataset.supportTopic)`);
+ const ask=async question=>{
+  await type(h,'#supportInput',question);
+  await h.run(`document.getElementById('supportComposer').requestSubmit()`);
+ };
+ await openHelp();
+ await ask('KEKE');
+ assert.equal(await h.run(`document.querySelector('${reply}').previousElementSibling.textContent`),'KEKE');
+ assert.deepEqual(await suggestionKeys(),['book-consultation','order-products','custom-product'],'Unmatched input gets enabled, configured topics directly below the reply');
+ await h.run(`const select=document.getElementById('supportLanguage');select.value='fil';select.dispatchEvent(new Event('change',{bubbles:true}));`);
+ const orderTopic=reply+' [data-support-topic="order-products"]';
+ assert.equal(await h.run(`document.querySelector('${orderTopic}').textContent.trim()`),f.pack.faqs.find(faq=>faq.key==='order-products').fil.question);
+ await click(h,orderTopic);
+ assert.equal(await h.run(`document.querySelector('${reply} ol').children.length`),7,'A topic opens its approved answer');
+ await ask('payment');
+ assert.deepEqual(await suggestionKeys(),['payment-approval','online-payment','cash-pickup'],'Related choices take priority over general topics');
+ f.pack.config.suggestions=[];
+ await openHelp();
+ await ask('KEKE');
+ assert.deepEqual(await suggestionKeys(),['order-products','appointment-types','book-consultation'],'Published topics are available even without configured welcome choices');
+ f.pack.faqs=[];
+ await openHelp();
+ await ask('KEKE');
+ assert.deepEqual(await suggestionKeys(),[]);
+ assert.match(await h.run(`document.querySelector('${reply}').textContent`),/Piliin ang Message FMRC/);
+ await click(h,'[data-support-handoff]');
+ assert.equal(await h.run(`document.getElementById('supportInput').value`),'KEKE','The team handoff keeps the original question as a draft');
+ assert.deepEqual(f.writes,[]);
+ assert.deepEqual(await h.run('fixtureErrors'),[]);
+});
+
 test('Help keeps footer actions, reading position and focus in all four views',{skip:!chrome,timeout:90000},async t=>{
  const f=fixture();
  const open=f.create('Can you review a design file?', 'widget');

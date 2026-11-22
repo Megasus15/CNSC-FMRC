@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if (window.FMRCSupport || /\/(?:admin-page|staff-page|admin-auth)\//.test(location.pathname)) return;
-  const VERSION = '2026.1121.3';
+  const VERSION = '2026.1122.2';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const svg = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
   const icons = {
@@ -137,23 +137,30 @@
   }
   function actionUrl(action) { return url(({products:'/products-page/product.html',appointments:'/home-page/?appointment=1',orders:'/home-page/?orders=1',contact:'/contact-page/contact.html',terms:'/products-page/transaction-terms.html',refunds:'/products-page/refund-policy.html',signin:'/customer-auth/auth.html#login',account:'/home-page/?account=1'})[action] || '/contact-page/contact.html'); }
   function actionLabel(action) { return ({products:'Products',appointments:'Set an Appointment',orders:'My Orders',contact:'Contact',terms:'Transaction Terms',refunds:'Refund Policy',signin:'Sign In',account:'My Account'})[action] || 'Contact'; }
+  function enabledTopic(key) { return pack.faqs.find(faq => faq.key === key && faq.enabled !== false); }
   function topicButtons(faqs) { return `<div class="fmrc-support__suggestions">${faqs.map(f => `<button type="button" data-support-topic="${esc(f.key)}"><span>${esc(f[language]?.question || f.en.question)}</span>${icons.next}</button>`).join('')}</div>`; }
   function brandHtml(size = 40) { return `<img src="${esc(url('/images/FMRC%20Logo.png'))}" alt="" width="${size}" height="${size}">`; }
   function stateCard(title,description,action,label) {
     return `<div class="fmrc-support__state-card"><span class="fmrc-support__state-logo">${brandHtml(48)}</span><h3>${esc(title)}</h3><p>${esc(description)}</p>${action ? `<button type="button" class="fmrc-support__primary" ${action}>${esc(label)}</button>` : ''}</div>`;
   }
-  function helpLogRow(row) {
+  function helpLogRow(row, fallbackTopics) {
     if (row.question !== undefined) return `<p class="fmrc-support__bubble fmrc-support__bubble--own">${esc(row.question)}</p>`;
     if (row.greeting) return `<article class="fmrc-support__bubble"><div class="fmrc-support__sender">${brandHtml(27)}<span>FMRC guide</span></div><strong>${esc(t('greetingTitle'))}</strong><p>${esc(pack.config.welcome[language])}</p></article>`;
     if (row.faq) return answerHtml(row.faq);
-    return `<article class="fmrc-support__bubble"><p>${esc(pack.config.fallback[language])}</p>${topicButtons(row.suggestions || [])}</article>`;
+    const related = (row.suggestions || []).map(faq => enabledTopic(faq.key)).filter(Boolean);
+    const topics = related.length ? related : fallbackTopics;
+    if (topics.length) return `<article class="fmrc-support__bubble"><p>${esc(pack.config.fallback[language])}</p>${topicButtons(topics)}</article>`;
+    const message = language === 'fil'
+      ? 'Wala akong nakitang malinaw na sagot. Piliin ang Message FMRC para makapagtanong sa aming team.'
+      : 'I couldn’t find a clear answer. Select Message FMRC to ask our team.';
+    return `<article class="fmrc-support__bubble"><p>${esc(message)}</p></article>`;
   }
   function answerHtml(faq) {
     const a = faq[language] || faq.en;
     return `<article class="fmrc-support__bubble"><div class="fmrc-support__sender"><img src="${esc(url('/images/FMRC%20Logo.png'))}" alt="" width="27" height="27"><span>FMRC guide</span></div><strong>${esc(a.question)}</strong><p class="fmrc-support__plain">${esc(a.answer)}</p>${a.steps?.length ? '<ol>'+a.steps.map(step => `<li>${esc(step)}</li>`).join('')+'</ol>' : ''}<div class="fmrc-support__links">${(faq.actions || []).filter(a => ['products','appointments','orders','contact','terms','refunds','signin','account'].includes(a)).map(a => `<a href="${esc(actionUrl(a))}">${esc(actionLabel(a))}</a>`).join('')}</div></article>`;
   }
   function renderHelp() {
-    const suggested = pack.config.suggestions.map(key => pack.faqs.find(f => f.key === key)).filter(Boolean);
+    const suggested = pack.config.suggestions.map(enabledTopic).filter(Boolean);
     panel.dataset.supportView = !loaded ? 'help-loading' : !pack.config.enabled ? 'help-paused' : 'help';
     const languageControl = `<div class="fmrc-support__language"><label for="supportLanguage">${esc(t('language'))}</label><select id="supportLanguage"><option value="en" ${language === 'en' ? 'selected' : ''}>English</option><option value="fil" ${language === 'fil' ? 'selected' : ''}>Filipino</option></select></div>`;
     if (!loaded) {
@@ -161,7 +168,8 @@
     } else if (!pack.config.enabled) {
       body.innerHTML = languageControl + stateCard(t('helpPaused'),t('helpPausedNote'));
     } else {
-      body.innerHTML = `${languageControl}<p class="fmrc-support__welcome">${esc(pack.config.welcome[language])}</p>${suggested.length ? `<p class="fmrc-support__eyebrow">${language === 'fil' ? 'Mga mungkahing paksa' : 'Suggested topics'}</p>`+topicButtons(suggested) : ''}<div role="log" aria-live="polite" aria-relevant="additions" id="supportHelpLog">${log.map(helpLogRow).join('')}</div>`;
+      const fallbackTopics = (suggested.length ? suggested : pack.faqs.filter(faq => faq.enabled !== false)).slice(0, 3);
+      body.innerHTML = `${languageControl}<p class="fmrc-support__welcome">${esc(pack.config.welcome[language])}</p>${suggested.length ? `<p class="fmrc-support__eyebrow">${language === 'fil' ? 'Mga mungkahing paksa' : 'Suggested topics'}</p>`+topicButtons(suggested) : ''}<div role="log" aria-live="polite" aria-relevant="additions" id="supportHelpLog">${log.map(row => helpLogRow(row, fallbackTopics)).join('')}</div>`;
     }
     composer.hidden = !loaded || !pack.config.enabled;
     if (!loaded) return '';
@@ -454,7 +462,11 @@
       if (button === launcher) { await open(); return; }
       if (button.hasAttribute('data-support-close')) { minimize(); return; }
       if (button.hasAttribute('data-support-tab')) { mode = button.dataset.supportTab; textError(); render(); button.focus({preventScroll:true}); void poll(); return; }
-      if (button.dataset.supportTopic) { appendHelp(button.textContent.trim(),pack.faqs.find(f => f.key === button.dataset.supportTopic)); return; }
+      if (button.dataset.supportTopic) {
+        const topic = enabledTopic(button.dataset.supportTopic);
+        if (topic) appendHelp(button.textContent.trim(),topic);
+        return;
+      }
       if (button.hasAttribute('data-support-reset')) { log = []; latestQuestion = ''; render(); body.scrollTop = 0; return; }
       if (button.hasAttribute('data-support-handoff')) { newInquiry(latestQuestion); return; }
       if (button.hasAttribute('data-support-retry')) { await knowledge(); render(); return; }
