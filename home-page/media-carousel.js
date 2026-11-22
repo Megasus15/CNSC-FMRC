@@ -59,7 +59,9 @@
             if (!card.disabled) config.onImage?.(media, card);
           }, options);
         }
-        for (const event of [video ? 'loadeddata' : 'load', 'error']) {
+        // A returning video can seek and resume without firing loadeddata again.
+        const mediaEvents = video ? ['loadeddata', 'seeked', 'canplay', 'playing', 'error'] : ['load', 'error'];
+        for (const event of mediaEvents) {
           media.addEventListener(event, () => { if (current === i) { settle(); if (event === 'error') arm(); } }, options);
         }
         card.append(media);
@@ -110,7 +112,7 @@
         const media = cards[current]?.querySelector('img,video');
         const isVideo = media?.tagName === 'VIDEO';
         const failed = !media || (isVideo ? !!media.error : media.complete && !media.naturalWidth);
-        const loading = media && !failed && (isVideo ? media.readyState < 2 : !media.complete);
+        const loading = media && !failed && (isVideo ? media.readyState < HTMLMediaElement.HAVE_CURRENT_DATA : !media.complete);
         deck.classList.toggle('is-loading', !!loading);
         deck.classList.toggle('is-empty', !!failed);
         deck.setAttribute('aria-busy', String(!!loading));

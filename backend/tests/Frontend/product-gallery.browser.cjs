@@ -119,10 +119,19 @@ test('Product gallery, fixed media layout and shared operator editor work across
       assert.equal(await run("document.querySelector('#productInfoGallery video').paused"),true);
       await run("delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))");
       await until("!document.querySelector('#productInfoGallery video').paused");
-      await click('[data-gallery-dot="0"]');
+      await click('#productInfoGallery .editorial-gallery-arrow--next');
       assert.equal(await run("document.querySelector('#productInfoGallery video').paused"),true);
-      await click('[data-gallery-dot="4"]');
-      await until("!document.querySelector('#productInfoGallery video').paused");
+      const waitingForFrame=await run(`(()=>{
+        const gallery=document.getElementById('productInfoGallery'),media=gallery.querySelector('video');
+        // Force the short, locally buffered fixture through the same loading state as a seek on return.
+        Object.defineProperty(media,'readyState',{configurable:true,value:HTMLMediaElement.HAVE_METADATA});
+        try {
+          gallery.querySelector('.editorial-gallery-arrow--previous').click();
+          return gallery.getAttribute('aria-busy')==='true'&&!gallery.querySelector('.fmrc-gallery-status').hidden;
+        } finally { delete media.readyState; }
+      })()`);
+      assert.equal(waitingForFrame,true,'Returning to a video may briefly wait for its first frame');
+      await until("(()=>{const g=document.getElementById('productInfoGallery');return g.querySelector('video').currentTime>0&&!g.querySelector('video').paused&&g.querySelector('.fmrc-gallery-status').hidden&&g.getAttribute('aria-busy')==='false';})()");
       await click('#closeProductInfoModal');
       await until("document.querySelector('#productInfoGallery video').paused");
       await click('#productGrid .btn-view-info');

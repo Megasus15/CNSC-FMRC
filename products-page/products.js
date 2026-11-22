@@ -602,7 +602,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!carouselModulePromise) {
       carouselModulePromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = new URL('../home-page/media-carousel.js?v=2026.1113.1', location.href).href;
+        script.src = new URL('../home-page/media-carousel.js?v=2026.1122.1', location.href).href;
         const finish = error => {
           clearTimeout(timeout);
           script.onload = script.onerror = null;
